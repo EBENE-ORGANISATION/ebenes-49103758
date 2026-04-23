@@ -5,7 +5,7 @@ import { MoisNav } from "@/components/ebene/MoisNav";
 import { Comptabilite } from "@/components/ebene/Comptabilite";
 import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
-import { Social } from "@/components/ebene/Social";
+import { GRH } from "@/components/ebene/GRH";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
@@ -26,10 +26,11 @@ const Index = () => {
 
   const exportJSON = () => {
     const payload = {
-      version: "1.2",
+      version: "1.3",
       exportDate: new Date().toISOString(),
       donneesMensuelles: store.donneesMensuelles,
       employes: store.employes,
+      paramsAnnuels: store.paramsAnnuels,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -66,6 +67,7 @@ const Index = () => {
         onImport={importJSON}
         onShowRecap={() => setShowRecap(true)}
         onShowArchives={() => setShowArchives(true)}
+        lastSaved={store.lastSaved}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
@@ -89,8 +91,8 @@ const Index = () => {
               <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
                 📄 Factures
               </TabsTrigger>
-              <TabsTrigger value="soc" className="py-2.5 text-sm font-semibold">
-                👥 Social
+              <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
+                👥 GRH
               </TabsTrigger>
             </TabsList>
 
@@ -103,7 +105,13 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="fisc">
-              <Fiscalite data={data} employes={store.employes} />
+              <Fiscalite
+                data={data}
+                employes={store.employes}
+                annee={annee}
+                paramsAnnee={store.getParamAnnuel(annee)}
+                onUpdateParams={(p) => store.setParamAnnuel(annee, p)}
+              />
             </TabsContent>
 
             <TabsContent value="fact">
@@ -119,14 +127,21 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="soc">
-              <Social
+            <TabsContent value="grh">
+              <GRH
                 employes={store.employes}
                 data={data}
+                annee={annee}
+                mois={mois}
                 onAddEmploye={store.addEmploye}
+                onUpdateEmploye={store.updateEmploye}
                 onRemoveEmploye={store.removeEmploye}
                 onAddPrime={(eid, p) => store.addPrime(annee, mois, eid, p)}
                 onRemovePrime={(eid, pid) => store.removePrime(annee, mois, eid, pid)}
+                onAddAbsence={(a) => store.addAbsence(annee, mois, a)}
+                onRemoveAbsence={(id) => store.removeAbsence(annee, mois, id)}
+                onSetHeuresSup={(eid, hs) => store.setHeuresSup(annee, mois, eid, hs)}
+                onSetRetenue={(eid, m) => store.setRetenue(annee, mois, eid, m)}
               />
             </TabsContent>
           </Tabs>

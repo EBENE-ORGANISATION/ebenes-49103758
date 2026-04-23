@@ -1,16 +1,32 @@
 import { Button } from "@/components/ui/button";
-import { Download, Upload, FileText, Archive, BarChart3 } from "lucide-react";
-import { useRef } from "react";
+import { Download, Upload, Archive, BarChart3, Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface HeaderProps {
   onExport: () => void;
   onImport: (file: File) => void;
   onShowRecap: () => void;
   onShowArchives: () => void;
+  lastSaved?: Date;
 }
 
-export const Header = ({ onExport, onImport, onShowRecap, onShowArchives }: HeaderProps) => {
+export const Header = ({ onExport, onImport, onShowRecap, onShowArchives, lastSaved }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [savedAgo, setSavedAgo] = useState("à l'instant");
+
+  useEffect(() => {
+    if (!lastSaved) return;
+    const tick = () => {
+      const sec = Math.floor((Date.now() - lastSaved.getTime()) / 1000);
+      if (sec < 5) setSavedAgo("à l'instant");
+      else if (sec < 60) setSavedAgo(`il y a ${sec}s`);
+      else if (sec < 3600) setSavedAgo(`il y a ${Math.floor(sec / 60)} min`);
+      else setSavedAgo(`il y a ${Math.floor(sec / 3600)} h`);
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, [lastSaved]);
 
   return (
     <header className="header-gradient text-primary-foreground shadow-lg no-print">
@@ -22,7 +38,9 @@ export const Header = ({ onExport, onImport, onShowRecap, onShowArchives }: Head
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">EBENE SERVICES</h1>
               <p className="text-sm text-primary-foreground/75 font-medium">Système de Gestion d'Entreprise</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                <span className="badge-soft bg-success/20 text-success-foreground">✅ Sauvegarde auto</span>
+                <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
+                  <Check className="size-3" /> Sauvegardé {savedAgo}
+                </span>
                 <span className="badge-soft bg-info/20 text-info-foreground">📅 Multi-années</span>
                 <span className="badge-soft bg-warning/20 text-warning-foreground">🔄 Proforma → Facture</span>
                 <span className="badge-soft bg-purple/20 text-purple-foreground">✍️ BITHO SIMBAYA</span>
