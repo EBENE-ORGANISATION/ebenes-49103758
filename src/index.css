@@ -117,5 +117,47 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .font-mono, code, .amount {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+
+@layer components {
+  .header-gradient {
+    background: var(--header-gradient);
+  }
+
+  .card-elevated {
+    @apply bg-card rounded-xl;
+    box-shadow: var(--shadow-card);
+  }
+
+  .stat-card {
+    @apply rounded-lg p-4 border-2;
+  }
+
+  .stat-success { @apply bg-success/5 border-success/30; }
+  .stat-destructive { @apply bg-destructive/5 border-destructive/30; }
+  .stat-info { @apply bg-info/5 border-info/30; }
+  .stat-purple { @apply bg-purple/5 border-purple/30; }
+  .stat-warning { @apply bg-warning/5 border-warning/30; }
+
+  .badge-soft {
+    @apply inline-block px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide;
+  }
+
+  .list-item {
+    @apply bg-card border-2 border-border rounded-xl px-4 py-3 transition-shadow hover:shadow-md;
+  }
+
+  @media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    .no-print { display: none !important; }
+    @page { margin: 1cm; }
   }
 }
