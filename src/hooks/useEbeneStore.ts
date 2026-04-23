@@ -6,11 +6,15 @@ import {
   MoisData,
   Prime,
   Transaction,
+  Absence,
+  HeuresSup,
+  ParamsAnnuels,
 } from "@/types/ebene";
 import { moisKey, newId } from "@/lib/ebene-utils";
 
 const LS_DONNEES = "ebene_donneesMensuelles";
 const LS_EMPLOYES = "ebene_employes";
+const LS_PARAMS_ANNUELS = "ebene_paramsAnnuels";
 
 const loadJSON = <T,>(key: string, fallback: T): T => {
   try {
@@ -30,6 +34,15 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
     d && typeof d.primes === "object" && !Array.isArray(d.primes)
       ? d.primes
       : {},
+  absences: Array.isArray(d?.absences) ? d!.absences : [],
+  heuresSup:
+    d && typeof d.heuresSup === "object" && !Array.isArray(d.heuresSup)
+      ? d.heuresSup
+      : {},
+  retenues:
+    d && typeof d.retenues === "object" && !Array.isArray(d.retenues)
+      ? d.retenues
+      : {},
 });
 
 export const useEbeneStore = () => {
@@ -39,18 +52,31 @@ export const useEbeneStore = () => {
   const [employes, setEmployes] = useState<Employe[]>(() =>
     loadJSON<Employe[]>(LS_EMPLOYES, [])
   );
+  const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>(
+    () => loadJSON<Record<number, ParamsAnnuels>>(LS_PARAMS_ANNUELS, {})
+  );
+  const [lastSaved, setLastSaved] = useState<Date>(new Date());
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_DONNEES, JSON.stringify(donneesMensuelles));
+      setLastSaved(new Date());
     } catch {}
   }, [donneesMensuelles]);
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_EMPLOYES, JSON.stringify(employes));
+      setLastSaved(new Date());
     } catch {}
   }, [employes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_PARAMS_ANNUELS, JSON.stringify(paramsAnnuels));
+      setLastSaved(new Date());
+    } catch {}
+  }, [paramsAnnuels]);
 
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
@@ -199,6 +225,10 @@ export const useEbeneStore = () => {
     setEmployes((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  const updateEmploye = useCallback((id: number, patch: Partial<Employe>) => {
+    setEmployes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, []);
+
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       updateMois(annee, mois, (m) => {
@@ -228,6 +258,65 @@ export const useEbeneStore = () => {
     [updateMois]
   );
 
+  // Absences
+  const addAbsence = useCallback(
+    (annee: number, mois: number, a: Omit<Absence, "id">) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: [...(m.absences || []), { ...a, id: newId() }],
+      }));
+    },
+    [updateMois]
+  );
+
+  const removeAbsence = useCallback(
+    (annee: number, mois: number, id: number) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).filter((a) => a.id !== id),
+      }));
+    },
+    [updateMois]
+  );
+
+  // Heures supplémentaires
+  const setHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+      }));
+    },
+    [updateMois]
+  );
+
+  // Retenues
+  const setRetenue = useCallback(
+    (annee: number, mois: number, employeId: number, montant: number) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        retenues: { ...(m.retenues || {}), [employeId]: montant },
+      }));
+    },
+    [updateMois]
+  );
+
+  // Paramètres annuels (TH / RSL)
+  const setParamAnnuel = useCallback(
+    (annee: number, patch: Partial<ParamsAnnuels>) => {
+      setParamsAnnuels((prev) => ({
+        ...prev,
+        [annee]: { ...(prev[annee] || {}), ...patch },
+      }));
+    },
+    []
+  );
+
+  const getParamAnnuel = useCallback(
+    (annee: number): ParamsAnnuels => paramsAnnuels[annee] || {},
+    [paramsAnnuels]
+  );
+
   const importerDonnees = useCallback(
     (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
       setDonneesMensuelles(
@@ -236,6 +325,8 @@ export const useEbeneStore = () => {
           : {}
       );
       setEmployes(Array.isArray(data.employes) ? data.employes : []);
+      const dataAny = data as { paramsAnnuels?: Record<number, ParamsAnnuels> };
+      if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
     },
     []
   );
@@ -257,6 +348,8 @@ export const useEbeneStore = () => {
   return {
     donneesMensuelles,
     employes,
+    paramsAnnuels,
+    lastSaved,
     getMois,
     addTransaction,
     removeTransaction,
@@ -267,8 +360,15 @@ export const useEbeneStore = () => {
     convertirProforma,
     addEmploye,
     removeEmploye,
+    updateEmploye,
     addPrime,
     removePrime,
+    addAbsence,
+    removeAbsence,
+    setHeuresSup,
+    setRetenue,
+    setParamAnnuel,
+    getParamAnnuel,
     importerDonnees,
     anneesDisponibles,
   };
