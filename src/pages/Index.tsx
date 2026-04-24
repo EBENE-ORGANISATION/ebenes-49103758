@@ -11,6 +11,7 @@ import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
 import { useEbeneStore } from "@/hooks/useEbeneStore";
 import { Facture } from "@/types/ebene";
+import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -23,6 +24,7 @@ const Index = () => {
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
+  const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
   const exportJSON = () => {
     const payload = {
@@ -99,6 +101,10 @@ const Index = () => {
             <TabsContent value="compta">
               <Comptabilite
                 data={data}
+                annee={annee}
+                mois={mois}
+                employes={store.employes}
+                taux={taux}
                 onAdd={(t) => store.addTransaction(annee, mois, t)}
                 onRemove={(id) => store.removeTransaction(annee, mois, id)}
               />
