@@ -135,6 +135,8 @@ export type DonneesMensuelles = Record<string, MoisData>; // key = "YYYY-M"
 export interface ParamsAnnuels {
   th?: number; // Taxe d'habitation annuelle
   rsl?: number; // Redevance annuelle
+  /** Activité dominante de l'année (impacte la patente) */
+  activite?: "service" | "commerce";
 }
 
 // ─── Sanctions disciplinaires ────────────────────────────────────────────────
