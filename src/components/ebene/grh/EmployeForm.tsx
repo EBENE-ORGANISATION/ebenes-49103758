@@ -171,6 +171,18 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           <Field label="Indemnité fonction">
             <Input type="number" value={form.indemniteFonction || 0} onChange={(e) => update("indemniteFonction", parseFloat(e.target.value) || 0)} />
           </Field>
+          <Field label="Prime salissure (5 000 F/mois)">
+            <div className="flex items-center gap-2 h-10">
+              <Checkbox
+                checked={!!form.primeSalissureActive}
+                onCheckedChange={(v) => update("primeSalissureActive", !!v)}
+                id="salissure"
+              />
+              <label htmlFor="salissure" className="text-sm cursor-pointer">
+                Activer pour cet employé
+              </label>
+            </div>
+          </Field>
         </div>
       </div>
 
