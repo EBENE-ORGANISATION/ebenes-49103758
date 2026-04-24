@@ -135,6 +135,106 @@ export interface ParamsAnnuels {
   rsl?: number; // Redevance annuelle
 }
 
+// ─── Sanctions disciplinaires ────────────────────────────────────────────────
+export type TypeSanction =
+  | "avertissement_oral"
+  | "avertissement_ecrit"
+  | "blame"
+  | "mise_a_pied"
+  | "licenciement_faute_simple"
+  | "licenciement_faute_grave"
+  | "licenciement_faute_lourde";
+
+export interface Sanction {
+  id: number;
+  employeId: number;
+  date: string;
+  type: TypeSanction;
+  motif: string;
+  joursMiseAPied?: number; // si mise à pied
+  observations?: string;
+}
+
+// ─── Stock ───────────────────────────────────────────────────────────────────
+export type TypeMouvementStock = "entree" | "sortie" | "ajustement";
+
+export interface Fournisseur {
+  id: number;
+  nom: string;
+  contact?: string;
+  telephone?: string;
+  email?: string;
+  adresse?: string;
+}
+
+export interface CategorieArticle {
+  id: number;
+  nom: string;
+}
+
+export interface Article {
+  id: number;
+  reference: string;
+  designation: string;
+  categorieId?: number | null;
+  unite: string; // ex: "pièce", "kg", "L"
+  prixAchat: number; // PMP courant
+  prixVente: number;
+  stock: number; // quantité actuelle
+  seuilAlerte: number;
+  fournisseurId?: number | null;
+  emplacement?: string;
+  description?: string;
+}
+
+export interface MouvementStock {
+  id: number;
+  date: string;
+  articleId: number;
+  type: TypeMouvementStock;
+  quantite: number; // positif
+  prixUnitaire?: number; // pour entrées (recalcul PMP)
+  motif?: string;
+  reference?: string; // n° BL, n° facture liée, etc.
+  factureId?: number | null;
+  transactionId?: number | null;
+}
+
+// ─── Taux versionnés (par date d'entrée en vigueur) ──────────────────────────
+export interface TauxFiscaux {
+  /** date ISO d'entrée en vigueur */
+  dateEffet: string;
+  tva: number; // 0.18
+  is: number; // 0.27 - Impôt sur les sociétés
+  imfTaux: number; // 0.01 - taux IMF sur CA
+  imfMin: number; // 20 000 - minimum forfaitaire annuel
+  patenteService: number; // 0.0075
+  patenteCommerce: number; // 0.0055
+  cnssSal: number; // 0.04
+  cnssEmp: number; // 0.175
+  amuSal: number; // 0.05
+  amuEmp: number; // 0.05
+  primeSalissure: number; // 5000
+  /** Activité par défaut: service ou commerce */
+  activiteDefaut: "service" | "commerce";
+}
+
+export const TAUX_DEFAUT: TauxFiscaux = {
+  dateEffet: "2020-01-01",
+  tva: 0.18,
+  is: 0.27,
+  imfTaux: 0.01,
+  imfMin: 20000,
+  patenteService: 0.0075,
+  patenteCommerce: 0.0055,
+  cnssSal: 0.04,
+  cnssEmp: 0.175,
+  amuSal: 0.05,
+  amuEmp: 0.05,
+  primeSalissure: 5000,
+  activiteDefaut: "service",
+};
+
 export const MOIS_NOMS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
