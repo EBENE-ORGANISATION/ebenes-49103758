@@ -70,7 +70,11 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
             <Input value={form.nom} onChange={(e) => update("nom", e.target.value)} />
           </Field>
           <Field label="Matricule">
-            <Input value={form.matricule || ""} onChange={(e) => update("matricule", e.target.value)} />
+            <Input
+              value={form.matricule || ""}
+              onChange={(e) => update("matricule", e.target.value)}
+              placeholder={initial ? "" : "Auto (ex: 0001-A)"}
+            />
           </Field>
           <Field label="Sexe">
             <Select value={form.sexe || "M"} onValueChange={(v) => update("sexe", v as "M" | "F")}>
