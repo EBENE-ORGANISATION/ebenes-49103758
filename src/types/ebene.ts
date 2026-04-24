@@ -80,6 +80,8 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
+  /** Prime de salissure (5 000 FCFA) — désormais optionnelle, false par défaut */
+  primeSalissureActive?: boolean;
 }
 
 export type TypeAbsence =
