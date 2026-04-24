@@ -249,7 +249,10 @@ export const useEbeneStore = () => {
 
   // Employés
   const addEmploye = useCallback((e: Omit<Employe, "id">) => {
-    setEmployes((prev) => [...prev, { ...e, id: newId() }]);
+    setEmployes((prev) => {
+      const matricule = e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
+      return [...prev, { ...e, matricule, id: newId() }];
+    });
   }, []);
 
   const removeEmploye = useCallback((id: number) => {
