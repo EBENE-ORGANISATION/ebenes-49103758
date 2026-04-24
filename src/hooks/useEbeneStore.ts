@@ -55,6 +55,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
     d && typeof d.retenues === "object" && !Array.isArray(d.retenues)
       ? d.retenues
       : {},
+  mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
 });
 
 export const useEbeneStore = () => {
