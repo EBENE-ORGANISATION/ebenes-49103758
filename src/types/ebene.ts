@@ -159,6 +159,16 @@ export interface Sanction {
   observations?: string;
 }
 
+export const TYPE_SANCTION_LABELS: Record<TypeSanction, string> = {
+  avertissement_oral: "Avertissement oral",
+  avertissement_ecrit: "Avertissement écrit",
+  blame: "Blâme",
+  mise_a_pied: "Mise à pied (sans salaire)",
+  licenciement_faute_simple: "Licenciement pour faute simple",
+  licenciement_faute_grave: "Licenciement pour faute grave",
+  licenciement_faute_lourde: "Licenciement pour faute lourde",
+};
+
 // ─── Stock ───────────────────────────────────────────────────────────────────
 export type TypeMouvementStock = "entree" | "sortie" | "ajustement";
 
