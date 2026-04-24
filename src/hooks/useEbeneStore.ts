@@ -67,6 +67,19 @@ export const useEbeneStore = () => {
   const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>(
     () => loadJSON<Record<number, ParamsAnnuels>>(LS_PARAMS_ANNUELS, {})
   );
+  const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>(() =>
+    loadJSON<TauxFiscaux[]>(LS_TAUX, [TAUX_DEFAUT])
+  );
+  const [articles, setArticles] = useState<Article[]>(() => loadJSON<Article[]>(LS_ARTICLES, []));
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() =>
+    loadJSON<Fournisseur[]>(LS_FOURNISSEURS, [])
+  );
+  const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>(() =>
+    loadJSON<CategorieArticle[]>(LS_CATEGORIES_STOCK, [])
+  );
+  const [sanctions, setSanctions] = useState<Sanction[]>(() =>
+    loadJSON<Sanction[]>(LS_SANCTIONS, [])
+  );
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -89,6 +102,12 @@ export const useEbeneStore = () => {
       setLastSaved(new Date());
     } catch {}
   }, [paramsAnnuels]);
+
+  useEffect(() => { try { localStorage.setItem(LS_TAUX, JSON.stringify(tauxHistorique)); setLastSaved(new Date()); } catch {} }, [tauxHistorique]);
+  useEffect(() => { try { localStorage.setItem(LS_ARTICLES, JSON.stringify(articles)); setLastSaved(new Date()); } catch {} }, [articles]);
+  useEffect(() => { try { localStorage.setItem(LS_FOURNISSEURS, JSON.stringify(fournisseurs)); setLastSaved(new Date()); } catch {} }, [fournisseurs]);
+  useEffect(() => { try { localStorage.setItem(LS_CATEGORIES_STOCK, JSON.stringify(categoriesStock)); setLastSaved(new Date()); } catch {} }, [categoriesStock]);
+  useEffect(() => { try { localStorage.setItem(LS_SANCTIONS, JSON.stringify(sanctions)); setLastSaved(new Date()); } catch {} }, [sanctions]);
 
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
