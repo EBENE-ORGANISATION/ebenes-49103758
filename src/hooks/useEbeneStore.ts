@@ -466,8 +466,21 @@ export const useEbeneStore = () => {
           : {}
       );
       setEmployes(Array.isArray(data.employes) ? data.employes : []);
-      const dataAny = data as { paramsAnnuels?: Record<number, ParamsAnnuels> };
+      const dataAny = data as {
+        paramsAnnuels?: Record<number, ParamsAnnuels>;
+        tauxHistorique?: TauxFiscaux[];
+        articles?: Article[];
+        fournisseurs?: Fournisseur[];
+        categoriesStock?: CategorieArticle[];
+        sanctions?: Sanction[];
+      };
       if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
+      if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
+        setTauxHistorique(dataAny.tauxHistorique);
+      if (Array.isArray(dataAny.articles)) setArticles(dataAny.articles);
+      if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
+      if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
+      if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
     },
     []
   );
