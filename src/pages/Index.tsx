@@ -6,6 +6,7 @@ import { Comptabilite } from "@/components/ebene/Comptabilite";
 import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
 import { GRH } from "@/components/ebene/GRH";
+import { Stock } from "@/components/ebene/Stock";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
@@ -33,6 +34,11 @@ const Index = () => {
       donneesMensuelles: store.donneesMensuelles,
       employes: store.employes,
       paramsAnnuels: store.paramsAnnuels,
+      tauxHistorique: store.tauxHistorique,
+      articles: store.articles,
+      fournisseurs: store.fournisseurs,
+      categoriesStock: store.categoriesStock,
+      sanctions: store.sanctions,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
