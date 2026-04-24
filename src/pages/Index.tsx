@@ -109,8 +109,13 @@ const Index = () => {
                 data={data}
                 employes={store.employes}
                 annee={annee}
+                mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
                 onUpdateParams={(p) => store.setParamAnnuel(annee, p)}
+                donneesMensuelles={store.donneesMensuelles}
+                tauxHistorique={store.tauxHistorique}
+                onAjouterTaux={store.ajouterTaux}
+                onSupprimerTaux={store.supprimerTaux}
               />
             </TabsContent>
 
