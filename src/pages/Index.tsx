@@ -89,7 +89,7 @@ const Index = () => {
 
         <div className="card-elevated p-4 sm:p-6 no-print">
           <Tabs defaultValue="compta" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-5 h-auto">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
               <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
                 💰 Comptabilité
               </TabsTrigger>
@@ -98,6 +98,9 @@ const Index = () => {
               </TabsTrigger>
               <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
                 📄 Factures
+              </TabsTrigger>
+              <TabsTrigger value="stock" className="py-2.5 text-sm font-semibold">
+                📦 Stock
               </TabsTrigger>
               <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
                 👥 GRH
@@ -141,6 +144,26 @@ const Index = () => {
                 onMarquerPayee={(id) => store.marquerPayee(annee, mois, id)}
                 onConvertir={(id, num) => store.convertirProforma(annee, mois, id, num)}
                 onPreview={setPreviewFacture}
+              />
+            </TabsContent>
+
+            <TabsContent value="stock">
+              <Stock
+                data={data}
+                annee={annee}
+                mois={mois}
+                articles={store.articles}
+                fournisseurs={store.fournisseurs}
+                categories={store.categoriesStock}
+                onAddArticle={store.addArticle}
+                onUpdateArticle={store.updateArticle}
+                onRemoveArticle={store.removeArticle}
+                onAddFournisseur={store.addFournisseur}
+                onRemoveFournisseur={store.removeFournisseur}
+                onAddCategorie={store.addCategorieStock}
+                onRemoveCategorie={store.removeCategorieStock}
+                onAddMouvement={store.addMouvementStock}
+                onRemoveMouvement={store.removeMouvementStock}
               />
             </TabsContent>
 
