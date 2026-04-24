@@ -1,5 +1,5 @@
 export type TransactionType = "r" | "d";
-export type TransactionSource = "manuelle" | "facture";
+export type TransactionSource = "manuelle" | "facture" | "salaires" | "fournisseur";
 
 export interface Transaction {
   id: number;
@@ -9,6 +9,13 @@ export interface Transaction {
   m: number; // signed amount
   source: TransactionSource;
   factureId?: number | null;
+  /** PDF/image fournisseur en data URL (base64) */
+  pieceJointe?: string | null;
+  pieceJointeNom?: string | null;
+  pieceJointeType?: string | null;
+  fournisseur?: string | null;
+  /** marque les transactions auto (salaires mensuels) — non supprimables manuellement */
+  auto?: boolean;
 }
 
 export interface LignePrestation {
