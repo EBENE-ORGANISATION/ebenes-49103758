@@ -9,12 +9,24 @@ import {
   Absence,
   HeuresSup,
   ParamsAnnuels,
+  TauxFiscaux,
+  TAUX_DEFAUT,
+  Article,
+  Fournisseur,
+  CategorieArticle,
+  MouvementStock,
+  Sanction,
 } from "@/types/ebene";
-import { moisKey, newId } from "@/lib/ebene-utils";
+import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 
 const LS_DONNEES = "ebene_donneesMensuelles";
 const LS_EMPLOYES = "ebene_employes";
 const LS_PARAMS_ANNUELS = "ebene_paramsAnnuels";
+const LS_TAUX = "ebene_tauxHistorique";
+const LS_ARTICLES = "ebene_articles";
+const LS_FOURNISSEURS = "ebene_fournisseurs";
+const LS_CATEGORIES_STOCK = "ebene_categoriesStock";
+const LS_SANCTIONS = "ebene_sanctions";
 
 const loadJSON = <T,>(key: string, fallback: T): T => {
   try {
