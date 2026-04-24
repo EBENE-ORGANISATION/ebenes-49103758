@@ -6,11 +6,13 @@ import { Comptabilite } from "@/components/ebene/Comptabilite";
 import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
 import { GRH } from "@/components/ebene/GRH";
+import { Stock } from "@/components/ebene/Stock";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
 import { useEbeneStore } from "@/hooks/useEbeneStore";
 import { Facture } from "@/types/ebene";
+import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -23,6 +25,7 @@ const Index = () => {
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
+  const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
   const exportJSON = () => {
     const payload = {
@@ -31,6 +34,11 @@ const Index = () => {
       donneesMensuelles: store.donneesMensuelles,
       employes: store.employes,
       paramsAnnuels: store.paramsAnnuels,
+      tauxHistorique: store.tauxHistorique,
+      articles: store.articles,
+      fournisseurs: store.fournisseurs,
+      categoriesStock: store.categoriesStock,
+      sanctions: store.sanctions,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -81,7 +89,7 @@ const Index = () => {
 
         <div className="card-elevated p-4 sm:p-6 no-print">
           <Tabs defaultValue="compta" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-5 h-auto">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
               <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
                 💰 Comptabilité
               </TabsTrigger>
@@ -91,6 +99,9 @@ const Index = () => {
               <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
                 📄 Factures
               </TabsTrigger>
+              <TabsTrigger value="stock" className="py-2.5 text-sm font-semibold">
+                📦 Stock
+              </TabsTrigger>
               <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
                 👥 GRH
               </TabsTrigger>
@@ -99,6 +110,10 @@ const Index = () => {
             <TabsContent value="compta">
               <Comptabilite
                 data={data}
+                annee={annee}
+                mois={mois}
+                employes={store.employes}
+                taux={taux}
                 onAdd={(t) => store.addTransaction(annee, mois, t)}
                 onRemove={(id) => store.removeTransaction(annee, mois, id)}
               />
@@ -109,8 +124,13 @@ const Index = () => {
                 data={data}
                 employes={store.employes}
                 annee={annee}
+                mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
                 onUpdateParams={(p) => store.setParamAnnuel(annee, p)}
+                donneesMensuelles={store.donneesMensuelles}
+                tauxHistorique={store.tauxHistorique}
+                onAjouterTaux={store.ajouterTaux}
+                onSupprimerTaux={store.supprimerTaux}
               />
             </TabsContent>
 
@@ -124,6 +144,26 @@ const Index = () => {
                 onMarquerPayee={(id) => store.marquerPayee(annee, mois, id)}
                 onConvertir={(id, num) => store.convertirProforma(annee, mois, id, num)}
                 onPreview={setPreviewFacture}
+              />
+            </TabsContent>
+
+            <TabsContent value="stock">
+              <Stock
+                data={data}
+                annee={annee}
+                mois={mois}
+                articles={store.articles}
+                fournisseurs={store.fournisseurs}
+                categories={store.categoriesStock}
+                onAddArticle={store.addArticle}
+                onUpdateArticle={store.updateArticle}
+                onRemoveArticle={store.removeArticle}
+                onAddFournisseur={store.addFournisseur}
+                onRemoveFournisseur={store.removeFournisseur}
+                onAddCategorie={store.addCategorieStock}
+                onRemoveCategorie={store.removeCategorieStock}
+                onAddMouvement={store.addMouvementStock}
+                onRemoveMouvement={store.removeMouvementStock}
               />
             </TabsContent>
 

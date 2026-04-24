@@ -9,12 +9,24 @@ import {
   Absence,
   HeuresSup,
   ParamsAnnuels,
+  TauxFiscaux,
+  TAUX_DEFAUT,
+  Article,
+  Fournisseur,
+  CategorieArticle,
+  MouvementStock,
+  Sanction,
 } from "@/types/ebene";
-import { moisKey, newId } from "@/lib/ebene-utils";
+import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 
 const LS_DONNEES = "ebene_donneesMensuelles";
 const LS_EMPLOYES = "ebene_employes";
 const LS_PARAMS_ANNUELS = "ebene_paramsAnnuels";
+const LS_TAUX = "ebene_tauxHistorique";
+const LS_ARTICLES = "ebene_articles";
+const LS_FOURNISSEURS = "ebene_fournisseurs";
+const LS_CATEGORIES_STOCK = "ebene_categoriesStock";
+const LS_SANCTIONS = "ebene_sanctions";
 
 const loadJSON = <T,>(key: string, fallback: T): T => {
   try {
@@ -43,6 +55,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
     d && typeof d.retenues === "object" && !Array.isArray(d.retenues)
       ? d.retenues
       : {},
+  mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
 });
 
 export const useEbeneStore = () => {
@@ -54,6 +67,19 @@ export const useEbeneStore = () => {
   );
   const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>(
     () => loadJSON<Record<number, ParamsAnnuels>>(LS_PARAMS_ANNUELS, {})
+  );
+  const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>(() =>
+    loadJSON<TauxFiscaux[]>(LS_TAUX, [TAUX_DEFAUT])
+  );
+  const [articles, setArticles] = useState<Article[]>(() => loadJSON<Article[]>(LS_ARTICLES, []));
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() =>
+    loadJSON<Fournisseur[]>(LS_FOURNISSEURS, [])
+  );
+  const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>(() =>
+    loadJSON<CategorieArticle[]>(LS_CATEGORIES_STOCK, [])
+  );
+  const [sanctions, setSanctions] = useState<Sanction[]>(() =>
+    loadJSON<Sanction[]>(LS_SANCTIONS, [])
   );
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
 
@@ -77,6 +103,12 @@ export const useEbeneStore = () => {
       setLastSaved(new Date());
     } catch {}
   }, [paramsAnnuels]);
+
+  useEffect(() => { try { localStorage.setItem(LS_TAUX, JSON.stringify(tauxHistorique)); setLastSaved(new Date()); } catch {} }, [tauxHistorique]);
+  useEffect(() => { try { localStorage.setItem(LS_ARTICLES, JSON.stringify(articles)); setLastSaved(new Date()); } catch {} }, [articles]);
+  useEffect(() => { try { localStorage.setItem(LS_FOURNISSEURS, JSON.stringify(fournisseurs)); setLastSaved(new Date()); } catch {} }, [fournisseurs]);
+  useEffect(() => { try { localStorage.setItem(LS_CATEGORIES_STOCK, JSON.stringify(categoriesStock)); setLastSaved(new Date()); } catch {} }, [categoriesStock]);
+  useEffect(() => { try { localStorage.setItem(LS_SANCTIONS, JSON.stringify(sanctions)); setLastSaved(new Date()); } catch {} }, [sanctions]);
 
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
@@ -218,7 +250,10 @@ export const useEbeneStore = () => {
 
   // Employés
   const addEmploye = useCallback((e: Omit<Employe, "id">) => {
-    setEmployes((prev) => [...prev, { ...e, id: newId() }]);
+    setEmployes((prev) => {
+      const matricule = e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
+      return [...prev, { ...e, matricule, id: newId() }];
+    });
   }, []);
 
   const removeEmploye = useCallback((id: number) => {
@@ -317,6 +352,112 @@ export const useEbeneStore = () => {
     [paramsAnnuels]
   );
 
+  // ─── Taux fiscaux versionnés ───
+  const ajouterTaux = useCallback((t: TauxFiscaux) => {
+    setTauxHistorique((prev) =>
+      [...prev.filter((x) => x.dateEffet !== t.dateEffet), t].sort(
+        (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime()
+      )
+    );
+  }, []);
+  const supprimerTaux = useCallback((dateEffet: string) => {
+    setTauxHistorique((prev) => {
+      const next = prev.filter((x) => x.dateEffet !== dateEffet);
+      return next.length === 0 ? [TAUX_DEFAUT] : next;
+    });
+  }, []);
+
+  // ─── Stock : catégories ───
+  const addCategorieStock = useCallback((nom: string) => {
+    setCategoriesStock((prev) => [...prev, { id: newId(), nom }]);
+  }, []);
+  const removeCategorieStock = useCallback((id: number) => {
+    setCategoriesStock((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  // ─── Stock : fournisseurs ───
+  const addFournisseur = useCallback((f: Omit<Fournisseur, "id">) => {
+    setFournisseurs((prev) => [...prev, { ...f, id: newId() }]);
+  }, []);
+  const updateFournisseur = useCallback((id: number, patch: Partial<Fournisseur>) => {
+    setFournisseurs((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }, []);
+  const removeFournisseur = useCallback((id: number) => {
+    setFournisseurs((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  // ─── Stock : articles ───
+  const addArticle = useCallback((a: Omit<Article, "id">) => {
+    setArticles((prev) => [...prev, { ...a, id: newId() }]);
+  }, []);
+  const updateArticle = useCallback((id: number, patch: Partial<Article>) => {
+    setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  }, []);
+  const removeArticle = useCallback((id: number) => {
+    setArticles((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  // ─── Stock : mouvements (impactent le stock + PMP pour entrées) ───
+  const addMouvementStock = useCallback(
+    (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      const id = newId();
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
+      }));
+      // Mise à jour du stock & PMP de l'article
+      setArticles((prev) =>
+        prev.map((a) => {
+          if (a.id !== mvt.articleId) return a;
+          let nouveauStock = a.stock;
+          let nouveauPMP = a.prixAchat;
+          if (mvt.type === "entree") {
+            const valAvant = a.stock * a.prixAchat;
+            const valEntree = mvt.quantite * (mvt.prixUnitaire ?? a.prixAchat);
+            nouveauStock = a.stock + mvt.quantite;
+            nouveauPMP = nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : a.prixAchat;
+          } else if (mvt.type === "sortie") {
+            nouveauStock = Math.max(0, a.stock - mvt.quantite);
+          } else if (mvt.type === "ajustement") {
+            nouveauStock = mvt.quantite;
+          }
+          return { ...a, stock: nouveauStock, prixAchat: nouveauPMP };
+        })
+      );
+      return id;
+    },
+    [updateMois]
+  );
+
+  const removeMouvementStock = useCallback(
+    (annee: number, mois: number, id: number) => {
+      updateMois(annee, mois, (m) => {
+        const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
+        if (mvt) {
+          // rollback simple : entrée→on retire / sortie→on rend / ajustement→non rollback
+          setArticles((prev) =>
+            prev.map((a) => {
+              if (a.id !== mvt.articleId) return a;
+              if (mvt.type === "entree") return { ...a, stock: Math.max(0, a.stock - mvt.quantite) };
+              if (mvt.type === "sortie") return { ...a, stock: a.stock + mvt.quantite };
+              return a;
+            })
+          );
+        }
+        return { ...m, mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id) };
+      });
+    },
+    [updateMois]
+  );
+
+  // ─── Sanctions disciplinaires ───
+  const addSanction = useCallback((s: Omit<Sanction, "id">) => {
+    setSanctions((prev) => [...prev, { ...s, id: newId() }]);
+  }, []);
+  const removeSanction = useCallback((id: number) => {
+    setSanctions((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   const importerDonnees = useCallback(
     (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
       setDonneesMensuelles(
@@ -325,8 +466,21 @@ export const useEbeneStore = () => {
           : {}
       );
       setEmployes(Array.isArray(data.employes) ? data.employes : []);
-      const dataAny = data as { paramsAnnuels?: Record<number, ParamsAnnuels> };
+      const dataAny = data as {
+        paramsAnnuels?: Record<number, ParamsAnnuels>;
+        tauxHistorique?: TauxFiscaux[];
+        articles?: Article[];
+        fournisseurs?: Fournisseur[];
+        categoriesStock?: CategorieArticle[];
+        sanctions?: Sanction[];
+      };
       if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
+      if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
+        setTauxHistorique(dataAny.tauxHistorique);
+      if (Array.isArray(dataAny.articles)) setArticles(dataAny.articles);
+      if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
+      if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
+      if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
     },
     []
   );
@@ -349,6 +503,11 @@ export const useEbeneStore = () => {
     donneesMensuelles,
     employes,
     paramsAnnuels,
+    tauxHistorique,
+    articles,
+    fournisseurs,
+    categoriesStock,
+    sanctions,
     lastSaved,
     getMois,
     addTransaction,
@@ -369,6 +528,20 @@ export const useEbeneStore = () => {
     setRetenue,
     setParamAnnuel,
     getParamAnnuel,
+    ajouterTaux,
+    supprimerTaux,
+    addCategorieStock,
+    removeCategorieStock,
+    addFournisseur,
+    updateFournisseur,
+    removeFournisseur,
+    addArticle,
+    updateArticle,
+    removeArticle,
+    addMouvementStock,
+    removeMouvementStock,
+    addSanction,
+    removeSanction,
     importerDonnees,
     anneesDisponibles,
   };

@@ -6,6 +6,7 @@ import {
   calculerAnciennete,
   calculerIRPP,
   HS_TAUX,
+  deductionCongesSansSolde,
 } from "@/lib/ebene-utils";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
@@ -32,6 +33,8 @@ export interface CalculPaie {
   cnssSal: number;
   amuSal: number;
   retenuesDiverses: number;
+  joursSansSolde: number;
+  deductionSansSolde: number;
   totalRetenues: number;
   net: number;
   // patronal
@@ -72,7 +75,8 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
   const primes = (data.primes || {})[employe.id] || [];
   const primesDiverses = primes.reduce((a, p) => a + p.montant, 0);
 
-  const primeSalissure = 5000;
+  // Salissure désormais optionnelle par employé
+  const primeSalissure = employe.primeSalissureActive ? 5000 : 0;
   const indemnites =
     (employe.indemniteTransport || 0) +
     (employe.indemniteLogement || 0) +
@@ -97,7 +101,14 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
   const irpp = calculerIRPP(imposable - cnssSal, employe.situation, employe.enfants);
 
   const retenuesDiverses = (data.retenues || {})[employe.id] || 0;
-  const totalRetenues = irpp + cnssSal + amuSal + retenuesDiverses;
+
+  // Congés sans solde : somme des jours d'absences de type "sans_solde" du mois
+  const joursSansSolde = (data.absences || [])
+    .filter((a) => a.employeId === employe.id && a.type === "sans_solde")
+    .reduce((acc, a) => acc + (a.jours || 0), 0);
+  const deductionSansSolde = deductionCongesSansSolde(base, sursalaire, joursSansSolde);
+
+  const totalRetenues = irpp + cnssSal + amuSal + retenuesDiverses + deductionSansSolde;
   const net = brut - totalRetenues;
 
   // Charges patronales
@@ -120,6 +131,8 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
     cnssSal,
     amuSal,
     retenuesDiverses,
+    joursSansSolde,
+    deductionSansSolde,
     totalRetenues,
     net,
     cnssEmp,
@@ -191,7 +204,7 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               )}
               {c.hsMontant > 0 && <Line label="Heures supplémentaires" gain={c.hsMontant} />}
               {c.primes.map((p) => <Line key={p.id} label={`Prime : ${p.libelle}`} gain={p.montant} />)}
-              <Line label="Prime salissure" gain={c.primeSalissure} />
+              {c.primeSalissure > 0 && <Line label="Prime salissure" gain={c.primeSalissure} />}
               {(employe.indemniteTransport || 0) > 0 && (
                 <Line label="Indemnité transport" gain={employe.indemniteTransport!} />
               )}
@@ -209,6 +222,9 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               <Line label="CNSS salarié (4%)" retenue={c.cnssSal} />
               <Line label="AMU salarié (5%)" retenue={c.amuSal} />
               <Line label="IRPP" retenue={c.irpp} />
+              {c.deductionSansSolde > 0 && (
+                <Line label={`Congés sans solde (${c.joursSansSolde} j)`} retenue={c.deductionSansSolde} />
+              )}
               {c.retenuesDiverses > 0 && <Line label="Retenues diverses" retenue={c.retenuesDiverses} />}
               <tr className="font-bold bg-muted/50">
                 <td className="p-2 border border-border">TOTAL RETENUES</td>

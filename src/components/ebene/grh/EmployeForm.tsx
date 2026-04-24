@@ -3,6 +3,7 @@ import { Employe, CATEGORIES_LABELS, CategorieProf, TypeContrat } from "@/types/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     indemniteFonction: 0,
     sursalaire: 0,
     soldeConges: 0,
+    primeSalissureActive: false,
   });
 
   useEffect(() => {
@@ -68,7 +70,11 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
             <Input value={form.nom} onChange={(e) => update("nom", e.target.value)} />
           </Field>
           <Field label="Matricule">
-            <Input value={form.matricule || ""} onChange={(e) => update("matricule", e.target.value)} />
+            <Input
+              value={form.matricule || ""}
+              onChange={(e) => update("matricule", e.target.value)}
+              placeholder={initial ? "" : "Auto (ex: 0001-A)"}
+            />
           </Field>
           <Field label="Sexe">
             <Select value={form.sexe || "M"} onValueChange={(v) => update("sexe", v as "M" | "F")}>
@@ -168,6 +174,18 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           </Field>
           <Field label="Indemnité fonction">
             <Input type="number" value={form.indemniteFonction || 0} onChange={(e) => update("indemniteFonction", parseFloat(e.target.value) || 0)} />
+          </Field>
+          <Field label="Prime salissure (5 000 F/mois)">
+            <div className="flex items-center gap-2 h-10">
+              <Checkbox
+                checked={!!form.primeSalissureActive}
+                onCheckedChange={(v) => update("primeSalissureActive", !!v)}
+                id="salissure"
+              />
+              <label htmlFor="salissure" className="text-sm cursor-pointer">
+                Activer pour cet employé
+              </label>
+            </div>
           </Field>
         </div>
       </div>
