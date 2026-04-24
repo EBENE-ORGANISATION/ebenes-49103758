@@ -352,6 +352,112 @@ export const useEbeneStore = () => {
     [paramsAnnuels]
   );
 
+  // ─── Taux fiscaux versionnés ───
+  const ajouterTaux = useCallback((t: TauxFiscaux) => {
+    setTauxHistorique((prev) =>
+      [...prev.filter((x) => x.dateEffet !== t.dateEffet), t].sort(
+        (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime()
+      )
+    );
+  }, []);
+  const supprimerTaux = useCallback((dateEffet: string) => {
+    setTauxHistorique((prev) => {
+      const next = prev.filter((x) => x.dateEffet !== dateEffet);
+      return next.length === 0 ? [TAUX_DEFAUT] : next;
+    });
+  }, []);
+
+  // ─── Stock : catégories ───
+  const addCategorieStock = useCallback((nom: string) => {
+    setCategoriesStock((prev) => [...prev, { id: newId(), nom }]);
+  }, []);
+  const removeCategorieStock = useCallback((id: number) => {
+    setCategoriesStock((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  // ─── Stock : fournisseurs ───
+  const addFournisseur = useCallback((f: Omit<Fournisseur, "id">) => {
+    setFournisseurs((prev) => [...prev, { ...f, id: newId() }]);
+  }, []);
+  const updateFournisseur = useCallback((id: number, patch: Partial<Fournisseur>) => {
+    setFournisseurs((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }, []);
+  const removeFournisseur = useCallback((id: number) => {
+    setFournisseurs((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  // ─── Stock : articles ───
+  const addArticle = useCallback((a: Omit<Article, "id">) => {
+    setArticles((prev) => [...prev, { ...a, id: newId() }]);
+  }, []);
+  const updateArticle = useCallback((id: number, patch: Partial<Article>) => {
+    setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  }, []);
+  const removeArticle = useCallback((id: number) => {
+    setArticles((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  // ─── Stock : mouvements (impactent le stock + PMP pour entrées) ───
+  const addMouvementStock = useCallback(
+    (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      const id = newId();
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
+      }));
+      // Mise à jour du stock & PMP de l'article
+      setArticles((prev) =>
+        prev.map((a) => {
+          if (a.id !== mvt.articleId) return a;
+          let nouveauStock = a.stock;
+          let nouveauPMP = a.prixAchat;
+          if (mvt.type === "entree") {
+            const valAvant = a.stock * a.prixAchat;
+            const valEntree = mvt.quantite * (mvt.prixUnitaire ?? a.prixAchat);
+            nouveauStock = a.stock + mvt.quantite;
+            nouveauPMP = nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : a.prixAchat;
+          } else if (mvt.type === "sortie") {
+            nouveauStock = Math.max(0, a.stock - mvt.quantite);
+          } else if (mvt.type === "ajustement") {
+            nouveauStock = mvt.quantite;
+          }
+          return { ...a, stock: nouveauStock, prixAchat: nouveauPMP };
+        })
+      );
+      return id;
+    },
+    [updateMois]
+  );
+
+  const removeMouvementStock = useCallback(
+    (annee: number, mois: number, id: number) => {
+      updateMois(annee, mois, (m) => {
+        const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
+        if (mvt) {
+          // rollback simple : entrée→on retire / sortie→on rend / ajustement→non rollback
+          setArticles((prev) =>
+            prev.map((a) => {
+              if (a.id !== mvt.articleId) return a;
+              if (mvt.type === "entree") return { ...a, stock: Math.max(0, a.stock - mvt.quantite) };
+              if (mvt.type === "sortie") return { ...a, stock: a.stock + mvt.quantite };
+              return a;
+            })
+          );
+        }
+        return { ...m, mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id) };
+      });
+    },
+    [updateMois]
+  );
+
+  // ─── Sanctions disciplinaires ───
+  const addSanction = useCallback((s: Omit<Sanction, "id">) => {
+    setSanctions((prev) => [...prev, { ...s, id: newId() }]);
+  }, []);
+  const removeSanction = useCallback((id: number) => {
+    setSanctions((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   const importerDonnees = useCallback(
     (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
       setDonneesMensuelles(
