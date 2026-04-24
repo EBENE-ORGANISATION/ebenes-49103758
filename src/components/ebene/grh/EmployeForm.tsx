@@ -38,6 +38,7 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     indemniteFonction: 0,
     sursalaire: 0,
     soldeConges: 0,
+    primeSalissureActive: false,
   });
 
   useEffect(() => {
