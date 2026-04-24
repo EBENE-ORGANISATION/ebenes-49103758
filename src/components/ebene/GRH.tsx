@@ -114,9 +114,11 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full mb-5">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
+          <TabsTrigger value="discipline">⚠️ Discipline</TabsTrigger>
+          <TabsTrigger value="indemnites">🧮 Fin de contrat</TabsTrigger>
           <TabsTrigger value="config">⚙️ Référentiel</TabsTrigger>
         </TabsList>
 
@@ -250,6 +252,19 @@ export const GRH = ({
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
           />
+        </TabsContent>
+
+        <TabsContent value="discipline">
+          <DisciplinePanel
+            employes={employes}
+            sanctions={sanctions}
+            onAdd={onAddSanction}
+            onRemove={onRemoveSanction}
+          />
+        </TabsContent>
+
+        <TabsContent value="indemnites">
+          <IndemnitesCalculator employes={employes} />
         </TabsContent>
 
         <TabsContent value="config" className="space-y-4">
