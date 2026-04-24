@@ -5,6 +5,7 @@ import {
   HeuresSup,
   MoisData,
   Prime,
+  Sanction,
   CATEGORIES_LABELS,
 } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
@@ -31,12 +32,15 @@ import { BulletinPaie, calculerPaie } from "./grh/BulletinPaie";
 import { ContratGenerator } from "./grh/ContratGenerator";
 import { AbsencesPanel } from "./grh/AbsencesPanel";
 import { HeuresSupPanel } from "./grh/HeuresSupPanel";
+import { DisciplinePanel } from "./grh/DisciplinePanel";
+import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 
 interface Props {
   employes: Employe[];
   data: MoisData;
   annee: number;
   mois: number;
+  sanctions: Sanction[];
   onAddEmploye: (e: Omit<Employe, "id">) => void;
   onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
   onRemoveEmploye: (id: number) => void;
@@ -46,6 +50,8 @@ interface Props {
   onRemoveAbsence: (id: number) => void;
   onSetHeuresSup: (employeId: number, hs: HeuresSup) => void;
   onSetRetenue: (employeId: number, montant: number) => void;
+  onAddSanction: (s: Omit<Sanction, "id">) => void;
+  onRemoveSanction: (id: number) => void;
 }
 
 export const GRH = ({
@@ -53,6 +59,7 @@ export const GRH = ({
   data,
   annee,
   mois,
+  sanctions,
   onAddEmploye,
   onUpdateEmploye,
   onRemoveEmploye,
@@ -62,6 +69,8 @@ export const GRH = ({
   onRemoveAbsence,
   onSetHeuresSup,
   onSetRetenue,
+  onAddSanction,
+  onRemoveSanction,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
@@ -105,9 +114,11 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full mb-5">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
+          <TabsTrigger value="discipline">⚠️ Discipline</TabsTrigger>
+          <TabsTrigger value="indemnites">🧮 Fin de contrat</TabsTrigger>
           <TabsTrigger value="config">⚙️ Référentiel</TabsTrigger>
         </TabsList>
 
@@ -241,6 +252,19 @@ export const GRH = ({
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
           />
+        </TabsContent>
+
+        <TabsContent value="discipline">
+          <DisciplinePanel
+            employes={employes}
+            sanctions={sanctions}
+            onAdd={onAddSanction}
+            onRemove={onRemoveSanction}
+          />
+        </TabsContent>
+
+        <TabsContent value="indemnites">
+          <IndemnitesCalculator employes={employes} />
         </TabsContent>
 
         <TabsContent value="config" className="space-y-4">

@@ -173,6 +173,7 @@ const Index = () => {
                 data={data}
                 annee={annee}
                 mois={mois}
+                sanctions={store.sanctions}
                 onAddEmploye={store.addEmploye}
                 onUpdateEmploye={store.updateEmploye}
                 onRemoveEmploye={store.removeEmploye}
@@ -182,6 +183,8 @@ const Index = () => {
                 onRemoveAbsence={(id) => store.removeAbsence(annee, mois, id)}
                 onSetHeuresSup={(eid, hs) => store.setHeuresSup(annee, mois, eid, hs)}
                 onSetRetenue={(eid, m) => store.setRetenue(annee, mois, eid, m)}
+                onAddSanction={store.addSanction}
+                onRemoveSanction={store.removeSanction}
               />
             </TabsContent>
           </Tabs>

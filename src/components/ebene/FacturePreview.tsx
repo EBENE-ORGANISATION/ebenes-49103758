@@ -2,7 +2,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
-import { Printer, X } from "lucide-react";
+import { Printer, X, FileDown, FileText } from "lucide-react";
+import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 
 interface Props {
   facture: Facture | null;
@@ -14,15 +15,30 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
+  const filename = `${isProforma ? "Proforma" : "Facture"}_${facture.numero.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  const exportPDF = async () => {
+    const el = document.getElementById("print-area");
+    if (el) await exportElementToPDF(el, filename);
+  };
+  const exportWord = async () => {
+    const el = document.getElementById("print-area");
+    if (el) await exportElementToWord(el, filename);
+  };
 
   return (
     <Dialog open={!!facture} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
         <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-muted/30 no-print">
           <h2 className="font-bold">Aperçu — {facture.numero}</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => window.print()} className="gap-1.5">
               <Printer className="size-4" /> Imprimer
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">
+              <FileDown className="size-4" /> PDF
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportWord} className="gap-1.5">
+              <FileText className="size-4" /> Word
             </Button>
             <Button size="sm" variant="ghost" onClick={onClose}>
               <X className="size-4" />
