@@ -126,6 +126,8 @@ export interface MoisData {
   absences?: Absence[];
   heuresSup?: Record<number, HeuresSup>; // employeId -> heures sup du mois
   retenues?: Record<number, number>; // employeId -> retenues diverses
+  /** mouvements de stock du mois */
+  mouvementsStock?: MouvementStock[];
 }
 
 export type DonneesMensuelles = Record<string, MoisData>; // key = "YYYY-M"
