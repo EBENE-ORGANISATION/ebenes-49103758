@@ -9,7 +9,8 @@ import {
   deductionCongesSansSolde,
 } from "@/lib/ebene-utils";
 import { Button } from "@/components/ui/button";
-import { Printer, X } from "lucide-react";
+import { Printer, X, FileDown, FileText } from "lucide-react";
+import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 
 interface Props {
   employe: Employe;
@@ -148,15 +149,30 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
   const c = calculerPaie(employe, data);
+  const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
+  const exportPDF = async () => {
+    const el = document.getElementById("print-area");
+    if (el) await exportElementToPDF(el, filename);
+  };
+  const exportWord = async () => {
+    const el = document.getElementById("print-area");
+    if (el) await exportElementToWord(el, filename);
+  };
 
   return (
     <div className="modal-overlay">
       <div className="modal-box w-full max-w-3xl">
         <div className="flex items-center justify-between mb-4 no-print">
           <h2 className="text-xl font-bold">Bulletin de paie</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
               <Printer className="size-4" /> Imprimer
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">
+              <FileDown className="size-4" /> PDF
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportWord} className="gap-1.5">
+              <FileText className="size-4" /> Word
             </Button>
             <Button size="sm" variant="ghost" onClick={onClose}>
               <X className="size-4" />
