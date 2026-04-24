@@ -204,7 +204,7 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               )}
               {c.hsMontant > 0 && <Line label="Heures supplémentaires" gain={c.hsMontant} />}
               {c.primes.map((p) => <Line key={p.id} label={`Prime : ${p.libelle}`} gain={p.montant} />)}
-              <Line label="Prime salissure" gain={c.primeSalissure} />
+              {c.primeSalissure > 0 && <Line label="Prime salissure" gain={c.primeSalissure} />}
               {(employe.indemniteTransport || 0) > 0 && (
                 <Line label="Indemnité transport" gain={employe.indemniteTransport!} />
               )}
@@ -222,6 +222,9 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               <Line label="CNSS salarié (4%)" retenue={c.cnssSal} />
               <Line label="AMU salarié (5%)" retenue={c.amuSal} />
               <Line label="IRPP" retenue={c.irpp} />
+              {c.deductionSansSolde > 0 && (
+                <Line label={`Congés sans solde (${c.joursSansSolde} j)`} retenue={c.deductionSansSolde} />
+              )}
               {c.retenuesDiverses > 0 && <Line label="Retenues diverses" retenue={c.retenuesDiverses} />}
               <tr className="font-bold bg-muted/50">
                 <td className="p-2 border border-border">TOTAL RETENUES</td>
