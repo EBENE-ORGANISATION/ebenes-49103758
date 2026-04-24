@@ -1,18 +1,25 @@
 import { useMemo, useState, useEffect } from "react";
-import { Employe, MoisData, ParamsAnnuels } from "@/types/ebene";
+import { Employe, MoisData, ParamsAnnuels, DonneesMensuelles, TauxFiscaux } from "@/types/ebene";
 import { StatCard } from "./StatCard";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois, moisKey } from "@/lib/ebene-utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings2, History } from "lucide-react";
+import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
 
 interface Props {
   data: MoisData;
   employes: Employe[];
   annee: number;
+  mois: number;
   paramsAnnee: ParamsAnnuels;
   onUpdateParams: (patch: Partial<ParamsAnnuels>) => void;
+  donneesMensuelles: DonneesMensuelles;
+  tauxHistorique: TauxFiscaux[];
+  onAjouterTaux: (t: TauxFiscaux) => void;
+  onSupprimerTaux: (dateEffet: string) => void;
 }
 
 const Row = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
@@ -29,27 +36,51 @@ const RowSmall = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }: Props) => {
+export const Fiscalite = ({
+  data, employes, annee, mois, paramsAnnee, onUpdateParams, donneesMensuelles,
+  tauxHistorique, onAjouterTaux, onSupprimerTaux,
+}: Props) => {
   const [editParams, setEditParams] = useState(false);
   const [thInput, setThInput] = useState("");
   const [rslInput, setRslInput] = useState("");
+  const [showHistorique, setShowHistorique] = useState(false);
+  const [activite, setActivite] = useState<"service" | "commerce">(
+    paramsAnnee.activite || tauxPourMois(tauxHistorique, annee, mois).activiteDefaut
+  );
 
   useEffect(() => {
     setThInput(String(paramsAnnee.th ?? 30000));
     setRslInput(String(paramsAnnee.rsl ?? 52500));
-  }, [paramsAnnee, annee]);
+    setActivite(paramsAnnee.activite || tauxPourMois(tauxHistorique, annee, mois).activiteDefaut);
+  }, [paramsAnnee, annee, mois, tauxHistorique]);
+
+  const taux = useMemo(() => tauxPourMois(tauxHistorique, annee, mois), [tauxHistorique, annee, mois]);
+
+  // CA annuel cumulé pour calcul IMF (forfait minimum annuel)
+  const caAnnuel = useMemo(() => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) {
+      const md = donneesMensuelles[moisKey(annee, m)];
+      if (!md) continue;
+      total += (md.transactions || []).filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
+    }
+    return total;
+  }, [donneesMensuelles, annee]);
 
   const calc = useMemo(() => {
     const rec = data.transactions.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
     const dep = Math.abs(data.transactions.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0));
     const ben = Math.max(0, rec - dep);
-    const is = ben * 0.27;
-    const imf = Math.max(20000, rec * 0.01);
-    const impot = Math.max(is, imf);
-    const regime = is >= imf ? "IS" : "IMF";
-    const tva = Math.max(0, rec * 0.18 - dep * 0.18);
-    const pat = rec * 0.0075;
-    // TH et RSL : saisis au niveau annuel, prorata mensuel
+    const is = ben * taux.is;
+    // IMF = max(forfait annuel, taux × CA annuel) → prorata mensuel
+    const imfTheoriqueAnnuel = Math.max(taux.imfMin, caAnnuel * taux.imfTaux);
+    const imfMensuel = imfTheoriqueAnnuel / 12;
+    const impot = Math.max(is, imfMensuel);
+    const regime = is >= imfMensuel ? "IS" : "IMF";
+
+    const tva = Math.max(0, rec * taux.tva - dep * taux.tva);
+    const tauxPat = activite === "commerce" ? taux.patenteCommerce : taux.patenteService;
+    const pat = rec * tauxPat;
     const thAnnuel = paramsAnnee.th ?? 30000;
     const rslAnnuel = paramsAnnee.rsl ?? 52500;
     const th = thAnnuel / 12;
@@ -57,21 +88,20 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
 
     let masse = 0;
     employes.forEach((e) => {
-      masse += e.salaire + 5000;
+      masse += e.salaire + (e.primeSalissureActive ? taux.primeSalissure : 0);
       const primes = data.primes[e.id] || [];
       primes.forEach((p) => (masse += p.montant || 0));
     });
-    const cnss = masse * 0.175;
-    const amu = masse * 0.05;
+    const cnss = masse * taux.cnssEmp;
+    const amu = masse * taux.amuEmp;
 
     return {
-      rec, dep, ben, is, imf, impot, regime, tva, pat,
-      th, rsl, thAnnuel, rslAnnuel,
-      masse, cnss, amu,
+      rec, dep, ben, is, imfMensuel, imfAnnuel: imfTheoriqueAnnuel, impot, regime, tva, pat,
+      tauxPat, th, rsl, thAnnuel, rslAnnuel, masse, cnss, amu,
       totalFiscal: tva + impot + pat + th + rsl,
       totalSocial: cnss + amu,
     };
-  }, [data, employes, paramsAnnee]);
+  }, [data, employes, paramsAnnee, taux, caAnnuel, activite]);
 
   const sauverParams = () => {
     const th = parseFloat(thInput);
@@ -79,6 +109,7 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
     onUpdateParams({
       th: isNaN(th) ? undefined : th,
       rsl: isNaN(rsl) ? undefined : rsl,
+      activite,
     });
     setEditParams(false);
   };
@@ -96,6 +127,15 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
         />
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Taux applicables (en vigueur depuis le <strong>{taux.dateEffet}</strong>) — TVA {(taux.tva*100).toFixed(0)}% • IS {(taux.is*100).toFixed(0)}% • Patente service {(taux.patenteService*100).toFixed(2)}% / commerce {(taux.patenteCommerce*100).toFixed(2)}%
+        </p>
+        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setShowHistorique(true)}>
+          <History className="size-3" /> Historique des taux
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card-elevated p-5">
           <div className="flex items-center justify-between mb-3">
@@ -108,32 +148,32 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
               className="gap-1 h-7 text-xs"
               onClick={() => setEditParams(!editParams)}
             >
-              <Settings2 className="size-3" /> TH / RSL
+              <Settings2 className="size-3" /> Paramètres
             </Button>
           </div>
           {editParams && (
-            <div className="bg-muted/40 border-2 border-border rounded-lg p-3 mb-3 space-y-2">
+            <div className="bg-muted/40 border-2 border-border rounded-lg p-3 mb-3 space-y-3">
+              <div>
+                <Label className="text-xs font-bold uppercase">Activité (patente)</Label>
+                <Select value={activite} onValueChange={(v) => setActivite(v as "service" | "commerce")}>
+                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="service">Prestation de service ({(taux.patenteService*100).toFixed(2)}%)</SelectItem>
+                    <SelectItem value="commerce">Commerce ({(taux.patenteCommerce*100).toFixed(2)}%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Montants annuels pour {annee} (répartis sur 12 mois)
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs font-bold uppercase">TH annuel</Label>
-                  <Input
-                    type="number"
-                    value={thInput}
-                    onChange={(e) => setThInput(e.target.value)}
-                    className="h-9 mt-1"
-                  />
+                  <Input type="number" value={thInput} onChange={(e) => setThInput(e.target.value)} className="h-9 mt-1" />
                 </div>
                 <div>
                   <Label className="text-xs font-bold uppercase">RSL annuel</Label>
-                  <Input
-                    type="number"
-                    value={rslInput}
-                    onChange={(e) => setRslInput(e.target.value)}
-                    className="h-9 mt-1"
-                  />
+                  <Input type="number" value={rslInput} onChange={(e) => setRslInput(e.target.value)} className="h-9 mt-1" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -146,19 +186,14 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
               </div>
             </div>
           )}
-          <Row label="TVA nette 18%" value={formatMontant(calc.tva)} />
-          <RowSmall label="IS 27% (si bénéfice)" value={formatMontant(calc.is)} />
-          <RowSmall label="IMF 1% (minimum)" value={formatMontant(calc.imf)} />
+          <Row label={`TVA nette ${(taux.tva*100).toFixed(0)}%`} value={formatMontant(calc.tva)} />
+          <RowSmall label={`IS ${(taux.is*100).toFixed(0)}% (si bénéfice)`} value={formatMontant(calc.is)} />
+          <RowSmall label={`IMF (max ${formatMontant(taux.imfMin)}/an ou ${(taux.imfTaux*100).toFixed(2)}% du CA annuel)`} value={formatMontant(calc.imfMensuel) + " / mois"} />
+          <RowSmall label={`→ IMF annuel calculé`} value={formatMontant(calc.imfAnnuel)} />
           <Row label={`→ Impôt retenu (${calc.regime})`} value={formatMontant(calc.impot)} />
-          <Row label="Patente (0,75% CA)" value={formatMontant(calc.pat)} />
-          <Row
-            label={`TH (1/12 de ${formatMontant(calc.thAnnuel)})`}
-            value={formatMontant(calc.th)}
-          />
-          <Row
-            label={`RSL (1/12 de ${formatMontant(calc.rslAnnuel)})`}
-            value={formatMontant(calc.rsl)}
-          />
+          <Row label={`Patente ${activite === "commerce" ? "commerce" : "service"} (${(calc.tauxPat*100).toFixed(2)}% CA)`} value={formatMontant(calc.pat)} />
+          <Row label={`TH (1/12 de ${formatMontant(calc.thAnnuel)})`} value={formatMontant(calc.th)} />
+          <Row label={`RSL (1/12 de ${formatMontant(calc.rslAnnuel)})`} value={formatMontant(calc.rsl)} />
           <Row label="TOTAL FISCAL" value={formatMontant(calc.totalFiscal)} strong />
         </div>
 
@@ -167,11 +202,19 @@ export const Fiscalite = ({ data, employes, annee, paramsAnnee, onUpdateParams }
             👥 <span>Charges Sociales (Mois)</span>
           </h3>
           <Row label="Masse salariale (brut)" value={formatMontant(calc.masse)} />
-          <Row label="CNSS employeur 17,5%" value={formatMontant(calc.cnss)} />
-          <Row label="AMU employeur 5%" value={formatMontant(calc.amu)} />
+          <Row label={`CNSS employeur ${(taux.cnssEmp*100).toFixed(1)}%`} value={formatMontant(calc.cnss)} />
+          <Row label={`AMU employeur ${(taux.amuEmp*100).toFixed(0)}%`} value={formatMontant(calc.amu)} />
           <Row label="TOTAL SOCIAL" value={formatMontant(calc.totalSocial)} strong />
         </div>
       </div>
+
+      <TauxHistoriqueDialog
+        open={showHistorique}
+        onOpenChange={setShowHistorique}
+        historique={tauxHistorique}
+        onAjouter={onAjouterTaux}
+        onSupprimer={onSupprimerTaux}
+      />
     </div>
   );
 };
