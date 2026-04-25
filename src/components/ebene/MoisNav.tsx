@@ -6,6 +6,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Props {
   mois: number;
@@ -38,20 +41,25 @@ export const MoisNav = ({ mois, annee, annees, onMois, onAnnee }: Props) => {
         </div>
         <div>
           <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
-            Année
+            Année (saisie libre)
           </label>
-          <Select value={String(annee)} onValueChange={(v) => onAnnee(Number(v))}>
-            <SelectTrigger className="h-11 text-sm font-semibold">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {annees.map((a) => (
-                <SelectItem key={a} value={String(a)}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" onClick={() => onAnnee(annee - 1)}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Input
+              type="number"
+              value={annee}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v) && v > 1900 && v < 9999) onAnnee(v);
+              }}
+              className="h-11 text-sm font-semibold text-center"
+            />
+            <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" onClick={() => onAnnee(annee + 1)}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
