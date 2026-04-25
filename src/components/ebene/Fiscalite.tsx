@@ -5,7 +5,6 @@ import { formatMontant, tauxPourMois, moisKey } from "@/lib/ebene-utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings2, History } from "lucide-react";
 import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
 
@@ -44,14 +43,10 @@ export const Fiscalite = ({
   const [thInput, setThInput] = useState("");
   const [rslInput, setRslInput] = useState("");
   const [showHistorique, setShowHistorique] = useState(false);
-  const [activite, setActivite] = useState<"service" | "commerce">(
-    paramsAnnee.activite || tauxPourMois(tauxHistorique, annee, mois).activiteDefaut
-  );
 
   useEffect(() => {
     setThInput(String(paramsAnnee.th ?? 30000));
     setRslInput(String(paramsAnnee.rsl ?? 52500));
-    setActivite(paramsAnnee.activite || tauxPourMois(tauxHistorique, annee, mois).activiteDefaut);
   }, [paramsAnnee, annee, mois, tauxHistorique]);
 
   const taux = useMemo(() => tauxPourMois(tauxHistorique, annee, mois), [tauxHistorique, annee, mois]);
@@ -68,7 +63,15 @@ export const Fiscalite = ({
   }, [donneesMensuelles, annee]);
 
   const calc = useMemo(() => {
-    const rec = data.transactions.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
+    const recettes = data.transactions.filter((t) => t.type === "r");
+    const rec = recettes.reduce((a, t) => a + t.m, 0);
+    // Patente différenciée par activité de la recette
+    const recService = recettes
+      .filter((t) => (t.activite || taux.activiteDefaut) === "service")
+      .reduce((a, t) => a + t.m, 0);
+    const recCommerce = recettes
+      .filter((t) => (t.activite || taux.activiteDefaut) === "commerce")
+      .reduce((a, t) => a + t.m, 0);
     const dep = Math.abs(data.transactions.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0));
     const ben = Math.max(0, rec - dep);
     const is = ben * taux.is;
@@ -79,8 +82,9 @@ export const Fiscalite = ({
     const regime = is >= imfMensuel ? "IS" : "IMF";
 
     const tva = Math.max(0, rec * taux.tva - dep * taux.tva);
-    const tauxPat = activite === "commerce" ? taux.patenteCommerce : taux.patenteService;
-    const pat = rec * tauxPat;
+    const patService = recService * taux.patenteService;
+    const patCommerce = recCommerce * taux.patenteCommerce;
+    const pat = patService + patCommerce;
     const thAnnuel = paramsAnnee.th ?? 30000;
     const rslAnnuel = paramsAnnee.rsl ?? 52500;
     const th = thAnnuel / 12;
@@ -96,12 +100,13 @@ export const Fiscalite = ({
     const amu = masse * taux.amuEmp;
 
     return {
-      rec, dep, ben, is, imfMensuel, imfAnnuel: imfTheoriqueAnnuel, impot, regime, tva, pat,
-      tauxPat, th, rsl, thAnnuel, rslAnnuel, masse, cnss, amu,
+      rec, dep, ben, is, imfMensuel, imfAnnuel: imfTheoriqueAnnuel, impot, regime, tva,
+      pat, patService, patCommerce, recService, recCommerce,
+      th, rsl, thAnnuel, rslAnnuel, masse, cnss, amu,
       totalFiscal: tva + impot + pat + th + rsl,
       totalSocial: cnss + amu,
     };
-  }, [data, employes, paramsAnnee, taux, caAnnuel, activite]);
+  }, [data, employes, paramsAnnee, taux, caAnnuel]);
 
   const sauverParams = () => {
     const th = parseFloat(thInput);
@@ -109,7 +114,6 @@ export const Fiscalite = ({
     onUpdateParams({
       th: isNaN(th) ? undefined : th,
       rsl: isNaN(rsl) ? undefined : rsl,
-      activite,
     });
     setEditParams(false);
   };
@@ -153,16 +157,11 @@ export const Fiscalite = ({
           </div>
           {editParams && (
             <div className="bg-muted/40 border-2 border-border rounded-lg p-3 mb-3 space-y-3">
-              <div>
-                <Label className="text-xs font-bold uppercase">Activité (patente)</Label>
-                <Select value={activite} onValueChange={(v) => setActivite(v as "service" | "commerce")}>
-                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="service">Prestation de service ({(taux.patenteService*100).toFixed(2)}%)</SelectItem>
-                    <SelectItem value="commerce">Commerce ({(taux.patenteCommerce*100).toFixed(2)}%)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                ℹ️ L'activité (service / commerce) est désormais saisie <strong>par recette</strong>
+                dans la Comptabilité — la patente est calculée automatiquement (0,75% service,
+                0,55% commerce).
+              </p>
               <p className="text-xs text-muted-foreground">
                 Montants annuels pour {annee} (répartis sur 12 mois)
               </p>
@@ -191,7 +190,9 @@ export const Fiscalite = ({
           <RowSmall label={`IMF (max ${formatMontant(taux.imfMin)}/an ou ${(taux.imfTaux*100).toFixed(2)}% du CA annuel)`} value={formatMontant(calc.imfMensuel) + " / mois"} />
           <RowSmall label={`→ IMF annuel calculé`} value={formatMontant(calc.imfAnnuel)} />
           <Row label={`→ Impôt retenu (${calc.regime})`} value={formatMontant(calc.impot)} />
-          <Row label={`Patente ${activite === "commerce" ? "commerce" : "service"} (${(calc.tauxPat*100).toFixed(2)}% CA)`} value={formatMontant(calc.pat)} />
+          <Row label="Patente (par activité)" value={formatMontant(calc.pat)} />
+          <RowSmall label={`Service ${(taux.patenteService*100).toFixed(2)}% × ${formatMontant(calc.recService)}`} value={formatMontant(calc.patService)} />
+          <RowSmall label={`Commerce ${(taux.patenteCommerce*100).toFixed(2)}% × ${formatMontant(calc.recCommerce)}`} value={formatMontant(calc.patCommerce)} />
           <Row label={`TH (1/12 de ${formatMontant(calc.thAnnuel)})`} value={formatMontant(calc.th)} />
           <Row label={`RSL (1/12 de ${formatMontant(calc.rslAnnuel)})`} value={formatMontant(calc.rsl)} />
           <Row label="TOTAL FISCAL" value={formatMontant(calc.totalFiscal)} strong />

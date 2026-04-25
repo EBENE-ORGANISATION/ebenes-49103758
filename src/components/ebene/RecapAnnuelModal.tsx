@@ -1,7 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DonneesMensuelles, MOIS_NOMS } from "@/types/ebene";
 import { formatMontant, moisKey } from "@/lib/ebene-utils";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatCard } from "./StatCard";
 
 interface Props {
   open: boolean;
@@ -11,6 +14,8 @@ interface Props {
 }
 
 export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles }: Props) => {
+  const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
+
   const lignes = useMemo(() => {
     return MOIS_NOMS.map((nom, i) => {
       const m = donneesMensuelles[moisKey(annee, i + 1)];
@@ -20,6 +25,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles 
       const factures = m?.factures || [];
       return {
         mois: nom,
+        moisNum: i + 1,
         rec,
         dep,
         solde: rec - dep,
@@ -34,13 +40,60 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles 
     { rec: 0, dep: 0, solde: 0 }
   );
 
+  const moisData = lignes.find((l) => l.moisNum === moisSel)!;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">📊 Récapitulatif Annuel {annee}</DialogTitle>
+          <DialogTitle className="text-2xl">📊 Récapitulatifs {annee}</DialogTitle>
         </DialogHeader>
-        <div className="overflow-x-auto">
+
+        <Tabs defaultValue="annuel" className="w-full">
+          <TabsList className="grid grid-cols-2 w-full mb-4">
+            <TabsTrigger value="mensuel">📅 Récap Mensuel</TabsTrigger>
+            <TabsTrigger value="annuel">📈 Récap Annuel</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mensuel" className="space-y-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground">Mois</label>
+              <Select value={String(moisSel)} onValueChange={(v) => setMoisSel(Number(v))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MOIS_NOMS.map((nom, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>{nom} {annee}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StatCard label="Recettes" value={formatMontant(moisData.rec)} tone="success" />
+              <StatCard label="Dépenses" value={formatMontant(moisData.dep)} tone="destructive" />
+              <StatCard
+                label="Solde"
+                value={formatMontant(moisData.solde)}
+                tone={moisData.solde >= 0 ? "info" : "destructive"}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {moisData.nbFactures > 0
+                ? `${moisData.nbPayees}/${moisData.nbFactures} facture(s) payée(s) ce mois.`
+                : "Aucune facture émise ce mois."}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="annuel">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <StatCard label={`Recettes ${annee}`} value={formatMontant(totals.rec)} tone="success" />
+              <StatCard label={`Dépenses ${annee}`} value={formatMontant(totals.dep)} tone="destructive" />
+              <StatCard
+                label={`Solde ${annee}`}
+                value={formatMontant(totals.solde)}
+                tone={totals.solde >= 0 ? "info" : "destructive"}
+              />
+            </div>
+            <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-border text-xs uppercase text-muted-foreground">
@@ -76,7 +129,9 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles 
               </tr>
             </tbody>
           </table>
-        </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

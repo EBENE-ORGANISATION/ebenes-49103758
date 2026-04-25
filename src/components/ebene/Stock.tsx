@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   data: MoisData;
@@ -46,6 +47,8 @@ export const Stock = (props: Props) => {
     onAddMouvement, onRemoveMouvement,
   } = props;
 
+  const [showInventaire, setShowInventaire] = useState(false);
+
   const stats = useMemo(() => {
     const valeur = articles.reduce((a, art) => a + art.stock * art.prixAchat, 0);
     const enAlerte = articles.filter((a) => a.stock <= a.seuilAlerte).length;
@@ -58,6 +61,15 @@ export const Stock = (props: Props) => {
         <StatCard label="Articles" value={String(stats.nb)} tone="info" />
         <StatCard label="Valeur stock (PMP)" value={formatMontant(stats.valeur)} tone="success" />
         <StatCard label="En alerte (≤ seuil)" value={String(stats.enAlerte)} tone={stats.enAlerte > 0 ? "warning" : "info"} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setShowInventaire(true)} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
+          <ClipboardList className="size-4" /> Faire un inventaire
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Saisissez le stock physique constaté ; les écarts génèrent des ajustements automatiques.
+        </span>
       </div>
 
       <Tabs defaultValue="articles" className="w-full">
@@ -93,6 +105,15 @@ export const Stock = (props: Props) => {
           <CategoriesPanel categories={categories} onAdd={onAddCategorie} onRemove={onRemoveCategorie} />
         </TabsContent>
       </Tabs>
+
+      <InventaireModal
+        open={showInventaire}
+        onOpenChange={setShowInventaire}
+        articles={articles}
+        annee={annee}
+        mois={mois}
+        onAdd={onAddMouvement}
+      />
     </div>
   );
 };
@@ -415,3 +436,147 @@ const Lab = ({ label, children, full }: { label: string; children: React.ReactNo
     <div className="mt-1">{children}</div>
   </div>
 );
+
+// ─── Inventaire (saisie groupée) ─────────────────────────────────────────────
+const InventaireModal = ({
+  open, onOpenChange, articles, annee, mois, onAdd,
+}: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  articles: Article[]; annee: number; mois: number;
+  onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+}) => {
+  const [date, setDate] = useState(todayISO());
+  const [valeurs, setValeurs] = useState<Record<number, string>>({});
+  const [reference, setReference] = useState(`INV-${todayISO()}`);
+
+  // Reset when opened
+  useMemo(() => {
+    if (open) {
+      setValeurs({});
+      setDate(todayISO());
+      setReference(`INV-${todayISO()}`);
+    }
+  }, [open]);
+
+  const ecarts = useMemo(() => {
+    return articles
+      .map((a) => {
+        const raw = valeurs[a.id];
+        if (raw === undefined || raw === "") return null;
+        const n = parseFloat(raw);
+        if (isNaN(n)) return null;
+        return { article: a, physique: n, ecart: n - a.stock };
+      })
+      .filter((x): x is { article: Article; physique: number; ecart: number } => x !== null);
+  }, [valeurs, articles]);
+
+  const stats = useMemo(() => {
+    const compt = ecarts.length;
+    const aj = ecarts.filter((e) => e.ecart !== 0).length;
+    const ecartTotal = ecarts.reduce((a, e) => a + e.ecart * e.article.prixAchat, 0);
+    return { compt, aj, ecartTotal };
+  }, [ecarts]);
+
+  const valider = () => {
+    if (ecarts.length === 0) return toast.error("Aucun article saisi");
+    let nb = 0;
+    ecarts.forEach((e) => {
+      if (e.ecart === 0) return;
+      onAdd(annee, mois, {
+        date,
+        articleId: e.article.id,
+        type: "ajustement",
+        quantite: e.physique,
+        motif: `Inventaire ${reference} (écart : ${e.ecart > 0 ? "+" : ""}${e.ecart})`,
+        reference,
+      });
+      nb++;
+    });
+    toast.success(`Inventaire validé — ${nb} ajustement(s) créé(s)`);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <ClipboardList className="size-5" /> Inventaire physique
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <Lab label="Date d'inventaire">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Lab>
+          <Lab label="Référence">
+            <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+          </Lab>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <StatCard label="Articles comptés" value={String(stats.compt)} tone="info" />
+          <StatCard label="Ajustements" value={String(stats.aj)} tone="warning" />
+          <StatCard
+            label="Écart de valorisation"
+            value={formatMontant(stats.ecartTotal)}
+            tone={stats.ecartTotal >= 0 ? "success" : "destructive"}
+          />
+        </div>
+
+        {articles.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8 italic">Aucun article à inventorier</p>
+        ) : (
+          <div className="overflow-x-auto border-2 border-border rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr className="text-xs uppercase text-muted-foreground">
+                  <th className="text-left py-2 px-3">Article</th>
+                  <th className="text-right py-2 px-3">Stock système</th>
+                  <th className="text-right py-2 px-3">Stock physique</th>
+                  <th className="text-right py-2 px-3">Écart</th>
+                </tr>
+              </thead>
+              <tbody>
+                {articles.map((a) => {
+                  const raw = valeurs[a.id] ?? "";
+                  const n = parseFloat(raw);
+                  const ecart = !isNaN(n) ? n - a.stock : null;
+                  return (
+                    <tr key={a.id} className="border-t border-border">
+                      <td className="py-2 px-3">
+                        <p className="font-semibold">{a.designation}</p>
+                        <p className="text-xs text-muted-foreground">{a.reference} • {a.unite}</p>
+                      </td>
+                      <td className="py-2 px-3 text-right amount">{a.stock}</td>
+                      <td className="py-2 px-3 text-right">
+                        <Input
+                          type="number"
+                          value={raw}
+                          onChange={(e) => setValeurs({ ...valeurs, [a.id]: e.target.value })}
+                          className="h-8 w-24 ml-auto text-right"
+                        />
+                      </td>
+                      <td className={`py-2 px-3 text-right amount ${ecart === null ? "text-muted-foreground" : ecart === 0 ? "" : ecart > 0 ? "text-success" : "text-destructive"}`}>
+                        {ecart === null ? "—" : ecart > 0 ? `+${ecart}` : ecart}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="gap-1.5">
+            <X className="size-4" /> Annuler
+          </Button>
+          <Button onClick={valider} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90">
+            <Save className="size-4" /> Valider l'inventaire
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};

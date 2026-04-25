@@ -4,6 +4,7 @@ import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import logoEbene from "@/assets/ebene-logo.png";
 
 interface Props {
   facture: Facture | null;
@@ -47,20 +48,30 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
         </div>
 
         <div id="print-area" className="p-8 bg-card text-foreground">
-          <div className="flex items-start justify-between mb-8 border-b-2 border-primary pb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-primary tracking-tight">EBENE SERVICES</h1>
-              <p className="text-sm text-muted-foreground mt-1">Système de Gestion d'Entreprise</p>
-              <p className="text-xs text-muted-foreground mt-0.5">NIF : 1 002 088 759</p>
-              <p className="text-xs text-muted-foreground">contact@ebeneservices.gmail.com</p>
+          {/* En-tête style papier officiel EBENE */}
+          <div className="flex items-start justify-between mb-6 pb-4 border-b-4 border-primary">
+            <div className="flex items-center gap-4">
+              <img src={logoEbene} alt="EBENE SERVICES" className="h-20 w-auto" />
+              <div>
+                <h1 className="text-2xl font-bold text-primary tracking-tight">EBENE SERVICES</h1>
+                <p className="text-xs uppercase tracking-widest text-accent font-semibold mt-0.5">
+                  Commerce Général
+                </p>
+              </div>
             </div>
             <div className="text-right">
-              <p className={`text-2xl font-bold ${isProforma ? "text-warning" : "text-info"}`}>
+              <p className={`text-2xl font-bold ${isProforma ? "text-warning" : "text-primary"}`}>
                 {isProforma ? "FACTURE PROFORMA" : "FACTURE"}
               </p>
               <p className="font-mono font-bold text-lg mt-1">{facture.numero}</p>
               <p className="text-sm text-muted-foreground mt-1">Date : {facture.date}</p>
             </div>
+          </div>
+
+          <div className="text-[11px] text-muted-foreground mb-6 leading-relaxed">
+            Quartier ADAWLATO, Rue du Grand Marché, LOMÉ - TOGO •
+            Tél : (+228) 97 43 38 20 • Email : ebnservicess@gmail.com<br />
+            N° RCCM : TG-LFW-01-2026-B13-00075 • NIF : 1 002 088 759
           </div>
 
           <div className="mb-6">
@@ -115,8 +126,9 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
           </div>
 
           <div className="mt-12 pt-4 border-t border-border text-center text-xs text-muted-foreground">
-            <p>Merci pour votre confiance.</p>
-            <p className="mt-2 italic">Document généré par EBENE SERVICES</p>
+            <p className="font-semibold text-primary">Merci pour votre confiance.</p>
+            <p className="mt-1">EBENE SERVICES — Commerce Général • Lomé, Togo</p>
+            <p className="mt-2 italic">Document généré électroniquement.</p>
           </div>
         </div>
       </DialogContent>

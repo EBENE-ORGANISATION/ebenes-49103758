@@ -8,51 +8,53 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 226 100% 97%;
-    --foreground: 222 47% 11%;
+    /* Charte EBENE SERVICES — Marron #3D0000 + Brun #89604A */
+    --background: 30 30% 97%;
+    --foreground: 0 0% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 244 58% 51%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 100% 12%;            /* #3D0000 */
+    --primary-foreground: 30 30% 97%;
+    --primary-glow: 0 100% 18%;
 
-    --secondary: 226 100% 94%;
-    --secondary-foreground: 244 58% 51%;
+    --secondary: 28 32% 88%;
+    --secondary-foreground: 0 100% 12%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 30 20% 94%;
+    --muted-foreground: 28 15% 35%;
 
-    --accent: 226 100% 94%;
-    --accent-foreground: 244 58% 51%;
+    --accent: 28 32% 41%;             /* #89604A */
+    --accent-foreground: 30 30% 97%;
 
     --destructive: 0 73% 51%;
     --destructive-foreground: 210 40% 98%;
 
-    --success: 142 76% 36%;
+    --success: 142 60% 32%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 25 95% 53%;
+    --warning: 28 70% 45%;
     --warning-foreground: 0 0% 100%;
 
-    --info: 217 91% 60%;
+    --info: 28 32% 41%;
     --info-foreground: 0 0% 100%;
 
-    --purple: 262 83% 58%;
+    --purple: 0 60% 30%;
     --purple-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 244 58% 51%;
+    --border: 28 20% 85%;
+    --input: 28 20% 85%;
+    --ring: 0 100% 12%;
 
     --radius: 0.75rem;
 
-    --header-gradient: linear-gradient(135deg, hsl(244 73% 20%) 0%, hsl(244 70% 35%) 50%, hsl(244 58% 51%) 100%);
-    --shadow-card: 0 1px 4px hsl(222 47% 11% / 0.08), 0 4px 16px hsl(222 47% 11% / 0.04);
-    --shadow-elevated: 0 20px 60px hsl(222 47% 11% / 0.2);
+    --header-gradient: linear-gradient(135deg, hsl(0 100% 8%) 0%, hsl(0 100% 12%) 50%, hsl(28 32% 41%) 100%);
+    --shadow-card: 0 1px 4px hsl(0 100% 12% / 0.08), 0 4px 16px hsl(0 100% 12% / 0.04);
+    --shadow-elevated: 0 20px 60px hsl(0 100% 12% / 0.2);
 
     --sidebar-background: 0 0% 98%;
 
@@ -117,7 +119,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Poppins', sans-serif;
   }
 
   .font-mono, code, .amount {
