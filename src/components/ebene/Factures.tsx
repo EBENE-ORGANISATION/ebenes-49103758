@@ -272,6 +272,7 @@ export const Factures = ({
                     <p className="text-xs text-muted-foreground">
                       {f.date} • {f.lignes.length} ligne{f.lignes.length > 1 ? "s" : ""}
                       {f.avecTva && " • TVA 18%"}
+                      {f.activite && ` • ${f.activite === "service" ? "Service" : "Commerce"}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
