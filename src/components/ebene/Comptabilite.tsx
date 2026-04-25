@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from "react";
-import { Employe, MoisData, Transaction, TauxFiscaux } from "@/types/ebene";
+import { ActiviteType, Employe, MoisData, Transaction, TauxFiscaux } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
   const [type, setType] = useState<"r" | "d">("r");
+  const [activite, setActivite] = useState<ActiviteType>("service");
   const [desc, setDesc] = useState("");
   const [montant, setMontant] = useState("");
   const [fournisseur, setFournisseur] = useState("");
@@ -88,6 +89,7 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
     setMontant("");
     setFournisseur("");
     setPiece(null);
+    setActivite("service");
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -103,6 +105,7 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
       m: type === "d" ? -m : m,
       source: type === "d" && piece ? "fournisseur" : "manuelle",
       fournisseur: fournisseur.trim() || null,
+      activite: type === "r" ? activite : undefined,
       pieceJointe: piece?.data || null,
       pieceJointeNom: piece?.nom || null,
       pieceJointeType: piece?.type || null,
@@ -136,9 +139,16 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
       </div>
 
       {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5">
-          <Plus className="size-4" /> Ajouter Transaction
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => setOpen(true)} className="gap-1.5">
+            <Plus className="size-4" /> Ajouter Transaction
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            <Paperclip className="size-3 inline mr-1" />
+            Pour importer une <strong>facture fournisseur</strong> (PDF / image), choisissez le type
+            <em> Dépense</em> puis cliquez sur <em>Joindre facture</em>.
+          </span>
+        </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
           <h3 className="font-bold text-lg">Nouvelle Transaction</h3>
@@ -162,6 +172,22 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
             <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Description *</Label>
             <Input value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" />
           </div>
+
+          {type === "r" && (
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Activité (impacte la patente) *
+              </Label>
+              <Select value={activite} onValueChange={(v) => setActivite(v as ActiviteType)}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="service">🛠️ Prestation de service (0,75%)</SelectItem>
+                  <SelectItem value="commerce">🛒 Commerce (0,55%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Montant (FCFA) *</Label>
