@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   data: MoisData;
@@ -46,6 +47,8 @@ export const Stock = (props: Props) => {
     onAddMouvement, onRemoveMouvement,
   } = props;
 
+  const [showInventaire, setShowInventaire] = useState(false);
+
   const stats = useMemo(() => {
     const valeur = articles.reduce((a, art) => a + art.stock * art.prixAchat, 0);
     const enAlerte = articles.filter((a) => a.stock <= a.seuilAlerte).length;
@@ -58,6 +61,15 @@ export const Stock = (props: Props) => {
         <StatCard label="Articles" value={String(stats.nb)} tone="info" />
         <StatCard label="Valeur stock (PMP)" value={formatMontant(stats.valeur)} tone="success" />
         <StatCard label="En alerte (≤ seuil)" value={String(stats.enAlerte)} tone={stats.enAlerte > 0 ? "warning" : "info"} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setShowInventaire(true)} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
+          <ClipboardList className="size-4" /> Faire un inventaire
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Saisissez le stock physique constaté ; les écarts génèrent des ajustements automatiques.
+        </span>
       </div>
 
       <Tabs defaultValue="articles" className="w-full">
@@ -93,6 +105,15 @@ export const Stock = (props: Props) => {
           <CategoriesPanel categories={categories} onAdd={onAddCategorie} onRemove={onRemoveCategorie} />
         </TabsContent>
       </Tabs>
+
+      <InventaireModal
+        open={showInventaire}
+        onOpenChange={setShowInventaire}
+        articles={articles}
+        annee={annee}
+        mois={mois}
+        onAdd={onAddMouvement}
+      />
     </div>
   );
 };
