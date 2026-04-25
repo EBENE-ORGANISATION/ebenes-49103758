@@ -188,16 +188,35 @@ export const Factures = ({
             </Button>
           </div>
 
-          <div>
-            <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Réduction (FCFA)
-            </Label>
-            <Input
-              type="number"
-              value={reduction}
-              onChange={(e) => setReduction(e.target.value)}
-              className="mt-1"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Type d'activité *
+              </Label>
+              <Select value={activite} onValueChange={(v) => setActivite(v as ActiviteType)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="service">Prestation de service (patente 0,75 %)</SelectItem>
+                  <SelectItem value="commerce">Commerce (patente 0,55 %)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Détermine le taux de patente appliqué lors du règlement.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Réduction (FCFA)
+              </Label>
+              <Input
+                type="number"
+                value={reduction}
+                onChange={(e) => setReduction(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
