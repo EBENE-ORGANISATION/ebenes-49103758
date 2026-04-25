@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Download, Upload, Archive, BarChart3, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import logoEbene from "@/assets/ebene-logo.png";
 
 interface HeaderProps {
   onExport: () => void;
@@ -33,17 +34,16 @@ export const Header = ({ onExport, onImport, onShowRecap, onShowArchives, lastSa
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="text-4xl">📊</div>
+            <div className="bg-primary-foreground/95 rounded-xl p-2 shadow-md">
+              <img src={logoEbene} alt="EBENE SERVICES" className="h-12 w-auto" />
+            </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">EBENE SERVICES</h1>
-              <p className="text-sm text-primary-foreground/75 font-medium">Système de Gestion d'Entreprise</p>
+              <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
                   <Check className="size-3" /> Sauvegardé {savedAgo}
                 </span>
-                <span className="badge-soft bg-info/20 text-info-foreground">📅 Multi-années</span>
-                <span className="badge-soft bg-warning/20 text-warning-foreground">🔄 Proforma → Facture</span>
-                <span className="badge-soft bg-purple/20 text-purple-foreground">✍️ BITHO SIMBAYA</span>
               </div>
             </div>
           </div>
