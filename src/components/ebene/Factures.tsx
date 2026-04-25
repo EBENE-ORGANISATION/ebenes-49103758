@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { DonneesMensuelles, Facture, MoisData } from "@/types/ebene";
+import { ActiviteType, DonneesMensuelles, Facture, MoisData } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 
@@ -51,6 +52,7 @@ export const Factures = ({
   const [reduction, setReduction] = useState("0");
   const [avecTva, setAvecTva] = useState(true);
   const [proforma, setProforma] = useState(false);
+  const [activite, setActivite] = useState<ActiviteType>("service");
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
@@ -61,6 +63,7 @@ export const Factures = ({
     setReduction("0");
     setAvecTva(true);
     setProforma(false);
+    setActivite("service");
     setLignes([{ description: "", montant: "" }]);
   };
 
@@ -89,6 +92,7 @@ export const Factures = ({
       totalHT,
       totalTva,
       totalTtc,
+      activite,
     });
     reset();
     setOpen(false);
@@ -184,16 +188,35 @@ export const Factures = ({
             </Button>
           </div>
 
-          <div>
-            <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Réduction (FCFA)
-            </Label>
-            <Input
-              type="number"
-              value={reduction}
-              onChange={(e) => setReduction(e.target.value)}
-              className="mt-1"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Type d'activité *
+              </Label>
+              <Select value={activite} onValueChange={(v) => setActivite(v as ActiviteType)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="service">Prestation de service (patente 0,75 %)</SelectItem>
+                  <SelectItem value="commerce">Commerce (patente 0,55 %)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Détermine le taux de patente appliqué lors du règlement.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Réduction (FCFA)
+              </Label>
+              <Input
+                type="number"
+                value={reduction}
+                onChange={(e) => setReduction(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -249,6 +272,7 @@ export const Factures = ({
                     <p className="text-xs text-muted-foreground">
                       {f.date} • {f.lignes.length} ligne{f.lignes.length > 1 ? "s" : ""}
                       {f.avecTva && " • TVA 18%"}
+                      {f.activite && ` • ${f.activite === "service" ? "Service" : "Commerce"}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">

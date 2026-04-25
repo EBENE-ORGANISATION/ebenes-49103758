@@ -41,6 +41,8 @@ export interface Facture {
   totalHT: number;
   totalTva: number;
   totalTtc: number;
+  /** Type d'activité (impacte la patente lors du règlement) */
+  activite?: ActiviteType;
 }
 
 export interface Prime {
