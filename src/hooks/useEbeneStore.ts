@@ -219,6 +219,7 @@ export const useEbeneStore = () => {
           m: f.totalTtc,
           source: "facture",
           factureId: f.id,
+          activite: f.activite,
         };
         return {
           ...m,
