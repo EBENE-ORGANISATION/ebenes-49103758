@@ -454,7 +454,11 @@ export const useEbeneStore = () => {
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       const id = newId();
-      const newP: Prime = { ...prime, id };
+      const newP: Prime = {
+        ...prime,
+        id,
+        statutValidation: prime.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => {
         const list = m.primes[employeId] || [];
         return {
@@ -490,7 +494,11 @@ export const useEbeneStore = () => {
   const addAbsence = useCallback(
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
       const id = newId();
-      const newA: Absence = { ...a, id };
+      const newA: Absence = {
+        ...a,
+        id,
+        statutValidation: a.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => ({
         ...m,
         absences: [...(m.absences || []), newA],
@@ -519,14 +527,18 @@ export const useEbeneStore = () => {
   const setHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
       let before: HeuresSup | undefined;
+      const newHs: HeuresSup = {
+        ...hs,
+        statutValidation: hs.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => {
         before = (m.heuresSup || {})[employeId];
         return {
           ...m,
-          heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: newHs },
         };
       });
-      void logAction("UPDATE", "heuresSup", employeId, before ?? null, hs);
+      void logAction("UPDATE", "heuresSup", employeId, before ?? null, newHs);
     },
     [updateMois]
   );
@@ -723,7 +735,11 @@ export const useEbeneStore = () => {
   // ─── Sanctions disciplinaires ───
   const addSanction = useCallback((s: Omit<Sanction, "id">) => {
     const id = newId();
-    const newS: Sanction = { ...s, id };
+    const newS: Sanction = {
+      ...s,
+      id,
+      statutValidation: s.statutValidation || "en_validation",
+    };
     setSanctions((prev) => [...prev, newS]);
     void logAction("INSERT", "sanctions", id, null, newS);
   }, []);
