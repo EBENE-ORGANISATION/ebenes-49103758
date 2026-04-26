@@ -50,6 +50,8 @@ interface Props {
   onAddEmploye: (e: Omit<Employe, "id">) => void;
   onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
   onRemoveEmploye: (id: number) => void;
+  onValiderEmploye: (id: number) => void;
+  onRejeterEmploye: (id: number, motif: string) => void;
   onAddPrime: (employeId: number, p: Omit<Prime, "id">) => void;
   onRemovePrime: (employeId: number, primeId: number) => void;
   onAddAbsence: (a: Omit<Absence, "id">) => void;
@@ -78,6 +80,8 @@ export const GRH = ({
   onAddEmploye,
   onUpdateEmploye,
   onRemoveEmploye,
+  onValiderEmploye,
+  onRejeterEmploye,
   onAddPrime,
   onRemovePrime,
   onAddAbsence,
