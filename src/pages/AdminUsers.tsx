@@ -24,7 +24,13 @@ interface AdminUser {
   roles: AppRole[];
 }
 
-const ALL_ROLES: AppRole[] = ["admin", "rh", "comptable", "saisie"];
+const ALL_ROLES: AppRole[] = [
+  "admin",
+  "chef_compta",
+  "membre_compta",
+  "chef_grh",
+  "membre_grh",
+];
 
 const callFn = async (body: Record<string, unknown>) => {
   const { data, error } = await supabase.functions.invoke("admin-users", { body });
