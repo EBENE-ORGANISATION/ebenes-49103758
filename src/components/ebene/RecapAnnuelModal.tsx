@@ -5,6 +5,10 @@ import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatCard } from "./StatCard";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet } from "lucide-react";
+import { exportGrandLivre } from "@/lib/exportSYSCOHADA";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -42,12 +46,37 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles 
 
   const moisData = lignes.find((l) => l.moisNum === moisSel)!;
 
+  const exportSyscohada = () => {
+    try {
+      exportGrandLivre(annee, donneesMensuelles);
+      toast.success(`Export SYSCOHADA ${annee} généré`);
+    } catch (e) {
+      toast.error("Échec de l'export SYSCOHADA");
+      console.error(e);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">📊 Récapitulatifs {annee}</DialogTitle>
         </DialogHeader>
+
+        <div className="flex flex-wrap gap-2 -mt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportSyscohada}
+            className="gap-1.5"
+          >
+            <FileSpreadsheet className="size-4" />
+            Export SYSCOHADA
+          </Button>
+          <span className="text-xs text-muted-foreground self-center">
+            Grand-livre + Balance générale (.xlsx)
+          </span>
+        </div>
 
         <Tabs defaultValue="annuel" className="w-full">
           <TabsList className="grid grid-cols-2 w-full mb-4">
