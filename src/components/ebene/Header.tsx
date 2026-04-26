@@ -196,6 +196,7 @@ export const Header = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <AlertesBell alertes={alertes} />
+            <InstallPWAButton />
             <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
               <BarChart3 className="size-4" /> Récap Annuel
             </Button>
