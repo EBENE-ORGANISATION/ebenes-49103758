@@ -473,11 +473,13 @@ export const useEbeneStoreRemote = () => {
         e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
       return [...prev, { ...e, matricule, id: newId() }];
     });
-  }, []);
+    markSignificantWrite();
+  }, [markSignificantWrite]);
 
   const removeEmploye = useCallback((id: number) => {
     setEmployes((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+    markSignificantWrite();
+  }, [markSignificantWrite]);
 
   const updateEmploye = useCallback((id: number, patch: Partial<Employe>) => {
     setEmployes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
