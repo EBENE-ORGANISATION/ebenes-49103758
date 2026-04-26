@@ -33,6 +33,17 @@ const Index = () => {
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
+  // Employés effectivement intégrés à la paie (validés ou créés avant le
+  // workflow de validation — donc statutValidation absent). Les employés
+  // 'en_validation' ou 'rejete' sont visibles uniquement côté GRH.
+  const employesPaie = useMemo(
+    () =>
+      store.employes.filter(
+        (e) => !e.statutValidation || e.statutValidation === "valide"
+      ),
+    [store.employes]
+  );
+
   // Compte 'employe' pur → portail self-service uniquement
   if (isEmployeOnly) {
     return <PortailEmploye />;
