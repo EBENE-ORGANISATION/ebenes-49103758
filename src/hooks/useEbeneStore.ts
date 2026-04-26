@@ -18,9 +18,12 @@ import {
   MouvementStock,
   Sanction,
   Devis,
+  Immobilisation,
+  COMPTES_IMMO_DEFAUT,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { logAction } from "@/lib/audit";
+import { amortissementsAnnee } from "@/lib/amortissements";
 
 // Clés cloud (table app_state)
 const K_DONNEES = "donneesMensuelles";
@@ -31,6 +34,7 @@ const K_ARTICLES = "articles";
 const K_FOURNISSEURS = "fournisseurs";
 const K_CATEGORIES_STOCK = "categoriesStock";
 const K_SANCTIONS = "sanctions";
+const K_IMMOBILISATIONS = "immobilisations";
 
 const ALL_KEYS = [
   K_DONNEES,
@@ -41,6 +45,7 @@ const ALL_KEYS = [
   K_FOURNISSEURS,
   K_CATEGORIES_STOCK,
   K_SANCTIONS,
+  K_IMMOBILISATIONS,
 ] as const;
 
 const ensureMois = (d: MoisData | undefined): MoisData => ({
