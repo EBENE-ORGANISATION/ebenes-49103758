@@ -92,7 +92,7 @@ export const Fiscalite = ({
 
     let masse = 0;
     employes.forEach((e) => {
-      masse += e.salaire + (e.primeSalissureActive ? taux.primeSalissure : 0);
+      masse += e.salaire + (e.sursalaire || 0);
       const primes = data.primes[e.id] || [];
       primes.forEach((p) => (masse += p.montant || 0));
     });
