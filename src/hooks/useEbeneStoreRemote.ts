@@ -20,6 +20,7 @@ import {
   Sanction,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
+import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 
 /**
  * useEbeneStoreRemote
@@ -107,6 +108,13 @@ export const useEbeneStoreRemote = () => {
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
+  // ─── Statut de sauvegarde Google Drive ───
+  const [driveStatus, setDriveStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [driveLastBackup, setDriveLastBackup] = useState<Date | null>(null);
+  const [driveLastError, setDriveLastError] = useState<string | null>(null);
+  const driveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const significantWritesRef = useRef<number>(0);
+
   // Anti-boucle : signature locale des dernières valeurs envoyées
   const localSig = useRef<Record<string, string>>({});
   // Mode dégradé : true si Supabase est injoignable
@@ -122,6 +130,42 @@ export const useEbeneStoreRemote = () => {
       );
     }
   }, []);
+
+  // ─── Backup Google Drive (debounced 30s) ───
+  // On garde une ref vers le snapshot courant pour pouvoir le lire au flush.
+  const snapshotRef = useRef<EbeneStoreLike | null>(null);
+
+  const flushDriveBackup = useCallback(async () => {
+    if (!snapshotRef.current) return;
+    setDriveStatus("syncing");
+    setDriveLastError(null);
+    const result = await backupToDrive(snapshotRef.current, { silent: true });
+    if (result.ok) {
+      setDriveStatus("success");
+      setDriveLastBackup(new Date());
+    } else {
+      setDriveStatus("error");
+      setDriveLastError(result.error ?? "Erreur inconnue");
+    }
+  }, []);
+
+  /** Marque une écriture significative et programme un backup Drive dans 30s. */
+  const markSignificantWrite = useCallback(() => {
+    significantWritesRef.current += 1;
+    if (driveDebounceRef.current) clearTimeout(driveDebounceRef.current);
+    driveDebounceRef.current = setTimeout(() => {
+      void flushDriveBackup();
+    }, 30_000);
+  }, [flushDriveBackup]);
+
+  /** Force un backup immédiat (appelé par le bouton "Sauvegarder sur Drive"). */
+  const triggerDriveBackup = useCallback(async () => {
+    if (driveDebounceRef.current) {
+      clearTimeout(driveDebounceRef.current);
+      driveDebounceRef.current = null;
+    }
+    await flushDriveBackup();
+  }, [flushDriveBackup]);
 
   const applyValue = useCallback((key: string, value: unknown) => {
     switch (key) {
@@ -282,6 +326,42 @@ export const useEbeneStoreRemote = () => {
   useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
 
+  // Garde une vue à jour du store pour le flush Drive (lit la dernière valeur au moment du timeout)
+  useEffect(() => {
+    snapshotRef.current = {
+      donneesMensuelles,
+      employes,
+      paramsAnnuels,
+      tauxHistorique,
+      articles,
+      fournisseurs,
+      categoriesStock,
+      sanctions,
+      importerDonnees: () => {
+        /* placeholder, restauration via store complet */
+      },
+    };
+  }, [
+    donneesMensuelles,
+    employes,
+    paramsAnnuels,
+    tauxHistorique,
+    articles,
+    fournisseurs,
+    categoriesStock,
+    sanctions,
+  ]);
+
+  // Cleanup du timer de backup au unmount
+  useEffect(() => {
+    return () => {
+      if (driveDebounceRef.current) {
+        clearTimeout(driveDebounceRef.current);
+        driveDebounceRef.current = null;
+      }
+    };
+  }, []);
+
   // ─── API publique : identique à useEbeneStore ───
 
   const getMois = useCallback(
@@ -308,8 +388,9 @@ export const useEbeneStoreRemote = () => {
         ...m,
         transactions: [...m.transactions, { ...t, id: newId() }],
       }));
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const removeTransaction = useCallback(
@@ -330,8 +411,9 @@ export const useEbeneStoreRemote = () => {
           factures,
         };
       });
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const addFacture = useCallback(
@@ -341,9 +423,10 @@ export const useEbeneStoreRemote = () => {
         ...m,
         factures: [...m.factures, { ...f, id }],
       }));
+      markSignificantWrite();
       return id;
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const updateFacture = useCallback(
@@ -370,8 +453,9 @@ export const useEbeneStoreRemote = () => {
           transactions,
         };
       });
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const marquerPayee = useCallback(
@@ -425,11 +509,13 @@ export const useEbeneStoreRemote = () => {
         e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
       return [...prev, { ...e, matricule, id: newId() }];
     });
-  }, []);
+    markSignificantWrite();
+  }, [markSignificantWrite]);
 
   const removeEmploye = useCallback((id: number) => {
     setEmployes((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+    markSignificantWrite();
+  }, [markSignificantWrite]);
 
   const updateEmploye = useCallback((id: number, patch: Partial<Employe>) => {
     setEmployes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -720,6 +806,11 @@ export const useEbeneStoreRemote = () => {
     removeSanction,
     importerDonnees,
     anneesDisponibles,
+    // ─── Statut Google Drive ───
+    driveStatus,
+    driveLastBackup,
+    driveLastError,
+    triggerDriveBackup,
   };
 };
 
