@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, KeyRound, Loader2, Plus, Power, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { CrossServiceGrantsPanel } from "@/components/admin/CrossServiceGrantsPanel";
 
 interface AdminUser {
   user_id: string;
@@ -245,6 +246,10 @@ const AdminUsers = () => {
             </Table>
           )}
         </Card>
+
+        <CrossServiceGrantsPanel
+          users={users.map((u) => ({ user_id: u.user_id, email: u.email, nom: u.nom }))}
+        />
 
         {/* Dialog rôles */}
         <Dialog open={!!openRoles} onOpenChange={(v) => !v && setOpenRoles(null)}>
