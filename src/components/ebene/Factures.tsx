@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { ActiviteType, DonneesMensuelles, Facture, MoisData } from "@/types/ebene";
+import { ActiviteType, DonneesMensuelles, Facture, MoisData, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 
 interface Props {
@@ -17,7 +18,18 @@ interface Props {
   onMarquerPayee: (id: number) => void;
   onConvertir: (id: number, num: string) => void;
   onPreview: (f: Facture) => void;
+  /** Si true, affiche les boutons Valider / Rejeter (chef compta). */
+  isChefCompta?: boolean;
+  onValider?: (id: number) => void;
+  onRejeter?: (id: number, motif: string) => void;
 }
+
+const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
+  brouillon: { cls: "bg-muted text-muted-foreground", label: "Brouillon" },
+  en_validation: { cls: "bg-warning/15 text-warning", label: "En validation" },
+  valide: { cls: "bg-success/15 text-success", label: "✓ Validé" },
+  rejete: { cls: "bg-destructive/15 text-destructive", label: "✗ Rejeté" },
+};
 
 const prochainNumero = (
   estProforma: boolean,
