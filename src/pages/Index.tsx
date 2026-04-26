@@ -25,7 +25,7 @@ const Index = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
-  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin } = useAuth();
+  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin, canViewDashboard } = useAuth();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -107,11 +107,13 @@ const Index = () => {
         />
 
         <div className="card-elevated p-4 sm:p-6 no-print">
-          <Tabs defaultValue="dashboard" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full mb-5 h-auto">
-              <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
-                📊 Dashboard
-              </TabsTrigger>
+          <Tabs defaultValue={canViewDashboard ? "dashboard" : "compta"} className="w-full">
+            <TabsList className={`grid grid-cols-2 ${canViewDashboard ? "sm:grid-cols-6" : "sm:grid-cols-5"} w-full mb-5 h-auto`}>
+              {canViewDashboard && (
+                <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
+                  📊 Dashboard
+                </TabsTrigger>
+              )}
               <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
                 💰 Comptabilité
               </TabsTrigger>
@@ -129,15 +131,17 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard">
-              <Dashboard
-                donneesMensuelles={store.donneesMensuelles}
-                employes={store.employes}
-                tauxHistorique={store.tauxHistorique}
-                annee={annee}
-                mois={mois}
-              />
-            </TabsContent>
+            {canViewDashboard && (
+              <TabsContent value="dashboard">
+                <Dashboard
+                  donneesMensuelles={store.donneesMensuelles}
+                  employes={store.employes}
+                  tauxHistorique={store.tauxHistorique}
+                  annee={annee}
+                  mois={mois}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="compta">
               <Comptabilite
