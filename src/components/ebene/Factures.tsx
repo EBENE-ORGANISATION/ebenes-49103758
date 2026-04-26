@@ -94,6 +94,7 @@ export const Factures = ({
   const anomaliesMap = useMemo(() => detectAnomalies(donneesMensuelles), [donneesMensuelles]);
 
   const reset = () => {
+    setEditingId(null);
     setClient("");
     setDate(todayISO());
     setReduction("0");
@@ -129,6 +130,24 @@ export const Factures = ({
     const totalTva = avecTva ? totalHT * 0.18 : 0;
     const totalTtc = totalHT + totalTva;
 
+    if (editingId != null && onUpdateFacture) {
+      onUpdateFacture(editingId, {
+        client: client.trim(),
+        date,
+        lignes: lignesNet,
+        reduction: red,
+        avecTva,
+        statut: proforma ? "proforma" : "en_attente",
+        totalHT,
+        totalTva,
+        totalTtc,
+        activite,
+      });
+      reset();
+      setOpen(false);
+      return;
+    }
+
     onAdd({
       numero: prochainNumero(proforma, annee, donneesMensuelles),
       client: client.trim(),
@@ -145,6 +164,23 @@ export const Factures = ({
     });
     reset();
     setOpen(false);
+  };
+
+  const startEdit = (f: Facture) => {
+    setEditingId(f.id);
+    setClient(f.client);
+    setDate(f.date);
+    setReduction(String(f.reduction || 0));
+    setAvecTva(!!f.avecTva);
+    setProforma(f.statut === "proforma");
+    setActivite(f.activite || "service");
+    setLignes(
+      (f.lignes && f.lignes.length > 0
+        ? f.lignes
+        : [{ description: "", montant: 0 }]
+      ).map((l) => ({ description: l.description, montant: String(l.montant) }))
+    );
+    setOpen(true);
   };
 
   const sorted = useMemo(
