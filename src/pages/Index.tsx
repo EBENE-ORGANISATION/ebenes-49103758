@@ -266,6 +266,20 @@ const Index = () => {
                 onRejeterSanction={(id, motif) => store.rejeterSanction(id, motif)}
               />
             </TabsContent>
+
+            <TabsContent value="immo">
+              <Immobilisations
+                annee={annee}
+                immobilisations={store.immobilisations}
+                onAdd={isChefCompta || isAdmin
+                  ? store.addImmobilisation
+                  : ((_i) => { toast.error("Action réservée au chef Comptabilité / admin."); return 0; })}
+                onRemove={isChefCompta || isAdmin
+                  ? store.removeImmobilisation
+                  : blockedId("Suppression réservée au chef Comptabilité / admin.")}
+                canEdit={isChefCompta || isAdmin}
+              />
+            </TabsContent>
           </Tabs>
         </div>
 
@@ -280,6 +294,7 @@ const Index = () => {
         onOpenChange={setShowRecap}
         annee={annee}
         donneesMensuelles={store.donneesMensuelles}
+        immobilisations={store.immobilisations}
       />
       <ArchivesModal
         open={showArchives}
