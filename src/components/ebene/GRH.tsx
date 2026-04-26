@@ -24,6 +24,8 @@ import {
   Receipt,
   Clock,
   X,
+  Check,
+  XCircle,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -34,6 +36,7 @@ import { AbsencesPanel } from "./grh/AbsencesPanel";
 import { HeuresSupPanel } from "./grh/HeuresSupPanel";
 import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
+import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 
 interface Props {
   employes: Employe[];
