@@ -52,7 +52,17 @@ export interface Prime {
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
-export type CategorieProf = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
+/**
+ * Catégories professionnelles selon la Convention Collective
+ * Interprofessionnelle du Togo (CCIT) :
+ *  - E1 → E6 : Agents d'exécution
+ *  - M1 → M4 : Agents de maîtrise et assimilés
+ *  - C1 → C4 : Cadres et assimilés
+ */
+export type CategorieProf =
+  | "E1" | "E2" | "E3" | "E4" | "E5" | "E6"
+  | "M1" | "M2" | "M3" | "M4"
+  | "C1" | "C2" | "C3" | "C4";
 
 export interface Employe {
   id: number;
@@ -85,8 +95,6 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
-  /** Prime de salissure (5 000 FCFA) — désormais optionnelle, false par défaut */
-  primeSalissureActive?: boolean;
 }
 
 export type TypeAbsence =
