@@ -58,13 +58,13 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
   const tauxAnc = tauxAnciennete(anciennete);
   const primeAnciennete = base * tauxAnc;
 
-  const hs = (data.heuresSup || {})[employe.id] || {
-    jourSemaine: 0,
-    jourSup: 0,
-    dimancheFerie: 0,
-    nuitSemaine: 0,
-    nuitDimancheFerie: 0,
-  };
+  // Heures sup : seules les HS validées (ou héritées sans statut) impactent la paie.
+  const hsBrut = (data.heuresSup || {})[employe.id];
+  const hsValide =
+    hsBrut && (hsBrut.statutValidation === undefined || hsBrut.statutValidation === "valide");
+  const hs = hsValide
+    ? hsBrut!
+    : { jourSemaine: 0, jourSup: 0, dimancheFerie: 0, nuitSemaine: 0, nuitDimancheFerie: 0 };
   const hsMontant =
     hs.jourSemaine * th * HS_TAUX.jourSemaine +
     hs.jourSup * th * HS_TAUX.jourSup +
@@ -72,7 +72,10 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
     hs.nuitSemaine * th * HS_TAUX.nuitSemaine +
     hs.nuitDimancheFerie * th * HS_TAUX.nuitDimancheFerie;
 
-  const primes = (data.primes || {})[employe.id] || [];
+  // Primes : seules les primes validées (ou héritées sans statut) sont payées.
+  const primes = ((data.primes || {})[employe.id] || []).filter(
+    (p) => p.statutValidation === undefined || p.statutValidation === "valide"
+  );
   const primesDiverses = primes.reduce((a, p) => a + p.montant, 0);
 
   const indemnites =
@@ -101,7 +104,12 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 
   // Congés sans solde : somme des jours d'absences de type "sans_solde" du mois
   const joursSansSolde = (data.absences || [])
-    .filter((a) => a.employeId === employe.id && a.type === "sans_solde")
+    .filter(
+      (a) =>
+        a.employeId === employe.id &&
+        a.type === "sans_solde" &&
+        (a.statutValidation === undefined || a.statutValidation === "valide")
+    )
     .reduce((acc, a) => acc + (a.jours || 0), 0);
   const deductionSansSolde = deductionCongesSansSolde(base, sursalaire, joursSansSolde);
 
