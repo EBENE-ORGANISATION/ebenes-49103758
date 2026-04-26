@@ -41,6 +41,7 @@ interface Props {
   annee: number;
   mois: number;
   sanctions: Sanction[];
+  isChefGrh: boolean;
   onAddEmploye: (e: Omit<Employe, "id">) => void;
   onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
   onRemoveEmploye: (id: number) => void;
@@ -52,6 +53,14 @@ interface Props {
   onSetRetenue: (employeId: number, montant: number) => void;
   onAddSanction: (s: Omit<Sanction, "id">) => void;
   onRemoveSanction: (id: number) => void;
+  onValiderPrime: (employeId: number, primeId: number) => void;
+  onRejeterPrime: (employeId: number, primeId: number, motif: string) => void;
+  onValiderAbsence: (id: number) => void;
+  onRejeterAbsence: (id: number, motif: string) => void;
+  onValiderHeuresSup: (employeId: number) => void;
+  onRejeterHeuresSup: (employeId: number, motif: string) => void;
+  onValiderSanction: (id: number) => void;
+  onRejeterSanction: (id: number, motif: string) => void;
 }
 
 export const GRH = ({
@@ -60,6 +69,7 @@ export const GRH = ({
   annee,
   mois,
   sanctions,
+  isChefGrh,
   onAddEmploye,
   onUpdateEmploye,
   onRemoveEmploye,
@@ -71,6 +81,14 @@ export const GRH = ({
   onSetRetenue,
   onAddSanction,
   onRemoveSanction,
+  onValiderPrime,
+  onRejeterPrime,
+  onValiderAbsence,
+  onRejeterAbsence,
+  onValiderHeuresSup,
+  onRejeterHeuresSup,
+  onValiderSanction,
+  onRejeterSanction,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
