@@ -220,7 +220,7 @@ const Index = () => {
               <TabsContent value="dashboard">
                 <Dashboard
                   donneesMensuelles={store.donneesMensuelles}
-                  employes={store.employes}
+                  employes={employesPaie}
                   tauxHistorique={store.tauxHistorique}
                   annee={annee}
                   mois={mois}
@@ -234,7 +234,7 @@ const Index = () => {
                 data={data}
                 annee={annee}
                 mois={mois}
-                employes={store.employes}
+                employes={employesPaie}
                 taux={taux}
                 donneesMensuelles={store.donneesMensuelles}
                 onAdd={comptaWrite
@@ -254,7 +254,7 @@ const Index = () => {
             <TabsContent value="fisc">
               <Fiscalite
                 data={data}
-                employes={store.employes}
+                employes={employesPaie}
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
