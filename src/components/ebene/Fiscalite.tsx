@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Settings2, History } from "lucide-react";
 import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   data: MoisData;
@@ -39,6 +40,7 @@ export const Fiscalite = ({
   data, employes, annee, mois, paramsAnnee, onUpdateParams, donneesMensuelles,
   tauxHistorique, onAjouterTaux, onSupprimerTaux,
 }: Props) => {
+  const { isChefCompta } = useAuth();
   const [editParams, setEditParams] = useState(false);
   const [thInput, setThInput] = useState("");
   const [rslInput, setRslInput] = useState("");
@@ -135,9 +137,11 @@ export const Fiscalite = ({
         <p className="text-xs text-muted-foreground">
           Taux applicables (en vigueur depuis le <strong>{taux.dateEffet}</strong>) — TVA {(taux.tva*100).toFixed(0)}% • IS {(taux.is*100).toFixed(0)}% • Patente service {(taux.patenteService*100).toFixed(2)}% / commerce {(taux.patenteCommerce*100).toFixed(2)}%
         </p>
-        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setShowHistorique(true)}>
-          <History className="size-3" /> Historique des taux
-        </Button>
+        {isChefCompta && (
+          <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setShowHistorique(true)}>
+            <History className="size-3" /> Historique des taux
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
