@@ -1145,6 +1145,11 @@ export const useEbeneStore = () => {
     removeMouvementStock,
     addSanction,
     removeSanction,
+    immobilisations,
+    addImmobilisation,
+    removeImmobilisation,
+    updateImmobilisation,
+    getAmortissements,
     importerDonnees,
     anneesDisponibles,
   };
