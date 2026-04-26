@@ -11,17 +11,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, X, AlertTriangle, ShieldAlert, Check, XCircle } from "lucide-react";
 import { todayISO } from "@/lib/ebene-utils";
+import { StatutValidationBadge } from "./StatutValidationBadge";
 
 interface Props {
   employes: Employe[];
   sanctions: Sanction[];
   onAdd: (s: Omit<Sanction, "id">) => void;
   onRemove: (id: number) => void;
+  isChefGrh: boolean;
+  onValider: (id: number) => void;
+  onRejeter: (id: number, motif: string) => void;
 }
 
-export const DisciplinePanel = ({ employes, sanctions, onAdd, onRemove }: Props) => {
+export const DisciplinePanel = ({
+  employes,
+  sanctions,
+  onAdd,
+  onRemove,
+  isChefGrh,
+  onValider,
+  onRejeter,
+}: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
   const [type, setType] = useState<TypeSanction>("avertissement_oral");
@@ -176,6 +188,7 @@ export const DisciplinePanel = ({ employes, sanctions, onAdd, onRemove }: Props)
             const grave =
               s.type === "licenciement_faute_grave" ||
               s.type === "licenciement_faute_lourde";
+            const statut = s.statutValidation;
             return (
               <div
                 key={s.id}
@@ -185,13 +198,16 @@ export const DisciplinePanel = ({ employes, sanctions, onAdd, onRemove }: Props)
                     : s.type.startsWith("licenciement")
                     ? "border-l-warning"
                     : "border-l-info"
-                }`}
+                } ${statut === "brouillon" ? "opacity-50" : ""}`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-bold">
-                      {emp ? `${emp.nom}${emp.matricule ? ` (${emp.matricule})` : ""}` : "Employé supprimé"}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold">
+                        {emp ? `${emp.nom}${emp.matricule ? ` (${emp.matricule})` : ""}` : "Employé supprimé"}
+                      </p>
+                      <StatutValidationBadge statut={statut} motifRejet={s.motifRejet} />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {s.date} • <strong>{TYPE_SANCTION_LABELS[s.type]}</strong>
                       {s.joursMiseAPied ? ` (${s.joursMiseAPied} j)` : ""}
@@ -202,17 +218,49 @@ export const DisciplinePanel = ({ employes, sanctions, onAdd, onRemove }: Props)
                         Obs : {s.observations}
                       </p>
                     )}
+                    {statut === "rejete" && s.motifRejet && (
+                      <p className="text-xs text-destructive mt-1 italic">
+                        Motif du rejet : {s.motifRejet}
+                      </p>
+                    )}
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-destructive hover:bg-destructive/10 shrink-0"
-                    onClick={() => {
-                      if (confirm("Supprimer cette sanction ?")) onRemove(s.id);
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isChefGrh && statut !== "valide" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-success hover:text-success hover:bg-success/10"
+                        onClick={() => onValider(s.id)}
+                        title="Valider"
+                      >
+                        <Check className="size-4" />
+                      </Button>
+                    )}
+                    {isChefGrh && statut !== "rejete" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-warning hover:text-warning hover:bg-warning/10"
+                        onClick={() => {
+                          const motif = window.prompt("Motif du rejet :", "");
+                          if (motif && motif.trim()) onRejeter(s.id, motif.trim());
+                        }}
+                        title="Rejeter"
+                      >
+                        <XCircle className="size-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm("Supprimer cette sanction ?")) onRemove(s.id);
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
