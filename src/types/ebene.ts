@@ -365,3 +365,92 @@ export const TYPE_ABSENCE_LABELS: Record<TypeAbsence, { label: string; jours: nu
   sans_solde: { label: "Congé sans solde", jours: null },
   autre: { label: "Autre", jours: null },
 };
+
+// ─── Immobilisations / Amortissements (SYSCOHADA Révisé) ──────────────────
+export type MethodeAmortissement = "lineaire" | "degressif";
+
+/**
+ * Catégorie SYSCOHADA d'une immobilisation. Détermine les comptes
+ * (immobilisation, amortissement cumulé, dotation) utilisés dans le grand-livre.
+ */
+export type CategorieImmo =
+  | "terrain"
+  | "construction"
+  | "agencement"
+  | "materiel_industriel"
+  | "materiel_transport"
+  | "materiel_bureau"
+  | "materiel_informatique"
+  | "mobilier"
+  | "logiciel"
+  | "autre_incorporelle";
+
+export interface ComptesSYSCOHADAImmo {
+  /** Compte d'actif (classe 2) — ex: 2441 Matériel de bureau. */
+  actif: string;
+  /** Compte d'amortissements cumulés (classe 28) — ex: 28441. */
+  amortissementCumule: string;
+  /** Compte de dotation aux amortissements (classe 68) — ex: 6813. */
+  dotation: string;
+}
+
+export interface Immobilisation {
+  id: number;
+  libelle: string;
+  categorie?: CategorieImmo;
+  dateAcquisition: string; // ISO
+  valeurOrigine: number;
+  /** Durée d'amortissement en années. */
+  dureeAmortissement: number;
+  methode: MethodeAmortissement;
+  /** Comptes SYSCOHADA (auto-déduits par défaut depuis la catégorie). */
+  comptesSYSCOHADA: ComptesSYSCOHADAImmo;
+  /** Optionnel : valeur résiduelle prévue en fin de plan. */
+  valeurResiduelle?: number;
+  /** Optionnel : date de cession (sortie d'inventaire). */
+  dateCession?: string;
+  notes?: string;
+}
+
+/**
+ * Comptes SYSCOHADA par défaut selon la catégorie. Utilisés lorsqu'aucun
+ * compte n'est renseigné par l'utilisateur.
+ */
+export const COMPTES_IMMO_DEFAUT: Record<CategorieImmo, ComptesSYSCOHADAImmo> = {
+  terrain:               { actif: "22",   amortissementCumule: "",     dotation: "" /* non amortissable */ },
+  construction:          { actif: "231",  amortissementCumule: "2831", dotation: "6813" },
+  agencement:            { actif: "235",  amortissementCumule: "2835", dotation: "6813" },
+  materiel_industriel:   { actif: "241",  amortissementCumule: "2841", dotation: "6813" },
+  materiel_transport:    { actif: "245",  amortissementCumule: "2845", dotation: "6813" },
+  materiel_bureau:       { actif: "2444", amortissementCumule: "2844", dotation: "6813" },
+  materiel_informatique: { actif: "2442", amortissementCumule: "2842", dotation: "6813" },
+  mobilier:              { actif: "2444", amortissementCumule: "2844", dotation: "6813" },
+  logiciel:              { actif: "213",  amortissementCumule: "2813", dotation: "6811" },
+  autre_incorporelle:    { actif: "21",   amortissementCumule: "281",  dotation: "6811" },
+};
+
+export const CATEGORIE_IMMO_LABELS: Record<CategorieImmo, string> = {
+  terrain:               "Terrains (non amortissable)",
+  construction:          "Bâtiments et constructions",
+  agencement:            "Aménagements & installations",
+  materiel_industriel:   "Matériel industriel",
+  materiel_transport:    "Matériel de transport",
+  materiel_bureau:       "Matériel de bureau",
+  materiel_informatique: "Matériel informatique",
+  mobilier:              "Mobilier",
+  logiciel:              "Logiciels",
+  autre_incorporelle:    "Autre immobilisation incorporelle",
+};
+
+/**
+ * Coefficients dégressifs SYSCOHADA appliqués au taux linéaire selon la durée.
+ *  - durée < 4 ans : non éligible (retombe en linéaire)
+ *  - 3 < durée ≤ 4 : 1.5
+ *  - 4 < durée ≤ 6 : 2.0
+ *  - durée > 6     : 2.5
+ */
+export const COEFF_DEGRESSIF = (duree: number): number => {
+  if (duree <= 4) return 1.5;
+  if (duree <= 6) return 2.0;
+  return 2.5;
+};
