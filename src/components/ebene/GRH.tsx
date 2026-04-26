@@ -197,6 +197,15 @@ export const GRH = ({
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setBulletin(e)}>
                           <Receipt className="size-3" /> Bulletin
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 h-8 text-xs"
+                          onClick={() => generateBulletin(e, data, annee, mois)}
+                          title="Télécharger le bulletin de paie en PDF"
+                        >
+                          <FileDown className="size-3" /> Bulletin PDF
+                        </Button>
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setContrat(e)}>
                           <FileText className="size-3" /> Contrat
                         </Button>
