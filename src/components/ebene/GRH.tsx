@@ -26,6 +26,7 @@ import {
   X,
   Check,
   XCircle,
+  FileDown,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -38,6 +39,7 @@ import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
+import { generateBulletin } from "@/lib/bulletinPDF";
 
 interface Props {
   employes: Employe[];
