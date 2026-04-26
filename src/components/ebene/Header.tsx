@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   AlertCircle,
   Info,
+  Smartphone,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
