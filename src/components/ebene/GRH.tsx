@@ -24,6 +24,8 @@ import {
   Receipt,
   Clock,
   X,
+  Check,
+  XCircle,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -34,6 +36,7 @@ import { AbsencesPanel } from "./grh/AbsencesPanel";
 import { HeuresSupPanel } from "./grh/HeuresSupPanel";
 import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
+import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 
 interface Props {
   employes: Employe[];
@@ -41,6 +44,7 @@ interface Props {
   annee: number;
   mois: number;
   sanctions: Sanction[];
+  isChefGrh: boolean;
   onAddEmploye: (e: Omit<Employe, "id">) => void;
   onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
   onRemoveEmploye: (id: number) => void;
@@ -52,6 +56,14 @@ interface Props {
   onSetRetenue: (employeId: number, montant: number) => void;
   onAddSanction: (s: Omit<Sanction, "id">) => void;
   onRemoveSanction: (id: number) => void;
+  onValiderPrime: (employeId: number, primeId: number) => void;
+  onRejeterPrime: (employeId: number, primeId: number, motif: string) => void;
+  onValiderAbsence: (id: number) => void;
+  onRejeterAbsence: (id: number, motif: string) => void;
+  onValiderHeuresSup: (employeId: number) => void;
+  onRejeterHeuresSup: (employeId: number, motif: string) => void;
+  onValiderSanction: (id: number) => void;
+  onRejeterSanction: (id: number, motif: string) => void;
 }
 
 export const GRH = ({
@@ -60,6 +72,7 @@ export const GRH = ({
   annee,
   mois,
   sanctions,
+  isChefGrh,
   onAddEmploye,
   onUpdateEmploye,
   onRemoveEmploye,
@@ -71,6 +84,14 @@ export const GRH = ({
   onSetRetenue,
   onAddSanction,
   onRemoveSanction,
+  onValiderPrime,
+  onRejeterPrime,
+  onValiderAbsence,
+  onRejeterAbsence,
+  onValiderHeuresSup,
+  onRejeterHeuresSup,
+  onValiderSanction,
+  onRejeterSanction,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
@@ -200,6 +221,60 @@ export const GRH = ({
                       </div>
                     )}
 
+                    {/* Statut validation des heures sup du mois */}
+                    {(() => {
+                      const hsCur = (data.heuresSup || {})[e.id];
+                      if (!hsCur) return null;
+                      const total =
+                        (hsCur.jourSemaine || 0) +
+                        (hsCur.jourSup || 0) +
+                        (hsCur.dimancheFerie || 0) +
+                        (hsCur.nuitSemaine || 0) +
+                        (hsCur.nuitDimancheFerie || 0);
+                      if (total <= 0) return null;
+                      const statut = hsCur.statutValidation || "en_validation";
+                      return (
+                        <div className={`mt-2 flex items-center justify-between text-xs bg-muted/30 px-2 py-1.5 rounded ${statut === "brouillon" ? "opacity-50" : ""}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">HS du mois :</span>
+                            <StatutValidationBadge statut={statut} motifRejet={hsCur.motifRejet} />
+                            {statut === "rejete" && hsCur.motifRejet && (
+                              <span className="italic text-destructive">— {hsCur.motifRejet}</span>
+                            )}
+                          </div>
+                          {isChefGrh && (
+                            <div className="flex items-center gap-1">
+                              {statut !== "valide" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 text-success hover:text-success hover:bg-success/10"
+                                  onClick={() => onValiderHeuresSup(e.id)}
+                                  title="Valider"
+                                >
+                                  <Check className="size-3.5" />
+                                </Button>
+                              )}
+                              {statut !== "rejete" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 text-warning hover:text-warning hover:bg-warning/10"
+                                  onClick={() => {
+                                    const motif = window.prompt("Motif du rejet :", "");
+                                    if (motif && motif.trim()) onRejeterHeuresSup(e.id, motif.trim());
+                                  }}
+                                  title="Rejeter"
+                                >
+                                  <XCircle className="size-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="mt-3 pt-3 border-t border-border">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-muted-foreground uppercase">
@@ -220,12 +295,49 @@ export const GRH = ({
                         </div>
                       )}
                       {((data.primes || {})[e.id] || []).map((p) => (
-                        <div key={p.id} className="flex items-center justify-between text-xs bg-muted/50 px-2 py-1 rounded mb-1">
-                          <span>{p.libelle}</span>
-                          <div className="flex items-center gap-2">
+                        <div
+                          key={p.id}
+                          className={`flex items-center justify-between text-xs bg-muted/50 px-2 py-1 rounded mb-1 ${
+                            p.statutValidation === "brouillon" ? "opacity-50" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="truncate">{p.libelle}</span>
+                            <StatutValidationBadge
+                              statut={p.statutValidation}
+                              motifRejet={p.motifRejet}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
                             <span className="amount">{formatMontant(p.montant)}</span>
+                            {isChefGrh && p.statutValidation !== "valide" && (
+                              <button
+                                className="text-success hover:underline"
+                                title="Valider"
+                                onClick={() => onValiderPrime(e.id, p.id)}
+                              >
+                                ✓
+                              </button>
+                            )}
+                            {isChefGrh && p.statutValidation !== "rejete" && (
+                              <button
+                                className="text-warning hover:underline"
+                                title="Rejeter"
+                                onClick={() => {
+                                  const motif = window.prompt("Motif du rejet :", "");
+                                  if (motif && motif.trim()) onRejeterPrime(e.id, p.id, motif.trim());
+                                }}
+                              >
+                                ⊘
+                              </button>
+                            )}
                             <button className="text-destructive hover:underline" onClick={() => onRemovePrime(e.id, p.id)}>×</button>
                           </div>
+                          {p.statutValidation === "rejete" && p.motifRejet && (
+                            <p className="text-xs italic text-destructive w-full mt-0.5">
+                              Motif : {p.motifRejet}
+                            </p>
+                          )}
                         </div>
                       ))}
                       <div className="mt-2 flex items-center gap-2 text-xs">
@@ -251,6 +363,9 @@ export const GRH = ({
             absences={data.absences || []}
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
+            isChefGrh={isChefGrh}
+            onValider={onValiderAbsence}
+            onRejeter={onRejeterAbsence}
           />
         </TabsContent>
 
@@ -260,6 +375,9 @@ export const GRH = ({
             sanctions={sanctions}
             onAdd={onAddSanction}
             onRemove={onRemoveSanction}
+            isChefGrh={isChefGrh}
+            onValider={onValiderSanction}
+            onRejeter={onRejeterSanction}
           />
         </TabsContent>
 

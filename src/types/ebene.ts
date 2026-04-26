@@ -67,6 +67,10 @@ export interface Prime {
   id: number;
   libelle: string;
   montant: number;
+  /** Workflow de validation GRH (par défaut: 'en_validation' à la saisie). */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef GRH. */
+  motifRejet?: string;
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
@@ -140,6 +144,10 @@ export interface Absence {
   dateFin: string;
   jours: number;
   motif?: string;
+  /** Workflow de validation GRH (par défaut: 'en_validation' à la saisie). */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef GRH. */
+  motifRejet?: string;
 }
 
 export interface HeuresSup {
@@ -148,6 +156,10 @@ export interface HeuresSup {
   dimancheFerie: number; // 65%
   nuitSemaine: number; // 65%
   nuitDimancheFerie: number; // 100%
+  /** Workflow de validation GRH (par défaut: 'en_validation' à la saisie). */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef GRH. */
+  motifRejet?: string;
 }
 
 export interface MoisData {
@@ -188,6 +200,10 @@ export interface Sanction {
   motif: string;
   joursMiseAPied?: number; // si mise à pied
   observations?: string;
+  /** Workflow de validation GRH (par défaut: 'en_validation' à la saisie). */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef GRH. */
+  motifRejet?: string;
 }
 
 export const TYPE_SANCTION_LABELS: Record<TypeSanction, string> = {

@@ -417,6 +417,166 @@ export const useEbeneStore = () => {
     [updateMois]
   );
 
+  // ─── Workflow GRH : primes ───
+  const validerPrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number) => {
+      let before: Prime | undefined;
+      let after: Prime | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.primes[employeId] || [];
+        return {
+          ...m,
+          primes: {
+            ...m.primes,
+            [employeId]: list.map((p) => {
+              if (p.id !== primeId) return p;
+              before = p;
+              after = { ...p, statutValidation: "valide", motifRejet: undefined };
+              return after;
+            }),
+          },
+        };
+      });
+      void logAction("VALIDER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterPrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number, motif: string) => {
+      let before: Prime | undefined;
+      let after: Prime | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.primes[employeId] || [];
+        return {
+          ...m,
+          primes: {
+            ...m.primes,
+            [employeId]: list.map((p) => {
+              if (p.id !== primeId) return p;
+              before = p;
+              after = { ...p, statutValidation: "rejete", motifRejet: motif };
+              return after;
+            }),
+          },
+        };
+      });
+      void logAction("REJETER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : absences ───
+  const validerAbsence = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Absence | undefined;
+      let after: Absence | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).map((a) => {
+          if (a.id !== id) return a;
+          before = a;
+          after = { ...a, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterAbsence = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Absence | undefined;
+      let after: Absence | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).map((a) => {
+          if (a.id !== id) return a;
+          before = a;
+          after = { ...a, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : heures supplémentaires ───
+  const validerHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number) => {
+      let before: HeuresSup | undefined;
+      let after: HeuresSup | undefined;
+      updateMois(annee, mois, (m) => {
+        const cur = (m.heuresSup || {})[employeId];
+        if (!cur) return m;
+        before = cur;
+        after = { ...cur, statutValidation: "valide", motifRejet: undefined };
+        return {
+          ...m,
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
+        };
+      });
+      void logAction("VALIDER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number, motif: string) => {
+      let before: HeuresSup | undefined;
+      let after: HeuresSup | undefined;
+      updateMois(annee, mois, (m) => {
+        const cur = (m.heuresSup || {})[employeId];
+        if (!cur) return m;
+        before = cur;
+        after = { ...cur, statutValidation: "rejete", motifRejet: motif };
+        return {
+          ...m,
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
+        };
+      });
+      void logAction("REJETER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : sanctions ───
+  const validerSanction = useCallback(
+    (id: number) => {
+      let before: Sanction | undefined;
+      let after: Sanction | undefined;
+      setSanctions((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          before = s;
+          after = { ...s, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        })
+      );
+      void logAction("VALIDER_SANCTION", "sanctions", id, before ?? null, after ?? null);
+    },
+    []
+  );
+
+  const rejeterSanction = useCallback(
+    (id: number, motif: string) => {
+      let before: Sanction | undefined;
+      let after: Sanction | undefined;
+      setSanctions((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          before = s;
+          after = { ...s, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        })
+      );
+      void logAction("REJETER_SANCTION", "sanctions", id, before ?? null, after ?? null);
+    },
+    []
+  );
+
   // Employés
   const addEmploye = useCallback((e: Omit<Employe, "id">) => {
     let added: Employe | undefined;
@@ -454,7 +614,11 @@ export const useEbeneStore = () => {
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       const id = newId();
-      const newP: Prime = { ...prime, id };
+      const newP: Prime = {
+        ...prime,
+        id,
+        statutValidation: prime.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => {
         const list = m.primes[employeId] || [];
         return {
@@ -490,7 +654,11 @@ export const useEbeneStore = () => {
   const addAbsence = useCallback(
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
       const id = newId();
-      const newA: Absence = { ...a, id };
+      const newA: Absence = {
+        ...a,
+        id,
+        statutValidation: a.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => ({
         ...m,
         absences: [...(m.absences || []), newA],
@@ -519,14 +687,18 @@ export const useEbeneStore = () => {
   const setHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
       let before: HeuresSup | undefined;
+      const newHs: HeuresSup = {
+        ...hs,
+        statutValidation: hs.statutValidation || "en_validation",
+      };
       updateMois(annee, mois, (m) => {
         before = (m.heuresSup || {})[employeId];
         return {
           ...m,
-          heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: newHs },
         };
       });
-      void logAction("UPDATE", "heuresSup", employeId, before ?? null, hs);
+      void logAction("UPDATE", "heuresSup", employeId, before ?? null, newHs);
     },
     [updateMois]
   );
@@ -723,7 +895,11 @@ export const useEbeneStore = () => {
   // ─── Sanctions disciplinaires ───
   const addSanction = useCallback((s: Omit<Sanction, "id">) => {
     const id = newId();
-    const newS: Sanction = { ...s, id };
+    const newS: Sanction = {
+      ...s,
+      id,
+      statutValidation: s.statutValidation || "en_validation",
+    };
     setSanctions((prev) => [...prev, newS]);
     void logAction("INSERT", "sanctions", id, null, newS);
   }, []);
@@ -799,6 +975,14 @@ export const useEbeneStore = () => {
     rejeterTransaction,
     validerFacture,
     rejeterFacture,
+    validerPrime,
+    rejeterPrime,
+    validerAbsence,
+    rejeterAbsence,
+    validerHeuresSup,
+    rejeterHeuresSup,
+    validerSanction,
+    rejeterSanction,
     addEmploye,
     removeEmploye,
     updateEmploye,

@@ -10,17 +10,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle } from "lucide-react";
 import { formatJours } from "@/lib/ebene-utils";
+import { StatutValidationBadge } from "./StatutValidationBadge";
 
 interface Props {
   employes: Employe[];
   absences: Absence[];
   onAdd: (a: Omit<Absence, "id">) => void;
   onRemove: (id: number) => void;
+  isChefGrh: boolean;
+  onValider: (id: number) => void;
+  onRejeter: (id: number, motif: string) => void;
 }
 
-export const AbsencesPanel = ({ employes, absences, onAdd, onRemove }: Props) => {
+export const AbsencesPanel = ({
+  employes,
+  absences,
+  onAdd,
+  onRemove,
+  isChefGrh,
+  onValider,
+  onRejeter,
+}: Props) => {
   const [open, setOpen] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
   const [type, setType] = useState<TypeAbsence>("conges_payes");
@@ -109,25 +121,68 @@ export const AbsencesPanel = ({ employes, absences, onAdd, onRemove }: Props) =>
         <p className="text-center text-muted-foreground py-6 italic">Aucune absence ce mois</p>
       ) : (
         <div className="space-y-2">
-          {absences.map((a) => (
-            <div key={a.id} className="list-item flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-sm">{empName(a.employeId)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {TYPE_ABSENCE_LABELS[a.type].label} • {a.dateDebut} → {a.dateFin} • {formatJours(a.jours)}
-                </p>
-                {a.motif && <p className="text-xs italic mt-0.5">{a.motif}</p>}
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-8 text-destructive hover:bg-destructive/10"
-                onClick={() => onRemove(a.id)}
+          {absences.map((a) => {
+            const statut = a.statutValidation;
+            return (
+              <div
+                key={a.id}
+                className={`list-item flex items-center justify-between ${
+                  statut === "brouillon" ? "opacity-50" : ""
+                }`}
               >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm">{empName(a.employeId)}</p>
+                    <StatutValidationBadge statut={statut} motifRejet={a.motifRejet} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {TYPE_ABSENCE_LABELS[a.type].label} • {a.dateDebut} → {a.dateFin} • {formatJours(a.jours)}
+                  </p>
+                  {a.motif && <p className="text-xs italic mt-0.5">{a.motif}</p>}
+                  {statut === "rejete" && a.motifRejet && (
+                    <p className="text-xs text-destructive mt-1 italic">
+                      Motif du rejet : {a.motifRejet}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {isChefGrh && statut !== "valide" && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-success hover:text-success hover:bg-success/10"
+                      onClick={() => onValider(a.id)}
+                      title="Valider"
+                    >
+                      <Check className="size-4" />
+                    </Button>
+                  )}
+                  {isChefGrh && statut !== "rejete" && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-warning hover:text-warning hover:bg-warning/10"
+                      onClick={() => {
+                        const motif = window.prompt("Motif du rejet :", "");
+                        if (motif && motif.trim()) onRejeter(a.id, motif.trim());
+                      }}
+                      title="Rejeter"
+                    >
+                      <XCircle className="size-4" />
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => onRemove(a.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

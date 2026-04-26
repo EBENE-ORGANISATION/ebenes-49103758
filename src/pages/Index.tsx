@@ -230,6 +230,7 @@ const Index = () => {
                 annee={annee}
                 mois={mois}
                 sanctions={store.sanctions}
+                isChefGrh={isChefGrh}
                 onAddEmploye={inServiceGrh ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
                 onUpdateEmploye={inServiceGrh ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
                 onRemoveEmploye={isChefGrh ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
@@ -241,6 +242,14 @@ const Index = () => {
                 onSetRetenue={inServiceGrh ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error("Action réservée au service GRH."))}
                 onAddSanction={inServiceGrh ? store.addSanction : blocked("Action réservée au service GRH.")}
                 onRemoveSanction={isChefGrh ? store.removeSanction : blockedId("Suppression réservée au chef GRH.")}
+                onValiderPrime={(eid, pid) => store.validerPrime(annee, mois, eid, pid)}
+                onRejeterPrime={(eid, pid, motif) => store.rejeterPrime(annee, mois, eid, pid, motif)}
+                onValiderAbsence={(id) => store.validerAbsence(annee, mois, id)}
+                onRejeterAbsence={(id, motif) => store.rejeterAbsence(annee, mois, id, motif)}
+                onValiderHeuresSup={(eid) => store.validerHeuresSup(annee, mois, eid)}
+                onRejeterHeuresSup={(eid, motif) => store.rejeterHeuresSup(annee, mois, eid, motif)}
+                onValiderSanction={(id) => store.validerSanction(id)}
+                onRejeterSanction={(id, motif) => store.rejeterSanction(id, motif)}
               />
             </TabsContent>
           </Tabs>
