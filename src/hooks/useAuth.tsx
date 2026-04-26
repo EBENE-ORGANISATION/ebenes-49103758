@@ -13,10 +13,18 @@ export type AppRole =
   | "comptable"
   | "saisie";
 
+export interface CrossServiceGrant {
+  id: string;
+  service: "compta" | "grh";
+  level: "membre" | "chef";
+  expires_at: string;
+}
+
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   roles: AppRole[];
+  grants: CrossServiceGrant[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -39,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [grants, setGrants] = useState<CrossServiceGrant[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoles = useCallback(async (uid: string) => {
@@ -53,6 +62,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRoles((data || []).map((r) => r.role as AppRole));
   }, []);
 
+  const fetchGrants = useCallback(async (uid: string) => {
+    const { data, error } = await supabase
+      .from("cross_service_grants")
+      .select("id, service, level, expires_at")
+      .eq("user_id", uid)
+      .gt("expires_at", new Date().toISOString());
+    if (error) {
+      setGrants([]);
+      return;
+    }
+    setGrants((data || []) as CrossServiceGrant[]);
+  }, []);
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       setSession(sess);
@@ -60,21 +82,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (sess?.user) {
         setTimeout(() => {
           fetchRoles(sess.user.id);
+          fetchGrants(sess.user.id);
         }, 0);
       } else {
         setRoles([]);
+        setGrants([]);
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) fetchRoles(sess.user.id);
+      if (sess?.user) {
+        fetchRoles(sess.user.id);
+        fetchGrants(sess.user.id);
+      }
       setLoading(false);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [fetchRoles]);
+  }, [fetchRoles, fetchGrants]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -84,25 +111,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
+    setGrants([]);
   };
 
   const refreshRoles = useCallback(async () => {
-    if (user) await fetchRoles(user.id);
-  }, [user, fetchRoles]);
+    if (user) {
+      await fetchRoles(user.id);
+      await fetchGrants(user.id);
+    }
+  }, [user, fetchRoles, fetchGrants]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = roles.includes("admin");
+  const hasGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc);
+  const hasChefGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc && g.level === "chef");
   const inServiceCompta =
-    isAdmin || roles.includes("chef_compta") || roles.includes("membre_compta") || roles.includes("comptable");
+    isAdmin || roles.includes("chef_compta") || roles.includes("membre_compta") || roles.includes("comptable") || hasGrant("compta");
   const inServiceGrh =
-    isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh");
-  const isChefCompta = isAdmin || roles.includes("chef_compta");
-  const isChefGrh = isAdmin || roles.includes("chef_grh");
+    isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh") || hasGrant("grh");
+  const isChefCompta = isAdmin || roles.includes("chef_compta") || hasChefGrant("compta");
+  const isChefGrh = isAdmin || roles.includes("chef_grh") || hasChefGrant("grh");
 
   return (
     <AuthContext.Provider
       value={{
-        user, session, roles, loading, signIn, signOut, hasRole, isAdmin,
+        user, session, roles, grants, loading, signIn, signOut, hasRole, isAdmin,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, refreshRoles,
       }}
     >

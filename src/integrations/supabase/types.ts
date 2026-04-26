@@ -80,6 +80,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cross_service_grants: {
+        Row: {
+          created_at: string
+          expires_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          level: string
+          note: string | null
+          service: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          level?: string
+          note?: string | null
+          service: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          level?: string
+          note?: string | null
+          service?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           actif: boolean
@@ -136,6 +175,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_active_chef_grant: {
+        Args: { _service: string; _user_id: string }
+        Returns: boolean
+      }
+      has_active_grant: {
+        Args: { _service: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -147,6 +194,8 @@ export type Database = {
       in_service_grh: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_chef: { Args: { _user_id: string }; Returns: boolean }
+      is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
+      is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
