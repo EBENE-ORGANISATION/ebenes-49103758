@@ -20,6 +20,7 @@ import {
   Sanction,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
+import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 
 /**
  * useEbeneStoreRemote
@@ -106,6 +107,13 @@ export const useEbeneStoreRemote = () => {
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
+
+  // ─── Statut de sauvegarde Google Drive ───
+  const [driveStatus, setDriveStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [driveLastBackup, setDriveLastBackup] = useState<Date | null>(null);
+  const [driveLastError, setDriveLastError] = useState<string | null>(null);
+  const driveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const significantWritesRef = useRef<number>(0);
 
   // Anti-boucle : signature locale des dernières valeurs envoyées
   const localSig = useRef<Record<string, string>>({});
