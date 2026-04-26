@@ -352,8 +352,9 @@ export const useEbeneStoreRemote = () => {
         ...m,
         transactions: [...m.transactions, { ...t, id: newId() }],
       }));
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const removeTransaction = useCallback(
@@ -374,8 +375,9 @@ export const useEbeneStoreRemote = () => {
           factures,
         };
       });
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const addFacture = useCallback(
@@ -385,9 +387,10 @@ export const useEbeneStoreRemote = () => {
         ...m,
         factures: [...m.factures, { ...f, id }],
       }));
+      markSignificantWrite();
       return id;
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const updateFacture = useCallback(
