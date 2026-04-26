@@ -198,6 +198,7 @@ export const Factures = ({
           onAdd={onAddDevis}
           onRemove={onRemoveDevis}
           onConvertir={onConvertirDevis}
+          onUpdate={onUpdateDevis}
         />
       )}
 
@@ -217,7 +218,9 @@ export const Factures = ({
         </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-          <h3 className="font-bold text-lg">Nouvelle Facture</h3>
+          <h3 className="font-bold text-lg">
+            {editingId != null ? "Modifier la facture" : "Nouvelle Facture"}
+          </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -333,7 +336,7 @@ export const Factures = ({
 
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-              ✓ Créer
+              {editingId != null ? "✓ Enregistrer" : "✓ Créer"}
             </Button>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} className="gap-1.5">
               <X className="size-4" /> Annuler
