@@ -27,7 +27,7 @@ const Index = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
-  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin, canViewDashboard, isEmployeOnly } = useAuth();
+  const { perms, can, isEmployeOnly } = useAuth();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -94,6 +94,57 @@ const Index = () => {
   const blocked = (msg: string) => () => toast.error(msg);
   const blockedId = (msg: string) => (_id: number) => toast.error(msg);
 
+  // Niveaux par module
+  const lvlCompta = perms.compta;
+  const lvlFact = perms.factures;
+  const lvlStock = perms.stock;
+  const lvlImmo = perms.immobilisations;
+  const lvlFisc = perms.fiscalite;
+  const lvlParamSoc = perms.parametres_sociaux;
+  const lvlGrh = perms.grh;
+
+  // Helpers permissions
+  const comptaWrite = can("compta", "write");
+  const comptaValidate = can("compta", "validate");
+  const factWrite = can("factures", "write");
+  const factValidate = can("factures", "validate");
+  const stockWrite = can("stock", "write");
+  const stockValidate = can("stock", "validate");
+  const immoWrite = can("immobilisations", "write");
+  const immoValidate = can("immobilisations", "validate");
+  const fiscWrite = can("fiscalite", "write");
+  const grhWrite = can("grh", "write");
+  const grhValidate = can("grh", "validate");
+
+  // Visibilité des onglets
+  const showDashboard = can("dashboard", "read");
+  const showCompta = lvlCompta !== "none";
+  const showFact = lvlFact !== "none";
+  const showStock = lvlStock !== "none";
+  const showImmo = lvlImmo !== "none";
+  const showFisc = lvlFisc !== "none" || lvlParamSoc !== "none";
+  const showGrh = lvlGrh !== "none";
+
+  const visibleTabs = [
+    showDashboard, showCompta, showFisc, showFact, showStock, showGrh, showImmo,
+  ].filter(Boolean).length;
+  const defaultTab = showDashboard
+    ? "dashboard"
+    : showCompta ? "compta"
+    : showFact ? "fact"
+    : showStock ? "stock"
+    : showGrh ? "grh"
+    : showFisc ? "fisc"
+    : showImmo ? "immo"
+    : "compta";
+  const gridCols = visibleTabs >= 7 ? "sm:grid-cols-7"
+    : visibleTabs === 6 ? "sm:grid-cols-6"
+    : visibleTabs === 5 ? "sm:grid-cols-5"
+    : visibleTabs === 4 ? "sm:grid-cols-4"
+    : visibleTabs === 3 ? "sm:grid-cols-3"
+    : visibleTabs === 2 ? "sm:grid-cols-2"
+    : "sm:grid-cols-1";
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -115,34 +166,46 @@ const Index = () => {
         />
 
         <div className="card-elevated p-4 sm:p-6 no-print">
-          <Tabs defaultValue={canViewDashboard ? "dashboard" : "compta"} className="w-full">
-            <TabsList className={`grid grid-cols-2 ${canViewDashboard ? "sm:grid-cols-7" : "sm:grid-cols-6"} w-full mb-5 h-auto`}>
-              {canViewDashboard && (
+          <Tabs defaultValue={defaultTab} className="w-full">
+            <TabsList className={`grid grid-cols-2 ${gridCols} w-full mb-5 h-auto`}>
+              {showDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
                   📊 Dashboard
                 </TabsTrigger>
               )}
-              <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
-                💰 Comptabilité
-              </TabsTrigger>
-              <TabsTrigger value="fisc" className="py-2.5 text-sm font-semibold">
-                🧮 Fiscalité
-              </TabsTrigger>
-              <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
-                📄 Factures
-              </TabsTrigger>
-              <TabsTrigger value="stock" className="py-2.5 text-sm font-semibold">
-                📦 Stock
-              </TabsTrigger>
-              <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
-                👥 GRH
-              </TabsTrigger>
-              <TabsTrigger value="immo" className="py-2.5 text-sm font-semibold">
-                🏢 Immobilisations
-              </TabsTrigger>
+              {showCompta && (
+                <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
+                  💰 Comptabilité
+                </TabsTrigger>
+              )}
+              {showFisc && (
+                <TabsTrigger value="fisc" className="py-2.5 text-sm font-semibold">
+                  🧮 Fiscalité
+                </TabsTrigger>
+              )}
+              {showFact && (
+                <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
+                  📄 Factures
+                </TabsTrigger>
+              )}
+              {showStock && (
+                <TabsTrigger value="stock" className="py-2.5 text-sm font-semibold">
+                  📦 Stock
+                </TabsTrigger>
+              )}
+              {showGrh && (
+                <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
+                  👥 GRH
+                </TabsTrigger>
+              )}
+              {showImmo && (
+                <TabsTrigger value="immo" className="py-2.5 text-sm font-semibold">
+                  🏢 Immobilisations
+                </TabsTrigger>
+              )}
             </TabsList>
 
-            {canViewDashboard && (
+            {showDashboard && (
               <TabsContent value="dashboard">
                 <Dashboard
                   donneesMensuelles={store.donneesMensuelles}
@@ -154,6 +217,7 @@ const Index = () => {
               </TabsContent>
             )}
 
+            {showCompta && (
             <TabsContent value="compta">
               <Comptabilite
                 data={data}
@@ -162,18 +226,20 @@ const Index = () => {
                 employes={store.employes}
                 taux={taux}
                 donneesMensuelles={store.donneesMensuelles}
-                onAdd={inServiceCompta
+                onAdd={comptaWrite
                   ? (t) => store.addTransaction(annee, mois, t)
                   : blocked("Lecture seule : seul le service Comptabilité peut saisir.")}
-                onRemove={isChefCompta
+                onRemove={comptaValidate
                   ? (id) => store.removeTransaction(annee, mois, id)
                   : blockedId("Suppression réservée au chef de service Comptabilité.")}
-                isChefCompta={isChefCompta}
+                isChefCompta={comptaValidate}
                 onValider={(id) => store.validerTransaction(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterTransaction(annee, mois, id, motif)}
               />
             </TabsContent>
+            )}
 
+            {showFisc && (
             <TabsContent value="fisc">
               <Fiscalite
                 data={data}
@@ -181,49 +247,53 @@ const Index = () => {
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
-                onUpdateParams={isChefCompta
+                onUpdateParams={fiscWrite
                   ? (p) => store.setParamAnnuel(annee, p)
                   : () => toast.error("Modification des paramètres réservée au chef Comptabilité / admin.")}
                 donneesMensuelles={store.donneesMensuelles}
                 tauxHistorique={store.tauxHistorique}
-                onAjouterTaux={isChefCompta ? store.ajouterTaux : () => toast.error("Modification des taux fiscaux réservée au chef Comptabilité / admin.")}
-                onSupprimerTaux={isChefCompta ? store.supprimerTaux : () => toast.error("Suppression des taux réservée au chef Comptabilité / admin.")}
+                onAjouterTaux={fiscWrite ? store.ajouterTaux : () => toast.error("Modification des taux fiscaux réservée au chef Comptabilité / admin.")}
+                onSupprimerTaux={fiscWrite ? store.supprimerTaux : () => toast.error("Suppression des taux réservée au chef Comptabilité / admin.")}
               />
             </TabsContent>
+            )}
 
+            {showFact && (
             <TabsContent value="fact">
               <Factures
                 annee={annee}
                 donneesMensuelles={store.donneesMensuelles}
                 data={data}
-                onAdd={inServiceCompta
+                onAdd={factWrite
                   ? (f) => store.addFacture(annee, mois, f)
                   : ((_f: Omit<Facture, "id">) => { toast.error("Lecture seule : seul le service Comptabilité peut créer une facture."); return 0; })}
-                onRemove={isChefCompta
+                onRemove={factValidate
                   ? (id) => store.removeFacture(annee, mois, id)
                   : blockedId("Suppression réservée au chef de service Comptabilité.")}
-                onMarquerPayee={inServiceCompta
+                onMarquerPayee={factWrite
                   ? (id) => store.marquerPayee(annee, mois, id)
                   : blockedId("Action réservée au service Comptabilité.")}
-                onConvertir={inServiceCompta
+                onConvertir={factWrite
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)
                   : (() => toast.error("Action réservée au service Comptabilité."))}
                 onPreview={setPreviewFacture}
-                isChefCompta={isChefCompta}
+                isChefCompta={factValidate}
                 onValider={(id) => store.validerFacture(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
-                onAddDevis={inServiceCompta
+                onAddDevis={factWrite
                   ? (d) => store.addDevis(annee, mois, d)
                   : ((_d) => { toast.error("Lecture seule : seul le service Comptabilité peut créer un devis."); return 0; })}
-                onRemoveDevis={isChefCompta
+                onRemoveDevis={factValidate
                   ? (id) => store.removeDevis(annee, mois, id)
                   : blockedId("Suppression réservée au chef de service Comptabilité.")}
-                onConvertirDevis={inServiceCompta
+                onConvertirDevis={factWrite
                   ? (id, num) => { store.convertirDevisEnFacture(annee, mois, id, num); }
                   : (() => toast.error("Action réservée au service Comptabilité."))}
               />
             </TabsContent>
+            )}
 
+            {showStock && (
             <TabsContent value="stock">
               <Stock
                 data={data}
@@ -232,18 +302,20 @@ const Index = () => {
                 articles={store.articles}
                 fournisseurs={store.fournisseurs}
                 categories={store.categoriesStock}
-                onAddArticle={inServiceCompta ? store.addArticle : blocked("Action réservée au service Comptabilité.")}
-                onUpdateArticle={inServiceCompta ? store.updateArticle : (() => toast.error("Action réservée au service Comptabilité."))}
-                onRemoveArticle={isChefCompta ? store.removeArticle : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddFournisseur={inServiceCompta ? store.addFournisseur : blocked("Action réservée au service Comptabilité.")}
-                onRemoveFournisseur={isChefCompta ? store.removeFournisseur : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddCategorie={inServiceCompta ? store.addCategorieStock : blocked("Action réservée au service Comptabilité.")}
-                onRemoveCategorie={isChefCompta ? store.removeCategorieStock : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddMouvement={inServiceCompta ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error("Action réservée au service Comptabilité."); return 0; })}
-                onRemoveMouvement={isChefCompta ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error("Suppression réservée au chef Comptabilité."))}
+                onAddArticle={stockWrite ? store.addArticle : blocked("Action réservée au service Comptabilité.")}
+                onUpdateArticle={stockWrite ? store.updateArticle : (() => toast.error("Action réservée au service Comptabilité."))}
+                onRemoveArticle={stockValidate ? store.removeArticle : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddFournisseur={stockWrite ? store.addFournisseur : blocked("Action réservée au service Comptabilité.")}
+                onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddCategorie={stockWrite ? store.addCategorieStock : blocked("Action réservée au service Comptabilité.")}
+                onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error("Action réservée au service Comptabilité."); return 0; })}
+                onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error("Suppression réservée au chef Comptabilité."))}
               />
             </TabsContent>
+            )}
 
+            {showGrh && (
             <TabsContent value="grh">
               <GRH
                 employes={store.employes}
@@ -251,18 +323,18 @@ const Index = () => {
                 annee={annee}
                 mois={mois}
                 sanctions={store.sanctions}
-                isChefGrh={isChefGrh}
-                onAddEmploye={inServiceGrh ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
-                onUpdateEmploye={inServiceGrh ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
-                onRemoveEmploye={isChefGrh ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
-                onAddPrime={inServiceGrh ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error("Action réservée au service GRH."))}
-                onRemovePrime={isChefGrh ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error("Suppression réservée au chef GRH."))}
-                onAddAbsence={inServiceGrh ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error("Action réservée au service GRH."))}
-                onRemoveAbsence={isChefGrh ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error("Suppression réservée au chef GRH."))}
-                onSetHeuresSup={inServiceGrh ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error("Action réservée au service GRH."))}
-                onSetRetenue={inServiceGrh ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error("Action réservée au service GRH."))}
-                onAddSanction={inServiceGrh ? store.addSanction : blocked("Action réservée au service GRH.")}
-                onRemoveSanction={isChefGrh ? store.removeSanction : blockedId("Suppression réservée au chef GRH.")}
+                isChefGrh={grhValidate}
+                onAddEmploye={grhWrite ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
+                onUpdateEmploye={grhWrite ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
+                onRemoveEmploye={grhValidate ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
+                onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error("Action réservée au service GRH."))}
+                onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error("Suppression réservée au chef GRH."))}
+                onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error("Action réservée au service GRH."))}
+                onRemoveAbsence={grhValidate ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error("Suppression réservée au chef GRH."))}
+                onSetHeuresSup={grhWrite ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error("Action réservée au service GRH."))}
+                onSetRetenue={grhWrite ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error("Action réservée au service GRH."))}
+                onAddSanction={grhWrite ? store.addSanction : blocked("Action réservée au service GRH.")}
+                onRemoveSanction={grhValidate ? store.removeSanction : blockedId("Suppression réservée au chef GRH.")}
                 onValiderPrime={(eid, pid) => store.validerPrime(annee, mois, eid, pid)}
                 onRejeterPrime={(eid, pid, motif) => store.rejeterPrime(annee, mois, eid, pid, motif)}
                 onValiderAbsence={(id) => store.validerAbsence(annee, mois, id)}
@@ -273,20 +345,23 @@ const Index = () => {
                 onRejeterSanction={(id, motif) => store.rejeterSanction(id, motif)}
               />
             </TabsContent>
+            )}
 
+            {showImmo && (
             <TabsContent value="immo">
               <Immobilisations
                 annee={annee}
                 immobilisations={store.immobilisations}
-                onAdd={isChefCompta || isAdmin
+                onAdd={immoWrite
                   ? store.addImmobilisation
                   : ((_i) => { toast.error("Action réservée au chef Comptabilité / admin."); return 0; })}
-                onRemove={isChefCompta || isAdmin
+                onRemove={immoValidate
                   ? store.removeImmobilisation
                   : blockedId("Suppression réservée au chef Comptabilité / admin.")}
-                canEdit={isChefCompta || isAdmin}
+                canEdit={immoWrite}
               />
             </TabsContent>
+            )}
           </Tabs>
         </div>
 

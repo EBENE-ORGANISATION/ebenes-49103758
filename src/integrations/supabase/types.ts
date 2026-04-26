@@ -125,6 +125,36 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_overrides: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          level: Database["public"]["Enums"]["access_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          level: Database["public"]["Enums"]["access_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["access_level"]
+          module?: Database["public"]["Enums"]["app_module"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           actif: boolean
@@ -208,6 +238,16 @@ export type Database = {
       is_employe: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      access_level: "none" | "read" | "write" | "validate"
+      app_module:
+        | "dashboard"
+        | "compta"
+        | "factures"
+        | "stock"
+        | "immobilisations"
+        | "fiscalite"
+        | "parametres_sociaux"
+        | "grh"
       app_role:
         | "admin"
         | "rh"
@@ -346,6 +386,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_level: ["none", "read", "write", "validate"],
+      app_module: [
+        "dashboard",
+        "compta",
+        "factures",
+        "stock",
+        "immobilisations",
+        "fiscalite",
+        "parametres_sociaux",
+        "grh",
+      ],
       app_role: [
         "admin",
         "rh",
