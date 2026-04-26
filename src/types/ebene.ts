@@ -241,7 +241,6 @@ export interface TauxFiscaux {
   cnssEmp: number; // 0.175
   amuSal: number; // 0.05
   amuEmp: number; // 0.05
-  primeSalissure: number; // 5000
   /** Activité par défaut: service ou commerce */
   activiteDefaut: "service" | "commerce";
 }
@@ -258,7 +257,6 @@ export const TAUX_DEFAUT: TauxFiscaux = {
   cnssEmp: 0.175,
   amuSal: 0.05,
   amuEmp: 0.05,
-  primeSalissure: 5000,
   activiteDefaut: "service",
 };
 
