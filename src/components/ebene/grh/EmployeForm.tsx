@@ -107,6 +107,13 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           <Field label="Adresse" full>
             <Input value={form.adresse || ""} onChange={(e) => update("adresse", e.target.value)} />
           </Field>
+          <Field label="UUID compte utilisateur (portail employé)" full>
+            <Input
+              value={form.userId || ""}
+              onChange={(e) => update("userId", e.target.value || undefined)}
+              placeholder="ex: 123e4567-e89b-12d3-a456-426614174000"
+            />
+          </Field>
         </div>
       </div>
 
