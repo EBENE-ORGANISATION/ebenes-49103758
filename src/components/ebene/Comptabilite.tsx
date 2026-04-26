@@ -292,7 +292,9 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
         {sorted.length === 0 && !salairesAuto ? (
           <p className="text-center text-muted-foreground py-8 italic">Aucune transaction pour ce mois</p>
         ) : (
-          sorted.map((t) => (
+          sorted.map((t) => {
+            const anomalies: Anomalie[] = anomaliesMap.transactions.get(t.id) || [];
+            return (
             <div
               key={t.id}
               className={`list-item flex items-center justify-between gap-3 ${
@@ -302,6 +304,25 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold truncate">{t.desc}</p>
+                  {anomalies.length > 0 && (
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="badge-soft cursor-help bg-warning/15 text-warning flex items-center gap-1">
+                            <AlertTriangle className="size-3" />
+                            {anomalies.length > 1 ? `${anomalies.length} anomalies` : "Anomalie"}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <ul className="text-xs max-w-xs list-disc pl-4 space-y-0.5">
+                            {anomalies.map((a, i) => (
+                              <li key={i}>{a.message}</li>
+                            ))}
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {t.statut && (
                     t.statut === "rejete" && t.motifRejet ? (
                       <TooltipProvider delayDuration={150}>
