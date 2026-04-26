@@ -411,7 +411,8 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
                 </Button>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
