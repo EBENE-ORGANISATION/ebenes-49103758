@@ -38,6 +38,7 @@ import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
+import { generateBulletin } from "@/lib/bulletinPDF";
 
 interface Props {
   employes: Employe[];
@@ -194,6 +195,15 @@ export const GRH = ({
                       <div className="flex flex-wrap items-center gap-1 shrink-0">
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setBulletin(e)}>
                           <Receipt className="size-3" /> Bulletin
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 h-8 text-xs"
+                          onClick={() => generateBulletin(e, data, annee, mois)}
+                          title="Télécharger le bulletin PDF"
+                        >
+                          📄 PDF
                         </Button>
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setContrat(e)}>
                           <FileText className="size-3" /> Contrat
