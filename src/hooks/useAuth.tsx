@@ -9,6 +9,7 @@ export type AppRole =
   | "chef_grh"
   | "membre_grh"
   | "dashboard_viewer"
+  | "employe"
   // anciens rôles conservés pour compatibilité
   | "rh"
   | "comptable"
@@ -41,6 +42,10 @@ interface AuthContextValue {
   isChefGrh: boolean;
   /** Peut voir l'onglet Dashboard (admin ou rôle dashboard_viewer) */
   canViewDashboard: boolean;
+  /** Compte de type Employé (portail self-service) */
+  isEmploye: boolean;
+  /** L'utilisateur n'a QUE le rôle employe (aucun rôle métier admin/chef/membre) */
+  isEmployeOnly: boolean;
   refreshRoles: () => Promise<void>;
 }
 
@@ -135,12 +140,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isChefCompta = isAdmin || roles.includes("chef_compta") || hasChefGrant("compta");
   const isChefGrh = isAdmin || roles.includes("chef_grh") || hasChefGrant("grh");
   const canViewDashboard = isAdmin || roles.includes("dashboard_viewer");
+  const isEmploye = roles.includes("employe");
+  const hasAnyStaffRole =
+    isAdmin ||
+    inServiceCompta ||
+    inServiceGrh ||
+    isChefCompta ||
+    isChefGrh ||
+    canViewDashboard;
+  const isEmployeOnly = isEmploye && !hasAnyStaffRole;
 
   return (
     <AuthContext.Provider
       value={{
         user, session, roles, grants, loading, signIn, signOut, hasRole, isAdmin,
-        inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard, refreshRoles,
+        inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
+        isEmploye, isEmployeOnly, refreshRoles,
       }}
     >
       {children}
@@ -168,6 +183,8 @@ export const useAuth = () => {
       isChefCompta: false,
       isChefGrh: false,
       canViewDashboard: false,
+      isEmploye: false,
+      isEmployeOnly: false,
       refreshRoles: async () => {},
     } satisfies AuthContextValue;
   }
@@ -181,6 +198,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   chef_grh: "Chef Service GRH",
   membre_grh: "Membre Service GRH",
   dashboard_viewer: "Accès Dashboard",
+  employe: "Employé (portail)",
   rh: "RH (ancien)",
   comptable: "Comptable (ancien)",
   saisie: "Saisie (ancien)",
