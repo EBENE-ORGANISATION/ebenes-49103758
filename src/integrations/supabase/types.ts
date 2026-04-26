@@ -205,6 +205,7 @@ export type Database = {
       is_chef: { Args: { _user_id: string }; Returns: boolean }
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
+      is_employe: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
