@@ -26,7 +26,6 @@ export interface CalculPaie {
   primeAnciennete: number;
   hsMontant: number;
   primesDiverses: number;
-  primeSalissure: number;
   indemnites: number;
   brut: number;
   imposable: number;
@@ -76,8 +75,6 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
   const primes = (data.primes || {})[employe.id] || [];
   const primesDiverses = primes.reduce((a, p) => a + p.montant, 0);
 
-  // Salissure désormais optionnelle par employé
-  const primeSalissure = employe.primeSalissureActive ? 5000 : 0;
   const indemnites =
     (employe.indemniteTransport || 0) +
     (employe.indemniteLogement || 0) +
@@ -89,7 +86,6 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
     primeAnciennete +
     hsMontant +
     primesDiverses +
-    primeSalissure +
     indemnites;
 
   // Base imposable IRPP : on exclut indemnité transport (souvent exonérée)
