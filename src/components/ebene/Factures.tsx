@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { DevisSection } from "./DevisSection";
+import type { Devis } from "@/types/ebene";
 
 interface Props {
   annee: number;
@@ -22,6 +24,10 @@ interface Props {
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
   onRejeter?: (id: number, motif: string) => void;
+  // Devis (optionnels)
+  onAddDevis?: (d: Omit<Devis, "id">) => number;
+  onRemoveDevis?: (id: number) => void;
+  onConvertirDevis?: (id: number, numeroFacture: string) => void;
 }
 
 const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -60,6 +66,9 @@ export const Factures = ({
   isChefCompta,
   onValider,
   onRejeter,
+  onAddDevis,
+  onRemoveDevis,
+  onConvertirDevis,
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [client, setClient] = useState("");
@@ -120,6 +129,17 @@ export const Factures = ({
 
   return (
     <div className="space-y-5">
+      {onAddDevis && onRemoveDevis && onConvertirDevis && (
+        <DevisSection
+          annee={annee}
+          donneesMensuelles={donneesMensuelles}
+          data={data}
+          onAdd={onAddDevis}
+          onRemove={onRemoveDevis}
+          onConvertir={onConvertirDevis}
+        />
+      )}
+
       <div className="bg-info/10 border-l-4 border-info rounded-md p-3 text-sm">
         💡 Quand une facture passe à <b>Payée</b>, son montant est automatiquement ajouté aux
         recettes. Supprimer la transaction restaure le statut.
