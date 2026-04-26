@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
@@ -26,10 +26,13 @@ interface Props {
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
   onRejeter?: (id: number, motif: string) => void;
+  /** Mise à jour partielle d'une facture non encore validée. */
+  onUpdateFacture?: (id: number, patch: Partial<Facture>) => void;
   // Devis (optionnels)
   onAddDevis?: (d: Omit<Devis, "id">) => number;
   onRemoveDevis?: (id: number) => void;
   onConvertirDevis?: (id: number, numeroFacture: string) => void;
+  onUpdateDevis?: (id: number, patch: Partial<Devis>) => void;
 }
 
 const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -68,11 +71,14 @@ export const Factures = ({
   isChefCompta,
   onValider,
   onRejeter,
+  onUpdateFacture,
   onAddDevis,
   onRemoveDevis,
   onConvertirDevis,
+  onUpdateDevis,
 }: Props) => {
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [reduction, setReduction] = useState("0");
@@ -88,6 +94,7 @@ export const Factures = ({
   const anomaliesMap = useMemo(() => detectAnomalies(donneesMensuelles), [donneesMensuelles]);
 
   const reset = () => {
+    setEditingId(null);
     setClient("");
     setDate(todayISO());
     setReduction("0");
@@ -123,6 +130,24 @@ export const Factures = ({
     const totalTva = avecTva ? totalHT * 0.18 : 0;
     const totalTtc = totalHT + totalTva;
 
+    if (editingId != null && onUpdateFacture) {
+      onUpdateFacture(editingId, {
+        client: client.trim(),
+        date,
+        lignes: lignesNet,
+        reduction: red,
+        avecTva,
+        statut: proforma ? "proforma" : "en_attente",
+        totalHT,
+        totalTva,
+        totalTtc,
+        activite,
+      });
+      reset();
+      setOpen(false);
+      return;
+    }
+
     onAdd({
       numero: prochainNumero(proforma, annee, donneesMensuelles),
       client: client.trim(),
@@ -141,6 +166,23 @@ export const Factures = ({
     setOpen(false);
   };
 
+  const startEdit = (f: Facture) => {
+    setEditingId(f.id);
+    setClient(f.client);
+    setDate(f.date);
+    setReduction(String(f.reduction || 0));
+    setAvecTva(!!f.avecTva);
+    setProforma(f.statut === "proforma");
+    setActivite(f.activite || "service");
+    setLignes(
+      (f.lignes && f.lignes.length > 0
+        ? f.lignes
+        : [{ description: "", montant: 0 }]
+      ).map((l) => ({ description: l.description, montant: String(l.montant) }))
+    );
+    setOpen(true);
+  };
+
   const sorted = useMemo(
     () => [...data.factures].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
     [data.factures]
@@ -156,6 +198,7 @@ export const Factures = ({
           onAdd={onAddDevis}
           onRemove={onRemoveDevis}
           onConvertir={onConvertirDevis}
+          onUpdate={onUpdateDevis}
         />
       )}
 
@@ -175,7 +218,9 @@ export const Factures = ({
         </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-          <h3 className="font-bold text-lg">Nouvelle Facture</h3>
+          <h3 className="font-bold text-lg">
+            {editingId != null ? "Modifier la facture" : "Nouvelle Facture"}
+          </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -291,7 +336,7 @@ export const Factures = ({
 
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-              ✓ Créer
+              {editingId != null ? "✓ Enregistrer" : "✓ Créer"}
             </Button>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} className="gap-1.5">
               <X className="size-4" /> Annuler
@@ -388,6 +433,17 @@ export const Factures = ({
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)}>
                       <Eye className="size-4" />
                     </Button>
+                    {onUpdateFacture && sv !== "valide" && f.statut !== "payee" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        onClick={() => startEdit(f)}
+                        title="Modifier (uniquement si non validée)"
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
                     {isChefCompta && sv !== "valide" && onValider && (
                       <Button
                         size="icon"

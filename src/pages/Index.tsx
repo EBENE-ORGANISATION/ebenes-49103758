@@ -33,6 +33,17 @@ const Index = () => {
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
+  // Employés effectivement intégrés à la paie (validés ou créés avant le
+  // workflow de validation — donc statutValidation absent). Les employés
+  // 'en_validation' ou 'rejete' sont visibles uniquement côté GRH.
+  const employesPaie = useMemo(
+    () =>
+      store.employes.filter(
+        (e) => !e.statutValidation || e.statutValidation === "valide"
+      ),
+    [store.employes]
+  );
+
   // Compte 'employe' pur → portail self-service uniquement
   if (isEmployeOnly) {
     return <PortailEmploye />;
@@ -42,10 +53,10 @@ const Index = () => {
     () =>
       getAlertes({
         donneesMensuelles: store.donneesMensuelles,
-        employes: store.employes,
+        employes: employesPaie,
         articles: store.articles,
       }),
-    [store.donneesMensuelles, store.employes, store.articles]
+    [store.donneesMensuelles, employesPaie, store.articles]
   );
 
   const exportJSON = () => {
@@ -209,7 +220,7 @@ const Index = () => {
               <TabsContent value="dashboard">
                 <Dashboard
                   donneesMensuelles={store.donneesMensuelles}
-                  employes={store.employes}
+                  employes={employesPaie}
                   tauxHistorique={store.tauxHistorique}
                   annee={annee}
                   mois={mois}
@@ -223,7 +234,7 @@ const Index = () => {
                 data={data}
                 annee={annee}
                 mois={mois}
-                employes={store.employes}
+                employes={employesPaie}
                 taux={taux}
                 donneesMensuelles={store.donneesMensuelles}
                 onAdd={comptaWrite
@@ -243,7 +254,7 @@ const Index = () => {
             <TabsContent value="fisc">
               <Fiscalite
                 data={data}
-                employes={store.employes}
+                employes={employesPaie}
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
@@ -280,6 +291,9 @@ const Index = () => {
                 isChefCompta={factValidate}
                 onValider={(id) => store.validerFacture(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
+                onUpdateFacture={factWrite
+                  ? (id, patch) => store.updateFacture(annee, mois, id, patch)
+                  : (() => toast.error("Modification réservée au service Comptabilité."))}
                 onAddDevis={factWrite
                   ? (d) => store.addDevis(annee, mois, d)
                   : ((_d) => { toast.error("Lecture seule : seul le service Comptabilité peut créer un devis."); return 0; })}
@@ -289,6 +303,9 @@ const Index = () => {
                 onConvertirDevis={factWrite
                   ? (id, num) => { store.convertirDevisEnFacture(annee, mois, id, num); }
                   : (() => toast.error("Action réservée au service Comptabilité."))}
+                onUpdateDevis={factWrite
+                  ? (id, patch) => store.updateDevis(annee, mois, id, patch)
+                  : (() => toast.error("Modification réservée au service Comptabilité."))}
               />
             </TabsContent>
             )}
@@ -327,6 +344,8 @@ const Index = () => {
                 onAddEmploye={grhWrite ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
                 onUpdateEmploye={grhWrite ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
                 onRemoveEmploye={grhValidate ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
+                onValiderEmploye={grhValidate ? store.validerEmploye : blockedId("Validation réservée au chef GRH.")}
+                onRejeterEmploye={grhValidate ? store.rejeterEmploye : ((_id: number, _m: string) => toast.error("Validation réservée au chef GRH."))}
                 onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error("Action réservée au service GRH."))}
                 onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error("Suppression réservée au chef GRH."))}
                 onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error("Action réservée au service GRH."))}

@@ -17,12 +17,21 @@ type AppRole =
   | "membre_compta"
   | "chef_grh"
   | "membre_grh"
+  | "dashboard_viewer"
+  | "employe"
   | "rh"
   | "comptable"
   | "saisie";
 
 interface Body {
-  action: "create" | "delete" | "set_roles" | "set_active" | "reset_password" | "list";
+  action:
+    | "create"
+    | "delete"
+    | "set_roles"
+    | "set_active"
+    | "reset_password"
+    | "list"
+    | "create_employe_account";
   email?: string;
   password?: string;
   nom?: string;
@@ -30,6 +39,8 @@ interface Body {
   roles?: AppRole[];
   actif?: boolean;
   new_password?: string;
+  /** Pour create_employe_account : info à renvoyer dans la réponse. */
+  employe_nom?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -140,6 +151,57 @@ Deno.serve(async (req: Request) => {
         });
         if (error) return json({ error: error.message }, 400);
         return json({ ok: true });
+      }
+
+      case "create_employe_account": {
+        // Crée un compte 'employe' (portail self-service) à partir d'un email.
+        // Retourne user_id + mot de passe temporaire pour l'admin/RH.
+        if (!body.email) return json({ error: "Email requis" }, 400);
+        const email = body.email.trim().toLowerCase();
+
+        // Vérifie si un compte existe déjà sur cet email
+        const { data: existing } = await admin
+          .from("profiles")
+          .select("user_id")
+          .eq("email", email)
+          .maybeSingle();
+        if (existing?.user_id) {
+          return json({
+            ok: true,
+            user_id: existing.user_id,
+            already_existed: true,
+          });
+        }
+
+        // Mot de passe temporaire à 12 caractères
+        const tempPassword =
+          Math.random().toString(36).slice(-8) +
+          Math.random().toString(36).slice(-4).toUpperCase();
+
+        const { data: created, error } = await admin.auth.admin.createUser({
+          email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: { nom: body.employe_nom || body.nom || "" },
+        });
+        if (error) return json({ error: error.message }, 400);
+        const newUserId = created.user!.id;
+
+        // Attribuer le rôle 'employe' uniquement
+        await admin.from("user_roles").insert([{ user_id: newUserId, role: "employe" }]);
+        if (body.employe_nom || body.nom) {
+          await admin
+            .from("profiles")
+            .update({ nom: body.employe_nom || body.nom })
+            .eq("user_id", newUserId);
+        }
+
+        return json({
+          ok: true,
+          user_id: newUserId,
+          temp_password: tempPassword,
+          already_existed: false,
+        });
       }
 
       default:

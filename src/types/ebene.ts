@@ -142,6 +142,14 @@ export interface Employe {
   soldeConges?: number;
   /** UUID du compte auth.users lié (portail employé self-service). */
   userId?: string;
+  /**
+   * Workflow de validation GRH. Un employé créé par un membre est
+   * 'en_validation' tant que le chef GRH ne l'a pas validé. Tant qu'il
+   * n'est pas 'valide', il est exclu des calculs de paie.
+   */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef GRH. */
+  motifRejet?: string;
 }
 
 export type TypeAbsence =

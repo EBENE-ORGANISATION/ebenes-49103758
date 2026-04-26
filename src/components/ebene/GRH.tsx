@@ -26,6 +26,7 @@ import {
   X,
   Check,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -39,6 +40,8 @@ import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   employes: Employe[];
@@ -50,6 +53,8 @@ interface Props {
   onAddEmploye: (e: Omit<Employe, "id">) => void;
   onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
   onRemoveEmploye: (id: number) => void;
+  onValiderEmploye: (id: number) => void;
+  onRejeterEmploye: (id: number, motif: string) => void;
   onAddPrime: (employeId: number, p: Omit<Prime, "id">) => void;
   onRemovePrime: (employeId: number, primeId: number) => void;
   onAddAbsence: (a: Omit<Absence, "id">) => void;
@@ -78,6 +83,8 @@ export const GRH = ({
   onAddEmploye,
   onUpdateEmploye,
   onRemoveEmploye,
+  onValiderEmploye,
+  onRejeterEmploye,
   onAddPrime,
   onRemovePrime,
   onAddAbsence,
@@ -109,6 +116,8 @@ export const GRH = ({
     let coutTotal = 0;
     let netTotal = 0;
     employes.forEach((e) => {
+      // Exclure les employés non validés de la masse salariale
+      if (e.statutValidation && e.statutValidation !== "valide") return;
       const c = calculerPaie(e, data);
       masseBrute += c.brut;
       coutTotal += c.coutEmployeur;
@@ -125,6 +134,61 @@ export const GRH = ({
     setPrimeLib("");
     setPrimeMnt("");
     setPrimeOpen(null);
+  };
+
+  // Crée (ou récupère) un compte portail employé via la fonction admin-users
+  // puis lie son user_id à la fiche.
+  const creerComptePortail = async (e: Employe) => {
+    if (!e.email) {
+      toast.error("Renseigne d'abord un email pour cet employé.");
+      return;
+    }
+    if (e.userId) {
+      toast.info("Cet employé a déjà un compte portail lié.");
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: {
+          action: "create_employe_account",
+          email: e.email,
+          employe_nom: e.nom,
+        },
+      });
+      if (error) throw error;
+      const payload = data as {
+        ok?: boolean;
+        user_id?: string;
+        temp_password?: string;
+        already_existed?: boolean;
+        error?: string;
+      };
+      if (payload?.error) {
+        toast.error(payload.error);
+        return;
+      }
+      if (!payload?.user_id) {
+        toast.error("Réponse invalide du serveur.");
+        return;
+      }
+      onUpdateEmploye(e.id, { userId: payload.user_id });
+      if (payload.already_existed) {
+        toast.success(
+          `Compte existant trouvé pour ${e.email}. Lié à la fiche.`
+        );
+      } else {
+        // Affiche le mot de passe temporaire dans une alerte (à transmettre à l'employé)
+        window.alert(
+          `✅ Compte portail créé pour ${e.nom}\n\n` +
+            `Email : ${e.email}\n` +
+            `Mot de passe temporaire : ${payload.temp_password}\n\n` +
+            `⚠️ Transmets ce mot de passe à l'employé. Il pourra le changer après sa première connexion.`
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      toast.error(`Échec création compte : ${msg}`);
+    }
   };
 
   return (
@@ -177,22 +241,62 @@ export const GRH = ({
                 const c = calculerPaie(e, data);
                 const anc = calculerAnciennete(e.dateEmbauche);
                 const tx = tauxAnciennete(anc);
+                const sv = e.statutValidation;
+                const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (
-                  <div key={e.id} className="list-item border-l-4 border-l-purple">
+                  <div key={e.id} className={`list-item border-l-4 border-l-purple ${dim}`}>
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-bold">{e.nom} {e.matricule && <span className="text-xs text-muted-foreground">({e.matricule})</span>}</p>
+                        <p className="font-bold flex items-center gap-2 flex-wrap">
+                          <span>{e.nom} {e.matricule && <span className="text-xs text-muted-foreground">({e.matricule})</span>}</span>
+                          {sv && <StatutValidationBadge statut={sv} motifRejet={e.motifRejet} />}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {e.poste} • Cat. {e.categorie || "-"} éch. {e.echelon || 1} • {(e.typeContrat || "cdi").toUpperCase()}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Ancienneté : <strong>{anc.toFixed(1)} ans</strong> (prime {(tx * 100).toFixed(0)}%) • {e.situation === "marie" ? "Marié(e)" : "Célibataire"} • {e.enfants} enf.
                         </p>
+                        {sv === "rejete" && e.motifRejet && (
+                          <p className="text-xs text-destructive mt-1 italic">
+                            Motif du rejet : {e.motifRejet}
+                          </p>
+                        )}
+                        {sv && sv !== "valide" && (
+                          <p className="text-xs text-warning mt-1 italic">
+                            ⚠️ Cet employé n'est pas pris en compte dans la paie tant qu'il n'est pas validé.
+                          </p>
+                        )}
                         <p className="text-xs mt-1">
                           Brut : <span className="amount text-purple">{formatMontant(c.brut)}</span> • Net : <span className="amount text-success">{formatMontant(c.net)}</span> • Coût : <span className="amount text-warning">{formatMontant(c.coutEmployeur)}</span>
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 shrink-0">
+                        {isChefGrh && sv && sv !== "valide" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs text-success border-success/30 hover:bg-success/10"
+                            onClick={() => onValiderEmploye(e.id)}
+                            title="Valider cet employé"
+                          >
+                            <Check className="size-3" /> Valider
+                          </Button>
+                        )}
+                        {isChefGrh && sv !== "rejete" && sv && sv !== "valide" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs text-warning border-warning/30 hover:bg-warning/10"
+                            onClick={() => {
+                              const motif = window.prompt("Motif du rejet :", "");
+                              if (motif && motif.trim()) onRejeterEmploye(e.id, motif.trim());
+                            }}
+                            title="Rejeter cet employé"
+                          >
+                            <XCircle className="size-3" /> Rejeter
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setBulletin(e)}>
                           <Receipt className="size-3" /> Bulletin
                         </Button>
@@ -211,6 +315,32 @@ export const GRH = ({
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setHsOpen(hsOpen === e.id ? null : e.id)}>
                           <Clock className="size-3" /> HS
                         </Button>
+                        {isChefGrh && (!e.userId || !e.email) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs"
+                            onClick={() => creerComptePortail(e)}
+                            title={
+                              e.userId
+                                ? "Compte portail déjà lié"
+                                : !e.email
+                                ? "Renseigne d'abord un email"
+                                : "Créer un compte portail self-service"
+                            }
+                            disabled={!e.email || !!e.userId}
+                          >
+                            <KeyRound className="size-3" /> Portail
+                          </Button>
+                        )}
+                        {isChefGrh && e.userId && (
+                          <span
+                            className="badge-soft bg-success/15 text-success text-[10px] flex items-center gap-1"
+                            title={`Compte portail lié : ${e.userId}`}
+                          >
+                            <KeyRound className="size-2.5" /> Portail OK
+                          </span>
+                        )}
                         <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditing(e); setShowForm(true); }}>
                           <Pencil className="size-4" />
                         </Button>

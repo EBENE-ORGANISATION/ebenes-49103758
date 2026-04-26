@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X, RefreshCw, FileText } from "lucide-react";
+import { Plus, Trash2, X, RefreshCw, FileText, Pencil } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 
 interface Props {
@@ -27,6 +27,8 @@ interface Props {
   onAdd: (d: Omit<Devis, "id">) => number;
   onRemove: (id: number) => void;
   onConvertir: (id: number, numeroFacture: string) => void;
+  /** Mise à jour d'un devis non encore converti / refusé. */
+  onUpdate?: (id: number, patch: Partial<Devis>) => void;
 }
 
 const STATUT_BADGES: Record<StatutDevis, { cls: string; label: string }> = {
@@ -68,8 +70,10 @@ export const DevisSection = ({
   onAdd,
   onRemove,
   onConvertir,
+  onUpdate,
 }: Props) => {
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [validite, setValidite] = useState("");
@@ -81,6 +85,7 @@ export const DevisSection = ({
   ]);
 
   const reset = () => {
+    setEditingId(null);
     setClient("");
     setDate(todayISO());
     setValidite("");
@@ -102,6 +107,24 @@ export const DevisSection = ({
     const totalHT = Math.max(0, sousTotal - red);
     const totalTva = avecTva ? totalHT * 0.18 : 0;
     const totalTtc = totalHT + totalTva;
+
+    if (editingId != null && onUpdate) {
+      onUpdate(editingId, {
+        client: client.trim(),
+        date,
+        dateValidite: validite || undefined,
+        lignes: lignesNet,
+        reduction: red,
+        avecTva,
+        totalHT,
+        totalTva,
+        totalTtc,
+        activite,
+      });
+      reset();
+      setOpen(false);
+      return;
+    }
 
     onAdd({
       numero: prochainNumeroDevis(annee, donneesMensuelles),
@@ -142,7 +165,7 @@ export const DevisSection = ({
         </Button>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-          <h4 className="font-bold">Nouveau devis</h4>
+          <h4 className="font-bold">{editingId != null ? "Modifier le devis" : "Nouveau devis"}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -259,7 +282,7 @@ export const DevisSection = ({
 
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-              ✓ Créer
+              {editingId != null ? "✓ Enregistrer" : "✓ Créer"}
             </Button>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} className="gap-1.5">
               <X className="size-4" /> Annuler
@@ -298,6 +321,32 @@ export const DevisSection = ({
                     <span className="amount text-base text-foreground">
                       {formatMontant(d.totalTtc)}
                     </span>
+                    {onUpdate && d.statut !== "converti" && d.statut !== "refuse" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        title="Modifier (uniquement si non converti)"
+                        onClick={() => {
+                          setEditingId(d.id);
+                          setClient(d.client);
+                          setDate(d.date);
+                          setValidite(d.dateValidite || "");
+                          setReduction(String(d.reduction || 0));
+                          setAvecTva(!!d.avecTva);
+                          setActivite(d.activite || "service");
+                          setLignes(
+                            (d.lignes && d.lignes.length > 0
+                              ? d.lignes
+                              : [{ description: "", montant: 0 }]
+                            ).map((l) => ({ description: l.description, montant: String(l.montant) }))
+                          );
+                          setOpen(true);
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
                     {d.statut !== "converti" && (
                       <Button
                         size="sm"
