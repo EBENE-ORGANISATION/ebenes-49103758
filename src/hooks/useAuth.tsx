@@ -150,7 +150,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  if (!ctx) {
+    // Fallback safe : évite les crashs au cours d'un hot-reload pendant
+    // que le Provider est en train d'être re-évalué.
+    return {
+      user: null,
+      session: null,
+      roles: [] as AppRole[],
+      grants: [] as CrossServiceGrant[],
+      loading: true,
+      signIn: async () => ({ error: "AuthProvider not ready" }),
+      signOut: async () => {},
+      hasRole: () => false,
+      isAdmin: false,
+      inServiceCompta: false,
+      inServiceGrh: false,
+      isChefCompta: false,
+      isChefGrh: false,
+      canViewDashboard: false,
+      refreshRoles: async () => {},
+    } satisfies AuthContextValue;
+  }
   return ctx;
 };
 
