@@ -417,8 +417,9 @@ export const useEbeneStoreRemote = () => {
           transactions,
         };
       });
+      markSignificantWrite();
     },
-    [updateMois]
+    [updateMois, markSignificantWrite]
   );
 
   const marquerPayee = useCallback(
