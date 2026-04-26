@@ -53,6 +53,8 @@ export type Database = {
           table_name: string
           user_email: string | null
           user_id: string | null
+          value_after: Json | null
+          value_before: Json | null
         }
         Insert: {
           action: string
@@ -65,6 +67,8 @@ export type Database = {
           table_name: string
           user_email?: string | null
           user_id?: string | null
+          value_after?: Json | null
+          value_before?: Json | null
         }
         Update: {
           action?: string
@@ -77,6 +81,8 @@ export type Database = {
           table_name?: string
           user_email?: string | null
           user_id?: string | null
+          value_after?: Json | null
+          value_before?: Json | null
         }
         Relationships: []
       }
