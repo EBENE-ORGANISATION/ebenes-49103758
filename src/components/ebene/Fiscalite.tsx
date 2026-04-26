@@ -40,7 +40,9 @@ export const Fiscalite = ({
   data, employes, annee, mois, paramsAnnee, onUpdateParams, donneesMensuelles,
   tauxHistorique, onAjouterTaux, onSupprimerTaux,
 }: Props) => {
-  const { isChefCompta } = useAuth();
+  const { can } = useAuth();
+  const canEditTaux = can("fiscalite", "write");          // taux fiscaux (TVA, IS, patente…)
+  const canEditSocial = can("parametres_sociaux", "write"); // TH / RSL annuels
   const [editParams, setEditParams] = useState(false);
   const [thInput, setThInput] = useState("");
   const [rslInput, setRslInput] = useState("");
@@ -137,7 +139,7 @@ export const Fiscalite = ({
         <p className="text-xs text-muted-foreground">
           Taux applicables (en vigueur depuis le <strong>{taux.dateEffet}</strong>) — TVA {(taux.tva*100).toFixed(0)}% • IS {(taux.is*100).toFixed(0)}% • Patente service {(taux.patenteService*100).toFixed(2)}% / commerce {(taux.patenteCommerce*100).toFixed(2)}%
         </p>
-        {isChefCompta && (
+        {canEditTaux && (
           <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setShowHistorique(true)}>
             <History className="size-3" /> Historique des taux
           </Button>
@@ -150,14 +152,16 @@ export const Fiscalite = ({
             <h3 className="font-bold text-base flex items-center gap-2">
               💼 <span>Charges Fiscales (Mois)</span>
             </h3>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1 h-7 text-xs"
-              onClick={() => setEditParams(!editParams)}
-            >
-              <Settings2 className="size-3" /> Paramètres
-            </Button>
+            {canEditSocial && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 h-7 text-xs"
+                onClick={() => setEditParams(!editParams)}
+              >
+                <Settings2 className="size-3" /> Paramètres sociaux
+              </Button>
+            )}
           </div>
           {editParams && (
             <div className="bg-muted/40 border-2 border-border rounded-lg p-3 mb-3 space-y-3">
