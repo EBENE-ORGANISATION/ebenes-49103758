@@ -143,7 +143,6 @@ const Index = () => {
                 tauxHistorique={store.tauxHistorique}
                 onAjouterTaux={isChefCompta ? store.ajouterTaux : () => toast.error("Modification des taux fiscaux réservée au chef Comptabilité / admin.")}
                 onSupprimerTaux={isChefCompta ? store.supprimerTaux : () => toast.error("Suppression des taux réservée au chef Comptabilité / admin.")}
-                canEditTaux={isChefCompta}
               />
             </TabsContent>
 
@@ -154,7 +153,7 @@ const Index = () => {
                 data={data}
                 onAdd={inServiceCompta
                   ? (f) => store.addFacture(annee, mois, f)
-                  : blocked("Lecture seule : seul le service Comptabilité peut créer une facture.")}
+                  : ((_f: Omit<Facture, "id">) => { toast.error("Lecture seule : seul le service Comptabilité peut créer une facture."); return 0; })}
                 onRemove={isChefCompta
                   ? (id) => store.removeFacture(annee, mois, id)
                   : blockedId("Suppression réservée au chef de service Comptabilité.")}
