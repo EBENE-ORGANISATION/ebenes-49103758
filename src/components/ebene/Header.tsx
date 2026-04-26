@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Download, Upload, Archive, BarChart3, Check } from "lucide-react";
+import { Download, Upload, Archive, BarChart3, Check, LogOut, Users, History, Shield } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
+import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 
 interface HeaderProps {
   onExport: () => void;
@@ -14,6 +17,7 @@ interface HeaderProps {
 export const Header = ({ onExport, onImport, onShowRecap, onShowArchives, lastSaved }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
+  const { user, roles, isAdmin, signOut } = useAuth();
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -44,6 +48,14 @@ export const Header = ({ onExport, onImport, onShowRecap, onShowArchives, lastSa
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
                   <Check className="size-3" /> Sauvegardé {savedAgo}
                 </span>
+                {user && (
+                  <span className="badge-soft bg-primary-foreground/15 text-primary-foreground inline-flex items-center gap-1">
+                    <Shield className="size-3" /> {user.email}
+                  </span>
+                )}
+                {roles.map((r) => (
+                  <Badge key={r} variant="secondary" className="text-[10px]">{ROLE_LABELS[r]}</Badge>
+                ))}
               </div>
             </div>
           </div>
@@ -72,6 +84,21 @@ export const Header = ({ onExport, onImport, onShowRecap, onShowArchives, lastSa
                 e.target.value = "";
               }}
             />
+            {isAdmin && (
+              <>
+                <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                  <Link to="/admin/users"><Users className="size-4" /> Utilisateurs</Link>
+                </Button>
+                <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                  <Link to="/admin/audit"><History className="size-4" /> Audit</Link>
+                </Button>
+              </>
+            )}
+            {user && (
+              <Button onClick={() => signOut()} variant="secondary" size="sm" className="gap-1.5">
+                <LogOut className="size-4" /> Déconnexion
+              </Button>
+            )}
           </div>
         </div>
       </div>
