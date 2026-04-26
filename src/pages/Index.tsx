@@ -8,6 +8,7 @@ import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
 import { GRH } from "@/components/ebene/GRH";
 import { Stock } from "@/components/ebene/Stock";
+import { Immobilisations } from "@/components/ebene/Immobilisations";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
