@@ -455,6 +455,8 @@ export const Factures = ({
           })
         )}
       </div>
+
+      <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} />
     </div>
   );
 };
