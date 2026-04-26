@@ -78,7 +78,6 @@ export const TauxHistoriqueDialog = ({ open, onOpenChange, historique, onAjouter
                       <span>Patente comm. : <strong>{(x.patenteCommerce * 100).toFixed(2)}%</strong></span>
                       <span>CNSS sal/emp : <strong>{(x.cnssSal*100).toFixed(1)}/{(x.cnssEmp*100).toFixed(1)}%</strong></span>
                       <span>AMU sal/emp : <strong>{(x.amuSal*100).toFixed(1)}/{(x.amuEmp*100).toFixed(1)}%</strong></span>
-                      <span>Salissure : <strong>{x.primeSalissure.toLocaleString("fr-FR")} F</strong></span>
                       <span>Activité par déf. : <strong>{x.activiteDefaut}</strong></span>
                     </div>
                   </div>
@@ -105,7 +104,6 @@ export const TauxHistoriqueDialog = ({ open, onOpenChange, historique, onAjouter
                 <Field label="CNSS employeur" value={t.cnssEmp} onChange={(v) => upd("cnssEmp", parseFloat(v) || 0)} />
                 <Field label="AMU salarié" value={t.amuSal} onChange={(v) => upd("amuSal", parseFloat(v) || 0)} />
                 <Field label="AMU employeur" value={t.amuEmp} onChange={(v) => upd("amuEmp", parseFloat(v) || 0)} />
-                <Field label="Prime salissure (FCFA)" step="1" value={t.primeSalissure} onChange={(v) => upd("primeSalissure", parseFloat(v) || 0)} />
               </div>
               <p className="text-xs italic text-muted-foreground">Saisissez les taux en décimal (ex : 0,18 pour 18%).</p>
               <div className="flex gap-2">

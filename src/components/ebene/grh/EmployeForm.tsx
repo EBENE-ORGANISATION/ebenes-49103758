@@ -3,7 +3,6 @@ import { Employe, CATEGORIES_LABELS, CategorieProf, TypeContrat } from "@/types/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -31,14 +30,13 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     nationalite: "Togolaise",
     typeContrat: "cdi",
     dateEmbauche: new Date().toISOString().split("T")[0],
-    categorie: "1",
+    categorie: "E1",
     echelon: 1,
     indemniteTransport: 0,
     indemniteLogement: 0,
     indemniteFonction: 0,
     sursalaire: 0,
     soldeConges: 0,
-    primeSalissureActive: false,
   });
 
   useEffect(() => {
@@ -134,7 +132,7 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
             </Select>
           </Field>
           <Field label="Catégorie professionnelle">
-            <Select value={form.categorie || "1"} onValueChange={(v) => update("categorie", v as CategorieProf)}>
+            <Select value={form.categorie || "E1"} onValueChange={(v) => update("categorie", v as CategorieProf)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(CATEGORIES_LABELS).map(([k, lbl]) => (
@@ -174,18 +172,6 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           </Field>
           <Field label="Indemnité fonction">
             <Input type="number" value={form.indemniteFonction || 0} onChange={(e) => update("indemniteFonction", parseFloat(e.target.value) || 0)} />
-          </Field>
-          <Field label="Prime salissure (5 000 F/mois)">
-            <div className="flex items-center gap-2 h-10">
-              <Checkbox
-                checked={!!form.primeSalissureActive}
-                onCheckedChange={(v) => update("primeSalissureActive", !!v)}
-                id="salissure"
-              />
-              <label htmlFor="salissure" className="text-sm cursor-pointer">
-                Activer pour cet employé
-              </label>
-            </div>
           </Field>
         </div>
       </div>

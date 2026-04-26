@@ -127,20 +127,21 @@ export const tauxPourMois = (
 
 // ─── INDEMNITÉS FIN DE CONTRAT (Code travail + convention TG) ────────────────
 /**
- * Préavis légal selon catégorie / ancienneté (Convention interprofessionnelle).
- * Catégories 1-5 (ouvriers) : 15 jours < 1 an, 1 mois 1-5 ans, 2 mois > 5 ans
- * Catégories 6-7 (maîtrise/techniciens) : 1 mois < 1 an, 2 mois 1-5 ans, 3 mois > 5 ans
- * Catégories 8-10 (cadres) : 3 mois quel que soit l'ancienneté.
+ * Préavis légal selon catégorie CCIT / ancienneté.
+ *  - Agents d'exécution (E1-E6) : 15 j (< 1 an), 30 j (1-5 ans), 60 j (> 5 ans)
+ *  - Agents de maîtrise (M1-M4) : 30 j (< 1 an), 60 j (1-5 ans), 90 j (> 5 ans)
+ *  - Cadres (C1-C4) : 90 jours quelle que soit l'ancienneté
  */
 export const dureePreavis = (categorie: string | undefined, anneesPresence: number): number => {
-  const cat = parseInt(categorie || "1", 10);
-  if (cat >= 8) return 90;
-  if (cat >= 6) {
+  const cat = (categorie || "E1").toUpperCase();
+  const famille = cat.charAt(0); // E, M ou C
+  if (famille === "C") return 90;
+  if (famille === "M") {
     if (anneesPresence < 1) return 30;
     if (anneesPresence <= 5) return 60;
     return 90;
   }
-  // catégories 1-5
+  // famille E (exécution) — défaut
   if (anneesPresence < 1) return 15;
   if (anneesPresence <= 5) return 30;
   return 60;

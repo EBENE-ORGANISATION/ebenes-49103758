@@ -270,13 +270,37 @@ export const GRH = ({
         <TabsContent value="config" className="space-y-4">
           <div className="card-elevated p-5">
             <h3 className="font-bold mb-3">📚 Catégories professionnelles (Convention collective Togo)</h3>
-            <div className="space-y-1 text-sm">
-              {Object.entries(CATEGORIES_LABELS).map(([k, lbl]) => (
-                <div key={k} className="flex justify-between py-1 border-b border-border/50">
-                  <span><strong>Cat. {k}</strong></span>
-                  <span className="text-muted-foreground text-xs">{lbl.split(" - ")[1]}</span>
-                </div>
-              ))}
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs font-bold uppercase text-muted-foreground mb-1">Agents d'exécution</p>
+                {Object.entries(CATEGORIES_LABELS).filter(([k]) => k.startsWith("E")).map(([k, lbl]) => (
+                  <div key={k} className="flex flex-col sm:flex-row sm:justify-between py-1 border-b border-border/50 gap-1">
+                    <span className="font-semibold">{k}</span>
+                    <span className="text-muted-foreground text-xs sm:text-right sm:max-w-[70%]">{lbl.split(" - ")[1]}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-muted-foreground mb-1 mt-2">Agents de maîtrise et assimilés</p>
+                {Object.entries(CATEGORIES_LABELS).filter(([k]) => k.startsWith("M")).map(([k, lbl]) => (
+                  <div key={k} className="flex flex-col sm:flex-row sm:justify-between py-1 border-b border-border/50 gap-1">
+                    <span className="font-semibold">{k}</span>
+                    <span className="text-muted-foreground text-xs sm:text-right sm:max-w-[70%]">{lbl.split(" - ")[1]}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-muted-foreground mb-1 mt-2">Cadres et assimilés</p>
+                {Object.entries(CATEGORIES_LABELS).filter(([k]) => k.startsWith("C")).map(([k, lbl]) => (
+                  <div key={k} className="flex flex-col sm:flex-row sm:justify-between py-1 border-b border-border/50 gap-1">
+                    <span className="font-semibold">{k}</span>
+                    <span className="text-muted-foreground text-xs sm:text-right sm:max-w-[70%]">{lbl.split(" - ")[1]}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs italic text-muted-foreground pt-2">
+                Source : Annexe I — Convention Collective Interprofessionnelle du Togo (CCIT).
+              </p>
             </div>
           </div>
 
@@ -286,7 +310,7 @@ export const GRH = ({
               <li>• <strong>Taux horaire</strong> = (Salaire base + sursalaire) / 173,33 (Art. 32)</li>
               <li>• <strong>Heures sup</strong> : 41-48h +20%, &gt;48h +40%, dim/fériés +65%, nuit +65%, nuit dim/fériés +100%</li>
               <li>• <strong>Prime d'ancienneté</strong> : 2% après 2 ans, +1%/an, plafond 30% (Art. 36)</li>
-              <li>• <strong>Prime de salissure</strong> : 5 000 FCFA/mois (forfait)</li>
+              <li>• <strong>Primes</strong> : ajoutées manuellement par mois (libellé + montant). Aucune prime n'est appliquée automatiquement.</li>
               <li>• <strong>CNSS</strong> : 4% salarié + 17,5% employeur</li>
               <li>• <strong>AMU</strong> : 5% salarié + 5% employeur</li>
               <li>• <strong>IRPP</strong> : barème progressif togolais avec parts familiales</li>

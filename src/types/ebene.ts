@@ -52,7 +52,17 @@ export interface Prime {
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
-export type CategorieProf = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
+/**
+ * Catégories professionnelles selon la Convention Collective
+ * Interprofessionnelle du Togo (CCIT) :
+ *  - E1 → E6 : Agents d'exécution
+ *  - M1 → M4 : Agents de maîtrise et assimilés
+ *  - C1 → C4 : Cadres et assimilés
+ */
+export type CategorieProf =
+  | "E1" | "E2" | "E3" | "E4" | "E5" | "E6"
+  | "M1" | "M2" | "M3" | "M4"
+  | "C1" | "C2" | "C3" | "C4";
 
 export interface Employe {
   id: number;
@@ -85,8 +95,6 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
-  /** Prime de salissure (5 000 FCFA) — désormais optionnelle, false par défaut */
-  primeSalissureActive?: boolean;
 }
 
 export type TypeAbsence =
@@ -233,7 +241,6 @@ export interface TauxFiscaux {
   cnssEmp: number; // 0.175
   amuSal: number; // 0.05
   amuEmp: number; // 0.05
-  primeSalissure: number; // 5000
   /** Activité par défaut: service ou commerce */
   activiteDefaut: "service" | "commerce";
 }
@@ -250,7 +257,6 @@ export const TAUX_DEFAUT: TauxFiscaux = {
   cnssEmp: 0.175,
   amuSal: 0.05,
   amuEmp: 0.05,
-  primeSalissure: 5000,
   activiteDefaut: "service",
 };
 
@@ -259,17 +265,28 @@ export const MOIS_NOMS = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
+/**
+ * Libellés CCIT (Convention Collective Interprofessionnelle du Togo) —
+ * Annexe I « Classifications professionnelles ».
+ */
 export const CATEGORIES_LABELS: Record<CategorieProf, string> = {
-  "1": "1ère catégorie - Manœuvre ordinaire",
-  "2": "2ème catégorie - Manœuvre spécialisé",
-  "3": "3ème catégorie - Ouvrier qualifié 1er échelon",
-  "4": "4ème catégorie - Ouvrier qualifié 2ème échelon",
-  "5": "5ème catégorie - Ouvrier hautement qualifié",
-  "6": "6ème catégorie - Agent de maîtrise / Technicien",
-  "7": "7ème catégorie - Technicien supérieur",
-  "8": "8ème catégorie - Cadre débutant",
-  "9": "9ème catégorie - Cadre confirmé",
-  "10": "10ème catégorie - Cadre supérieur",
+  // ─── Agents d'exécution ───
+  E1: "E1 - Manœuvre ordinaire",
+  E2: "E2 - Gardien, agent de sécurité, agent d'entretien, manutentionnaire…",
+  E3: "E3 - Aide ouvrier, vendeur auxiliaire, pompiste, jardinier…",
+  E4: "E4 - Ouvrier spécialisé, caissier, vendeur, dactylographe, conducteur (B/C), aide-soignant…",
+  E5: "E5 - Employé de bureau (CEPE/CEPD + 2 ans), agent de transit, conducteur (D/E)…",
+  E6: "E6 - Aide-comptable, employé titulaire CAP, BEPC, Bac1 (Ens. général)…",
+  // ─── Agents de maîtrise ───
+  M1: "M1 - Bac II (Ens. général), archiviste, documentaliste, bibliothécaire…",
+  M2: "M2 - BEPC + 3 ans formation pro, ENA Cycle I, Bac techniques, brevet de technicien…",
+  M3: "M3 - DEUG (Diplôme d'Études Universitaires Générales)…",
+  M4: "M4 - Licence (Bac+3), BTS / DUT (Bac+2 pro)…",
+  // ─── Cadres ───
+  C1: "C1 - Licence pro, ENA Cycle II, maîtrise (Bac+4), ingénieur des travaux…",
+  C2: "C2 - Bac+4 formation professionnelle, Master recherche…",
+  C3: "C3 - ENA Cycle III, DESS, Master professionnel, ingénieur diplômé…",
+  C4: "C4 - Doctorat ou équivalent, Directeur Général…",
 };
 
 export const TYPE_ABSENCE_LABELS: Record<TypeAbsence, { label: string; jours: number | null }> = {
