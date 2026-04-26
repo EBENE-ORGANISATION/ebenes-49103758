@@ -806,6 +806,11 @@ export const useEbeneStoreRemote = () => {
     removeSanction,
     importerDonnees,
     anneesDisponibles,
+    // ─── Statut Google Drive ───
+    driveStatus,
+    driveLastBackup,
+    driveLastError,
+    triggerDriveBackup,
   };
 };
 
