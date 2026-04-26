@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActiviteType, DonneesMensuelles, Facture, MoisData, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
+import { OCRFacture, type OCRDraft } from "./OCRFacture";
+import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 
 interface Props {
   annee: number;
