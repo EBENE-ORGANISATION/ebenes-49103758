@@ -77,6 +77,7 @@ export const useEbeneStore = () => {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
+  const [immobilisations, setImmobilisations] = useState<Immobilisation[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
@@ -111,6 +112,9 @@ export const useEbeneStore = () => {
         break;
       case K_SANCTIONS:
         setSanctions(Array.isArray(value) ? (value as Sanction[]) : []);
+        break;
+      case K_IMMOBILISATIONS:
+        setImmobilisations(Array.isArray(value) ? (value as Immobilisation[]) : []);
         break;
     }
   }, []);
@@ -182,6 +186,7 @@ export const useEbeneStore = () => {
   useEffect(() => { if (loaded) persist(K_FOURNISSEURS, fournisseurs); }, [fournisseurs, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_IMMOBILISATIONS, immobilisations); }, [immobilisations, loaded, persist]);
 
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
