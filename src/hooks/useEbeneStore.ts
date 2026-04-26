@@ -19,6 +19,7 @@ import {
   Sanction,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
+import { logAction } from "@/lib/audit";
 
 // Clés cloud (table app_state)
 const K_DONNEES = "donneesMensuelles";
@@ -195,18 +196,23 @@ export const useEbeneStore = () => {
 
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
+      const id = newId();
+      const newT: Transaction = { ...t, id, statut: t.statut || "en_validation" };
       updateMois(annee, mois, (m) => ({
         ...m,
-        transactions: [...m.transactions, { ...t, id: newId() }],
+        transactions: [...m.transactions, newT],
       }));
+      void logAction("INSERT", "transactions", id, null, newT);
     },
     [updateMois]
   );
 
   const removeTransaction = useCallback(
     (annee: number, mois: number, id: number) => {
+      let removed: Transaction | undefined;
       updateMois(annee, mois, (m) => {
         const trans = m.transactions.find((t) => t.id === id);
+        removed = trans;
         let factures = m.factures;
         if (trans?.source === "facture" && trans.factureId) {
           factures = factures.map((f) =>
@@ -221,6 +227,7 @@ export const useEbeneStore = () => {
           factures,
         };
       });
+      void logAction("DELETE", "transactions", id, removed ?? null, null);
     },
     [updateMois]
   );
@@ -228,10 +235,12 @@ export const useEbeneStore = () => {
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
       const id = newId();
+      const newF: Facture = { ...f, id, statutValidation: f.statutValidation || "en_validation" };
       updateMois(annee, mois, (m) => ({
         ...m,
-        factures: [...m.factures, { ...f, id }],
+        factures: [...m.factures, newF],
       }));
+      void logAction("INSERT", "factures", id, null, newF);
       return id;
     },
     [updateMois]
@@ -244,18 +253,28 @@ export const useEbeneStore = () => {
       id: number,
       patch: Partial<Facture>
     ) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
       updateMois(annee, mois, (m) => ({
         ...m,
-        factures: m.factures.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, ...patch };
+          return after;
+        }),
       }));
+      void logAction("UPDATE", "factures", id, before ?? null, after ?? null);
     },
     [updateMois]
   );
 
   const removeFacture = useCallback(
     (annee: number, mois: number, id: number) => {
+      let removed: Facture | undefined;
       updateMois(annee, mois, (m) => {
         const f = m.factures.find((x) => x.id === id);
+        removed = f;
         let transactions = m.transactions;
         if (f?.transactionId) {
           transactions = transactions.filter((t) => t.id !== f.transactionId);
@@ -266,15 +285,19 @@ export const useEbeneStore = () => {
           transactions,
         };
       });
+      void logAction("DELETE", "factures", id, removed ?? null, null);
     },
     [updateMois]
   );
 
   const marquerPayee = useCallback(
     (annee: number, mois: number, factureId: number) => {
+      let beforeF: Facture | undefined;
+      let afterF: Facture | undefined;
       updateMois(annee, mois, (m) => {
         const f = m.factures.find((x) => x.id === factureId);
         if (!f || f.statut === "payee" || f.statut === "proforma") return m;
+        beforeF = f;
         const transId = newId();
         const trans: Transaction = {
           id: transId,
@@ -285,49 +308,147 @@ export const useEbeneStore = () => {
           source: "facture",
           factureId: f.id,
           activite: f.activite,
+          statut: "valide",
         };
+        afterF = { ...f, statut: "payee", transactionId: transId };
         return {
           ...m,
           transactions: [...m.transactions, trans],
           factures: m.factures.map((x) =>
-            x.id === factureId
-              ? { ...x, statut: "payee", transactionId: transId }
-              : x
+            x.id === factureId ? afterF! : x
           ),
         };
       });
+      if (beforeF && afterF) {
+        void logAction("MARQUER_PAYEE", "factures", factureId, beforeF, afterF);
+      }
     },
     [updateMois]
   );
 
   const convertirProforma = useCallback(
     (annee: number, mois: number, factureId: number, nouveauNumero: string) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
       updateMois(annee, mois, (m) => ({
         ...m,
-        factures: m.factures.map((x) =>
-          x.id === factureId
-            ? { ...x, statut: "en_attente", numero: nouveauNumero }
-            : x
-        ),
+        factures: m.factures.map((x) => {
+          if (x.id !== factureId) return x;
+          before = x;
+          after = { ...x, statut: "en_attente", numero: nouveauNumero };
+          return after;
+        }),
       }));
+      void logAction("CONVERTIR_PROFORMA", "factures", factureId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow de validation ───
+  const validerTransaction = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterTransaction = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const validerFacture = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_FACTURE", "factures", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterFacture = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_FACTURE", "factures", id, before ?? null, after ?? null);
     },
     [updateMois]
   );
 
   // Employés
   const addEmploye = useCallback((e: Omit<Employe, "id">) => {
+    let added: Employe | undefined;
     setEmployes((prev) => {
       const matricule = e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
-      return [...prev, { ...e, matricule, id: newId() }];
+      added = { ...e, matricule, id: newId() };
+      return [...prev, added];
     });
+    if (added) void logAction("INSERT", "employes", added.id, null, added);
   }, []);
 
   const removeEmploye = useCallback((id: number) => {
-    setEmployes((prev) => prev.filter((e) => e.id !== id));
+    let removed: Employe | undefined;
+    setEmployes((prev) => {
+      removed = prev.find((e) => e.id === id);
+      return prev.filter((e) => e.id !== id);
+    });
+    void logAction("DELETE", "employes", id, removed ?? null, null);
   }, []);
 
   const updateEmploye = useCallback((id: number, patch: Partial<Employe>) => {
-    setEmployes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    let before: Employe | undefined;
+    let after: Employe | undefined;
+    setEmployes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        before = e;
+        after = { ...e, ...patch };
+        return after;
+      })
+    );
+    void logAction("UPDATE", "employes", id, before ?? null, after ?? null);
   }, []);
 
   const addPrime = useCallback(
