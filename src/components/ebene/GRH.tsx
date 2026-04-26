@@ -221,6 +221,60 @@ export const GRH = ({
                       </div>
                     )}
 
+                    {/* Statut validation des heures sup du mois */}
+                    {(() => {
+                      const hsCur = (data.heuresSup || {})[e.id];
+                      if (!hsCur) return null;
+                      const total =
+                        (hsCur.jourSemaine || 0) +
+                        (hsCur.jourSup || 0) +
+                        (hsCur.dimancheFerie || 0) +
+                        (hsCur.nuitSemaine || 0) +
+                        (hsCur.nuitDimancheFerie || 0);
+                      if (total <= 0) return null;
+                      const statut = hsCur.statutValidation || "en_validation";
+                      return (
+                        <div className={`mt-2 flex items-center justify-between text-xs bg-muted/30 px-2 py-1.5 rounded ${statut === "brouillon" ? "opacity-50" : ""}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">HS du mois :</span>
+                            <StatutValidationBadge statut={statut} motifRejet={hsCur.motifRejet} />
+                            {statut === "rejete" && hsCur.motifRejet && (
+                              <span className="italic text-destructive">— {hsCur.motifRejet}</span>
+                            )}
+                          </div>
+                          {isChefGrh && (
+                            <div className="flex items-center gap-1">
+                              {statut !== "valide" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 text-success hover:text-success hover:bg-success/10"
+                                  onClick={() => onValiderHeuresSup(e.id)}
+                                  title="Valider"
+                                >
+                                  <Check className="size-3.5" />
+                                </Button>
+                              )}
+                              {statut !== "rejete" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 text-warning hover:text-warning hover:bg-warning/10"
+                                  onClick={() => {
+                                    const motif = window.prompt("Motif du rejet :", "");
+                                    if (motif && motif.trim()) onRejeterHeuresSup(e.id, motif.trim());
+                                  }}
+                                  title="Rejeter"
+                                >
+                                  <XCircle className="size-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="mt-3 pt-3 border-t border-border">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-muted-foreground uppercase">
@@ -241,12 +295,49 @@ export const GRH = ({
                         </div>
                       )}
                       {((data.primes || {})[e.id] || []).map((p) => (
-                        <div key={p.id} className="flex items-center justify-between text-xs bg-muted/50 px-2 py-1 rounded mb-1">
-                          <span>{p.libelle}</span>
-                          <div className="flex items-center gap-2">
+                        <div
+                          key={p.id}
+                          className={`flex items-center justify-between text-xs bg-muted/50 px-2 py-1 rounded mb-1 ${
+                            p.statutValidation === "brouillon" ? "opacity-50" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="truncate">{p.libelle}</span>
+                            <StatutValidationBadge
+                              statut={p.statutValidation}
+                              motifRejet={p.motifRejet}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
                             <span className="amount">{formatMontant(p.montant)}</span>
+                            {isChefGrh && p.statutValidation !== "valide" && (
+                              <button
+                                className="text-success hover:underline"
+                                title="Valider"
+                                onClick={() => onValiderPrime(e.id, p.id)}
+                              >
+                                ✓
+                              </button>
+                            )}
+                            {isChefGrh && p.statutValidation !== "rejete" && (
+                              <button
+                                className="text-warning hover:underline"
+                                title="Rejeter"
+                                onClick={() => {
+                                  const motif = window.prompt("Motif du rejet :", "");
+                                  if (motif && motif.trim()) onRejeterPrime(e.id, p.id, motif.trim());
+                                }}
+                              >
+                                ⊘
+                              </button>
+                            )}
                             <button className="text-destructive hover:underline" onClick={() => onRemovePrime(e.id, p.id)}>×</button>
                           </div>
+                          {p.statutValidation === "rejete" && p.motifRejet && (
+                            <p className="text-xs italic text-destructive w-full mt-0.5">
+                              Motif : {p.motifRejet}
+                            </p>
+                          )}
                         </div>
                       ))}
                       <div className="mt-2 flex items-center gap-2 text-xs">
