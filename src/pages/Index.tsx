@@ -18,6 +18,7 @@ import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
+import { PortailEmploye } from "@/components/employe/PortailEmploye";
 
 const Index = () => {
   const now = new Date();
@@ -26,11 +27,16 @@ const Index = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
-  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin, canViewDashboard } = useAuth();
+  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin, canViewDashboard, isEmployeOnly } = useAuth();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
+
+  // Compte 'employe' pur → portail self-service uniquement
+  if (isEmployeOnly) {
+    return <PortailEmploye />;
+  }
 
   const alertes = useMemo(
     () =>

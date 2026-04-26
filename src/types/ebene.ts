@@ -140,6 +140,8 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
+  /** UUID du compte auth.users lié (portail employé self-service). */
+  userId?: string;
 }
 
 export type TypeAbsence =

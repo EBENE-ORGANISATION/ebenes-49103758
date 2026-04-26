@@ -205,6 +205,7 @@ export type Database = {
       is_chef: { Args: { _user_id: string }; Returns: boolean }
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
+      is_employe: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
@@ -217,6 +218,7 @@ export type Database = {
         | "chef_grh"
         | "membre_grh"
         | "dashboard_viewer"
+        | "employe"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -354,6 +356,7 @@ export const Constants = {
         "chef_grh",
         "membre_grh",
         "dashboard_viewer",
+        "employe",
       ],
     },
   },
