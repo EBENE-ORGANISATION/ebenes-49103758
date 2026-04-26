@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import type { DonneesMensuelles, Transaction } from "@/types/ebene";
+import type { DonneesMensuelles, Transaction, Immobilisation } from "@/types/ebene";
 import { moisKey } from "@/lib/ebene-utils";
+import { amortissementsAnnee } from "@/lib/amortissements";
 
 /**
  * Export comptable SYSCOHADA Révisé.
@@ -47,6 +48,29 @@ export const SYSCOHADA_COMPTES: Record<string, string> = {
   "658": "Charges diverses d'exploitation",
   "661": "Rémunérations directes versées au personnel",
   "664": "Charges sociales (CNSS employeur, AMU)",
+  // Classe 2 — Immobilisations
+  "21": "Immobilisations incorporelles",
+  "213": "Logiciels",
+  "22": "Terrains",
+  "231": "Bâtiments",
+  "235": "Aménagements et installations",
+  "241": "Matériel industriel",
+  "2442": "Matériel informatique",
+  "2444": "Mobilier et matériel de bureau",
+  "245": "Matériel de transport",
+  // Classe 28 — Amortissements cumulés
+  "281": "Amortissements des immobilisations incorporelles",
+  "2813": "Amortissements des logiciels",
+  "2831": "Amortissements des bâtiments",
+  "2835": "Amortissements des aménagements",
+  "2841": "Amortissements du matériel industriel",
+  "2842": "Amortissements du matériel informatique",
+  "2844": "Amortissements du mobilier et matériel de bureau",
+  "2845": "Amortissements du matériel de transport",
+  "284": "Amortissements - autres immobilisations corporelles",
+  // Dotations aux amortissements
+  "6811": "Dotations aux amortissements des immo. incorporelles",
+  "6813": "Dotations aux amortissements des immo. corporelles",
   // Classe 7 — Produits
   "701": "Ventes de marchandises",
   "706": "Services vendus",
@@ -275,9 +299,36 @@ const sum = (rows: LigneJournal[], k: "debit" | "credit") =>
  */
 export const exportGrandLivre = (
   annee: number,
-  donneesMensuelles: DonneesMensuelles
+  donneesMensuelles: DonneesMensuelles,
+  immobilisations: Immobilisation[] = []
 ): void => {
   const lignes = construireLignes(annee, donneesMensuelles);
+  // Écritures de dotations aux amortissements de l'année (31/12) :
+  //   Débit : compte 681x (dotation) — Crédit : compte 28xx (amortissement cumulé)
+  const amorts = amortissementsAnnee(immobilisations, annee).filter((a) => a.dotation > 0);
+  if (amorts.length > 0) {
+    const dateCloture = `${annee}-12-31`;
+    let pieceSeq = lignes.length + 1;
+    amorts.forEach((a) => {
+      const piece = `AM${String(pieceSeq).padStart(5, "0")}`;
+      pieceSeq++;
+      const cptDot = a.immobilisation.comptesSYSCOHADA?.dotation || "6813";
+      const cptCum = a.immobilisation.comptesSYSCOHADA?.amortissementCumule || "284";
+      const lib = `Dotation amort. ${a.immobilisation.libelle}`;
+      lignes.push({
+        date: dateCloture, piece,
+        compte: cptDot,
+        libelleCompte: SYSCOHADA_COMPTES[cptDot] || "Dotations aux amortissements",
+        desc: lib, debit: a.dotation, credit: 0,
+      });
+      lignes.push({
+        date: dateCloture, piece,
+        compte: cptCum,
+        libelleCompte: SYSCOHADA_COMPTES[cptCum] || "Amortissements cumulés",
+        desc: lib, debit: 0, credit: a.dotation,
+      });
+    });
+  }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildGrandLivreSheet(lignes), "Grand-livre");
   XLSX.utils.book_append_sheet(wb, buildBalanceSheet(lignes), "Balance");

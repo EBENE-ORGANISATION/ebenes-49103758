@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DonneesMensuelles, MOIS_NOMS } from "@/types/ebene";
+import { DonneesMensuelles, MOIS_NOMS, Immobilisation } from "@/types/ebene";
 import { formatMontant, moisKey } from "@/lib/ebene-utils";
 import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,9 +15,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   annee: number;
   donneesMensuelles: DonneesMensuelles;
+  immobilisations?: Immobilisation[];
 }
 
-export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles }: Props) => {
+export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [] }: Props) => {
   const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
 
   const lignes = useMemo(() => {
@@ -48,7 +49,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles 
 
   const exportSyscohada = () => {
     try {
-      exportGrandLivre(annee, donneesMensuelles);
+      exportGrandLivre(annee, donneesMensuelles, immobilisations);
       toast.success(`Export SYSCOHADA ${annee} généré`);
     } catch (e) {
       toast.error("Échec de l'export SYSCOHADA");
