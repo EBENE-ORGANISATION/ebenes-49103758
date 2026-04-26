@@ -194,6 +194,8 @@ export interface MoisData {
   retenues?: Record<number, number>; // employeId -> retenues diverses
   /** mouvements de stock du mois */
   mouvementsStock?: MouvementStock[];
+  /** Devis émis dans le mois (n'impactent pas la comptabilité tant qu'ils ne sont pas convertis) */
+  devis?: Devis[];
 }
 
 export type DonneesMensuelles = Record<string, MoisData>; // key = "YYYY-M"
