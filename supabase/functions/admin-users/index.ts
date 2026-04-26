@@ -11,7 +11,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type AppRole = "admin" | "rh" | "comptable" | "saisie";
+type AppRole =
+  | "admin"
+  | "chef_compta"
+  | "membre_compta"
+  | "chef_grh"
+  | "membre_grh"
+  | "rh"
+  | "comptable"
+  | "saisie";
 
 interface Body {
   action: "create" | "delete" | "set_roles" | "set_active" | "reset_password" | "list";
