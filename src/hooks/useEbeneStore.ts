@@ -17,6 +17,7 @@ import {
   CategorieArticle,
   MouvementStock,
   Sanction,
+  Devis,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { logAction } from "@/lib/audit";
@@ -59,6 +60,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
       ? d.retenues
       : {},
   mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
+  devis: Array.isArray(d?.devis) ? d!.devis : [],
 });
 
 export const useEbeneStore = () => {
