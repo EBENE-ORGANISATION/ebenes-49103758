@@ -993,6 +993,57 @@ export const useEbeneStore = () => {
     void logAction("DELETE", "sanctions", id, removed ?? null, null);
   }, []);
 
+  // ─── Immobilisations ───
+  const addImmobilisation = useCallback((i: Omit<Immobilisation, "id">) => {
+    const id = newId();
+    // Si comptesSYSCOHADA non renseignés, on déduit depuis la catégorie.
+    const comptes =
+      i.comptesSYSCOHADA && i.comptesSYSCOHADA.actif
+        ? i.comptesSYSCOHADA
+        : i.categorie
+          ? COMPTES_IMMO_DEFAUT[i.categorie]
+          : { actif: "24", amortissementCumule: "284", dotation: "6813" };
+    const newI: Immobilisation = { ...i, id, comptesSYSCOHADA: comptes };
+    setImmobilisations((prev) => [...prev, newI]);
+    void logAction("INSERT", "immobilisations", id, null, newI);
+    return id;
+  }, []);
+
+  const removeImmobilisation = useCallback((id: number) => {
+    let removed: Immobilisation | undefined;
+    setImmobilisations((prev) => {
+      removed = prev.find((i) => i.id === id);
+      return prev.filter((i) => i.id !== id);
+    });
+    void logAction("DELETE", "immobilisations", id, removed ?? null, null);
+  }, []);
+
+  const updateImmobilisation = useCallback(
+    (id: number, patch: Partial<Immobilisation>) => {
+      let before: Immobilisation | undefined;
+      let after: Immobilisation | undefined;
+      setImmobilisations((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i;
+          before = i;
+          after = { ...i, ...patch };
+          return after;
+        })
+      );
+      void logAction("UPDATE", "immobilisations", id, before ?? null, after ?? null);
+    },
+    []
+  );
+
+  /**
+   * Retourne, pour l'année donnée, la liste des dotations / cumuls / VNC
+   * de toutes les immobilisations enregistrées.
+   */
+  const getAmortissements = useCallback(
+    (annee: number) => amortissementsAnnee(immobilisations, annee),
+    [immobilisations]
+  );
+
   const importerDonnees = useCallback(
     (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
       setDonneesMensuelles(
@@ -1008,6 +1059,7 @@ export const useEbeneStore = () => {
         fournisseurs?: Fournisseur[];
         categoriesStock?: CategorieArticle[];
         sanctions?: Sanction[];
+        immobilisations?: Immobilisation[];
       };
       if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
@@ -1016,6 +1068,7 @@ export const useEbeneStore = () => {
       if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
       if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
       if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
+      if (Array.isArray(dataAny.immobilisations)) setImmobilisations(dataAny.immobilisations);
     },
     []
   );
