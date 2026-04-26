@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, LogIn, ShieldPlus, Mail } from "lucide-react";
+import { Loader2, LogIn, ShieldPlus } from "lucide-react";
 import logoEbene from "@/assets/ebene-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
