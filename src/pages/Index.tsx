@@ -53,10 +53,10 @@ const Index = () => {
     () =>
       getAlertes({
         donneesMensuelles: store.donneesMensuelles,
-        employes: store.employes,
+        employes: employesPaie,
         articles: store.articles,
       }),
-    [store.donneesMensuelles, store.employes, store.articles]
+    [store.donneesMensuelles, employesPaie, store.articles]
   );
 
   const exportJSON = () => {
