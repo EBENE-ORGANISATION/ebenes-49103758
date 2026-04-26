@@ -17,6 +17,7 @@ import {
   CategorieArticle,
   MouvementStock,
   Sanction,
+  Devis,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { logAction } from "@/lib/audit";
@@ -59,6 +60,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
       ? d.retenues
       : {},
   mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
+  devis: Array.isArray(d?.devis) ? d!.devis : [],
 });
 
 export const useEbeneStore = () => {
@@ -342,6 +344,75 @@ export const useEbeneStore = () => {
       void logAction("CONVERTIR_PROFORMA", "factures", factureId, before ?? null, after ?? null);
     },
     [updateMois]
+  );
+
+  // ─── Devis ─────────────────────────────────────────────────────────────
+  const addDevis = useCallback(
+    (annee: number, mois: number, d: Omit<Devis, "id">) => {
+      const id = newId();
+      const newD: Devis = { ...d, id, statut: d.statut || "envoye" };
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        devis: [...(m.devis || []), newD],
+      }));
+      void logAction("INSERT", "devis", id, null, newD);
+      return id;
+    },
+    [updateMois]
+  );
+
+  const removeDevis = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let removed: Devis | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.devis || [];
+        removed = list.find((x) => x.id === id);
+        return { ...m, devis: list.filter((x) => x.id !== id) };
+      });
+      void logAction("DELETE", "devis", id, removed ?? null, null);
+    },
+    [updateMois]
+  );
+
+  /**
+   * Convertit un devis en facture définitive : appelle addFacture() puis
+   * marque le devis comme 'converti' avec la référence de la facture créée.
+   * Renvoie l'id de la facture créée.
+   */
+  const convertirDevisEnFacture = useCallback(
+    (annee: number, mois: number, devisId: number, numeroFacture: string): number | null => {
+      const m = ensureMois(donneesMensuelles[moisKey(annee, mois)]);
+      const d = (m.devis || []).find((x) => x.id === devisId);
+      if (!d) return null;
+      const factureId = addFacture(annee, mois, {
+        numero: numeroFacture,
+        client: d.client,
+        date: d.date,
+        lignes: d.lignes,
+        reduction: d.reduction,
+        avecTva: d.avecTva,
+        statut: "en_attente",
+        transactionId: null,
+        totalHT: d.totalHT,
+        totalTva: d.totalTva,
+        totalTtc: d.totalTtc,
+        activite: d.activite,
+      });
+      let before: Devis | undefined;
+      let after: Devis | undefined;
+      updateMois(annee, mois, (mm) => ({
+        ...mm,
+        devis: (mm.devis || []).map((x) => {
+          if (x.id !== devisId) return x;
+          before = x;
+          after = { ...x, statut: "converti", factureId };
+          return after;
+        }),
+      }));
+      void logAction("CONVERTIR_DEVIS", "devis", devisId, before ?? null, after ?? null);
+      return factureId;
+    },
+    [addFacture, donneesMensuelles, updateMois]
   );
 
   // ─── Workflow de validation ───
@@ -971,6 +1042,9 @@ export const useEbeneStore = () => {
     removeFacture,
     marquerPayee,
     convertirProforma,
+    addDevis,
+    removeDevis,
+    convertirDevisEnFacture,
     validerTransaction,
     rejeterTransaction,
     validerFacture,

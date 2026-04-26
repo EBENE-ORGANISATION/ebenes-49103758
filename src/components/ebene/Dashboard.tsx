@@ -26,6 +26,7 @@ import type {
 } from "@/types/ebene";
 import { formatMontant, moisKey, tauxPourMois } from "@/lib/ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
+import { TresorerieCard } from "./TresorerieCard";
 
 interface DashboardProps {
   donneesMensuelles: DonneesMensuelles;
@@ -175,6 +176,14 @@ export const Dashboard = ({
           tone={kpis.tresorerie >= 0 ? "success" : "destructive"}
         />
       </div>
+
+      {/* ─── Trésorerie & prévisionnel ────────────────────── */}
+      <TresorerieCard
+        donneesMensuelles={donneesMensuelles}
+        employes={employes}
+        annee={annee}
+        mois={mois}
+      />
 
       {/* ─── Line chart CA ────────────────────────────────── */}
       <Card>

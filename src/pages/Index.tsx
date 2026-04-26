@@ -200,6 +200,15 @@ const Index = () => {
                 isChefCompta={isChefCompta}
                 onValider={(id) => store.validerFacture(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
+                onAddDevis={inServiceCompta
+                  ? (d) => store.addDevis(annee, mois, d)
+                  : ((_d) => { toast.error("Lecture seule : seul le service Comptabilité peut créer un devis."); return 0; })}
+                onRemoveDevis={isChefCompta
+                  ? (id) => store.removeDevis(annee, mois, id)
+                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                onConvertirDevis={inServiceCompta
+                  ? (id, num) => { store.convertirDevisEnFacture(annee, mois, id, num); }
+                  : (() => toast.error("Action réservée au service Comptabilité."))}
               />
             </TabsContent>
 
