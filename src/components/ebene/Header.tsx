@@ -15,6 +15,10 @@ import {
   Loader2,
   RefreshCw,
   FolderOpen,
+  Bell,
+  AlertTriangle,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -39,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { listDriveBackups, restoreFromDrive, type DriveFileInfo, type EbeneStoreLike } from "@/lib/googleDrive";
 import { toast } from "sonner";
+import type { Alerte } from "@/lib/alertes";
 
 interface HeaderProps {
   onExport: () => void;
@@ -54,6 +59,8 @@ interface HeaderProps {
   onDriveBackup?: () => Promise<void> | void;
   /** Store complet pour la restauration (importerDonnees est appelé par restoreFromDrive). */
   store?: EbeneStoreLike;
+  /** Liste des alertes actives à afficher dans la cloche. */
+  alertes?: Alerte[];
 }
 
 export const Header = ({
@@ -67,6 +74,7 @@ export const Header = ({
   driveLastError = null,
   onDriveBackup,
   store,
+  alertes = [],
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
@@ -186,6 +194,7 @@ export const Header = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <AlertesBell alertes={alertes} />
             <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
               <BarChart3 className="size-4" /> Récap Annuel
             </Button>
