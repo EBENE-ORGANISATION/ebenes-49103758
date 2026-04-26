@@ -120,7 +120,6 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
     primeAnciennete,
     hsMontant,
     primesDiverses,
-    primeSalissure,
     indemnites,
     brut,
     imposable,
@@ -216,7 +215,6 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               )}
               {c.hsMontant > 0 && <Line label="Heures supplémentaires" gain={c.hsMontant} />}
               {c.primes.map((p) => <Line key={p.id} label={`Prime : ${p.libelle}`} gain={p.montant} />)}
-              {c.primeSalissure > 0 && <Line label="Prime salissure" gain={c.primeSalissure} />}
               {(employe.indemniteTransport || 0) > 0 && (
                 <Line label="Indemnité transport" gain={employe.indemniteTransport!} />
               )}
