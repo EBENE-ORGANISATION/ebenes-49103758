@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
@@ -17,7 +17,6 @@ import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
-import { useMemo } from "react";
 
 const Index = () => {
   const now = new Date();
