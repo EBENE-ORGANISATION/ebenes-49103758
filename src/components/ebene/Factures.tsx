@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
@@ -26,10 +26,13 @@ interface Props {
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
   onRejeter?: (id: number, motif: string) => void;
+  /** Mise à jour partielle d'une facture non encore validée. */
+  onUpdateFacture?: (id: number, patch: Partial<Facture>) => void;
   // Devis (optionnels)
   onAddDevis?: (d: Omit<Devis, "id">) => number;
   onRemoveDevis?: (id: number) => void;
   onConvertirDevis?: (id: number, numeroFacture: string) => void;
+  onUpdateDevis?: (id: number, patch: Partial<Devis>) => void;
 }
 
 const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -68,11 +71,14 @@ export const Factures = ({
   isChefCompta,
   onValider,
   onRejeter,
+  onUpdateFacture,
   onAddDevis,
   onRemoveDevis,
   onConvertirDevis,
+  onUpdateDevis,
 }: Props) => {
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [reduction, setReduction] = useState("0");
