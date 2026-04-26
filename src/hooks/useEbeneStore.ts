@@ -384,6 +384,24 @@ export const useEbeneStore = () => {
     [updateMois]
   );
 
+  const updateDevis = useCallback(
+    (annee: number, mois: number, id: number, patch: Partial<Devis>) => {
+      let before: Devis | undefined;
+      let after: Devis | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        devis: (m.devis || []).map((d) => {
+          if (d.id !== id) return d;
+          before = d;
+          after = { ...d, ...patch };
+          return after;
+        }),
+      }));
+      void logAction("UPDATE", "devis", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
   /**
    * Convertit un devis en facture définitive : appelle addFacture() puis
    * marque le devis comme 'converti' avec la référence de la facture créée.
@@ -663,7 +681,12 @@ export const useEbeneStore = () => {
     let added: Employe | undefined;
     setEmployes((prev) => {
       const matricule = e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
-      added = { ...e, matricule, id: newId() };
+      added = {
+        ...e,
+        matricule,
+        id: newId(),
+        statutValidation: e.statutValidation || "en_validation",
+      };
       return [...prev, added];
     });
     if (added) void logAction("INSERT", "employes", added.id, null, added);
@@ -690,6 +713,34 @@ export const useEbeneStore = () => {
       })
     );
     void logAction("UPDATE", "employes", id, before ?? null, after ?? null);
+  }, []);
+
+  const validerEmploye = useCallback((id: number) => {
+    let before: Employe | undefined;
+    let after: Employe | undefined;
+    setEmployes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        before = e;
+        after = { ...e, statutValidation: "valide", motifRejet: undefined };
+        return after;
+      })
+    );
+    void logAction("VALIDER_EMPLOYE", "employes", id, before ?? null, after ?? null);
+  }, []);
+
+  const rejeterEmploye = useCallback((id: number, motif: string) => {
+    let before: Employe | undefined;
+    let after: Employe | undefined;
+    setEmployes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        before = e;
+        after = { ...e, statutValidation: "rejete", motifRejet: motif };
+        return after;
+      })
+    );
+    void logAction("REJETER_EMPLOYE", "employes", id, before ?? null, after ?? null);
   }, []);
 
   const addPrime = useCallback(
@@ -1107,6 +1158,7 @@ export const useEbeneStore = () => {
     convertirProforma,
     addDevis,
     removeDevis,
+    updateDevis,
     convertirDevisEnFacture,
     validerTransaction,
     rejeterTransaction,
@@ -1123,6 +1175,8 @@ export const useEbeneStore = () => {
     addEmploye,
     removeEmploye,
     updateEmploye,
+    validerEmploye,
+    rejeterEmploye,
     addPrime,
     removePrime,
     addAbsence,
