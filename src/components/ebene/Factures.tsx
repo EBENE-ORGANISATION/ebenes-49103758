@@ -57,6 +57,9 @@ export const Factures = ({
   onMarquerPayee,
   onConvertir,
   onPreview,
+  isChefCompta,
+  onValider,
+  onRejeter,
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [client, setClient] = useState("");
