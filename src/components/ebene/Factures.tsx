@@ -82,6 +82,10 @@ export const Factures = ({
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
+  const [ocrOpen, setOcrOpen] = useState(false);
+
+  // Anomalies (calculées sur l'année entière, mémorisées)
+  const anomaliesMap = useMemo(() => detectAnomalies(donneesMensuelles), [donneesMensuelles]);
 
   const reset = () => {
     setClient("");
@@ -91,6 +95,19 @@ export const Factures = ({
     setProforma(false);
     setActivite("service");
     setLignes([{ description: "", montant: "" }]);
+  };
+
+  // Pré-remplissage du formulaire à partir d'une extraction OCR
+  const applyOCRDraft = (draft: OCRDraft | null) => {
+    setOpen(true);
+    if (!draft) return; // formulaire vide en cas d'échec
+    if (draft.fournisseur) setClient(draft.fournisseur);
+    if (draft.date) setDate(draft.date);
+    setAvecTva(!!draft.tva && draft.tva > 0);
+    const montant = draft.montantHT ?? draft.montantTTC ?? null;
+    if (montant != null && montant > 0) {
+      setLignes([{ description: "Facture importée (OCR)", montant: String(montant) }]);
+    }
   };
 
   const submit = () => {
