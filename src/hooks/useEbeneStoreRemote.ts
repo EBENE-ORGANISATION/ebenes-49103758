@@ -326,6 +326,42 @@ export const useEbeneStoreRemote = () => {
   useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
 
+  // Garde une vue à jour du store pour le flush Drive (lit la dernière valeur au moment du timeout)
+  useEffect(() => {
+    snapshotRef.current = {
+      donneesMensuelles,
+      employes,
+      paramsAnnuels,
+      tauxHistorique,
+      articles,
+      fournisseurs,
+      categoriesStock,
+      sanctions,
+      importerDonnees: () => {
+        /* placeholder, restauration via store complet */
+      },
+    };
+  }, [
+    donneesMensuelles,
+    employes,
+    paramsAnnuels,
+    tauxHistorique,
+    articles,
+    fournisseurs,
+    categoriesStock,
+    sanctions,
+  ]);
+
+  // Cleanup du timer de backup au unmount
+  useEffect(() => {
+    return () => {
+      if (driveDebounceRef.current) {
+        clearTimeout(driveDebounceRef.current);
+        driveDebounceRef.current = null;
+      }
+    };
+  }, []);
+
   // ─── API publique : identique à useEbeneStore ───
 
   const getMois = useCallback(
