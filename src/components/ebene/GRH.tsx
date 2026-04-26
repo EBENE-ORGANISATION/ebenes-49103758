@@ -113,6 +113,8 @@ export const GRH = ({
     let coutTotal = 0;
     let netTotal = 0;
     employes.forEach((e) => {
+      // Exclure les employés non validés de la masse salariale
+      if (e.statutValidation && e.statutValidation !== "valide") return;
       const c = calculerPaie(e, data);
       masseBrute += c.brut;
       coutTotal += c.coutEmployeur;
@@ -181,22 +183,62 @@ export const GRH = ({
                 const c = calculerPaie(e, data);
                 const anc = calculerAnciennete(e.dateEmbauche);
                 const tx = tauxAnciennete(anc);
+                const sv = e.statutValidation;
+                const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (
-                  <div key={e.id} className="list-item border-l-4 border-l-purple">
+                  <div key={e.id} className={`list-item border-l-4 border-l-purple ${dim}`}>
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-bold">{e.nom} {e.matricule && <span className="text-xs text-muted-foreground">({e.matricule})</span>}</p>
+                        <p className="font-bold flex items-center gap-2 flex-wrap">
+                          <span>{e.nom} {e.matricule && <span className="text-xs text-muted-foreground">({e.matricule})</span>}</span>
+                          {sv && <StatutValidationBadge statut={sv} motifRejet={e.motifRejet} />}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {e.poste} • Cat. {e.categorie || "-"} éch. {e.echelon || 1} • {(e.typeContrat || "cdi").toUpperCase()}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Ancienneté : <strong>{anc.toFixed(1)} ans</strong> (prime {(tx * 100).toFixed(0)}%) • {e.situation === "marie" ? "Marié(e)" : "Célibataire"} • {e.enfants} enf.
                         </p>
+                        {sv === "rejete" && e.motifRejet && (
+                          <p className="text-xs text-destructive mt-1 italic">
+                            Motif du rejet : {e.motifRejet}
+                          </p>
+                        )}
+                        {sv && sv !== "valide" && (
+                          <p className="text-xs text-warning mt-1 italic">
+                            ⚠️ Cet employé n'est pas pris en compte dans la paie tant qu'il n'est pas validé.
+                          </p>
+                        )}
                         <p className="text-xs mt-1">
                           Brut : <span className="amount text-purple">{formatMontant(c.brut)}</span> • Net : <span className="amount text-success">{formatMontant(c.net)}</span> • Coût : <span className="amount text-warning">{formatMontant(c.coutEmployeur)}</span>
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 shrink-0">
+                        {isChefGrh && sv && sv !== "valide" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs text-success border-success/30 hover:bg-success/10"
+                            onClick={() => onValiderEmploye(e.id)}
+                            title="Valider cet employé"
+                          >
+                            <Check className="size-3" /> Valider
+                          </Button>
+                        )}
+                        {isChefGrh && sv !== "rejete" && sv && sv !== "valide" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs text-warning border-warning/30 hover:bg-warning/10"
+                            onClick={() => {
+                              const motif = window.prompt("Motif du rejet :", "");
+                              if (motif && motif.trim()) onRejeterEmploye(e.id, motif.trim());
+                            }}
+                            title="Rejeter cet employé"
+                          >
+                            <XCircle className="size-3" /> Rejeter
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setBulletin(e)}>
                           <Receipt className="size-3" /> Bulletin
                         </Button>
