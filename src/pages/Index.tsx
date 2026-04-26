@@ -14,6 +14,7 @@ import { useEbeneStore } from "@/hooks/useEbeneStore";
 import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const now = new Date();
@@ -22,6 +23,7 @@ const Index = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
+  const { inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, isAdmin } = useAuth();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -67,6 +69,10 @@ const Index = () => {
     };
     reader.readAsText(file);
   };
+
+  // Helpers : un no-op + toast pour les actions interdites selon le service
+  const blocked = (msg: string) => () => toast.error(msg);
+  const blockedId = (msg: string) => (_id: number) => toast.error(msg);
 
   return (
     <div className="min-h-screen bg-background">
@@ -114,8 +120,12 @@ const Index = () => {
                 mois={mois}
                 employes={store.employes}
                 taux={taux}
-                onAdd={(t) => store.addTransaction(annee, mois, t)}
-                onRemove={(id) => store.removeTransaction(annee, mois, id)}
+                onAdd={inServiceCompta
+                  ? (t) => store.addTransaction(annee, mois, t)
+                  : blocked("Lecture seule : seul le service Comptabilité peut saisir.")}
+                onRemove={isChefCompta
+                  ? (id) => store.removeTransaction(annee, mois, id)
+                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
               />
             </TabsContent>
 
@@ -126,11 +136,14 @@ const Index = () => {
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
-                onUpdateParams={(p) => store.setParamAnnuel(annee, p)}
+                onUpdateParams={isChefCompta
+                  ? (p) => store.setParamAnnuel(annee, p)
+                  : () => toast.error("Modification des paramètres réservée au chef Comptabilité / admin.")}
                 donneesMensuelles={store.donneesMensuelles}
                 tauxHistorique={store.tauxHistorique}
-                onAjouterTaux={store.ajouterTaux}
-                onSupprimerTaux={store.supprimerTaux}
+                onAjouterTaux={isChefCompta ? store.ajouterTaux : () => toast.error("Modification des taux fiscaux réservée au chef Comptabilité / admin.")}
+                onSupprimerTaux={isChefCompta ? store.supprimerTaux : () => toast.error("Suppression des taux réservée au chef Comptabilité / admin.")}
+                canEditTaux={isChefCompta}
               />
             </TabsContent>
 
@@ -139,10 +152,18 @@ const Index = () => {
                 annee={annee}
                 donneesMensuelles={store.donneesMensuelles}
                 data={data}
-                onAdd={(f) => store.addFacture(annee, mois, f)}
-                onRemove={(id) => store.removeFacture(annee, mois, id)}
-                onMarquerPayee={(id) => store.marquerPayee(annee, mois, id)}
-                onConvertir={(id, num) => store.convertirProforma(annee, mois, id, num)}
+                onAdd={inServiceCompta
+                  ? (f) => store.addFacture(annee, mois, f)
+                  : blocked("Lecture seule : seul le service Comptabilité peut créer une facture.")}
+                onRemove={isChefCompta
+                  ? (id) => store.removeFacture(annee, mois, id)
+                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                onMarquerPayee={inServiceCompta
+                  ? (id) => store.marquerPayee(annee, mois, id)
+                  : blockedId("Action réservée au service Comptabilité.")}
+                onConvertir={inServiceCompta
+                  ? (id, num) => store.convertirProforma(annee, mois, id, num)
+                  : (() => toast.error("Action réservée au service Comptabilité."))}
                 onPreview={setPreviewFacture}
               />
             </TabsContent>
@@ -155,15 +176,15 @@ const Index = () => {
                 articles={store.articles}
                 fournisseurs={store.fournisseurs}
                 categories={store.categoriesStock}
-                onAddArticle={store.addArticle}
-                onUpdateArticle={store.updateArticle}
-                onRemoveArticle={store.removeArticle}
-                onAddFournisseur={store.addFournisseur}
-                onRemoveFournisseur={store.removeFournisseur}
-                onAddCategorie={store.addCategorieStock}
-                onRemoveCategorie={store.removeCategorieStock}
-                onAddMouvement={store.addMouvementStock}
-                onRemoveMouvement={store.removeMouvementStock}
+                onAddArticle={inServiceCompta ? store.addArticle : blocked("Action réservée au service Comptabilité.")}
+                onUpdateArticle={inServiceCompta ? store.updateArticle : (() => toast.error("Action réservée au service Comptabilité."))}
+                onRemoveArticle={isChefCompta ? store.removeArticle : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddFournisseur={inServiceCompta ? store.addFournisseur : blocked("Action réservée au service Comptabilité.")}
+                onRemoveFournisseur={isChefCompta ? store.removeFournisseur : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddCategorie={inServiceCompta ? store.addCategorieStock : blocked("Action réservée au service Comptabilité.")}
+                onRemoveCategorie={isChefCompta ? store.removeCategorieStock : blockedId("Suppression réservée au chef Comptabilité.")}
+                onAddMouvement={inServiceCompta ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error("Action réservée au service Comptabilité."); return 0; })}
+                onRemoveMouvement={isChefCompta ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error("Suppression réservée au chef Comptabilité."))}
               />
             </TabsContent>
 
@@ -174,17 +195,17 @@ const Index = () => {
                 annee={annee}
                 mois={mois}
                 sanctions={store.sanctions}
-                onAddEmploye={store.addEmploye}
-                onUpdateEmploye={store.updateEmploye}
-                onRemoveEmploye={store.removeEmploye}
-                onAddPrime={(eid, p) => store.addPrime(annee, mois, eid, p)}
-                onRemovePrime={(eid, pid) => store.removePrime(annee, mois, eid, pid)}
-                onAddAbsence={(a) => store.addAbsence(annee, mois, a)}
-                onRemoveAbsence={(id) => store.removeAbsence(annee, mois, id)}
-                onSetHeuresSup={(eid, hs) => store.setHeuresSup(annee, mois, eid, hs)}
-                onSetRetenue={(eid, m) => store.setRetenue(annee, mois, eid, m)}
-                onAddSanction={store.addSanction}
-                onRemoveSanction={store.removeSanction}
+                onAddEmploye={inServiceGrh ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
+                onUpdateEmploye={inServiceGrh ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
+                onRemoveEmploye={isChefGrh ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
+                onAddPrime={inServiceGrh ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error("Action réservée au service GRH."))}
+                onRemovePrime={isChefGrh ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error("Suppression réservée au chef GRH."))}
+                onAddAbsence={inServiceGrh ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error("Action réservée au service GRH."))}
+                onRemoveAbsence={isChefGrh ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error("Suppression réservée au chef GRH."))}
+                onSetHeuresSup={inServiceGrh ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error("Action réservée au service GRH."))}
+                onSetRetenue={inServiceGrh ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error("Action réservée au service GRH."))}
+                onAddSanction={inServiceGrh ? store.addSanction : blocked("Action réservée au service GRH.")}
+                onRemoveSanction={isChefGrh ? store.removeSanction : blockedId("Suppression réservée au chef GRH.")}
               />
             </TabsContent>
           </Tabs>
