@@ -321,6 +321,7 @@ export const Factures = ({
                 : { cls: "bg-info/15 text-info", label: "⏳ En attente" };
             const sv = f.statutValidation;
             const dim = sv === "brouillon" ? "opacity-50" : "";
+            const anomalies: Anomalie[] = anomaliesMap.factures.get(f.id) || [];
             return (
               <div key={f.id} className={`list-item ${borderClass} ${dim}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -328,6 +329,25 @@ export const Factures = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-sm font-mono">{f.numero}</p>
                       <span className={`badge-soft ${badge.cls}`}>{badge.label}</span>
+                      {anomalies.length > 0 && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="badge-soft cursor-help bg-warning/15 text-warning flex items-center gap-1">
+                                <AlertTriangle className="size-3" />
+                                {anomalies.length > 1 ? `${anomalies.length} anomalies` : "Anomalie"}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <ul className="text-xs max-w-xs list-disc pl-4 space-y-0.5">
+                                {anomalies.map((a, i) => (
+                                  <li key={i}>{a.message}</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {sv && (
                         sv === "rejete" && f.motifRejet ? (
                           <TooltipProvider delayDuration={150}>
