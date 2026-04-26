@@ -73,6 +73,29 @@ export interface Prime {
   motifRejet?: string;
 }
 
+// ─── Devis (proche d'une Facture mais sans impact comptable) ───────────────
+export type StatutDevis = "brouillon" | "envoye" | "accepte" | "refuse" | "converti";
+
+export interface Devis {
+  id: number;
+  numero: string;
+  client: string;
+  date: string;
+  /** Date limite de validité du devis */
+  dateValidite?: string;
+  lignes: LignePrestation[];
+  reduction: number;
+  avecTva: boolean;
+  statut: StatutDevis;
+  totalHT: number;
+  totalTva: number;
+  totalTtc: number;
+  activite?: ActiviteType;
+  /** Renseigné lorsque le devis est converti en facture. */
+  factureId?: number | null;
+  notes?: string;
+}
+
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
 /**
  * Catégories professionnelles selon la Convention Collective
