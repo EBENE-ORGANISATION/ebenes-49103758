@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
+import { Dashboard } from "@/components/ebene/Dashboard";
 import { Comptabilite } from "@/components/ebene/Comptabilite";
 import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
@@ -15,6 +16,8 @@ import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { getAlertes } from "@/lib/alertes";
+import { useMemo } from "react";
 
 const Index = () => {
   const now = new Date();
@@ -28,6 +31,16 @@ const Index = () => {
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
+
+  const alertes = useMemo(
+    () =>
+      getAlertes({
+        donneesMensuelles: store.donneesMensuelles,
+        employes: store.employes,
+        articles: store.articles,
+      }),
+    [store.donneesMensuelles, store.employes, store.articles]
+  );
 
   const exportJSON = () => {
     const payload = {
@@ -82,6 +95,7 @@ const Index = () => {
         onShowRecap={() => setShowRecap(true)}
         onShowArchives={() => setShowArchives(true)}
         lastSaved={store.lastSaved}
+        alertes={alertes}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
@@ -94,8 +108,11 @@ const Index = () => {
         />
 
         <div className="card-elevated p-4 sm:p-6 no-print">
-          <Tabs defaultValue="compta" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
+          <Tabs defaultValue="dashboard" className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full mb-5 h-auto">
+              <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
+                📊 Dashboard
+              </TabsTrigger>
               <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
                 💰 Comptabilité
               </TabsTrigger>
@@ -112,6 +129,16 @@ const Index = () => {
                 👥 GRH
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dashboard">
+              <Dashboard
+                donneesMensuelles={store.donneesMensuelles}
+                employes={store.employes}
+                tauxHistorique={store.tauxHistorique}
+                annee={annee}
+                mois={mois}
+              />
+            </TabsContent>
 
             <TabsContent value="compta">
               <Comptabilite
