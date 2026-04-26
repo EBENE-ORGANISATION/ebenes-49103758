@@ -31,6 +31,7 @@ const ALL_ROLES: AppRole[] = [
   "membre_compta",
   "chef_grh",
   "membre_grh",
+  "dashboard_viewer",
 ];
 
 const callFn = async (body: Record<string, unknown>) => {

@@ -8,6 +8,7 @@ export type AppRole =
   | "membre_compta"
   | "chef_grh"
   | "membre_grh"
+  | "dashboard_viewer"
   // anciens rôles conservés pour compatibilité
   | "rh"
   | "comptable"
@@ -38,6 +39,8 @@ interface AuthContextValue {
   isChefCompta: boolean;
   /** Chef du service GRH (admin compte aussi) */
   isChefGrh: boolean;
+  /** Peut voir l'onglet Dashboard (admin ou rôle dashboard_viewer) */
+  canViewDashboard: boolean;
   refreshRoles: () => Promise<void>;
 }
 
@@ -131,12 +134,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh") || hasGrant("grh");
   const isChefCompta = isAdmin || roles.includes("chef_compta") || hasChefGrant("compta");
   const isChefGrh = isAdmin || roles.includes("chef_grh") || hasChefGrant("grh");
+  const canViewDashboard = isAdmin || roles.includes("dashboard_viewer");
 
   return (
     <AuthContext.Provider
       value={{
         user, session, roles, grants, loading, signIn, signOut, hasRole, isAdmin,
-        inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, refreshRoles,
+        inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard, refreshRoles,
       }}
     >
       {children}
@@ -156,6 +160,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   membre_compta: "Membre Service Comptabilité",
   chef_grh: "Chef Service GRH",
   membre_grh: "Membre Service GRH",
+  dashboard_viewer: "Accès Dashboard",
   rh: "RH (ancien)",
   comptable: "Comptable (ancien)",
   saisie: "Saisie (ancien)",
