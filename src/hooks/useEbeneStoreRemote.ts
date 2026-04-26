@@ -131,6 +131,42 @@ export const useEbeneStoreRemote = () => {
     }
   }, []);
 
+  // ─── Backup Google Drive (debounced 30s) ───
+  // On garde une ref vers le snapshot courant pour pouvoir le lire au flush.
+  const snapshotRef = useRef<EbeneStoreLike | null>(null);
+
+  const flushDriveBackup = useCallback(async () => {
+    if (!snapshotRef.current) return;
+    setDriveStatus("syncing");
+    setDriveLastError(null);
+    const result = await backupToDrive(snapshotRef.current, { silent: true });
+    if (result.ok) {
+      setDriveStatus("success");
+      setDriveLastBackup(new Date());
+    } else {
+      setDriveStatus("error");
+      setDriveLastError(result.error ?? "Erreur inconnue");
+    }
+  }, []);
+
+  /** Marque une écriture significative et programme un backup Drive dans 30s. */
+  const markSignificantWrite = useCallback(() => {
+    significantWritesRef.current += 1;
+    if (driveDebounceRef.current) clearTimeout(driveDebounceRef.current);
+    driveDebounceRef.current = setTimeout(() => {
+      void flushDriveBackup();
+    }, 30_000);
+  }, [flushDriveBackup]);
+
+  /** Force un backup immédiat (appelé par le bouton "Sauvegarder sur Drive"). */
+  const triggerDriveBackup = useCallback(async () => {
+    if (driveDebounceRef.current) {
+      clearTimeout(driveDebounceRef.current);
+      driveDebounceRef.current = null;
+    }
+    await flushDriveBackup();
+  }, [flushDriveBackup]);
+
   const applyValue = useCallback((key: string, value: unknown) => {
     switch (key) {
       case K_DONNEES:
