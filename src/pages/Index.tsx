@@ -161,6 +161,7 @@ const Index = () => {
                 mois={mois}
                 employes={store.employes}
                 taux={taux}
+                donneesMensuelles={store.donneesMensuelles}
                 onAdd={inServiceCompta
                   ? (t) => store.addTransaction(annee, mois, t)
                   : blocked("Lecture seule : seul le service Comptabilité peut saisir.")}

@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActiviteType, DonneesMensuelles, Facture, MoisData, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
+import { OCRFacture, type OCRDraft } from "./OCRFacture";
+import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 
 interface Props {
   annee: number;
@@ -80,6 +82,10 @@ export const Factures = ({
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
+  const [ocrOpen, setOcrOpen] = useState(false);
+
+  // Anomalies (calculées sur l'année entière, mémorisées)
+  const anomaliesMap = useMemo(() => detectAnomalies(donneesMensuelles), [donneesMensuelles]);
 
   const reset = () => {
     setClient("");
@@ -89,6 +95,19 @@ export const Factures = ({
     setProforma(false);
     setActivite("service");
     setLignes([{ description: "", montant: "" }]);
+  };
+
+  // Pré-remplissage du formulaire à partir d'une extraction OCR
+  const applyOCRDraft = (draft: OCRDraft | null) => {
+    setOpen(true);
+    if (!draft) return; // formulaire vide en cas d'échec
+    if (draft.fournisseur) setClient(draft.fournisseur);
+    if (draft.date) setDate(draft.date);
+    setAvecTva(!!draft.tva && draft.tva > 0);
+    const montant = draft.montantHT ?? draft.montantTTC ?? null;
+    if (montant != null && montant > 0) {
+      setLignes([{ description: "Facture importée (OCR)", montant: String(montant) }]);
+    }
   };
 
   const submit = () => {
@@ -146,9 +165,14 @@ export const Factures = ({
       </div>
 
       {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5">
-          <Plus className="size-4" /> Nouvelle Facture / Proforma
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setOpen(true)} className="gap-1.5">
+            <Plus className="size-4" /> Nouvelle Facture / Proforma
+          </Button>
+          <Button variant="outline" onClick={() => setOcrOpen(true)} className="gap-1.5">
+            <Camera className="size-4" /> 📷 Importer par photo
+          </Button>
+        </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
           <h3 className="font-bold text-lg">Nouvelle Facture</h3>
@@ -297,6 +321,7 @@ export const Factures = ({
                 : { cls: "bg-info/15 text-info", label: "⏳ En attente" };
             const sv = f.statutValidation;
             const dim = sv === "brouillon" ? "opacity-50" : "";
+            const anomalies: Anomalie[] = anomaliesMap.factures.get(f.id) || [];
             return (
               <div key={f.id} className={`list-item ${borderClass} ${dim}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -304,6 +329,25 @@ export const Factures = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-sm font-mono">{f.numero}</p>
                       <span className={`badge-soft ${badge.cls}`}>{badge.label}</span>
+                      {anomalies.length > 0 && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="badge-soft cursor-help bg-warning/15 text-warning flex items-center gap-1">
+                                <AlertTriangle className="size-3" />
+                                {anomalies.length > 1 ? `${anomalies.length} anomalies` : "Anomalie"}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <ul className="text-xs max-w-xs list-disc pl-4 space-y-0.5">
+                                {anomalies.map((a, i) => (
+                                  <li key={i}>{a.message}</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {sv && (
                         sv === "rejete" && f.motifRejet ? (
                           <TooltipProvider delayDuration={150}>
@@ -411,6 +455,8 @@ export const Factures = ({
           })
         )}
       </div>
+
+      <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} />
     </div>
   );
 };

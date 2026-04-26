@@ -1,15 +1,16 @@
 import { useMemo, useState, useRef } from "react";
-import { ActiviteType, Employe, MoisData, Transaction, TauxFiscaux, StatutValidation } from "@/types/ebene";
+import { ActiviteType, DonneesMensuelles, Employe, MoisData, Transaction, TauxFiscaux, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye, Check, XCircle } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye, Check, XCircle, AlertTriangle } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
 import { calculerPaie } from "./grh/BulletinPaie";
 import { toast } from "sonner";
+import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 
 interface Props {
   data: MoisData;
@@ -23,6 +24,8 @@ interface Props {
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
   onRejeter?: (id: number, motif: string) => void;
+  /** Toutes les données de l'année — sert au calcul d'anomalies. */
+  donneesMensuelles?: DonneesMensuelles;
 }
 
 const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -32,7 +35,7 @@ const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = 
   rejete: { cls: "bg-destructive/15 text-destructive", label: "✗ Rejeté" },
 };
 
-export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isChefCompta, onValider, onRejeter }: Props) => {
+export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isChefCompta, onValider, onRejeter, donneesMensuelles }: Props) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
   const [type, setType] = useState<"r" | "d">("r");
@@ -81,6 +84,15 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
   const sorted = useMemo(
     () => [...data.transactions].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
     [data.transactions]
+  );
+
+  // Anomalies sur l'année entière (si fournie). Sinon, on tombe sur le mois courant.
+  const anomaliesMap = useMemo(
+    () =>
+      detectAnomalies(
+        donneesMensuelles ?? ({ [`${annee}-${mois}`]: data } as DonneesMensuelles)
+      ),
+    [donneesMensuelles, data, annee, mois]
   );
 
   const handleFile = (file: File) => {
@@ -280,7 +292,9 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
         {sorted.length === 0 && !salairesAuto ? (
           <p className="text-center text-muted-foreground py-8 italic">Aucune transaction pour ce mois</p>
         ) : (
-          sorted.map((t) => (
+          sorted.map((t) => {
+            const anomalies: Anomalie[] = anomaliesMap.transactions.get(t.id) || [];
+            return (
             <div
               key={t.id}
               className={`list-item flex items-center justify-between gap-3 ${
@@ -290,6 +304,25 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold truncate">{t.desc}</p>
+                  {anomalies.length > 0 && (
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="badge-soft cursor-help bg-warning/15 text-warning flex items-center gap-1">
+                            <AlertTriangle className="size-3" />
+                            {anomalies.length > 1 ? `${anomalies.length} anomalies` : "Anomalie"}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <ul className="text-xs max-w-xs list-disc pl-4 space-y-0.5">
+                            {anomalies.map((a, i) => (
+                              <li key={i}>{a.message}</li>
+                            ))}
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {t.statut && (
                     t.statut === "rejete" && t.motifRejet ? (
                       <TooltipProvider delayDuration={150}>
@@ -378,7 +411,8 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
                 </Button>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
