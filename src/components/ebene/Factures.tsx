@@ -275,13 +275,35 @@ export const Factures = ({
                 : f.statut === "proforma"
                 ? { cls: "bg-warning/15 text-warning", label: "📋 Proforma" }
                 : { cls: "bg-info/15 text-info", label: "⏳ En attente" };
+            const sv = f.statutValidation;
+            const dim = sv === "brouillon" ? "opacity-50" : "";
             return (
-              <div key={f.id} className={`list-item ${borderClass}`}>
+              <div key={f.id} className={`list-item ${borderClass} ${dim}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-sm font-mono">{f.numero}</p>
                       <span className={`badge-soft ${badge.cls}`}>{badge.label}</span>
+                      {sv && (
+                        sv === "rejete" && f.motifRejet ? (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={`badge-soft cursor-help ${STATUT_VALIDATION_BADGES[sv].cls}`}>
+                                  {STATUT_VALIDATION_BADGES[sv].label}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs max-w-xs">Motif : {f.motifRejet}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className={`badge-soft ${STATUT_VALIDATION_BADGES[sv].cls}`}>
+                            {STATUT_VALIDATION_BADGES[sv].label}
+                          </span>
+                        )
+                      )}
                     </div>
                     <p className="font-semibold mt-0.5 truncate">{f.client}</p>
                     <p className="text-xs text-muted-foreground">
@@ -289,6 +311,11 @@ export const Factures = ({
                       {f.avecTva && " • TVA 18%"}
                       {f.activite && ` • ${f.activite === "service" ? "Service" : "Commerce"}`}
                     </p>
+                    {sv === "rejete" && f.motifRejet && (
+                      <p className="text-xs text-destructive mt-1 italic">
+                        Motif du rejet : {f.motifRejet}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <span className="amount text-base text-foreground">
@@ -297,6 +324,31 @@ export const Factures = ({
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)}>
                       <Eye className="size-4" />
                     </Button>
+                    {isChefCompta && sv !== "valide" && onValider && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-success hover:text-success hover:bg-success/10"
+                        onClick={() => onValider(f.id)}
+                        title="Valider"
+                      >
+                        <Check className="size-4" />
+                      </Button>
+                    )}
+                    {isChefCompta && sv !== "rejete" && onRejeter && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-warning hover:text-warning hover:bg-warning/10"
+                        onClick={() => {
+                          const motif = window.prompt("Motif du rejet :", "");
+                          if (motif && motif.trim()) onRejeter(f.id, motif.trim());
+                        }}
+                        title="Rejeter"
+                      >
+                        <XCircle className="size-4" />
+                      </Button>
+                    )}
                     {f.statut === "proforma" && (
                       <Button
                         size="sm"
