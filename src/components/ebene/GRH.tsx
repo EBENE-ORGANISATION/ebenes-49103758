@@ -286,7 +286,7 @@ export const GRH = ({
               <li>• <strong>Taux horaire</strong> = (Salaire base + sursalaire) / 173,33 (Art. 32)</li>
               <li>• <strong>Heures sup</strong> : 41-48h +20%, &gt;48h +40%, dim/fériés +65%, nuit +65%, nuit dim/fériés +100%</li>
               <li>• <strong>Prime d'ancienneté</strong> : 2% après 2 ans, +1%/an, plafond 30% (Art. 36)</li>
-              <li>• <strong>Prime de salissure</strong> : 5 000 FCFA/mois (forfait)</li>
+              <li>• <strong>Primes</strong> : ajoutées manuellement par mois (libellé + montant). Aucune prime n'est appliquée automatiquement.</li>
               <li>• <strong>CNSS</strong> : 4% salarié + 17,5% employeur</li>
               <li>• <strong>AMU</strong> : 5% salarié + 5% employeur</li>
               <li>• <strong>IRPP</strong> : barème progressif togolais avec parts familiales</li>

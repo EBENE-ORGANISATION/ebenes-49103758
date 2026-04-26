@@ -66,7 +66,7 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
           <p>
             L'Employeur engage le Travailleur en qualité de <strong>{employe.poste}</strong>
             {employe.qualification && ` (${employe.qualification})`}, classé(e) en
-            <strong> {employe.categorie}<sup>e</sup> catégorie, échelon {employe.echelon || 1}</strong>
+            <strong> catégorie {employe.categorie || "E1"}, échelon {employe.echelon || 1}</strong>
             de la classification professionnelle de la Convention collective interprofessionnelle du Togo.
           </p>
 
@@ -88,7 +88,6 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
             . S'y ajoutent les primes et indemnités légales et conventionnelles, notamment :
           </p>
           <ul className="list-disc pl-6">
-            <li>Prime de salissure : 5 000 FCFA / mois</li>
             {(employe.indemniteTransport || 0) > 0 && <li>Indemnité de transport : {formatMontant(employe.indemniteTransport!)}</li>}
             {(employe.indemniteLogement || 0) > 0 && <li>Indemnité de logement : {formatMontant(employe.indemniteLogement!)}</li>}
             {(employe.indemniteFonction || 0) > 0 && <li>Indemnité de fonction : {formatMontant(employe.indemniteFonction!)}</li>}
