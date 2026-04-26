@@ -403,3 +403,60 @@ const AlertesBell = ({ alertes }: { alertes: Alerte[] }) => {
     </DropdownMenu>
   );
 };
+// ─── Bouton "Installer l'app" (PWA) ──────────────────────────────────────
+// Visible uniquement si :
+//  - l'app n'est PAS dans Capacitor (window.Capacitor absent)
+//  - le navigateur a déclenché beforeinstallprompt (Chrome/Edge/Android)
+type BIPEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+const InstallPWAButton = () => {
+  const [deferred, setDeferred] = useState<BIPEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    // Si on tourne dans Capacitor, on ne montre jamais ce bouton
+    if (typeof window !== "undefined" && (window as unknown as { Capacitor?: unknown }).Capacitor) {
+      return;
+    }
+
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferred(e as BIPEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setDeferred(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (installed || !deferred) return null;
+
+  const handleInstall = async () => {
+    try {
+      await deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      if (outcome === "accepted") {
+        toast.success("Application installée");
+      }
+      setDeferred(null);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <Button onClick={handleInstall} variant="secondary" size="sm" className="gap-1.5">
+      <Smartphone className="size-4" /> Installer l'app
+    </Button>
+  );
+};
