@@ -453,21 +453,26 @@ export const useEbeneStore = () => {
 
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
+      const id = newId();
+      const newP: Prime = { ...prime, id };
       updateMois(annee, mois, (m) => {
         const list = m.primes[employeId] || [];
         return {
           ...m,
-          primes: { ...m.primes, [employeId]: [...list, { ...prime, id: newId() }] },
+          primes: { ...m.primes, [employeId]: [...list, newP] },
         };
       });
+      void logAction("INSERT", "primes", id, null, { ...newP, employeId });
     },
     [updateMois]
   );
 
   const removePrime = useCallback(
     (annee: number, mois: number, employeId: number, primeId: number) => {
+      let removed: Prime | undefined;
       updateMois(annee, mois, (m) => {
         const list = m.primes[employeId] || [];
+        removed = list.find((p) => p.id === primeId);
         return {
           ...m,
           primes: {
@@ -476,6 +481,7 @@ export const useEbeneStore = () => {
           },
         };
       });
+      void logAction("DELETE", "primes", primeId, removed ? { ...removed, employeId } : null, null);
     },
     [updateMois]
   );
@@ -483,20 +489,28 @@ export const useEbeneStore = () => {
   // Absences
   const addAbsence = useCallback(
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
+      const id = newId();
+      const newA: Absence = { ...a, id };
       updateMois(annee, mois, (m) => ({
         ...m,
-        absences: [...(m.absences || []), { ...a, id: newId() }],
+        absences: [...(m.absences || []), newA],
       }));
+      void logAction("INSERT", "absences", id, null, newA);
     },
     [updateMois]
   );
 
   const removeAbsence = useCallback(
     (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: (m.absences || []).filter((a) => a.id !== id),
-      }));
+      let removed: Absence | undefined;
+      updateMois(annee, mois, (m) => {
+        removed = (m.absences || []).find((a) => a.id === id);
+        return {
+          ...m,
+          absences: (m.absences || []).filter((a) => a.id !== id),
+        };
+      });
+      void logAction("DELETE", "absences", id, removed ?? null, null);
     },
     [updateMois]
   );
@@ -504,10 +518,15 @@ export const useEbeneStore = () => {
   // Heures supplémentaires
   const setHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
-      }));
+      let before: HeuresSup | undefined;
+      updateMois(annee, mois, (m) => {
+        before = (m.heuresSup || {})[employeId];
+        return {
+          ...m,
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+        };
+      });
+      void logAction("UPDATE", "heuresSup", employeId, before ?? null, hs);
     },
     [updateMois]
   );
@@ -515,10 +534,15 @@ export const useEbeneStore = () => {
   // Retenues
   const setRetenue = useCallback(
     (annee: number, mois: number, employeId: number, montant: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        retenues: { ...(m.retenues || {}), [employeId]: montant },
-      }));
+      let before: number | undefined;
+      updateMois(annee, mois, (m) => {
+        before = (m.retenues || {})[employeId];
+        return {
+          ...m,
+          retenues: { ...(m.retenues || {}), [employeId]: montant },
+        };
+      });
+      void logAction("UPDATE", "retenues", employeId, before ?? null, montant);
     },
     [updateMois]
   );
@@ -526,10 +550,17 @@ export const useEbeneStore = () => {
   // Paramètres annuels (TH / RSL)
   const setParamAnnuel = useCallback(
     (annee: number, patch: Partial<ParamsAnnuels>) => {
-      setParamsAnnuels((prev) => ({
-        ...prev,
-        [annee]: { ...(prev[annee] || {}), ...patch },
-      }));
+      let before: ParamsAnnuels | undefined;
+      let after: ParamsAnnuels | undefined;
+      setParamsAnnuels((prev) => {
+        before = prev[annee];
+        after = { ...(prev[annee] || {}), ...patch };
+        return {
+          ...prev,
+          [annee]: after,
+        };
+      });
+      void logAction("UPDATE", "paramsAnnuels", annee, before ?? null, after ?? null);
     },
     []
   );
@@ -546,51 +577,99 @@ export const useEbeneStore = () => {
         (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime()
       )
     );
+    void logAction("INSERT", "tauxHistorique", t.dateEffet, null, t);
   }, []);
   const supprimerTaux = useCallback((dateEffet: string) => {
+    let removed: TauxFiscaux | undefined;
     setTauxHistorique((prev) => {
+      removed = prev.find((x) => x.dateEffet === dateEffet);
       const next = prev.filter((x) => x.dateEffet !== dateEffet);
       return next.length === 0 ? [TAUX_DEFAUT] : next;
     });
+    void logAction("DELETE", "tauxHistorique", dateEffet, removed ?? null, null);
   }, []);
 
   // ─── Stock : catégories ───
   const addCategorieStock = useCallback((nom: string) => {
-    setCategoriesStock((prev) => [...prev, { id: newId(), nom }]);
+    const id = newId();
+    setCategoriesStock((prev) => [...prev, { id, nom }]);
+    void logAction("INSERT", "categoriesStock", id, null, { id, nom });
   }, []);
   const removeCategorieStock = useCallback((id: number) => {
-    setCategoriesStock((prev) => prev.filter((c) => c.id !== id));
+    let removed: CategorieArticle | undefined;
+    setCategoriesStock((prev) => {
+      removed = prev.find((c) => c.id === id);
+      return prev.filter((c) => c.id !== id);
+    });
+    void logAction("DELETE", "categoriesStock", id, removed ?? null, null);
   }, []);
 
   // ─── Stock : fournisseurs ───
   const addFournisseur = useCallback((f: Omit<Fournisseur, "id">) => {
-    setFournisseurs((prev) => [...prev, { ...f, id: newId() }]);
+    const id = newId();
+    const newF: Fournisseur = { ...f, id };
+    setFournisseurs((prev) => [...prev, newF]);
+    void logAction("INSERT", "fournisseurs", id, null, newF);
   }, []);
   const updateFournisseur = useCallback((id: number, patch: Partial<Fournisseur>) => {
-    setFournisseurs((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    let before: Fournisseur | undefined;
+    let after: Fournisseur | undefined;
+    setFournisseurs((prev) =>
+      prev.map((f) => {
+        if (f.id !== id) return f;
+        before = f;
+        after = { ...f, ...patch };
+        return after;
+      })
+    );
+    void logAction("UPDATE", "fournisseurs", id, before ?? null, after ?? null);
   }, []);
   const removeFournisseur = useCallback((id: number) => {
-    setFournisseurs((prev) => prev.filter((f) => f.id !== id));
+    let removed: Fournisseur | undefined;
+    setFournisseurs((prev) => {
+      removed = prev.find((f) => f.id === id);
+      return prev.filter((f) => f.id !== id);
+    });
+    void logAction("DELETE", "fournisseurs", id, removed ?? null, null);
   }, []);
 
   // ─── Stock : articles ───
   const addArticle = useCallback((a: Omit<Article, "id">) => {
-    setArticles((prev) => [...prev, { ...a, id: newId() }]);
+    const id = newId();
+    const newA: Article = { ...a, id };
+    setArticles((prev) => [...prev, newA]);
+    void logAction("INSERT", "articles", id, null, newA);
   }, []);
   const updateArticle = useCallback((id: number, patch: Partial<Article>) => {
-    setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    let before: Article | undefined;
+    let after: Article | undefined;
+    setArticles((prev) =>
+      prev.map((a) => {
+        if (a.id !== id) return a;
+        before = a;
+        after = { ...a, ...patch };
+        return after;
+      })
+    );
+    void logAction("UPDATE", "articles", id, before ?? null, after ?? null);
   }, []);
   const removeArticle = useCallback((id: number) => {
-    setArticles((prev) => prev.filter((a) => a.id !== id));
+    let removed: Article | undefined;
+    setArticles((prev) => {
+      removed = prev.find((a) => a.id === id);
+      return prev.filter((a) => a.id !== id);
+    });
+    void logAction("DELETE", "articles", id, removed ?? null, null);
   }, []);
 
   // ─── Stock : mouvements (impactent le stock + PMP pour entrées) ───
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
       const id = newId();
+      const newMvt: MouvementStock = { ...mvt, id };
       updateMois(annee, mois, (m) => ({
         ...m,
-        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
+        mouvementsStock: [...(m.mouvementsStock || []), newMvt],
       }));
       // Mise à jour du stock & PMP de l'article
       setArticles((prev) =>
@@ -611,6 +690,7 @@ export const useEbeneStore = () => {
           return { ...a, stock: nouveauStock, prixAchat: nouveauPMP };
         })
       );
+      void logAction("INSERT", "mouvementsStock", id, null, newMvt);
       return id;
     },
     [updateMois]
@@ -618,8 +698,10 @@ export const useEbeneStore = () => {
 
   const removeMouvementStock = useCallback(
     (annee: number, mois: number, id: number) => {
+      let removed: MouvementStock | undefined;
       updateMois(annee, mois, (m) => {
         const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
+        removed = mvt;
         if (mvt) {
           // rollback simple : entrée→on retire / sortie→on rend / ajustement→non rollback
           setArticles((prev) =>
@@ -633,16 +715,25 @@ export const useEbeneStore = () => {
         }
         return { ...m, mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id) };
       });
+      void logAction("DELETE", "mouvementsStock", id, removed ?? null, null);
     },
     [updateMois]
   );
 
   // ─── Sanctions disciplinaires ───
   const addSanction = useCallback((s: Omit<Sanction, "id">) => {
-    setSanctions((prev) => [...prev, { ...s, id: newId() }]);
+    const id = newId();
+    const newS: Sanction = { ...s, id };
+    setSanctions((prev) => [...prev, newS]);
+    void logAction("INSERT", "sanctions", id, null, newS);
   }, []);
   const removeSanction = useCallback((id: number) => {
-    setSanctions((prev) => prev.filter((s) => s.id !== id));
+    let removed: Sanction | undefined;
+    setSanctions((prev) => {
+      removed = prev.find((s) => s.id === id);
+      return prev.filter((s) => s.id !== id);
+    });
+    void logAction("DELETE", "sanctions", id, removed ?? null, null);
   }, []);
 
   const importerDonnees = useCallback(
@@ -704,6 +795,10 @@ export const useEbeneStore = () => {
     removeFacture,
     marquerPayee,
     convertirProforma,
+    validerTransaction,
+    rejeterTransaction,
+    validerFacture,
+    rejeterFacture,
     addEmploye,
     removeEmploye,
     updateEmploye,
