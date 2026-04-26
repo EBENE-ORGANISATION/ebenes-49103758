@@ -26,6 +26,7 @@ import {
   X,
   Check,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -39,6 +40,8 @@ import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   employes: Employe[];
@@ -131,6 +134,61 @@ export const GRH = ({
     setPrimeLib("");
     setPrimeMnt("");
     setPrimeOpen(null);
+  };
+
+  // Crée (ou récupère) un compte portail employé via la fonction admin-users
+  // puis lie son user_id à la fiche.
+  const creerComptePortail = async (e: Employe) => {
+    if (!e.email) {
+      toast.error("Renseigne d'abord un email pour cet employé.");
+      return;
+    }
+    if (e.userId) {
+      toast.info("Cet employé a déjà un compte portail lié.");
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: {
+          action: "create_employe_account",
+          email: e.email,
+          employe_nom: e.nom,
+        },
+      });
+      if (error) throw error;
+      const payload = data as {
+        ok?: boolean;
+        user_id?: string;
+        temp_password?: string;
+        already_existed?: boolean;
+        error?: string;
+      };
+      if (payload?.error) {
+        toast.error(payload.error);
+        return;
+      }
+      if (!payload?.user_id) {
+        toast.error("Réponse invalide du serveur.");
+        return;
+      }
+      onUpdateEmploye(e.id, { userId: payload.user_id });
+      if (payload.already_existed) {
+        toast.success(
+          `Compte existant trouvé pour ${e.email}. Lié à la fiche.`
+        );
+      } else {
+        // Affiche le mot de passe temporaire dans une alerte (à transmettre à l'employé)
+        window.alert(
+          `✅ Compte portail créé pour ${e.nom}\n\n` +
+            `Email : ${e.email}\n` +
+            `Mot de passe temporaire : ${payload.temp_password}\n\n` +
+            `⚠️ Transmets ce mot de passe à l'employé. Il pourra le changer après sa première connexion.`
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      toast.error(`Échec création compte : ${msg}`);
+    }
   };
 
   return (
@@ -257,6 +315,32 @@ export const GRH = ({
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setHsOpen(hsOpen === e.id ? null : e.id)}>
                           <Clock className="size-3" /> HS
                         </Button>
+                        {isChefGrh && (!e.userId || !e.email) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-8 text-xs"
+                            onClick={() => creerComptePortail(e)}
+                            title={
+                              e.userId
+                                ? "Compte portail déjà lié"
+                                : !e.email
+                                ? "Renseigne d'abord un email"
+                                : "Créer un compte portail self-service"
+                            }
+                            disabled={!e.email || !!e.userId}
+                          >
+                            <KeyRound className="size-3" /> Portail
+                          </Button>
+                        )}
+                        {isChefGrh && e.userId && (
+                          <span
+                            className="badge-soft bg-success/15 text-success text-[10px] flex items-center gap-1"
+                            title={`Compte portail lié : ${e.userId}`}
+                          >
+                            <KeyRound className="size-2.5" /> Portail OK
+                          </span>
+                        )}
                         <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditing(e); setShowForm(true); }}>
                           <Pencil className="size-4" />
                         </Button>
