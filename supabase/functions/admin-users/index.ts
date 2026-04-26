@@ -17,6 +17,8 @@ type AppRole =
   | "membre_compta"
   | "chef_grh"
   | "membre_grh"
+  | "dashboard_viewer"
+  | "employe"
   | "rh"
   | "comptable"
   | "saisie";
