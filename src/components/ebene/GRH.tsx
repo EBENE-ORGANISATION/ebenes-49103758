@@ -363,6 +363,9 @@ export const GRH = ({
             absences={data.absences || []}
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
+            isChefGrh={isChefGrh}
+            onValider={onValiderAbsence}
+            onRejeter={onRejeterAbsence}
           />
         </TabsContent>
 
@@ -372,6 +375,9 @@ export const GRH = ({
             sanctions={sanctions}
             onAdd={onAddSanction}
             onRemove={onRemoveSanction}
+            isChefGrh={isChefGrh}
+            onValider={onValiderSanction}
+            onRejeter={onRejeterSanction}
           />
         </TabsContent>
 
