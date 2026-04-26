@@ -1,11 +1,12 @@
 import { useMemo, useState, useRef } from "react";
-import { ActiviteType, Employe, MoisData, Transaction, TauxFiscaux } from "@/types/ebene";
+import { ActiviteType, Employe, MoisData, Transaction, TauxFiscaux, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye, Check, XCircle } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
 import { calculerPaie } from "./grh/BulletinPaie";
 import { toast } from "sonner";
@@ -18,9 +19,20 @@ interface Props {
   taux: TauxFiscaux;
   onAdd: (t: Omit<Transaction, "id">) => void;
   onRemove: (id: number) => void;
+  /** Si true, affiche les boutons Valider / Rejeter (chef compta). */
+  isChefCompta?: boolean;
+  onValider?: (id: number) => void;
+  onRejeter?: (id: number, motif: string) => void;
 }
 
-export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: Props) => {
+const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
+  brouillon: { cls: "bg-muted text-muted-foreground", label: "Brouillon" },
+  en_validation: { cls: "bg-warning/15 text-warning", label: "En validation" },
+  valide: { cls: "bg-success/15 text-success", label: "✓ Validé" },
+  rejete: { cls: "bg-destructive/15 text-destructive", label: "✗ Rejeté" },
+};
+
+export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isChefCompta, onValider, onRejeter }: Props) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
   const [type, setType] = useState<"r" | "d">("r");
@@ -273,11 +285,31 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
               key={t.id}
               className={`list-item flex items-center justify-between gap-3 ${
                 t.source === "facture" ? "border-l-4 border-l-info" : t.source === "fournisseur" ? "border-l-4 border-l-warning" : ""
-              }`}
+              } ${t.statut === "brouillon" ? "opacity-50" : ""}`}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold truncate">{t.desc}</p>
+                  {t.statut && (
+                    t.statut === "rejete" && t.motifRejet ? (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`badge-soft cursor-help ${STATUT_BADGES[t.statut].cls}`}>
+                              {STATUT_BADGES[t.statut].label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs max-w-xs">Motif : {t.motifRejet}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className={`badge-soft ${STATUT_BADGES[t.statut].cls}`}>
+                        {STATUT_BADGES[t.statut].label}
+                      </span>
+                    )
+                  )}
                   {t.source === "facture" && <span className="badge-soft bg-info/15 text-info">Facture</span>}
                   {t.source === "fournisseur" && <span className="badge-soft bg-warning/15 text-warning">Fournisseur</span>}
                   {t.pieceJointe && (
@@ -293,11 +325,41 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove }: P
                   {t.date} • {t.type === "r" ? "Recette" : "Dépense"}
                   {t.fournisseur && ` • ${t.fournisseur}`}
                 </p>
+                {t.statut === "rejete" && t.motifRejet && (
+                  <p className="text-xs text-destructive mt-1 italic">
+                    Motif du rejet : {t.motifRejet}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`amount text-sm sm:text-base ${t.m >= 0 ? "text-success" : "text-destructive"}`}>
                   {t.m >= 0 ? "+" : "-"} {Math.abs(t.m).toLocaleString("fr-FR")} F
                 </span>
+                {isChefCompta && t.statut !== "valide" && onValider && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-success hover:text-success hover:bg-success/10"
+                    onClick={() => onValider(t.id)}
+                    title="Valider"
+                  >
+                    <Check className="size-4" />
+                  </Button>
+                )}
+                {isChefCompta && t.statut !== "rejete" && onRejeter && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-warning hover:text-warning hover:bg-warning/10"
+                    onClick={() => {
+                      const motif = window.prompt("Motif du rejet :", "");
+                      if (motif && motif.trim()) onRejeter(t.id, motif.trim());
+                    }}
+                    title="Rejeter"
+                  >
+                    <XCircle className="size-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
