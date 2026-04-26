@@ -165,9 +165,14 @@ export const Factures = ({
       </div>
 
       {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5">
-          <Plus className="size-4" /> Nouvelle Facture / Proforma
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setOpen(true)} className="gap-1.5">
+            <Plus className="size-4" /> Nouvelle Facture / Proforma
+          </Button>
+          <Button variant="outline" onClick={() => setOcrOpen(true)} className="gap-1.5">
+            <Camera className="size-4" /> 📷 Importer par photo
+          </Button>
+        </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
           <h3 className="font-bold text-lg">Nouvelle Facture</h3>
