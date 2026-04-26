@@ -37,6 +37,7 @@ import { HeuresSupPanel } from "./grh/HeuresSupPanel";
 import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
+import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 
 interface Props {
   employes: Employe[];
@@ -159,9 +160,12 @@ export const GRH = ({
               }}
             />
           ) : (
-            <Button onClick={() => setShowForm(true)} className="gap-1.5">
-              <Plus className="size-4" /> Ajouter un employé
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setShowForm(true)} className="gap-1.5">
+                <Plus className="size-4" /> Ajouter un employé
+              </Button>
+              <ImportEmployesExcel onImport={onAddEmploye} />
+            </div>
           )}
 
           {employes.length === 0 ? (
