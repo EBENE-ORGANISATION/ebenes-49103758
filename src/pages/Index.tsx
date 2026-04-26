@@ -54,6 +54,7 @@ const Index = () => {
       fournisseurs: store.fournisseurs,
       categoriesStock: store.categoriesStock,
       sanctions: store.sanctions,
+      immobilisations: store.immobilisations,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -109,7 +110,7 @@ const Index = () => {
 
         <div className="card-elevated p-4 sm:p-6 no-print">
           <Tabs defaultValue={canViewDashboard ? "dashboard" : "compta"} className="w-full">
-            <TabsList className={`grid grid-cols-2 ${canViewDashboard ? "sm:grid-cols-6" : "sm:grid-cols-5"} w-full mb-5 h-auto`}>
+            <TabsList className={`grid grid-cols-2 ${canViewDashboard ? "sm:grid-cols-7" : "sm:grid-cols-6"} w-full mb-5 h-auto`}>
               {canViewDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
                   📊 Dashboard
@@ -129,6 +130,9 @@ const Index = () => {
               </TabsTrigger>
               <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
                 👥 GRH
+              </TabsTrigger>
+              <TabsTrigger value="immo" className="py-2.5 text-sm font-semibold">
+                🏢 Immobilisations
               </TabsTrigger>
             </TabsList>
 
