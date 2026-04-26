@@ -159,11 +159,12 @@ export const Immobilisations = ({
         <StatCard
           label="Immobilisations"
           value={String(immobilisations.length)}
+          tone="info"
           icon={<Building2 className="size-5" />}
         />
-        <StatCard label="Valeur d'origine" value={formatMontant(totals.base)} />
-        <StatCard label={`Dotation ${annee}`} value={formatMontant(totals.dotation)} />
-        <StatCard label={`VNC fin ${annee}`} value={formatMontant(totals.vnc)} />
+        <StatCard label="Valeur d'origine" value={formatMontant(totals.base)} tone="purple" />
+        <StatCard label={`Dotation ${annee}`} value={formatMontant(totals.dotation)} tone="warning" />
+        <StatCard label={`VNC fin ${annee}`} value={formatMontant(totals.vnc)} tone="success" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
