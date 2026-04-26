@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DonneesMensuelles,
   Employe,
@@ -19,25 +20,26 @@ import {
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 
-const LS_DONNEES = "ebene_donneesMensuelles";
-const LS_EMPLOYES = "ebene_employes";
-const LS_PARAMS_ANNUELS = "ebene_paramsAnnuels";
-const LS_TAUX = "ebene_tauxHistorique";
-const LS_ARTICLES = "ebene_articles";
-const LS_FOURNISSEURS = "ebene_fournisseurs";
-const LS_CATEGORIES_STOCK = "ebene_categoriesStock";
-const LS_SANCTIONS = "ebene_sanctions";
+// Clés cloud (table app_state)
+const K_DONNEES = "donneesMensuelles";
+const K_EMPLOYES = "employes";
+const K_PARAMS_ANNUELS = "paramsAnnuels";
+const K_TAUX = "tauxHistorique";
+const K_ARTICLES = "articles";
+const K_FOURNISSEURS = "fournisseurs";
+const K_CATEGORIES_STOCK = "categoriesStock";
+const K_SANCTIONS = "sanctions";
 
-const loadJSON = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
+const ALL_KEYS = [
+  K_DONNEES,
+  K_EMPLOYES,
+  K_PARAMS_ANNUELS,
+  K_TAUX,
+  K_ARTICLES,
+  K_FOURNISSEURS,
+  K_CATEGORIES_STOCK,
+  K_SANCTIONS,
+] as const;
 
 const ensureMois = (d: MoisData | undefined): MoisData => ({
   transactions: Array.isArray(d?.transactions) ? d!.transactions : [],
@@ -59,56 +61,119 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
 });
 
 export const useEbeneStore = () => {
-  const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>(
-    () => loadJSON<DonneesMensuelles>(LS_DONNEES, {})
-  );
-  const [employes, setEmployes] = useState<Employe[]>(() =>
-    loadJSON<Employe[]>(LS_EMPLOYES, [])
-  );
-  const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>(
-    () => loadJSON<Record<number, ParamsAnnuels>>(LS_PARAMS_ANNUELS, {})
-  );
-  const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>(() =>
-    loadJSON<TauxFiscaux[]>(LS_TAUX, [TAUX_DEFAUT])
-  );
-  const [articles, setArticles] = useState<Article[]>(() => loadJSON<Article[]>(LS_ARTICLES, []));
-  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>(() =>
-    loadJSON<Fournisseur[]>(LS_FOURNISSEURS, [])
-  );
-  const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>(() =>
-    loadJSON<CategorieArticle[]>(LS_CATEGORIES_STOCK, [])
-  );
-  const [sanctions, setSanctions] = useState<Sanction[]>(() =>
-    loadJSON<Sanction[]>(LS_SANCTIONS, [])
-  );
+  const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
+  const [employes, setEmployes] = useState<Employe[]>([]);
+  const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>({});
+  const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
+  const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>([]);
+  const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [loaded, setLoaded] = useState(false);
 
+  // Anti-boucle : signature locale des dernières valeurs envoyées
+  const localSig = useRef<Record<string, string>>({});
+
+  // Application d'une valeur reçue (initial ou realtime)
+  const applyValue = useCallback((key: string, value: unknown) => {
+    switch (key) {
+      case K_DONNEES:
+        setDonneesMensuelles((value as DonneesMensuelles) || {});
+        break;
+      case K_EMPLOYES:
+        setEmployes(Array.isArray(value) ? (value as Employe[]) : []);
+        break;
+      case K_PARAMS_ANNUELS:
+        setParamsAnnuels((value as Record<number, ParamsAnnuels>) || {});
+        break;
+      case K_TAUX: {
+        const arr = Array.isArray(value) ? (value as TauxFiscaux[]) : [];
+        setTauxHistorique(arr.length ? arr : [TAUX_DEFAUT]);
+        break;
+      }
+      case K_ARTICLES:
+        setArticles(Array.isArray(value) ? (value as Article[]) : []);
+        break;
+      case K_FOURNISSEURS:
+        setFournisseurs(Array.isArray(value) ? (value as Fournisseur[]) : []);
+        break;
+      case K_CATEGORIES_STOCK:
+        setCategoriesStock(Array.isArray(value) ? (value as CategorieArticle[]) : []);
+        break;
+      case K_SANCTIONS:
+        setSanctions(Array.isArray(value) ? (value as Sanction[]) : []);
+        break;
+    }
+  }, []);
+
+  // Chargement initial + realtime
   useEffect(() => {
-    try {
-      localStorage.setItem(LS_DONNEES, JSON.stringify(donneesMensuelles));
-      setLastSaved(new Date());
-    } catch {}
-  }, [donneesMensuelles]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("app_state")
+        .select("key,value")
+        .in("key", ALL_KEYS as unknown as string[]);
+      if (!cancelled && !error && data) {
+        for (const row of data) {
+          localSig.current[row.key] = JSON.stringify(row.value);
+          applyValue(row.key, row.value);
+        }
+      }
+      if (!cancelled) setLoaded(true);
+    })();
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_EMPLOYES, JSON.stringify(employes));
-      setLastSaved(new Date());
-    } catch {}
-  }, [employes]);
+    const channel = supabase
+      .channel("app_state_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_state" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
+          if (!row?.key) return;
+          const sig = JSON.stringify(row.value);
+          if (localSig.current[row.key] === sig) return; // déjà à jour localement
+          localSig.current[row.key] = sig;
+          applyValue(row.key, row.value);
+        }
+      )
+      .subscribe();
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_PARAMS_ANNUELS, JSON.stringify(paramsAnnuels));
-      setLastSaved(new Date());
-    } catch {}
-  }, [paramsAnnuels]);
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [applyValue]);
 
-  useEffect(() => { try { localStorage.setItem(LS_TAUX, JSON.stringify(tauxHistorique)); setLastSaved(new Date()); } catch {} }, [tauxHistorique]);
-  useEffect(() => { try { localStorage.setItem(LS_ARTICLES, JSON.stringify(articles)); setLastSaved(new Date()); } catch {} }, [articles]);
-  useEffect(() => { try { localStorage.setItem(LS_FOURNISSEURS, JSON.stringify(fournisseurs)); setLastSaved(new Date()); } catch {} }, [fournisseurs]);
-  useEffect(() => { try { localStorage.setItem(LS_CATEGORIES_STOCK, JSON.stringify(categoriesStock)); setLastSaved(new Date()); } catch {} }, [categoriesStock]);
-  useEffect(() => { try { localStorage.setItem(LS_SANCTIONS, JSON.stringify(sanctions)); setLastSaved(new Date()); } catch {} }, [sanctions]);
+  // Persistance vers le cloud (debounced par effet React)
+  const persist = useCallback(async (key: string, value: unknown) => {
+    const sig = JSON.stringify(value);
+    if (localSig.current[key] === sig) return;
+    localSig.current[key] = sig;
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from("app_state")
+      .upsert(
+        {
+          key,
+          value: value as never,
+          updated_by: userData.user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" }
+      );
+    if (!error) setLastSaved(new Date());
+  }, []);
+
+  useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_EMPLOYES, employes); }, [employes, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_PARAMS_ANNUELS, paramsAnnuels); }, [paramsAnnuels, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_TAUX, tauxHistorique); }, [tauxHistorique, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_ARTICLES, articles); }, [articles, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_FOURNISSEURS, fournisseurs); }, [fournisseurs, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
 
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
