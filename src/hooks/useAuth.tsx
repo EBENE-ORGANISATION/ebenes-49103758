@@ -2,7 +2,16 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "rh" | "comptable" | "saisie";
+export type AppRole =
+  | "admin"
+  | "chef_compta"
+  | "membre_compta"
+  | "chef_grh"
+  | "membre_grh"
+  // anciens rôles conservés pour compatibilité
+  | "rh"
+  | "comptable"
+  | "saisie";
 
 interface AuthContextValue {
   user: User | null;
@@ -13,6 +22,14 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isAdmin: boolean;
+  /** Membre du service Comptabilité (admin, chef_compta, membre_compta) */
+  inServiceCompta: boolean;
+  /** Membre du service GRH (admin, chef_grh, membre_grh) */
+  inServiceGrh: boolean;
+  /** Chef du service Comptabilité (admin compte aussi) */
+  isChefCompta: boolean;
+  /** Chef du service GRH (admin compte aussi) */
+  isChefGrh: boolean;
   refreshRoles: () => Promise<void>;
 }
 
@@ -75,10 +92,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = roles.includes("admin");
+  const inServiceCompta =
+    isAdmin || roles.includes("chef_compta") || roles.includes("membre_compta") || roles.includes("comptable");
+  const inServiceGrh =
+    isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh");
+  const isChefCompta = isAdmin || roles.includes("chef_compta");
+  const isChefGrh = isAdmin || roles.includes("chef_grh");
 
   return (
     <AuthContext.Provider
-      value={{ user, session, roles, loading, signIn, signOut, hasRole, isAdmin, refreshRoles }}
+      value={{
+        user, session, roles, loading, signIn, signOut, hasRole, isAdmin,
+        inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, refreshRoles,
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -93,7 +119,11 @@ export const useAuth = () => {
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrateur",
-  rh: "Ressources Humaines",
-  comptable: "Comptable",
-  saisie: "Saisie",
+  chef_compta: "Chef Service Comptabilité",
+  membre_compta: "Membre Service Comptabilité",
+  chef_grh: "Chef Service GRH",
+  membre_grh: "Membre Service GRH",
+  rh: "RH (ancien)",
+  comptable: "Comptable (ancien)",
+  saisie: "Saisie (ancien)",
 };
