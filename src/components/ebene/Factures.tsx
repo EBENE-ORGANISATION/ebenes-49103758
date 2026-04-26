@@ -433,6 +433,17 @@ export const Factures = ({
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)}>
                       <Eye className="size-4" />
                     </Button>
+                    {onUpdateFacture && sv !== "valide" && f.statut !== "payee" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        onClick={() => startEdit(f)}
+                        title="Modifier (uniquement si non validée)"
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
                     {isChefCompta && sv !== "valide" && onValider && (
                       <Button
                         size="icon"
