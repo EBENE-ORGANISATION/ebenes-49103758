@@ -2,6 +2,13 @@ export type TransactionType = "r" | "d";
 export type TransactionSource = "manuelle" | "facture" | "salaires" | "fournisseur";
 export type ActiviteType = "service" | "commerce";
 
+/** Statut du workflow de validation (transactions et factures). */
+export type StatutValidation =
+  | "brouillon"
+  | "en_validation"
+  | "valide"
+  | "rejete";
+
 export interface Transaction {
   id: number;
   date: string;
@@ -19,6 +26,10 @@ export interface Transaction {
   fournisseur?: string | null;
   /** marque les transactions auto (salaires mensuels) — non supprimables manuellement */
   auto?: boolean;
+  /** Statut du workflow de validation (par défaut: 'en_validation' à la saisie). */
+  statut?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef de service. */
+  motifRejet?: string;
 }
 
 export interface LignePrestation {
@@ -43,6 +54,13 @@ export interface Facture {
   totalTtc: number;
   /** Type d'activité (impacte la patente lors du règlement) */
   activite?: ActiviteType;
+  /**
+   * Statut du workflow de validation, indépendant du statut métier
+   * (en_attente / payee / proforma).
+   */
+  statutValidation?: StatutValidation;
+  /** Motif renseigné lors d'un rejet par le chef de service. */
+  motifRejet?: string;
 }
 
 export interface Prime {

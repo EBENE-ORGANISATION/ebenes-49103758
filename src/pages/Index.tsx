@@ -156,6 +156,9 @@ const Index = () => {
                 onRemove={isChefCompta
                   ? (id) => store.removeTransaction(annee, mois, id)
                   : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                isChefCompta={isChefCompta}
+                onValider={(id) => store.validerTransaction(annee, mois, id)}
+                onRejeter={(id, motif) => store.rejeterTransaction(annee, mois, id, motif)}
               />
             </TabsContent>
 
@@ -194,6 +197,9 @@ const Index = () => {
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)
                   : (() => toast.error("Action réservée au service Comptabilité."))}
                 onPreview={setPreviewFacture}
+                isChefCompta={isChefCompta}
+                onValider={(id) => store.validerFacture(annee, mois, id)}
+                onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
               />
             </TabsContent>
 
