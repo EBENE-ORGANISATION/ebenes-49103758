@@ -14,12 +14,15 @@ const FALLBACK = {
   primaire: "#1F3864",
   secondaire: "#2E75B6",
   accent: "#C55A11",
+  police: "Calibri",
 };
 
 interface ThemeInput {
   couleur_primaire?: string | null;
   couleur_secondaire?: string | null;
   couleur_accent?: string | null;
+  /** Police principale de la société (ex: "Calibri", "Inter"). */
+  police?: string | null;
   /** Logo de la société (URL absolue ou data:). Utilisé comme favicon. */
   logo_url?: string | null;
   /** Nom de la société (utilisé pour <title>). */
@@ -156,6 +159,17 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
   root.style.setProperty("--color-secondary", secondaire);
   root.style.setProperty("--color-accent", accent);
 
+  // 3bis) Police de base (--font-base). Cascade : police de la société ou fallback.
+  //       On wrappe les noms contenant un espace dans des quotes pour CSS.
+  const rawFont = (cfg?.police || FALLBACK.police).trim();
+  const fontFamily = /\s/.test(rawFont) && !/^["'].*["']$/.test(rawFont)
+    ? `"${rawFont}"`
+    : rawFont;
+  root.style.setProperty(
+    "--font-base",
+    `${fontFamily}, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
+  );
+
   // 4) Identité visuelle de l'onglet (titre + favicon)
   applyDocumentTitle(cfg?.nom);
   applyFavicon(cfg?.logo_url);
@@ -166,6 +180,7 @@ export const resetTheme = (): void => {
     couleur_primaire: FALLBACK.primaire,
     couleur_secondaire: FALLBACK.secondaire,
     couleur_accent: FALLBACK.accent,
+    police: FALLBACK.police,
     nom: null,
     logo_url: null,
   });
