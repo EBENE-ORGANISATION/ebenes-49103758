@@ -87,7 +87,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               <img
                 src={logoSrc}
                 alt={nomSociete}
-                style={{ height: "22mm", width: "auto", maxWidth: "60mm", objectFit: "contain" }}
+                style={{ height: "32mm", width: "auto", maxWidth: "85mm", objectFit: "contain" }}
               />
             )}
             <div

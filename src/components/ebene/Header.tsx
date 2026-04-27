@@ -176,8 +176,8 @@ export const Header = ({
                 <img
                   src={logoSrc}
                   alt={nomSociete}
-                  className="h-12 w-auto object-contain"
-                  style={{ maxHeight: "48px" }}
+                  className="h-20 sm:h-24 w-auto object-contain"
+                  style={{ maxHeight: "96px" }}
                 />
               </div>
             )}
