@@ -66,7 +66,8 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [users]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [users]);
 
   const create = async () => {
     if (!uid) { toast.error("Sélectionnez un utilisateur"); return; }

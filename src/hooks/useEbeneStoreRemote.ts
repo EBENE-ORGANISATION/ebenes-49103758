@@ -235,7 +235,6 @@ export const useEbeneStoreRemote = () => {
         notifyOffline();
         // Charger le cache local
         if (!cancelled) loadFromLocal();
-        // eslint-disable-next-line no-console
         console.error("[useEbeneStoreRemote] load failed:", err);
       } finally {
         if (!cancelled) setLoaded(true);
@@ -261,7 +260,6 @@ export const useEbeneStoreRemote = () => {
         )
         .subscribe();
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error("[useEbeneStoreRemote] realtime subscribe failed:", err);
     }
 
@@ -310,7 +308,6 @@ export const useEbeneStoreRemote = () => {
       } catch (err) {
         offlineMode.current = true;
         notifyOffline();
-        // eslint-disable-next-line no-console
         console.error(`[useEbeneStoreRemote] persist(${key}) failed:`, err);
       }
     },
