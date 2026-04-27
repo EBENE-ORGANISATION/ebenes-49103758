@@ -54,11 +54,6 @@ const Index = () => {
     [store.employes]
   );
 
-  // Compte 'employe' pur → portail self-service uniquement
-  if (isEmployeOnly) {
-    return <PortailEmploye />;
-  }
-
   const alertes = useMemo(
     () =>
       getAlertes({
@@ -68,6 +63,12 @@ const Index = () => {
       }),
     [store.donneesMensuelles, employesPaie, store.articles]
   );
+
+  // Compte 'employe' pur → portail self-service uniquement
+  // ⚠️ Doit rester APRÈS tous les hooks pour respecter les Rules of Hooks.
+  if (isEmployeOnly) {
+    return <PortailEmploye />;
+  }
 
   const exportJSON = () => {
     const payload = {
