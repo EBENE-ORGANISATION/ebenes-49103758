@@ -18,9 +18,14 @@ import {
   CategorieArticle,
   MouvementStock,
   Sanction,
+  Devis,
+  Immobilisation,
+  COMPTES_IMMO_DEFAUT,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
+import { amortissementsAnnee } from "@/lib/amortissements";
+import { logAction } from "@/lib/audit";
 
 /**
  * useEbeneStoreRemote
