@@ -184,12 +184,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user, fetchRoles, fetchGrants, fetchOverrides, fetchFeatures]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const isAdmin = roles.includes("admin");
   // Le super-admin = rôle 'admin_general' (alias historique). On reconnaît
   // aussi 'super_admin' au cas où il serait ajouté plus tard.
   const isSuperAdmin =
     (roles as string[]).includes("admin_general") ||
     (roles as string[]).includes("super_admin");
+  // Le super-admin a tous les droits d'un admin local sur la société
+  // qu'il "impersonne" (sélectionnée via useTenant.setCurrentSocieteId).
+  const isAdmin = roles.includes("admin") || isSuperAdmin;
   const hasGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc);
   const hasChefGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc && g.level === "chef");
   const inServiceCompta =
