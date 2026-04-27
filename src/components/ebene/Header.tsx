@@ -81,7 +81,7 @@ export const Header = ({
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
-  const { user, roles, isAdmin, signOut } = useAuth();
+  const { user, roles, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { canFeature } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
   const logoSrc = societeConfig?.logo_url || logoEbene;
@@ -295,6 +295,11 @@ export const Header = ({
             {showParamSociete && (
               <Button asChild variant="secondary" size="sm" className="gap-1.5">
                 <Link to="/admin/societe"><Settings2 className="size-4" /> Paramètres société</Link>
+              </Button>
+            )}
+            {isSuperAdmin && (
+              <Button asChild variant="default" size="sm" className="gap-1.5">
+                <Link to="/super-admin"><Shield className="size-4" /> Super Admin</Link>
               </Button>
             )}
             {user && (
