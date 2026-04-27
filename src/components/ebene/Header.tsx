@@ -25,7 +25,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
-import { useSociete } from "@/hooks/useSocieteContext";
+import { useSociete, useSocieteActive } from "@/hooks/useSocieteContext";
 import {
   Select,
   SelectContent,
@@ -95,7 +95,10 @@ export const Header = ({
     setSocieteId,
     consolide,
   } = useSociete();
-  const societeActive = societes.find((s) => s.id === societeId);
+  const societeActive = useSocieteActive();
+  const headerLogo = societeActive?.logoUrl || logoEbene;
+  const headerNom = societeActive?.nom || "EBENE SERVICES";
+  const headerSlogan = societeActive?.slogan || "Commerce Général — Système de Gestion";
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -174,11 +177,11 @@ export const Header = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
-              <img src={logoEbene} alt="EBENE SERVICES" className="h-20 sm:h-24 w-auto" />
+              <img src={headerLogo} alt={headerNom} className="h-20 sm:h-24 w-auto object-contain" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">EBENE SERVICES</h1>
-              <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{headerNom}</h1>
+              <p className="text-sm text-primary-foreground/80 font-medium">{headerSlogan}</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
                   <Check className="size-3" /> Sauvegardé {savedAgo}
