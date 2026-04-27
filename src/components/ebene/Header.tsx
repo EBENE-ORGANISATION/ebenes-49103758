@@ -171,7 +171,7 @@ export const Header = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
-            {logoSrc && (
+            {logoSrc ? (
               <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
                 <img
                   src={logoSrc}
@@ -180,10 +180,16 @@ export const Header = ({
                   style={{ maxHeight: "96px" }}
                 />
               </div>
+            ) : (
+              <div className="bg-primary-foreground/95 rounded-2xl p-4 shadow-xl ring-2 ring-primary-foreground/40 flex items-center justify-center h-20 sm:h-24 w-20 sm:w-24">
+                <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-primary" />
+              </div>
             )}
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{nomSociete}</h1>
-              <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
+              <p className="text-sm text-primary-foreground/80 font-medium">
+                {currentSociete ? "Commerce Général — Système de Gestion" : "Console de gestion globale (super-admin)"}
+              </p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
                   <Check className="size-3" /> Sauvegardé {savedAgo}
