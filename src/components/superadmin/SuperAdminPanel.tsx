@@ -44,12 +44,14 @@ import {
   KeyRound,
   UserX,
   UserCog,
+  LogIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
 import { CreerSocieteModal } from "./CreerSocieteModal";
 import { MonCompteSection } from "./MonCompteSection";
+import { useTenant } from "@/hooks/useTenant";
 import {
   ResponsiveContainer,
   BarChart,
@@ -104,6 +106,7 @@ const ROLE_OPTIONS = [
 
 export const SuperAdminPanel = () => {
   const navigate = useNavigate();
+  const { setCurrentSocieteId } = useTenant();
   const [societes, setSocietes] = useState<SocieteRow[]>([]);
   const [configs, setConfigs] = useState<Record<string, SocieteConfigRow>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -163,6 +166,17 @@ export const SuperAdminPanel = () => {
       setConfirmDelete(null);
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
+  };
+
+  /**
+   * "Impersonate" : le super-admin entre dans le contexte d'une société pour
+   * accéder à TOUTES ses fonctionnalités comme s'il en était l'admin local.
+   * On définit la société courante puis on redirige vers l'app principale.
+   */
+  const enterSociete = (s: SocieteRow) => {
+    setCurrentSocieteId(s.id);
+    toast.success(`Vous êtes maintenant dans : ${s.nom}`);
+    navigate("/");
   };
 
   const updateModule = async (societeId: string, key: keyof ModuleFlags, value: boolean) => {
@@ -282,6 +296,14 @@ export const SuperAdminPanel = () => {
                             {new Date(s.created_at).toLocaleDateString("fr-FR")}
                           </TableCell>
                           <TableCell className="text-right space-x-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => enterSociete(s)}
+                              title="Entrer dans cette société (mode super-admin)"
+                            >
+                              <LogIn className="size-4 mr-1" /> Entrer
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => toggleSuspend(s)} title={s.statut === "active" ? "Suspendre" : "Réactiver"}>
                               {s.statut === "active" ? <Pause className="size-4" /> : <Play className="size-4" />}
                             </Button>
