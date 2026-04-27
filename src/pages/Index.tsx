@@ -64,8 +64,8 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header
-          onExport={exportJSON}
-          onImport={importJSON}
+          onExport={() => { /* indisponible en mode Appli mère */ }}
+          onImport={() => { /* indisponible en mode Appli mère */ }}
           onShowRecap={() => setShowRecap(true)}
           onShowArchives={() => setShowArchives(true)}
           lastSaved={store.lastSaved}
