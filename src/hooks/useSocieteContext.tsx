@@ -54,7 +54,7 @@ export const SocieteProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from("societes")
-        .select("id,nom,nif,rccm,adresse")
+        .select("id,nom,nif,rccm,adresse,telephone,email,site_web,logo_url,couleur_primaire,couleur_secondaire,slogan,mention_legale_pied,representant,fonction_representant")
         .order("nom", { ascending: true });
       if (error) throw error;
       const list: Societe[] = (data ?? []).map((s) => ({
@@ -63,6 +63,16 @@ export const SocieteProvider = ({ children }: { children: ReactNode }) => {
         nif: s.nif ?? "",
         rccm: s.rccm ?? "",
         adresse: s.adresse ?? "",
+        telephone: (s as { telephone?: string }).telephone ?? "",
+        email: (s as { email?: string }).email ?? "",
+        siteWeb: (s as { site_web?: string }).site_web ?? "",
+        logoUrl: (s as { logo_url?: string }).logo_url ?? "",
+        couleurPrimaire: (s as { couleur_primaire?: string }).couleur_primaire ?? "",
+        couleurSecondaire: (s as { couleur_secondaire?: string }).couleur_secondaire ?? "",
+        slogan: (s as { slogan?: string }).slogan ?? "",
+        mentionLegalePied: (s as { mention_legale_pied?: string }).mention_legale_pied ?? "",
+        representant: (s as { representant?: string }).representant ?? "",
+        fonctionRepresentant: (s as { fonction_representant?: string }).fonction_representant ?? "",
       }));
       setSocietes(list);
       // Restaurer la sélection (ou prendre la première)
