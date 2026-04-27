@@ -128,33 +128,124 @@ export const useEbeneStore = () => {
 
   // Chargement initial + realtime
   useEffect(() => {
+    // Réinitialise complètement l'état lorsqu'on change de société (ou
+    // qu'on bascule en mode consolidé). On évite ainsi toute fuite de
+    // données entre sociétés.
+    setLoaded(false);
+    setDonneesMensuelles({});
+    setEmployes([]);
+    setParamsAnnuels({});
+    setTauxHistorique([TAUX_DEFAUT]);
+    setArticles([]);
+    setFournisseurs([]);
+    setCategoriesStock([]);
+    setSanctions([]);
+    setImmobilisations([]);
+    localSig.current = {};
+
     let cancelled = false;
+
+    // ─── Mode consolidé ───────────────────────────────────────────────
+    // Charge toutes les sociétés accessibles et agrège les données en
+    // lecture seule (additionne les Map/Array, fusionne par mois). Aucune
+    // écriture ne sera persistée tant que ce mode est actif.
+    if (consolide) {
+      (async () => {
+        const allKeysExpanded = societes.flatMap((s) =>
+          ALL_KEYS.map((k) => societeKey(s.id, k))
+        );
+        if (allKeysExpanded.length === 0) {
+          if (!cancelled) setLoaded(true);
+          return;
+        }
+        const { data, error } = await supabase
+          .from("app_state")
+          .select("key,value")
+          .in("key", allKeysExpanded);
+        if (cancelled || error || !data) {
+          if (!cancelled) setLoaded(true);
+          return;
+        }
+        // Agrégation par baseKey
+        const grouped: Record<string, unknown[]> = {};
+        for (const row of data) {
+          const base = row.key.includes(":") ? row.key.split(":").slice(2).join(":") : row.key;
+          (grouped[base] ||= []).push(row.value);
+        }
+        // donneesMensuelles : merge profond mois par mois
+        const merged: DonneesMensuelles = {};
+        (grouped[K_DONNEES] || []).forEach((v) => {
+          const dm = (v as DonneesMensuelles) || {};
+          for (const [mk, m] of Object.entries(dm)) {
+            const cur = ensureMois(merged[mk]);
+            const inc = ensureMois(m);
+            merged[mk] = {
+              transactions: [...cur.transactions, ...inc.transactions],
+              factures: [...cur.factures, ...inc.factures],
+              primes: { ...cur.primes, ...inc.primes },
+              absences: [...(cur.absences || []), ...(inc.absences || [])],
+              heuresSup: { ...(cur.heuresSup || {}), ...(inc.heuresSup || {}) },
+              retenues: { ...(cur.retenues || {}), ...(inc.retenues || {}) },
+              mouvementsStock: [...(cur.mouvementsStock || []), ...(inc.mouvementsStock || [])],
+              devis: [...(cur.devis || []), ...(inc.devis || [])],
+            };
+          }
+        });
+        setDonneesMensuelles(merged);
+        setEmployes((grouped[K_EMPLOYES] || []).flatMap((v) => (Array.isArray(v) ? (v as Employe[]) : [])));
+        setArticles((grouped[K_ARTICLES] || []).flatMap((v) => (Array.isArray(v) ? (v as Article[]) : [])));
+        setFournisseurs((grouped[K_FOURNISSEURS] || []).flatMap((v) => (Array.isArray(v) ? (v as Fournisseur[]) : [])));
+        setCategoriesStock((grouped[K_CATEGORIES_STOCK] || []).flatMap((v) => (Array.isArray(v) ? (v as CategorieArticle[]) : [])));
+        setSanctions((grouped[K_SANCTIONS] || []).flatMap((v) => (Array.isArray(v) ? (v as Sanction[]) : [])));
+        setImmobilisations((grouped[K_IMMOBILISATIONS] || []).flatMap((v) => (Array.isArray(v) ? (v as Immobilisation[]) : [])));
+        // Pour les taux et params : on prend le premier non-vide rencontré
+        const firstTaux = (grouped[K_TAUX] || []).find((v) => Array.isArray(v) && (v as unknown[]).length > 0);
+        if (firstTaux) setTauxHistorique(firstTaux as TauxFiscaux[]);
+        const firstParams = (grouped[K_PARAMS_ANNUELS] || []).find((v) => v && typeof v === "object");
+        if (firstParams) setParamsAnnuels(firstParams as Record<number, ParamsAnnuels>);
+        if (!cancelled) setLoaded(true);
+      })();
+      // Pas de realtime en mode consolidé (lecture seule)
+      return () => { cancelled = true; };
+    }
+
+    // ─── Mode normal : 1 société ──────────────────────────────────────
+    const keys = ALL_KEYS.map((k) => societeKey(societeId, k));
     (async () => {
       const { data, error } = await supabase
         .from("app_state")
         .select("key,value")
-        .in("key", ALL_KEYS as unknown as string[]);
+        .in("key", keys);
       if (!cancelled && !error && data) {
         for (const row of data) {
-          localSig.current[row.key] = JSON.stringify(row.value);
-          applyValue(row.key, row.value);
+          // dérive la baseKey depuis "s:<id>:base" ou "base"
+          const base = row.key.includes(":") ? row.key.split(":").slice(2).join(":") : row.key;
+          localSig.current[base] = JSON.stringify(row.value);
+          applyValue(base, row.value);
         }
       }
       if (!cancelled) setLoaded(true);
     })();
 
     const channel = supabase
-      .channel("app_state_sync")
+      .channel(`app_state_sync:${societeId ?? "legacy"}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_state" },
         (payload) => {
           const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
           if (!row?.key) return;
+          // Ignore les changements des autres sociétés
+          if (societeId) {
+            if (!row.key.startsWith(`s:${societeId}:`)) return;
+          } else {
+            if (row.key.includes(":")) return;
+          }
+          const base = row.key.includes(":") ? row.key.split(":").slice(2).join(":") : row.key;
           const sig = JSON.stringify(row.value);
-          if (localSig.current[row.key] === sig) return; // déjà à jour localement
-          localSig.current[row.key] = sig;
-          applyValue(row.key, row.value);
+          if (localSig.current[base] === sig) return;
+          localSig.current[base] = sig;
+          applyValue(base, row.value);
         }
       )
       .subscribe();
@@ -163,19 +254,22 @@ export const useEbeneStore = () => {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [applyValue]);
+  }, [applyValue, societeId, consolide, societes]);
 
   // Persistance vers le cloud (debounced par effet React)
-  const persist = useCallback(async (key: string, value: unknown) => {
+  const persist = useCallback(async (baseKey: string, value: unknown) => {
+    // En mode consolidé, on ne persiste rien (lecture seule)
+    if (consolide) return;
     const sig = JSON.stringify(value);
-    if (localSig.current[key] === sig) return;
-    localSig.current[key] = sig;
+    if (localSig.current[baseKey] === sig) return;
+    localSig.current[baseKey] = sig;
+    const fullKey = societeKey(societeId, baseKey);
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("app_state")
       .upsert(
         {
-          key,
+          key: fullKey,
           value: value as never,
           updated_by: userData.user?.id ?? null,
           updated_at: new Date().toISOString(),
@@ -183,7 +277,7 @@ export const useEbeneStore = () => {
         { onConflict: "key" }
       );
     if (!error) setLastSaved(new Date());
-  }, []);
+  }, [societeId, consolide]);
 
   useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_EMPLOYES, employes); }, [employes, loaded, persist]);
