@@ -110,5 +110,9 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
 };
 
 export const resetTheme = (): void => {
-  applyTheme(FALLBACK);
+  applyTheme({
+    couleur_primaire: FALLBACK.primaire,
+    couleur_secondaire: FALLBACK.secondaire,
+    couleur_accent: FALLBACK.accent,
+  });
 };
