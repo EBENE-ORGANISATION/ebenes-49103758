@@ -265,6 +265,39 @@ export const Factures = ({
             {editingId != null ? "Modifier la facture" : "Nouvelle Facture"}
           </h3>
 
+          {editingId == null && (
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Numéro
+              </Label>
+              <div className="flex gap-2 mt-1 items-center">
+                <Input
+                  value={numero}
+                  onChange={(e) => { setNumero(e.target.value); setNumeroEdited(true); }}
+                  className="font-mono w-56"
+                  placeholder={numeroAuto}
+                />
+                {numeroEdited && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setNumero(numeroAuto); setNumeroEdited(false); }}
+                    className="gap-1"
+                  >
+                    <RefreshCw className="size-3.5" /> Auto
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Aperçu auto : <span className="font-mono">{numeroAuto}</span>
+                {societeConfig && (
+                  <> &middot; format : <span className="font-mono">{societeConfig.format_facture}</span></>
+                )}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
