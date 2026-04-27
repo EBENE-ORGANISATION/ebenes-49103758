@@ -57,11 +57,9 @@ export const useTenant = (): TenantState => {
   const { user, isSuperAdmin, loading: authLoading } = useAuth();
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [config, setConfig] = useState<SocieteConfig | null>(null);
-  // L'ID courant ne peut être lu qu'une fois `user` connu (clé scopée).
-  // Tant que l'auth n'a pas chargé, on reste sur null pour éviter d'afficher
-  // brièvement le contexte d'un autre compte.
   const [currentId, setCurrentIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastUserIdRef = useRef<string | null>(null);
 
   const setCurrentSocieteId = useCallback((id: string | null) => {
     setCurrentIdState(id);
@@ -79,30 +77,29 @@ export const useTenant = (): TenantState => {
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  // Au changement d'utilisateur (login / logout / switch de compte), on remet
-  // tout le contexte à zéro AVANT toute nouvelle requête, pour qu'aucun
-  // header ou thème de l'utilisateur précédent ne reste affiché.
+  // Au changement d'utilisateur (login/logout/switch), on remet tout le
+  // contexte à zéro AVANT toute nouvelle requête, pour qu'aucun header ou
+  // thème de l'utilisateur précédent ne reste affiché.
+  const currentUid = user?.id ?? null;
   useEffect(() => {
+    if (lastUserIdRef.current === currentUid) return;
+    lastUserIdRef.current = currentUid;
     setSocietes([]);
     setConfig(null);
-    // Purge des anciennes clés non scopées (legacy) — une seule fois suffit
-    // mais c'est idempotent.
     try {
       localStorage.removeItem(LEGACY_LS_KEY);
       localStorage.removeItem(LEGACY_LS_HOME_KEY);
     } catch { /* ignore */ }
-    // Restaure l'ID persisté pour CE user (s'il y en a un)
-    if (user?.id) {
+    if (currentUid) {
       try {
-        const persisted = localStorage.getItem(lsKey(user.id));
-        setCurrentIdState(persisted);
+        setCurrentIdState(localStorage.getItem(lsKey(currentUid)));
       } catch {
         setCurrentIdState(null);
       }
     } else {
       setCurrentIdState(null);
     }
-  }, [user?.id]);
+  }, [currentUid]);
 
   const loadSocietes = useCallback(async () => {
     if (!user) {
