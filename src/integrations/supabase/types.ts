@@ -185,6 +185,69 @@ export type Database = {
         }
         Relationships: []
       }
+      societes: {
+        Row: {
+          adresse: string
+          couleur_primaire: string
+          couleur_secondaire: string
+          created_at: string
+          created_by: string | null
+          email: string
+          fonction_representant: string
+          id: string
+          logo_url: string
+          mention_legale_pied: string
+          nif: string
+          nom: string
+          rccm: string
+          representant: string
+          site_web: string
+          slogan: string
+          telephone: string
+          updated_at: string
+        }
+        Insert: {
+          adresse?: string
+          couleur_primaire?: string
+          couleur_secondaire?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          fonction_representant?: string
+          id?: string
+          logo_url?: string
+          mention_legale_pied?: string
+          nif?: string
+          nom: string
+          rccm?: string
+          representant?: string
+          site_web?: string
+          slogan?: string
+          telephone?: string
+          updated_at?: string
+        }
+        Update: {
+          adresse?: string
+          couleur_primaire?: string
+          couleur_secondaire?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          fonction_representant?: string
+          id?: string
+          logo_url?: string
+          mention_legale_pied?: string
+          nif?: string
+          nom?: string
+          rccm?: string
+          representant?: string
+          site_web?: string
+          slogan?: string
+          telephone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -209,11 +272,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_societes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          societe_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          societe_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          societe_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_societes_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      app_state_societe_id: { Args: { _key: string }; Returns: string }
       has_active_chef_grant: {
         Args: { _service: string; _user_id: string }
         Returns: boolean
@@ -229,9 +325,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_societe_access: {
+        Args: { _societe_id: string; _user_id: string }
+        Returns: boolean
+      }
       in_service_compta: { Args: { _user_id: string }; Returns: boolean }
       in_service_grh: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_general: { Args: { _user_id: string }; Returns: boolean }
       is_chef: { Args: { _user_id: string }; Returns: boolean }
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
@@ -248,6 +349,7 @@ export type Database = {
         | "fiscalite"
         | "parametres_sociaux"
         | "grh"
+        | "outils_admin"
       app_role:
         | "admin"
         | "rh"
@@ -259,6 +361,7 @@ export type Database = {
         | "membre_grh"
         | "dashboard_viewer"
         | "employe"
+        | "admin_general"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -396,6 +499,7 @@ export const Constants = {
         "fiscalite",
         "parametres_sociaux",
         "grh",
+        "outils_admin",
       ],
       app_role: [
         "admin",
@@ -408,6 +512,7 @@ export const Constants = {
         "membre_grh",
         "dashboard_viewer",
         "employe",
+        "admin_general",
       ],
     },
   },
