@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/table";
 import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import logoEbene from "@/assets/ebene-logo.png";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@/types/ebene";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
@@ -74,8 +73,8 @@ export const PortailEmploye = () => {
     () => buildSocieteInfo(currentSociete, societeConfig),
     [currentSociete, societeConfig],
   );
-  const brandLogo = societeInfo.logo_url || logoEbene;
-  const brandNom = societeInfo.nom || "EBENE";
+  const brandLogo = societeInfo.logo_url || null;
+  const brandNom = societeInfo.nom || "Portail employé";
 
   // ─── Recherche de la fiche employé liée au compte ──────────────────────
   const employe = useMemo(
@@ -166,7 +165,7 @@ export const PortailEmploye = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />
+            {brandLogo && <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />}
             <div>
               <h1 className="font-bold leading-tight">{brandNom} — Portail Employé</h1>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
@@ -205,7 +204,7 @@ export const PortailEmploye = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />
+          {brandLogo && <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />}
           <div>
             <h1 className="font-bold leading-tight">{brandNom} — Portail Employé</h1>
             <p className="text-xs text-muted-foreground">

@@ -81,7 +81,7 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `EBENE_Archive_${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `Archive_${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Archive exportée");
@@ -393,8 +393,8 @@ const Index = () => {
         </div>
 
         <footer className="text-center text-xs text-muted-foreground py-4 no-print">
-          EBENE SERVICES — Données stockées localement (sauvegarde auto). Pensez à exporter votre
-          archive régulièrement.
+          Données stockées localement (sauvegarde auto). Pensez à exporter votre archive
+          régulièrement.
         </footer>
       </main>
 

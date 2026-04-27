@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { Badge } from "@/components/ui/badge";
@@ -84,8 +83,8 @@ export const Header = ({
   const { user, roles, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { canFeature } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
-  const logoSrc = societeConfig?.logo_url || logoEbene;
-  const nomSociete = currentSociete?.nom || "EBENE SERVICES";
+  const logoSrc = societeConfig?.logo_url || null;
+  const nomSociete = currentSociete?.nom || "APPLI MERE";
   const showAlertes = canFeature("alertes");
   const showRecap = canFeature("recap_annuel");
   const showArchives = canFeature("archives");
@@ -170,18 +169,16 @@ export const Header = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
-              {societeConfig?.logo_url ? (
+            {logoSrc && (
+              <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
                 <img
                   src={logoSrc}
                   alt={nomSociete}
                   className="h-12 w-auto object-contain"
                   style={{ maxHeight: "48px" }}
                 />
-              ) : (
-                <img src={logoEbene} alt={nomSociete} className="h-20 sm:h-24 w-auto" />
-              )}
-            </div>
+              </div>
+            )}
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{nomSociete}</h1>
               <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
@@ -319,9 +316,8 @@ export const Header = ({
               <FolderOpen className="size-5" /> Historique des sauvegardes Google Drive
             </DialogTitle>
             <DialogDescription>
-              Les 10 dernières sauvegardes du dossier <code>EBENE_BACKUPS</code>. Cliquez
-              sur « Restaurer » pour remplacer les données actuelles par celles de la
-              sauvegarde sélectionnée.
+              Les 10 dernières sauvegardes Google Drive. Cliquez sur « Restaurer » pour
+              remplacer les données actuelles par celles de la sauvegarde sélectionnée.
             </DialogDescription>
           </DialogHeader>
 
