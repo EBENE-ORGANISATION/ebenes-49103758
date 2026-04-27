@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
+  "description": "EBENE SERVICES — Système de gestion d'entreprise",
+  "author": "EBENE SERVICES",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,7 +13,45 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "electron": "electron .",
+    "electron:dev": "concurrently -k -n VITE,ELECTRON -c blue,magenta \"vite\" \"wait-on http://localhost:8080 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:build:portable": "vite build && electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.ebeneservices.app",
+    "productName": "EBENE SERVICES",
+    "copyright": "© EBENE SERVICES",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "public/icons"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/icons/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "public/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "EBENE SERVICES",
+      "installerIcon": "public/icons/icon.ico",
+      "uninstallerIcon": "public/icons/icon.ico",
+      "deleteAppDataOnUninstall": false
+    }
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
