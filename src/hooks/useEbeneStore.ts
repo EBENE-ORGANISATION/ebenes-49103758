@@ -24,6 +24,7 @@ import {
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { logAction } from "@/lib/audit";
 import { amortissementsAnnee } from "@/lib/amortissements";
+import { useSociete, societeKey } from "@/hooks/useSocieteContext";
 
 // Clés cloud (table app_state)
 const K_DONNEES = "donneesMensuelles";
@@ -69,6 +70,12 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
 });
 
 export const useEbeneStore = () => {
+  // ─── Multi-société ───
+  // societeId : société active (écritures + lectures normales)
+  // consolide : si true, le store agrège en LECTURE SEULE l'union de toutes
+  // les sociétés accessibles. Toute écriture est ignorée dans ce mode.
+  const { societeId, societes, consolide } = useSociete();
+
   const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
   const [employes, setEmployes] = useState<Employe[]>([]);
   const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>({});
