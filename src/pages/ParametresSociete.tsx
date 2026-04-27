@@ -14,6 +14,23 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Settings2, Upload, Image as ImgIcon } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DEFAULT_FORMAT_FACTURE,
+  DEFAULT_FORMAT_DEVIS,
+  formaterNumero,
+  resetCompteur,
+} from "@/lib/numerotation";
 
 const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="space-y-1.5">
@@ -52,7 +69,10 @@ const ParametresSociete = () => {
     rccm: "",
     mention_facture: "",
     mention_contrat: "",
+    format_facture: DEFAULT_FORMAT_FACTURE,
+    format_devis: DEFAULT_FORMAT_DEVIS,
   });
+  const [resetting, setResetting] = useState<null | "facture" | "devis">(null);
 
   useEffect(() => {
     if (!societeConfig) return;
@@ -69,6 +89,8 @@ const ParametresSociete = () => {
       rccm: societeConfig.rccm ?? "",
       mention_facture: societeConfig.mention_facture ?? "",
       mention_contrat: societeConfig.mention_contrat ?? "",
+      format_facture: societeConfig.format_facture ?? DEFAULT_FORMAT_FACTURE,
+      format_devis: societeConfig.format_devis ?? DEFAULT_FORMAT_DEVIS,
     });
   }, [societeConfig]);
 
@@ -130,6 +152,8 @@ const ParametresSociete = () => {
           rccm: draft.rccm,
           mention_facture: draft.mention_facture,
           mention_contrat: draft.mention_contrat,
+          format_facture: draft.format_facture || DEFAULT_FORMAT_FACTURE,
+          format_devis: draft.format_devis || DEFAULT_FORMAT_DEVIS,
         })
         .eq("societe_id", currentSociete.id);
       if (error) throw error;
@@ -141,6 +165,32 @@ const ParametresSociete = () => {
       setBusy(false);
     }
   };
+
+  const handleReset = async (type: "facture" | "devis") => {
+    if (!currentSociete) return;
+    setResetting(type);
+    try {
+      await resetCompteur(currentSociete.id, type, 1);
+      await refresh();
+      toast.success(`Compteur ${type === "facture" ? "factures" : "devis"} réinitialisé à 1.`);
+    } catch (e) {
+      toast.error("Échec : " + (e as Error).message);
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  const annee = new Date().getFullYear();
+  const previewFacture = formaterNumero(
+    draft.format_facture || DEFAULT_FORMAT_FACTURE,
+    annee,
+    Number(societeConfig?.compteur_facture ?? 1),
+  );
+  const previewDevis = formaterNumero(
+    draft.format_devis || DEFAULT_FORMAT_DEVIS,
+    annee,
+    Number(societeConfig?.compteur_devis ?? 1),
+  );
 
   return (
     <div className="min-h-screen bg-background">
