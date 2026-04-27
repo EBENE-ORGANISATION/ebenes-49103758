@@ -32,7 +32,7 @@ const hexToRgb = (hex: string): [number, number, number] | null => {
   return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
 };
 
-const DEFAULT_TITLE = "EBENE SERVICES — Gestion d'Entreprise";
+const DEFAULT_TITLE = "Appli mère — Gestion d'Entreprise";
 const DEFAULT_FAVICON = "/favicon.png";
 
 /** Met à jour le <title> de l'onglet selon la société active. */
@@ -50,7 +50,7 @@ const applyDocumentTitle = (nom?: string | null): void => {
   };
   setMeta('meta[property="og:title"]', document.title);
   setMeta('meta[name="twitter:title"]', document.title);
-  setMeta('meta[name="apple-mobile-web-app-title"]', clean || "EBENE");
+  setMeta('meta[name="apple-mobile-web-app-title"]', clean || "Appli mère");
 };
 
 /** Remplace le favicon par le logo de la société (ou le défaut). */
