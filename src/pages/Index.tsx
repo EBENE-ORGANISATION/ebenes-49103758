@@ -34,7 +34,7 @@ const Index = () => {
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
   const { perms, can, isEmployeOnly } = useAuth();
-  const { societeConfig } = useTenant();
+  const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
