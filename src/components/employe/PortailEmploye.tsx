@@ -29,6 +29,21 @@ import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 
+/** Construit l'objet societeInfo passé aux générateurs PDF / en-têtes. */
+const buildSocieteInfo = (
+  societe: ReturnType<typeof useTenant>["currentSociete"],
+  config: ReturnType<typeof useTenant>["societeConfig"],
+) => ({
+  nom: societe?.nom ?? null,
+  adresse: config?.adresse ?? societe?.adresse ?? null,
+  telephone: config?.telephone ?? societe?.telephone ?? null,
+  email: config?.email ?? societe?.email ?? null,
+  nif: config?.nif ?? societe?.nif ?? null,
+  rccm: config?.rccm ?? societe?.rccm ?? null,
+  logo_url: config?.logo_url ?? societe?.logo_url ?? null,
+  mention_facture: config?.mention_facture ?? null,
+});
+
 const statutBadge = (s?: StatutValidation) => {
   switch (s) {
     case "valide":
@@ -54,6 +69,13 @@ export const PortailEmploye = () => {
   const { user, signOut } = useAuth();
   const store = useEbeneStore();
   const annee = new Date().getFullYear();
+  const { currentSociete, societeConfig } = useTenant();
+  const societeInfo = useMemo(
+    () => buildSocieteInfo(currentSociete, societeConfig),
+    [currentSociete, societeConfig],
+  );
+  const brandLogo = societeInfo.logo_url || logoEbene;
+  const brandNom = societeInfo.nom || "EBENE";
 
   // ─── Recherche de la fiche employé liée au compte ──────────────────────
   const employe = useMemo(
