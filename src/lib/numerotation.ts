@@ -73,11 +73,12 @@ export const incrementerCompteur = async (
 ): Promise<boolean> => {
   if (!societeId) return false;
   const next = Math.max(1, Number(current || 1)) + 1;
-  const col = type === "facture" ? "compteur_facture" : "compteur_devis";
+  const patch =
+    type === "facture" ? { compteur_facture: next } : { compteur_devis: next };
   try {
     const { error } = await supabase
       .from("societe_config")
-      .update({ [col]: next } as Record<string, number>)
+      .update(patch)
       .eq("societe_id", societeId);
     if (error) {
       console.warn("[numerotation] increment failed", error);
@@ -97,10 +98,12 @@ export const resetCompteur = async (
   value: number = 1,
 ): Promise<boolean> => {
   if (!societeId) return false;
-  const col = type === "facture" ? "compteur_facture" : "compteur_devis";
+  const v = Math.max(1, Math.floor(value));
+  const patch =
+    type === "facture" ? { compteur_facture: v } : { compteur_devis: v };
   const { error } = await supabase
     .from("societe_config")
-    .update({ [col]: Math.max(1, Math.floor(value)) } as Record<string, number>)
+    .update(patch)
     .eq("societe_id", societeId);
   if (error) throw error;
   return true;
