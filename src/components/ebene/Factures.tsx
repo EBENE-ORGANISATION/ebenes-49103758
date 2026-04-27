@@ -12,6 +12,11 @@ import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
 import { OCRFacture, type OCRDraft } from "./OCRFacture";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
+import { useTenant } from "@/hooks/useTenant";
+import {
+  genererNumeroFacture,
+  incrementerCompteur,
+} from "@/lib/numerotation";
 
 interface Props {
   annee: number;
@@ -42,7 +47,11 @@ const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: s
   rejete: { cls: "bg-destructive/15 text-destructive", label: "✗ Rejeté" },
 };
 
-const prochainNumero = (
+/**
+ * Fallback (sans config société) : ancien algorithme basé sur le scan des
+ * numéros existants. Garde un comportement raisonnable hors-ligne.
+ */
+const prochainNumeroFallback = (
   estProforma: boolean,
   annee: number,
   donneesMensuelles: DonneesMensuelles
@@ -89,6 +98,24 @@ export const Factures = ({
     { description: "", montant: "" },
   ]);
   const [ocrOpen, setOcrOpen] = useState(false);
+  const [numero, setNumero] = useState("");
+  const [numeroEdited, setNumeroEdited] = useState(false);
+
+  const { currentSociete, societeConfig, refresh: refreshTenant } = useTenant();
+
+  // Numéro auto-généré selon la config de la société (aperçu)
+  const numeroAuto = useMemo(() => {
+    if (societeConfig) return genererNumeroFacture(societeConfig, annee);
+    return prochainNumeroFallback(proforma, annee, donneesMensuelles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [societeConfig?.format_facture, societeConfig?.compteur_facture, annee, proforma, donneesMensuelles]);
+
+  // Pré-remplit le numéro à l'ouverture du formulaire (création) tant que
+  // l'utilisateur ne l'a pas modifié manuellement.
+  useEffect(() => {
+    if (!open || editingId != null) return;
+    if (!numeroEdited) setNumero(numeroAuto);
+  }, [open, editingId, numeroAuto, numeroEdited]);
 
   // Anomalies (calculées sur l'année entière, mémorisées)
   const anomaliesMap = useMemo(() => detectAnomalies(donneesMensuelles), [donneesMensuelles]);
@@ -102,6 +129,8 @@ export const Factures = ({
     setProforma(false);
     setActivite("service");
     setLignes([{ description: "", montant: "" }]);
+    setNumero("");
+    setNumeroEdited(false);
   };
 
   // Pré-remplissage du formulaire à partir d'une extraction OCR
@@ -148,8 +177,9 @@ export const Factures = ({
       return;
     }
 
+    const numeroFinal = (numero.trim() || numeroAuto);
     onAdd({
-      numero: prochainNumero(proforma, annee, donneesMensuelles),
+      numero: numeroFinal,
       client: client.trim(),
       date,
       lignes: lignesNet,
@@ -162,6 +192,19 @@ export const Factures = ({
       totalTtc,
       activite,
     });
+    // Incrémente le compteur uniquement si on a utilisé le numéro auto
+    // (sinon on respecte le choix manuel sans avancer la séquence).
+    if (
+      currentSociete?.id &&
+      societeConfig &&
+      numeroFinal === numeroAuto
+    ) {
+      void incrementerCompteur(
+        currentSociete.id,
+        "facture",
+        Number(societeConfig.compteur_facture ?? 1),
+      ).then((ok) => { if (ok) void refreshTenant(); });
+    }
     reset();
     setOpen(false);
   };
