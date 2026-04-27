@@ -78,6 +78,16 @@ const ROLE_DEFAULTS: Record<AppRole, Partial<PermissionMap>> = {
     parametres_sociaux: "validate",
     grh: "validate",
   },
+  admin_general: {
+    dashboard: "validate",
+    compta: "validate",
+    factures: "validate",
+    stock: "validate",
+    immobilisations: "validate",
+    fiscalite: "validate",
+    parametres_sociaux: "validate",
+    grh: "validate",
+  },
   chef_compta: {
     dashboard: "validate",
     compta: "validate",
