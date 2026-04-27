@@ -6,6 +6,18 @@ import { Employe, MoisData, MOIS_NOMS } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
 
+/** Sous-ensemble de societe_config + societes utilisé pour la mise en forme du bulletin. */
+export interface BulletinSocieteInfo {
+  nom?: string | null;
+  adresse?: string | null;
+  telephone?: string | null;
+  email?: string | null;
+  nif?: string | null;
+  rccm?: string | null;
+  logo_url?: string | null;
+  mention_facture?: string | null;
+}
+
 /**
  * Génère et télécharge le bulletin de paie PDF d'un employé pour un mois donné.
  * - En-tête : société, période, infos employé
@@ -18,7 +30,8 @@ export const generateBulletin = (
   employe: Employe,
   moisData: MoisData,
   annee: number,
-  mois: number
+  mois: number,
+  societe?: BulletinSocieteInfo | null
 ): void => {
   const c = calculerPaie(employe, moisData);
   const periode = `${MOIS_NOMS[mois - 1]} ${annee}`;
@@ -26,24 +39,31 @@ export const generateBulletin = (
   const pageW = doc.internal.pageSize.getWidth();
 
   // ─── En-tête société ─────────────────────────────────────────────
+  const nomSociete = (societe?.nom || "SOCIÉTÉ").toUpperCase();
+  const nifSociete = societe?.nif ? `NIF : ${societe.nif}` : "";
+  const rccmSociete = societe?.rccm ? `RCCM : ${societe.rccm}` : "";
+  const adresseSociete = [societe?.adresse, societe?.telephone].filter(Boolean).join(" • ");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text("EBENE SERVICES", pageW / 2, 15, { align: "center" });
+  doc.text(nomSociete, pageW / 2, 15, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text("NIF : 1 002 088 759", pageW / 2, 20, { align: "center" });
+  const subline = [nifSociete, rccmSociete].filter(Boolean).join("  •  ");
+  if (subline) doc.text(subline, pageW / 2, 20, { align: "center" });
+  if (adresseSociete) doc.text(adresseSociete, pageW / 2, 24, { align: "center" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(`BULLETIN DE PAIE — ${periode.toUpperCase()}`, pageW / 2, 28, { align: "center" });
+  const yTitre = adresseSociete ? 32 : 28;
+  doc.text(`BULLETIN DE PAIE — ${periode.toUpperCase()}`, pageW / 2, yTitre, { align: "center" });
   doc.setLineWidth(0.4);
-  doc.line(14, 31, pageW - 14, 31);
+  doc.line(14, yTitre + 3, pageW - 14, yTitre + 3);
 
   // ─── Identité employé ────────────────────────────────────────────
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const colX1 = 14;
   const colX2 = pageW / 2 + 5;
-  let y = 38;
+  let y = (adresseSociete ? 32 : 28) + 10;
   const line = (label: string, value: string, x: number, yy: number) => {
     doc.setFont("helvetica", "bold");
     doc.text(label, x, yy);
