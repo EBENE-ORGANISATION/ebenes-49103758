@@ -78,10 +78,20 @@ Deno.serve(async (req) => {
     switch (action) {
       // ────────── SOCIÉTÉS ──────────
       case "create_societe": {
-        // payload: { nom, slug, plan, admin_email, config?: {...}, modules?: {...} }
-        const { nom, slug, plan, admin_email, config, modules } = p;
+        // payload: { nom, slug, plan, admin_email, admin_nom?, admin_method?: 'invite'|'password',
+        //            admin_password?, config?: {...}, modules?: {...} }
+        const { nom, slug, plan, admin_email, admin_nom, admin_method, admin_password, config, modules } = p;
         if (!nom || !slug || !plan) {
           return json(400, { error: "nom, slug, plan requis" });
+        }
+        if (!admin_email) {
+          return json(400, { error: "L'email de l'administrateur est obligatoire" });
+        }
+        const method = admin_method === "password" ? "password" : "invite";
+        if (method === "password") {
+          if (!admin_password || String(admin_password).length < 8) {
+            return json(400, { error: "Mot de passe requis (min 8 caractères)" });
+          }
         }
         const { data: societe, error: e1 } = await admin
           .from("societes")
@@ -98,34 +108,78 @@ Deno.serve(async (req) => {
           await admin.from("societe_config").update(cfgPatch).eq("societe_id", societe.id);
         }
 
-        // Invitation admin (optionnelle)
-        let invited: { user_id: string | null; email: string | null } = { user_id: null, email: null };
-        if (admin_email) {
-          const redirectTo = `${new URL(req.url).origin.replace("functions.supabase.co", "lovable.app")}/auth`;
-          const { data: invite, error: invErr } = await admin.auth.admin.inviteUserByEmail(
-            admin_email,
-            { redirectTo },
-          );
-          if (invErr) {
+        // Création du compte admin (obligatoire)
+        const targetEmail = String(admin_email).trim().toLowerCase();
+        let invited: {
+          user_id: string | null;
+          email: string | null;
+          method: "invite" | "password";
+          password?: string;
+          already_existed?: boolean;
+        } = { user_id: null, email: null, method };
+
+        // Vérifier si l'email correspond déjà à un utilisateur
+        const { data: allUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existing = allUsers?.users.find(
+          (u) => u.email?.toLowerCase() === targetEmail,
+        );
+
+        let adminUserId: string | null = existing?.id ?? null;
+
+        if (existing) {
+          invited = { user_id: existing.id, email: existing.email ?? targetEmail, method, already_existed: true };
+        } else if (method === "password") {
+          const { data: created, error: cErr } = await admin.auth.admin.createUser({
+            email: targetEmail,
+            password: String(admin_password),
+            email_confirm: true,
+            user_metadata: { nom: admin_nom || "" },
+          });
+          if (cErr) {
             return json(207, {
-              warning: "Société créée, invitation échouée: " + invErr.message,
+              warning: "Société créée, création du compte admin échouée : " + cErr.message,
               societe,
             });
           }
-          if (invite?.user) {
-            invited = { user_id: invite.user.id, email: invite.user.email ?? admin_email };
-            // Lien user ↔ société et rôle admin
-            await admin.from("user_societes").insert({
-              user_id: invite.user.id,
-              societe_id: societe.id,
-              created_by: userId,
-            });
-            await admin.from("user_roles").insert({
-              user_id: invite.user.id,
-              role: "admin",
+          adminUserId = created.user!.id;
+          invited = {
+            user_id: adminUserId,
+            email: targetEmail,
+            method: "password",
+            password: String(admin_password),
+          };
+        } else {
+          // Mode invitation : envoie email pour définir le mdp
+          const redirectTo = `${new URL(req.url).origin.replace("functions.supabase.co", "lovable.app")}/auth`;
+          const { data: invite, error: invErr } = await admin.auth.admin.inviteUserByEmail(
+            targetEmail,
+            { redirectTo, data: admin_nom ? { nom: admin_nom } : undefined },
+          );
+          if (invErr) {
+            return json(207, {
+              warning: "Société créée, invitation échouée : " + invErr.message,
+              societe,
             });
           }
+          adminUserId = invite?.user?.id ?? null;
+          invited = { user_id: adminUserId, email: targetEmail, method: "invite" };
         }
+
+        // Lier le compte à la société + rôle admin + nom de profil
+        if (adminUserId) {
+          await admin.from("user_societes").upsert(
+            { user_id: adminUserId, societe_id: societe.id, created_by: userId },
+            { onConflict: "user_id,societe_id", ignoreDuplicates: true },
+          );
+          await admin.from("user_roles").upsert(
+            { user_id: adminUserId, role: "admin" },
+            { onConflict: "user_id,role", ignoreDuplicates: true },
+          );
+          if (admin_nom) {
+            await admin.from("profiles").update({ nom: admin_nom }).eq("user_id", adminUserId);
+          }
+        }
+
         return json(200, { societe, invited });
       }
 
