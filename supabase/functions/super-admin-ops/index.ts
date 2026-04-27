@@ -214,6 +214,17 @@ Deno.serve(async (req) => {
       case "set_user_role": {
         const { user_id, role, mode } = p; // mode: 'add' | 'remove'
         if (!user_id || !role) return json(400, { error: "user_id, role requis" });
+        // Garde-fou : `admin_general` ne peut être attribué qu'au compte
+        // racine de l'app mère (ennodbelei75@gmail.com). Toute autre tentative
+        // est silencieusement refusée afin de garantir un super-admin unique.
+        if (role === "admin_general" && mode !== "remove") {
+          const { data: target } = await admin.auth.admin.getUserById(String(user_id));
+          if (target?.user?.email?.toLowerCase() !== "ennodbelei75@gmail.com") {
+            return json(403, {
+              error: "Le rôle super-admin est réservé au compte racine de l'app mère.",
+            });
+          }
+        }
         if (mode === "remove") {
           await admin.from("user_roles").delete().eq("user_id", user_id).eq("role", role);
         } else {
