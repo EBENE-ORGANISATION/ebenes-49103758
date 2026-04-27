@@ -5,6 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Base relative requise pour qu'Electron charge correctement les assets
+  // depuis `file://` (sinon : page blanche). Innocue pour le mode web/PWA.
+  base: "./",
   server: {
     host: "::",
     port: 8080,
