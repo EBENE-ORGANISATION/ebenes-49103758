@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { PortailEmploye } from "@/components/employe/PortailEmploye";
+import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 const Index = () => {
   const now = new Date();
@@ -28,6 +29,15 @@ const Index = () => {
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
   const { perms, can, isEmployeOnly } = useAuth();
+  const societeActive = useSocieteActive();
+  /** Préfixe utilisé pour les noms de fichiers exportés (slug du nom). */
+  const filePrefix = (societeActive?.nom || "Archive")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase()
+    .slice(0, 30) || "ARCHIVE";
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -79,7 +89,7 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `EBENE_Archive_${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `${filePrefix}_Archive_${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Archive exportée");
@@ -385,8 +395,8 @@ const Index = () => {
         </div>
 
         <footer className="text-center text-xs text-muted-foreground py-4 no-print">
-          EBENE SERVICES — Données stockées localement (sauvegarde auto). Pensez à exporter votre
-          archive régulièrement.
+          {societeActive?.nom || "Espace de gestion"} — Données stockées localement (sauvegarde auto).
+          Pensez à exporter votre archive régulièrement.
         </footer>
       </main>
 

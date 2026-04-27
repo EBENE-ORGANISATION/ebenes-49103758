@@ -11,10 +11,10 @@ interface Props {
 
 export const ContratGenerator = ({ employe, onClose }: Props) => {
   const societe = useSocieteActive();
-  const nomSoc = societe?.nom || "EBENE SERVICES";
-  const nifSoc = societe?.nif || "1 002 088 759";
-  const repr = societe?.representant || "BITHO SIMBAYA";
-  const fctRepr = societe?.fonctionRepresentant || "Directeur";
+  const nomSoc = societe?.nom || "Société";
+  const nifSoc = societe?.nif || "";
+  const repr = societe?.representant || "Le Représentant";
+  const fctRepr = societe?.fonctionRepresentant || "Représentant légal";
   const today = new Date();
   const dateStr = `${today.getDate()} ${MOIS_NOMS[today.getMonth()]} ${today.getFullYear()}`;
 

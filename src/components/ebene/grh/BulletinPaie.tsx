@@ -190,9 +190,9 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
             {societe?.logoUrl && (
               <img src={societe.logoUrl} alt={societe.nom} className="h-12 mx-auto mb-2 object-contain" />
             )}
-            <p className="font-bold text-lg">{societe?.nom || "EBENE SERVICES"}</p>
-            {(societe?.nif || !societe) && (
-              <p className="text-xs text-muted-foreground">NIF : {societe?.nif || "1 002 088 759"}</p>
+            <p className="font-bold text-lg">{societe?.nom || "Société"}</p>
+            {societe?.nif && (
+              <p className="text-xs text-muted-foreground">NIF : {societe.nif}</p>
             )}
             <h3 className="text-base font-bold mt-2">
               BULLETIN DE PAIE — {MOIS_NOMS[mois - 1]} {annee}
