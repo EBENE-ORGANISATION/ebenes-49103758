@@ -26,6 +26,7 @@ import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle } from "
 import { toast } from "sonner";
 import logoEbene from "@/assets/ebene-logo.png";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@/types/ebene";
+import { useSocieteActive } from "@/hooks/useSocieteContext";
 import { generateBulletin } from "@/lib/bulletinPDF";
 
 const statutBadge = (s?: StatutValidation) => {
