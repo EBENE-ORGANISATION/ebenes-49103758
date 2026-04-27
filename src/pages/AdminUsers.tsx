@@ -16,6 +16,7 @@ import { ArrowLeft, KeyRound, Loader2, Plus, Power, Trash2, Users } from "lucide
 import { toast } from "sonner";
 import { CrossServiceGrantsPanel } from "@/components/admin/CrossServiceGrantsPanel";
 import { PermissionsOverridesPanel } from "@/components/admin/PermissionsOverridesPanel";
+import { FeatureAccessPanel } from "@/components/admin/FeatureAccessPanel";
 
 interface AdminUser {
   user_id: string;
@@ -254,6 +255,10 @@ const AdminUsers = () => {
         />
 
         <PermissionsOverridesPanel
+          users={users.map((u) => ({ user_id: u.user_id, email: u.email, nom: u.nom }))}
+        />
+
+        <FeatureAccessPanel
           users={users.map((u) => ({ user_id: u.user_id, email: u.email, nom: u.nom }))}
         />
 
