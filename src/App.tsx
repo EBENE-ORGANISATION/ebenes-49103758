@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import AuditLog from "./pages/AuditLog.tsx";
+import ParametresSociete from "./pages/ParametresSociete.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -43,6 +44,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireRoles={["admin"]}>
                   <AuditLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/societe"
+              element={
+                <ProtectedRoute requireRoles={["admin"]}>
+                  <ParametresSociete />
                 </ProtectedRoute>
               }
             />

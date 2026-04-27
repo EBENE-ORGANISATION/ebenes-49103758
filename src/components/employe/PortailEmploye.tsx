@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import logoEbene from "@/assets/ebene-logo.png";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@/types/ebene";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { useTenant } from "@/hooks/useTenant";
 
 const statutBadge = (s?: StatutValidation) => {
   switch (s) {

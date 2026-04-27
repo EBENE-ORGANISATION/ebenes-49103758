@@ -40,6 +40,7 @@ import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { useTenant } from "@/hooks/useTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -110,6 +111,10 @@ export const GRH = ({
   const [primeOpen, setPrimeOpen] = useState<number | null>(null);
   const [primeLib, setPrimeLib] = useState("");
   const [primeMnt, setPrimeMnt] = useState("");
+  const { currentSociete, societeConfig } = useTenant();
+  const societeInfo = currentSociete && societeConfig
+    ? { ...societeConfig, nom: currentSociete.nom }
+    : null;
 
   const stats = useMemo(() => {
     let masseBrute = 0;
@@ -304,7 +309,7 @@ export const GRH = ({
                           size="sm"
                           variant="outline"
                           className="gap-1 h-8 text-xs"
-                          onClick={() => generateBulletin(e, data, annee, mois)}
+                          onClick={() => generateBulletin(e, data, annee, mois, societeInfo)}
                           title="Télécharger le bulletin PDF"
                         >
                           📄 PDF

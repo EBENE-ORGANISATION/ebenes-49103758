@@ -4,6 +4,13 @@ import type { DonneesMensuelles, Transaction, Immobilisation } from "@/types/ebe
 import { moisKey } from "@/lib/ebene-utils";
 import { amortissementsAnnee } from "@/lib/amortissements";
 
+/** Sous-ensemble de societe_config + societes utilisé pour l'en-tête du classeur. */
+export interface ExportSocieteInfo {
+  nom?: string | null;
+  nif?: string | null;
+  rccm?: string | null;
+}
+
 /**
  * Export comptable SYSCOHADA Révisé.
  *
@@ -300,7 +307,8 @@ const sum = (rows: LigneJournal[], k: "debit" | "credit") =>
 export const exportGrandLivre = (
   annee: number,
   donneesMensuelles: DonneesMensuelles,
-  immobilisations: Immobilisation[] = []
+  immobilisations: Immobilisation[] = [],
+  societe?: ExportSocieteInfo | null
 ): void => {
   const lignes = construireLignes(annee, donneesMensuelles);
   // Écritures de dotations aux amortissements de l'année (31/12) :
@@ -330,12 +338,33 @@ export const exportGrandLivre = (
     });
   }
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, buildGrandLivreSheet(lignes), "Grand-livre");
-  XLSX.utils.book_append_sheet(wb, buildBalanceSheet(lignes), "Balance");
+  // En-tête société sur les deux feuilles
+  const headerRows: (string | number)[][] = [];
+  if (societe?.nom) headerRows.push([societe.nom]);
+  const meta: string[] = [];
+  if (societe?.nif) meta.push(`NIF : ${societe.nif}`);
+  if (societe?.rccm) meta.push(`RCCM : ${societe.rccm}`);
+  if (meta.length) headerRows.push([meta.join("  •  ")]);
+  headerRows.push([`Exercice ${annee}`]);
+  headerRows.push([]);
+
+  // On construit puis on insère l'en-tête en haut (déplaçant les rows existantes)
+  const gl = buildGrandLivreSheet(lignes);
+  const bl = buildBalanceSheet(lignes);
+  // Pour insérer en haut on génère un classeur intermédiaire :
+  const glRows = XLSX.utils.sheet_to_json<(string | number)[]>(gl, { header: 1 });
+  const blRows = XLSX.utils.sheet_to_json<(string | number)[]>(bl, { header: 1 });
+  const glFinal = XLSX.utils.aoa_to_sheet([...headerRows, ...glRows] as (string | number)[][]);
+  const blFinal = XLSX.utils.aoa_to_sheet([...headerRows, ...blRows] as (string | number)[][]);
+  glFinal["!cols"] = gl["!cols"];
+  blFinal["!cols"] = bl["!cols"];
+  XLSX.utils.book_append_sheet(wb, glFinal, "Grand-livre");
+  XLSX.utils.book_append_sheet(wb, blFinal, "Balance");
 
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   const blob = new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(blob, `EBENE_SYSCOHADA_${annee}.xlsx`);
+  const slug = (societe?.nom || "SYSCOHADA").replace(/[^A-Za-z0-9_-]+/g, "_");
+  saveAs(blob, `${slug}_SYSCOHADA_${annee}.xlsx`);
 };

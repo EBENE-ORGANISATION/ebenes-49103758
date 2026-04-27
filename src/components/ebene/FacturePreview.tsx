@@ -5,6 +5,7 @@ import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import logoEbene from "@/assets/ebene-logo.png";
+import { useTenant } from "@/hooks/useTenant";
 
 interface Props {
   facture: Facture | null;
@@ -12,10 +13,21 @@ interface Props {
 }
 
 export const FacturePreview = ({ facture, onClose }: Props) => {
+  const { currentSociete, societeConfig } = useTenant();
   if (!facture) return null;
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
+  const nomSociete = currentSociete?.nom || "SOCIÉTÉ";
+  const logoSrc = societeConfig?.logo_url || logoEbene;
+  const couleurPrimaire = societeConfig?.couleur_primaire || "#3D0000";
+  const couleurAccent = societeConfig?.couleur_accent || "#89604A";
+  const adresse = societeConfig?.adresse || "";
+  const telephone = societeConfig?.telephone || "";
+  const email = societeConfig?.email || "";
+  const nif = societeConfig?.nif || "";
+  const rccm = societeConfig?.rccm || "";
+  const mention = societeConfig?.mention_facture?.trim() || "";
   const filename = `${isProforma ? "Proforma" : "Facture"}_${facture.numero.replace(/[^A-Za-z0-9_-]/g, "_")}`;
   const exportPDF = async () => {
     const el = document.getElementById("print-area");
@@ -77,12 +89,12 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               gap: "0",
             }}
           >
-            <img src={logoEbene} alt="EBENE SERVICES" style={{ height: "22mm", width: "auto" }} />
+            <img src={logoSrc} alt={nomSociete} style={{ height: "22mm", width: "auto", maxWidth: "60mm", objectFit: "contain" }} />
             <div
               style={{
                 flex: 1,
                 height: "2mm",
-                background: "#3D0000",
+                background: couleurPrimaire,
                 marginLeft: "4mm",
               }}
             />
@@ -100,8 +112,8 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleurPrimaire, borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleurPrimaire, borderRadius: "1mm" }} />
           </div>
 
           {/* ─── PIED : coordonnées centrées ─── */}
@@ -117,11 +129,11 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               color: "#1a1a1a",
             }}
           >
-            Quartier ADAWLATO, Rue du Grand Marché, N° RCCM: TG-LFW-01-2026-B13-00075
-            <br />
-            LOME-TOGO, TEL: (+228) 97 43 38 20,
-            <br />
-            Email: ebnservicess@gmail.com NIF: 1 002 088 759
+            <div style={{ fontWeight: 700, marginBottom: "1mm", color: couleurPrimaire }}>{nomSociete}</div>
+            {adresse && <>{adresse}<br /></>}
+            {[telephone && `Tél : ${telephone}`, email && `Email : ${email}`].filter(Boolean).join("  •  ")}
+            {(telephone || email) && <br />}
+            {[rccm && `RCCM : ${rccm}`, nif && `NIF : ${nif}`].filter(Boolean).join("  •  ")}
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}
@@ -141,7 +153,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                   flex: 1,
                   background: isProforma
                     ? "linear-gradient(135deg, #a06800 0%, #c98a1f 100%)"
-                    : "linear-gradient(135deg, #3D0000 0%, #6b1a1a 100%)",
+                    : `linear-gradient(135deg, ${couleurPrimaire} 0%, ${couleurAccent} 100%)`,
                   color: "#fff",
                   padding: "6mm 8mm",
                   borderRadius: "3mm",
@@ -196,7 +208,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
             <div
               style={{
                 background: "#fafafa",
-                borderLeft: "4px solid #3D0000",
+                borderLeft: `4px solid ${couleurPrimaire}`,
                 padding: "5mm 6mm",
                 marginBottom: "10mm",
                 borderRadius: "0 2mm 2mm 0",
@@ -236,7 +248,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       textAlign: "left",
                       padding: "4mm 5mm",
                       fontWeight: 600,
-                      background: "#3D0000",
+                      background: couleurPrimaire,
                       color: "#fff",
                       borderTopLeftRadius: "2mm",
                       fontSize: "10pt",
@@ -251,7 +263,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       padding: "4mm 5mm",
                       width: "50mm",
                       fontWeight: 600,
-                      background: "#3D0000",
+                      background: couleurPrimaire,
                       color: "#fff",
                       borderTopRightRadius: "2mm",
                       fontSize: "10pt",
@@ -342,7 +354,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <div
                   style={{
                     marginTop: "3mm",
-                    background: "linear-gradient(135deg, #3D0000 0%, #6b1a1a 100%)",
+                    background: `linear-gradient(135deg, ${couleurPrimaire} 0%, ${couleurAccent} 100%)`,
                     color: "#fff",
                     padding: "4mm 5mm",
                     borderRadius: "2mm",
@@ -391,9 +403,26 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <p style={{ margin: 0, color: "#89604A", fontWeight: 600, letterSpacing: "1px", fontSize: "9.5pt" }}>
                   LA DIRECTION
                 </p>
-                <div style={{ marginTop: "16mm", borderTop: "1.5px solid #3D0000", width: "100%" }} />
+                <div style={{ marginTop: "16mm", borderTop: `1.5px solid ${couleurPrimaire}`, width: "100%" }} />
               </div>
             </div>
+
+            {mention && (
+              <div
+                style={{
+                  marginTop: "8mm",
+                  padding: "3mm 4mm",
+                  background: "#fbf7f3",
+                  borderRadius: "2mm",
+                  fontSize: "9pt",
+                  fontStyle: "italic",
+                  color: "#555",
+                  textAlign: "center",
+                }}
+              >
+                {mention}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

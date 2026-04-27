@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { exportGrandLivre } from "@/lib/exportSYSCOHADA";
 import { toast } from "sonner";
+import { useTenant } from "@/hooks/useTenant";
 
 interface Props {
   open: boolean;
@@ -20,6 +21,7 @@ interface Props {
 
 export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [] }: Props) => {
   const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
+  const { currentSociete, societeConfig } = useTenant();
 
   const lignes = useMemo(() => {
     return MOIS_NOMS.map((nom, i) => {
@@ -49,7 +51,11 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
 
   const exportSyscohada = () => {
     try {
-      exportGrandLivre(annee, donneesMensuelles, immobilisations);
+      exportGrandLivre(annee, donneesMensuelles, immobilisations, {
+        nom: currentSociete?.nom ?? null,
+        nif: societeConfig?.nif ?? null,
+        rccm: societeConfig?.rccm ?? null,
+      });
       toast.success(`Export SYSCOHADA ${annee} généré`);
     } catch (e) {
       toast.error("Échec de l'export SYSCOHADA");

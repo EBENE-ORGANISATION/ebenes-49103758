@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
+import { applyTheme, resetTheme } from "@/lib/theme";
 
 export type Societe = Tables<"societes">;
 export type SocieteConfig = Tables<"societe_config">;
@@ -109,6 +110,12 @@ export const useTenant = (): TenantState => {
     if (currentId) void loadConfig(currentId);
     else setConfig(null);
   }, [currentId, loadConfig]);
+
+  // Applique le thème dynamique dès qu'une nouvelle config est chargée
+  useEffect(() => {
+    if (config) applyTheme(config);
+    else resetTheme();
+  }, [config]);
 
   const currentSociete = useMemo(
     () => societes.find((s) => s.id === currentId) ?? null,
