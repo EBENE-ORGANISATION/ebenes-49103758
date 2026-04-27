@@ -23,8 +23,20 @@ interface TenantState {
   refresh: () => Promise<void>;
 }
 
-const LS_KEY = "ebene:current_societe_id";
-const LS_HOME_KEY = "ebene:appli_mere";
+// Les clés sont scopées par utilisateur pour éviter toute fuite de contexte
+// d'un compte à l'autre sur le même navigateur (ex. EBENE qui s'affiche pour
+// un nouveau compte connecté). Format : `ebene:current_societe_id:<userId>`.
+const LS_KEY_PREFIX = "ebene:current_societe_id";
+const LS_HOME_PREFIX = "ebene:appli_mere";
+const lsKey = (userId: string | null | undefined) =>
+  userId ? `${LS_KEY_PREFIX}:${userId}` : LS_KEY_PREFIX;
+const lsHomeKey = (userId: string | null | undefined) =>
+  userId ? `${LS_HOME_PREFIX}:${userId}` : LS_HOME_PREFIX;
+
+// Anciennes clés non scopées : on les purge au montage pour ne pas hériter
+// d'un contexte d'un autre utilisateur.
+const LEGACY_LS_KEY = "ebene:current_societe_id";
+const LEGACY_LS_HOME_KEY = "ebene:appli_mere";
 
 /**
  * Hook de contexte tenant.
@@ -45,25 +57,52 @@ export const useTenant = (): TenantState => {
   const { user, isSuperAdmin, loading: authLoading } = useAuth();
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [config, setConfig] = useState<SocieteConfig | null>(null);
-  const [currentId, setCurrentIdState] = useState<string | null>(() => {
-    try { return localStorage.getItem(LS_KEY); } catch { return null; }
-  });
+  // L'ID courant ne peut être lu qu'une fois `user` connu (clé scopée).
+  // Tant que l'auth n'a pas chargé, on reste sur null pour éviter d'afficher
+  // brièvement le contexte d'un autre compte.
+  const [currentId, setCurrentIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const setCurrentSocieteId = useCallback((id: string | null) => {
     setCurrentIdState(id);
+    const uid = user?.id ?? null;
     try {
       if (id) {
-        localStorage.setItem(LS_KEY, id);
-        localStorage.removeItem(LS_HOME_KEY);
+        localStorage.setItem(lsKey(uid), id);
+        localStorage.removeItem(lsHomeKey(uid));
       } else {
-        localStorage.removeItem(LS_KEY);
+        localStorage.removeItem(lsKey(uid));
         // Marque explicitement le choix "Appli mère" pour ne pas auto-sélectionner
         // une société au prochain chargement.
-        localStorage.setItem(LS_HOME_KEY, "1");
+        localStorage.setItem(lsHomeKey(uid), "1");
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [user?.id]);
+
+  // Au changement d'utilisateur (login / logout / switch de compte), on remet
+  // tout le contexte à zéro AVANT toute nouvelle requête, pour qu'aucun
+  // header ou thème de l'utilisateur précédent ne reste affiché.
+  useEffect(() => {
+    setSocietes([]);
+    setConfig(null);
+    // Purge des anciennes clés non scopées (legacy) — une seule fois suffit
+    // mais c'est idempotent.
+    try {
+      localStorage.removeItem(LEGACY_LS_KEY);
+      localStorage.removeItem(LEGACY_LS_HOME_KEY);
+    } catch { /* ignore */ }
+    // Restaure l'ID persisté pour CE user (s'il y en a un)
+    if (user?.id) {
+      try {
+        const persisted = localStorage.getItem(lsKey(user.id));
+        setCurrentIdState(persisted);
+      } catch {
+        setCurrentIdState(null);
+      }
+    } else {
+      setCurrentIdState(null);
+    }
+  }, [user?.id]);
 
   const loadSocietes = useCallback(async () => {
     if (!user) {
@@ -89,7 +128,7 @@ export const useTenant = (): TenantState => {
       // 2) celle persistée en LS si elle est dans la liste
       // 3) sinon la première de la liste
       let homeChosen = false;
-      try { homeChosen = localStorage.getItem(LS_HOME_KEY) === "1"; } catch { /* ignore */ }
+      try { homeChosen = localStorage.getItem(lsHomeKey(user.id)) === "1"; } catch { /* ignore */ }
       if (homeChosen && isSuperAdmin) {
         setCurrentIdState(null);
       } else {
@@ -102,6 +141,8 @@ export const useTenant = (): TenantState => {
       }
     } catch {
       setSocietes([]);
+      setConfig(null);
+      setCurrentIdState(null);
     } finally {
       setLoading(false);
     }
@@ -126,9 +167,24 @@ export const useTenant = (): TenantState => {
   }, [authLoading, loadSocietes]);
 
   useEffect(() => {
-    if (currentId) void loadConfig(currentId);
-    else setConfig(null);
-  }, [currentId, loadConfig]);
+    // Sécurité : on ne charge la config d'une société QUE si l'ID est dans
+    // la liste des sociétés accessibles à l'utilisateur. Sinon on reset.
+    // Cela empêche d'afficher l'en-tête d'EBENE pour un user qui n'y a
+    // pas accès, juste parce qu'un ID périmé traîne dans le state.
+    if (!currentId) {
+      setConfig(null);
+      return;
+    }
+    if (societes.length === 0) {
+      // Liste pas encore chargée : on attend `loadSocietes` pour valider l'ID
+      return;
+    }
+    if (!societes.some((s) => s.id === currentId)) {
+      setConfig(null);
+      return;
+    }
+    void loadConfig(currentId);
+  }, [currentId, societes, loadConfig]);
 
   // Applique le thème dynamique dès qu'une nouvelle config est chargée
   useEffect(() => {
