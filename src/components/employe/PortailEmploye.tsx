@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -22,9 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle } from "lucide-react";
+import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle, Award, Gavel } from "lucide-react";
 import { toast } from "sonner";
-import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@/types/ebene";
+import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation, TYPE_SANCTION_LABELS } from "@/types/ebene";
+/** Base annuelle de congés payés selon le Code du Travail togolais. */
+const BASE_CONGES_ANNUEL = 30;
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 
@@ -117,13 +120,36 @@ export const PortailEmploye = () => {
 
   // ─── Solde de congés (champ employé + absences validées de type congés payés) ──
   const soldeConges = useMemo(() => {
-    if (!employe) return 0;
-    const acquis = employe.soldeConges ?? 0;
+    if (!employe) return { restants: 0, consommes: 0, base: BASE_CONGES_ANNUEL };
     const consommes = absences
       .filter((x) => x.abs.type === "conges_payes" && x.abs.statutValidation === "valide")
       .reduce((s, x) => s + (x.abs.jours || 0), 0);
-    return acquis - consommes;
+    const restants = Math.max(0, BASE_CONGES_ANNUEL - consommes);
+    return { restants, consommes, base: BASE_CONGES_ANNUEL };
   }, [employe, absences]);
+
+  // ─── Historique 12 derniers mois : primes & sanctions ──────────────────
+  const historique = useMemo(() => {
+    if (!employe) return { primes: [] as Array<{ mois: number; annee: number; prime: import("@/types/ebene").Prime }>, sanctions: [] as Array<import("@/types/ebene").Sanction> };
+    const now = new Date();
+    const debut = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const primes: Array<{ mois: number; annee: number; prime: import("@/types/ebene").Prime }> = [];
+    const sanctions: Array<import("@/types/ebene").Sanction> = [];
+    for (let offset = 0; offset < 12; offset++) {
+      const d = new Date(debut.getFullYear(), debut.getMonth() + offset, 1);
+      const a = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const data = store.getMois(a, m);
+      const empPrimes = (data.primes?.[employe.id] || []) as import("@/types/ebene").Prime[];
+      empPrimes.forEach((p) => primes.push({ mois: m, annee: a, prime: p }));
+    }
+    // Sanctions (non liées au mois)
+    const limite = debut.getTime();
+    (store.sanctions || [])
+      .filter((s) => s.employeId === employe.id && new Date(s.date).getTime() >= limite)
+      .forEach((s) => sanctions.push(s));
+    return { primes, sanctions };
+  }, [employe, store, annee]);
 
   // ─── Form demande de congé ─────────────────────────────────────────────
   const [demande, setDemande] = useState({
@@ -228,8 +254,17 @@ export const PortailEmploye = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{soldeConges}</div>
-              <p className="text-xs text-muted-foreground">jours restants</p>
+              <div className="text-3xl font-bold">{soldeConges.restants}</div>
+              <p className="text-xs text-muted-foreground">
+                jours restants / {soldeConges.base}
+              </p>
+              <Progress
+                value={(soldeConges.restants / soldeConges.base) * 100}
+                className="mt-2 h-2"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {soldeConges.consommes} jour(s) consommé(s) cette année
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -405,6 +440,90 @@ export const PortailEmploye = () => {
                           {abs.motif || "-"}
                         </TableCell>
                         <TableCell>{statutBadge(abs.statutValidation)}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Historique primes — 12 derniers mois */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Award className="size-4" /> Mes primes — 12 derniers mois
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {historique.primes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune prime sur la période.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Période</TableHead>
+                    <TableHead>Libellé</TableHead>
+                    <TableHead className="text-right">Montant (F CFA)</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historique.primes
+                    .slice()
+                    .sort((a, b) =>
+                      a.annee === b.annee ? b.mois - a.mois : b.annee - a.annee,
+                    )
+                    .map(({ mois, annee: an, prime }) => (
+                      <TableRow key={`${an}-${mois}-${prime.id}`}>
+                        <TableCell className="font-medium">
+                          {MOIS_NOMS[mois - 1]} {an}
+                        </TableCell>
+                        <TableCell>{prime.libelle || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          {prime.montant.toLocaleString("fr-FR")}
+                        </TableCell>
+                        <TableCell>{statutBadge(prime.statutValidation)}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Historique sanctions — 12 derniers mois */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Gavel className="size-4" /> Mes sanctions — 12 derniers mois
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {historique.sanctions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune sanction sur la période.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Motif</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historique.sanctions
+                    .slice()
+                    .sort((a, b) => (a.date < b.date ? 1 : -1))
+                    .map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>{s.date}</TableCell>
+                        <TableCell>{TYPE_SANCTION_LABELS[s.type]}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {s.motif || "-"}
+                        </TableCell>
+                        <TableCell>{statutBadge(s.statutValidation)}</TableCell>
                       </TableRow>
                     ))}
                 </TableBody>

@@ -1442,6 +1442,7 @@ export type Database = {
     }
     Functions: {
       app_state_societe_id: { Args: { _key: string }; Returns: string }
+      current_employe_id: { Args: { _user_id: string }; Returns: number }
       has_active_chef_grant: {
         Args: { _service: string; _user_id: string }
         Returns: boolean
