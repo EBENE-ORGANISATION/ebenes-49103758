@@ -121,7 +121,9 @@ export const SuperAdminPanel = () => {
         supabase.from("societe_config").select("*"),
         supabase.from("user_societes").select("societe_id"),
       ]);
-      setSocietes((socs ?? []) as SocieteRow[]);
+      // On exclut la société technique "_modele" des listes — elle est gérée
+      // séparément dans l'onglet "Défauts globaux".
+      setSocietes(((socs ?? []) as SocieteRow[]).filter((s) => s.slug !== "_modele"));
       const cfgMap: Record<string, SocieteConfigRow> = {};
       (cfgs ?? []).forEach((c: any) => { cfgMap[c.societe_id] = c; });
       setConfigs(cfgMap);

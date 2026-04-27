@@ -71,7 +71,9 @@ export const useTenant = (): TenantState => {
         .select("*")
         .order("nom", { ascending: true });
       if (error) throw error;
-      const list = (data || []) as Societe[];
+      // La société technique "_modele" sert uniquement de modèle de défauts globaux
+      // (paramétrée par le super-admin). Elle ne doit jamais être proposée comme tenant.
+      const list = ((data || []) as Societe[]).filter((s) => s.slug !== "_modele");
       setSocietes(list);
 
       // Sélection de la société courante :
