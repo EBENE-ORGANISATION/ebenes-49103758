@@ -152,6 +152,7 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 };
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
+  const societe = useSocieteActive();
   const c = calculerPaie(employe, data);
   const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
   const exportPDF = async () => {
