@@ -222,6 +222,7 @@ export const useAuth = () => {
         fiscalite: "none",
         parametres_sociaux: "none",
         grh: "none",
+        outils_admin: "none",
       } as PermissionMap,
       loading: true,
       signIn: async () => ({ error: "AuthProvider not ready" }),

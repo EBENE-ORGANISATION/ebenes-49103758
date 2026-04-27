@@ -88,7 +88,10 @@ export const Header = ({
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
-  const { user, roles, isAdmin, signOut } = useAuth();
+  const { user, roles, isAdmin, signOut, can } = useAuth();
+  // Accès aux outils sensibles : admin, chef de service, ou autorisation
+  // explicite (override) sur le module "outils_admin".
+  const canUseOutils = can("outils_admin", "read");
   const {
     societes,
     societeId,
@@ -243,32 +246,36 @@ export const Header = ({
                 </Select>
               </div>
             )}
-            <AlertesBell alertes={alertes} />
+            {canUseOutils && <AlertesBell alertes={alertes} />}
             <InstallPWAButton />
-            <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
-              <BarChart3 className="size-4" /> Récap Annuel
-            </Button>
-            <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
-              <Archive className="size-4" /> Archives
-            </Button>
-            <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
-              <Download className="size-4" /> Exporter JSON
-            </Button>
-            <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
-              <Upload className="size-4" /> Importer JSON
-            </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onImport(f);
-                e.target.value = "";
-              }}
-            />
-            {onDriveBackup && (
+            {canUseOutils && (
+              <>
+                <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
+                  <BarChart3 className="size-4" /> Récap Annuel
+                </Button>
+                <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
+                  <Archive className="size-4" /> Archives
+                </Button>
+                <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
+                  <Download className="size-4" /> Exporter JSON
+                </Button>
+                <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
+                  <Upload className="size-4" /> Importer JSON
+                </Button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onImport(f);
+                    e.target.value = "";
+                  }}
+                />
+              </>
+            )}
+            {canUseOutils && onDriveBackup && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="sm" className="gap-1.5">

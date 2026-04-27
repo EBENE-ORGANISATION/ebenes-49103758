@@ -349,6 +349,7 @@ export type Database = {
         | "fiscalite"
         | "parametres_sociaux"
         | "grh"
+        | "outils_admin"
       app_role:
         | "admin"
         | "rh"
@@ -498,6 +499,7 @@ export const Constants = {
         "fiscalite",
         "parametres_sociaux",
         "grh",
+        "outils_admin",
       ],
       app_role: [
         "admin",
