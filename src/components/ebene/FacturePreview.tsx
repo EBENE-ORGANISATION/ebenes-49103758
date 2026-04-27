@@ -4,7 +4,7 @@ import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
+import logoEbene from "@/assets/ebene-logo.png";
 
 interface Props {
   facture: Facture | null;
@@ -13,22 +13,6 @@ interface Props {
 
 export const FacturePreview = ({ facture, onClose }: Props) => {
   if (!facture) return null;
-  const societe = useSocieteActive();
-  const logo = societe?.logoUrl || "";
-  const couleur = societe?.couleurPrimaire || "#3D0000";
-  const nomSoc = societe?.nom || "Société";
-  // Pied : uniquement les coordonnées RÉELLES de la société active (pas de
-  // fallback EBENE pour éviter d'imprimer les coordonnées d'une société
-  // sur les documents d'une autre).
-  const piedLignes: string[] = [];
-  if (societe?.adresse) piedLignes.push(societe.adresse);
-  const ligne2: string[] = [];
-  if (societe?.rccm) ligne2.push(`RCCM : ${societe.rccm}`);
-  if (societe?.telephone) ligne2.push(`Tél : ${societe.telephone}`);
-  const ligne3: string[] = [];
-  if (societe?.email) ligne3.push(`Email : ${societe.email}`);
-  if (societe?.nif) ligne3.push(`NIF : ${societe.nif}`);
-  if (societe?.siteWeb) ligne3.push(societe.siteWeb);
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
@@ -63,6 +47,12 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
           </div>
         </div>
 
+        {/*
+          Reproduction fidèle du papier à en-tête EBENE SERVICES :
+          - Haut : logo à gauche + longue barre marron qui s'étend vers la droite
+          - Bas  : deux petits traits marron de chaque côté
+          - Pied : coordonnées centrées (Quartier, RCCM, Tél, Email, NIF)
+        */}
         <div
           id="print-area"
           className="bg-white text-black mx-auto"
@@ -87,31 +77,12 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               gap: "0",
             }}
           >
-            {logo ? (
-              <img src={logo} alt={nomSoc} style={{ height: "22mm", width: "auto", objectFit: "contain" }} />
-            ) : (
-              <div
-                style={{
-                  height: "22mm",
-                  width: "22mm",
-                  background: couleur,
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "12pt",
-                  borderRadius: "2mm",
-                }}
-              >
-                {nomSoc.slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            <img src={logoEbene} alt="EBENE SERVICES" style={{ height: "22mm", width: "auto" }} />
             <div
               style={{
                 flex: 1,
                 height: "2mm",
-                background: couleur,
+                background: "#3D0000",
                 marginLeft: "4mm",
               }}
             />
@@ -129,8 +100,8 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ width: "30mm", height: "1.5mm", background: couleur, borderRadius: "1mm" }} />
-            <div style={{ width: "30mm", height: "1.5mm", background: couleur, borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
           </div>
 
           {/* ─── PIED : coordonnées centrées ─── */}
@@ -146,11 +117,11 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               color: "#1a1a1a",
             }}
           >
-            {piedLignes.join(" • ")}
+            Quartier ADAWLATO, Rue du Grand Marché, N° RCCM: TG-LFW-01-2026-B13-00075
             <br />
-            {ligne2.join(", ")}
+            LOME-TOGO, TEL: (+228) 97 43 38 20,
             <br />
-            {ligne3.join(" — ")}
+            Email: ebnservicess@gmail.com NIF: 1 002 088 759
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}

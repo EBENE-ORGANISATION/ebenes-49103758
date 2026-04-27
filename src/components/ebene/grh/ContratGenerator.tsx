@@ -2,7 +2,6 @@ import { Employe, MOIS_NOMS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
 import { formatMontant } from "@/lib/ebene-utils";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 interface Props {
   employe: Employe;
@@ -10,11 +9,6 @@ interface Props {
 }
 
 export const ContratGenerator = ({ employe, onClose }: Props) => {
-  const societe = useSocieteActive();
-  const nomSoc = societe?.nom || "Société";
-  const nifSoc = societe?.nif || "";
-  const repr = societe?.representant || "Le Représentant";
-  const fctRepr = societe?.fonctionRepresentant || "Représentant légal";
   const today = new Date();
   const dateStr = `${today.getDate()} ${MOIS_NOMS[today.getMonth()]} ${today.getFullYear()}`;
 
@@ -40,11 +34,6 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
         </div>
 
         <div id="print-area" className="bg-white text-foreground p-8 border-2 border-border rounded-lg space-y-4 text-sm leading-relaxed">
-          {societe?.logoUrl && (
-            <div className="flex justify-center mb-2">
-              <img src={societe.logoUrl} alt={nomSoc} className="h-16 object-contain" />
-            </div>
-          )}
           <div className="text-center border-b-2 border-foreground pb-3 mb-4">
             <p className="font-bold text-base">RÉPUBLIQUE TOGOLAISE</p>
             <p className="text-xs">Travail – Liberté – Patrie</p>
@@ -55,11 +44,7 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
 
           <p><strong>ENTRE LES SOUSSIGNÉS :</strong></p>
           <p>
-            <strong>{nomSoc}</strong>
-            {nifSoc && `, NIF ${nifSoc}`}
-            {societe?.rccm && `, RCCM ${societe.rccm}`}
-            {societe?.adresse && `, sise à ${societe.adresse}`}
-            , représentée par {repr}{fctRepr ? ` (${fctRepr})` : ""},
+            <strong>EBENE SERVICES</strong>, NIF 1 002 088 759, représentée par M. BITHO SIMBAYA,
             ci-après dénommée « <strong>l'Employeur</strong> »,
           </p>
           <p className="text-center">D'UNE PART,</p>

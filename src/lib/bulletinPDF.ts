@@ -2,40 +2,9 @@
 // Réutilise calculerPaie() et les utilitaires fiscaux ; ne réécrit aucune logique de paie.
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Employe, MoisData, MOIS_NOMS, Societe } from "@/types/ebene";
+import { Employe, MoisData, MOIS_NOMS } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
-
-/** Convertit un HEX (#RRGGBB) en triplet RGB pour jsPDF. */
-const hexToRgb = (hex: string): [number, number, number] => {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
-  if (!m) return [76, 81, 191];
-  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
-};
-
-/** Charge une URL image vers dataURL pour intégration jsPDF. */
-const loadImageAsDataURL = async (url: string): Promise<{ dataUrl: string; w: number; h: number } | null> => {
-  try {
-    const res = await fetch(url, { mode: "cors" });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-    const dim = await new Promise<{ w: number; h: number }>((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = () => resolve({ w: 0, h: 0 });
-      img.src = dataUrl;
-    });
-    return { dataUrl, w: dim.w, h: dim.h };
-  } catch {
-    return null;
-  }
-};
 
 /**
  * Génère et télécharge le bulletin de paie PDF d'un employé pour un mois donné.
@@ -45,44 +14,24 @@ const loadImageAsDataURL = async (url: string): Promise<{ dataUrl: string; w: nu
  * - Net à payer
  * - Mention légale SYSCOHADA
  */
-export const generateBulletin = async (
+export const generateBulletin = (
   employe: Employe,
   moisData: MoisData,
   annee: number,
-  mois: number,
-  societe?: Societe | null
-): Promise<void> => {
+  mois: number
+): void => {
   const c = calculerPaie(employe, moisData);
   const periode = `${MOIS_NOMS[mois - 1]} ${annee}`;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
-  const nomSoc = societe?.nom || "Société";
-  const nifSoc = societe?.nif || "";
-  const headColor = hexToRgb(societe?.couleurPrimaire || "#4C51BF");
-  const retColor = hexToRgb(societe?.couleurSecondaire || "#C05656");
-  const mentionLegale = societe?.mentionLegalePied?.trim() ||
-    "Comptabilité tenue selon le référentiel SYSCOHADA révisé (Acte uniforme OHADA relatif au droit comptable et à l'information financière).";
 
-  // ─── En-tête société (logo optionnel + nom + NIF) ───────────────
-  let headerY = 15;
-  if (societe?.logoUrl) {
-    const img = await loadImageAsDataURL(societe.logoUrl);
-    if (img && img.w > 0) {
-      const targetH = 14; // mm
-      const targetW = (img.w / img.h) * targetH;
-      try {
-        doc.addImage(img.dataUrl, "PNG", 14, 8, targetW, targetH);
-      } catch {
-        /* format non supporté → ignore */
-      }
-    }
-  }
+  // ─── En-tête société ─────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(nomSoc, pageW / 2, headerY, { align: "center" });
+  doc.text("EBENE SERVICES", pageW / 2, 15, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  if (nifSoc) doc.text(`NIF : ${nifSoc}`, pageW / 2, headerY + 5, { align: "center" });
+  doc.text("NIF : 1 002 088 759", pageW / 2, 20, { align: "center" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text(`BULLETIN DE PAIE — ${periode.toUpperCase()}`, pageW / 2, 28, { align: "center" });
@@ -151,7 +100,7 @@ export const generateBulletin = async (
     foot: [["SALAIRE BRUT", formatMontant(c.brut)]],
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 1.6 },
-    headStyles: { fillColor: headColor, textColor: 255, halign: "left" },
+    headStyles: { fillColor: [76, 81, 191], textColor: 255, halign: "left" },
     footStyles: { fillColor: [230, 230, 240], textColor: 0, fontStyle: "bold" },
     columnStyles: { 1: { halign: "right", cellWidth: 45 } },
     margin: { left: 14, right: 14 },
@@ -181,7 +130,7 @@ export const generateBulletin = async (
     foot: [["TOTAL RETENUES", formatMontant(c.totalRetenues)]],
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 1.6 },
-    headStyles: { fillColor: retColor, textColor: 255, halign: "left" },
+    headStyles: { fillColor: [192, 86, 86], textColor: 255, halign: "left" },
     footStyles: { fillColor: [240, 230, 230], textColor: 0, fontStyle: "bold" },
     columnStyles: { 1: { halign: "right", cellWidth: 45 } },
     margin: { left: 14, right: 14 },
@@ -224,8 +173,10 @@ export const generateBulletin = async (
   doc.setFontSize(7.5);
   const legal1 =
     "Bulletin établi conformément au Code du travail togolais et à la Convention collective interprofessionnelle.";
+  const legal2 =
+    "Comptabilité tenue selon le référentiel SYSCOHADA révisé (Acte uniforme OHADA relatif au droit comptable et à l'information financière).";
   doc.text(legal1, pageW / 2, pageH - 17, { align: "center" });
-  doc.text(mentionLegale, pageW / 2, pageH - 13, { align: "center" });
+  doc.text(legal2, pageW / 2, pageH - 13, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text(

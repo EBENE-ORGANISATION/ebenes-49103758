@@ -8,8 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Palette par défaut de la plateforme — Marron #3D0000 + Brun #89604A.
-       Les sociétés peuvent surcharger via couleur_primaire/secondaire. */
+    /* Charte EBENE SERVICES — Marron #3D0000 + Brun #89604A */
     --background: 30 30% 97%;
     --foreground: 0 0% 8%;
 

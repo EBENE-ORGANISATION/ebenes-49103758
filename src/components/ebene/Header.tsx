@@ -25,15 +25,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
-import { useSociete, useSocieteActive } from "@/hooks/useSocieteContext";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -88,20 +79,7 @@ export const Header = ({
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
-  const { user, roles, isAdmin, signOut, can } = useAuth();
-  // Accès aux outils sensibles : admin, chef de service, ou autorisation
-  // explicite (override) sur le module "outils_admin".
-  const canUseOutils = can("outils_admin", "read");
-  const {
-    societes,
-    societeId,
-    setSocieteId,
-    consolide,
-  } = useSociete();
-  const societeActive = useSocieteActive();
-  const headerLogo = societeActive?.logoUrl || logoEbene;
-  const headerNom = societeActive?.nom || "Espace de gestion";
-  const headerSlogan = societeActive?.slogan || "";
+  const { user, roles, isAdmin, signOut } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -180,11 +158,11 @@ export const Header = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
-              <img src={headerLogo} alt={headerNom} className="h-20 sm:h-24 w-auto object-contain" />
+              <img src={logoEbene} alt="EBENE SERVICES" className="h-20 sm:h-24 w-auto" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{headerNom}</h1>
-              <p className="text-sm text-primary-foreground/80 font-medium">{headerSlogan}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">EBENE SERVICES</h1>
+              <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
                   <Check className="size-3" /> Sauvegardé {savedAgo}
@@ -217,65 +195,32 @@ export const Header = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {societes.length > 0 && (
-              <div className="flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-2 py-1">
-                <Building2 className="size-4 text-primary-foreground" />
-                <Select
-                  value={consolide ? "__consolide__" : (societeId ?? "")}
-                  onValueChange={(v) => {
-                    if (v === "__consolide__") return; // toggle Dashboard gère le consolidé
-                    setSocieteId(v);
-                  }}
-                  disabled={consolide}
-                >
-                  <SelectTrigger className="h-8 min-w-[180px] bg-transparent border-primary-foreground/30 text-primary-foreground text-xs">
-                    <SelectValue placeholder="Sélectionner une société" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {consolide && (
-                      <SelectItem value="__consolide__" disabled>
-                        Vue consolidée (toutes)
-                      </SelectItem>
-                    )}
-                    {societes.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {canUseOutils && <AlertesBell alertes={alertes} />}
+            <AlertesBell alertes={alertes} />
             <InstallPWAButton />
-            {canUseOutils && (
-              <>
-                <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
-                  <BarChart3 className="size-4" /> Récap Annuel
-                </Button>
-                <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
-                  <Archive className="size-4" /> Archives
-                </Button>
-                <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
-                  <Download className="size-4" /> Exporter JSON
-                </Button>
-                <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
-                  <Upload className="size-4" /> Importer JSON
-                </Button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="application/json"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onImport(f);
-                    e.target.value = "";
-                  }}
-                />
-              </>
-            )}
-            {canUseOutils && onDriveBackup && (
+            <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
+              <BarChart3 className="size-4" /> Récap Annuel
+            </Button>
+            <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
+              <Archive className="size-4" /> Archives
+            </Button>
+            <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
+              <Download className="size-4" /> Exporter JSON
+            </Button>
+            <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
+              <Upload className="size-4" /> Importer JSON
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onImport(f);
+                e.target.value = "";
+              }}
+            />
+            {onDriveBackup && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="sm" className="gap-1.5">
@@ -330,9 +275,9 @@ export const Header = ({
               <FolderOpen className="size-5" /> Historique des sauvegardes Google Drive
             </DialogTitle>
             <DialogDescription>
-              Les 10 dernières sauvegardes Google Drive. Cliquez sur
-              « Restaurer » pour remplacer les données actuelles par celles de
-              la sauvegarde sélectionnée.
+              Les 10 dernières sauvegardes du dossier <code>EBENE_BACKUPS</code>. Cliquez
+              sur « Restaurer » pour remplacer les données actuelles par celles de la
+              sauvegarde sélectionnée.
             </DialogDescription>
           </DialogHeader>
 

@@ -22,17 +22,7 @@ export const escapeHtml = (str: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-/**
- * Génère un id numérique strictement croissant et unique au sein d'un même
- * onglet. Combine `Date.now()` avec un compteur monotonique pour éviter les
- * collisions lors de créations multiples dans la même milliseconde
- * (imports en lot, conversions devis→facture…).
- */
-let __idCounter = 0;
-export const newId = (): number => {
-  __idCounter = (__idCounter + 1) % 1000;
-  return Date.now() * 1000 + __idCounter;
-};
+export const newId = () => Date.now() + Math.floor(Math.random() * 1000);
 
 // ─── PAIE TOGOLAISE ───────────────────────────────────────────────────────────
 // Code du travail togolais & Convention collective interprofessionnelle

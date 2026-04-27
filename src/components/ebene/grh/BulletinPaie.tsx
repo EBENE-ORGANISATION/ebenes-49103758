@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 interface Props {
   employe: Employe;
@@ -152,7 +151,6 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 };
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
-  const societe = useSocieteActive();
   const c = calculerPaie(employe, data);
   const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
   const exportPDF = async () => {
@@ -187,13 +185,8 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
 
         <div id="print-area" className="bg-white text-foreground p-6 border-2 border-border rounded-lg">
           <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-            {societe?.logoUrl && (
-              <img src={societe.logoUrl} alt={societe.nom} className="h-12 mx-auto mb-2 object-contain" />
-            )}
-            <p className="font-bold text-lg">{societe?.nom || "Société"}</p>
-            {societe?.nif && (
-              <p className="text-xs text-muted-foreground">NIF : {societe.nif}</p>
-            )}
+            <p className="font-bold text-lg">EBENE SERVICES</p>
+            <p className="text-xs text-muted-foreground">NIF : 1 002 088 759</p>
             <h3 className="text-base font-bold mt-2">
               BULLETIN DE PAIE — {MOIS_NOMS[mois - 1]} {annee}
             </h3>

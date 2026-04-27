@@ -25,16 +25,6 @@ import {
 } from "@/lib/amortissements";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
-
-const slug = (s: string): string =>
-  (s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase()
-    .slice(0, 30);
 
 interface Props {
   annee: number;
@@ -57,8 +47,6 @@ export const Immobilisations = ({
   canEdit,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
-  const societeActive = useSocieteActive();
-  const filePrefix = slug(societeActive?.nom || "") || "EXPORT";
   const [libelle, setLibelle] = useState("");
   const [categorie, setCategorie] = useState<CategorieImmo>("materiel_bureau");
   const [dateAcq, setDateAcq] = useState(todayISO());
@@ -161,7 +149,7 @@ export const Immobilisations = ({
     const blob = new Blob([buf], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `${filePrefix}_Immobilisations_${annee}.xlsx`);
+    saveAs(blob, `EBENE_Immobilisations_${annee}.xlsx`);
     toast.success(`Plan d'amortissement ${annee} exporté`);
   };
 

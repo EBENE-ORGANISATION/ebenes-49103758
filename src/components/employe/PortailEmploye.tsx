@@ -26,7 +26,6 @@ import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle } from "
 import { toast } from "sonner";
 import logoEbene from "@/assets/ebene-logo.png";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@/types/ebene";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
 import { generateBulletin } from "@/lib/bulletinPDF";
 
 const statutBadge = (s?: StatutValidation) => {
@@ -53,7 +52,6 @@ const diffJours = (a: string, b: string) => {
 export const PortailEmploye = () => {
   const { user, signOut } = useAuth();
   const store = useEbeneStore();
-  const societeActive = useSocieteActive();
   const annee = new Date().getFullYear();
 
   // ─── Recherche de la fiche employé liée au compte ──────────────────────
@@ -145,13 +143,9 @@ export const PortailEmploye = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src={societeActive?.logoUrl || logoEbene}
-              alt={societeActive?.nom || "Portail employé"}
-              className="h-9 w-9 object-contain"
-            />
+            <img src={logoEbene} alt="EBENE Services" className="h-9 w-9" />
             <div>
-              <h1 className="font-bold leading-tight">{societeActive?.nom ? `${societeActive.nom} — Portail Employé` : "Portail Employé"}</h1>
+              <h1 className="font-bold leading-tight">EBENE — Portail Employé</h1>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -188,13 +182,9 @@ export const PortailEmploye = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img
-            src={societeActive?.logoUrl || logoEbene}
-            alt={societeActive?.nom || "Portail employé"}
-            className="h-9 w-9 object-contain"
-          />
+          <img src={logoEbene} alt="EBENE Services" className="h-9 w-9" />
           <div>
-            <h1 className="font-bold leading-tight">{societeActive?.nom ? `${societeActive.nom} — Portail Employé` : "Portail Employé"}</h1>
+            <h1 className="font-bold leading-tight">EBENE — Portail Employé</h1>
             <p className="text-xs text-muted-foreground">
               {employe.nom} • {employe.poste}
               {employe.matricule ? ` • Mat. ${employe.matricule}` : ""}
@@ -275,7 +265,7 @@ export const PortailEmploye = () => {
                           className="gap-1.5"
                           onClick={() => {
                             try {
-                              void generateBulletin(employe, store.getMois(annee, mois), annee, mois, societeActive);
+                              generateBulletin(employe, store.getMois(annee, mois), annee, mois);
                             } catch (err) {
                               console.error(err);
                               toast.error("Impossible de générer le bulletin");

@@ -8,8 +8,7 @@ export type AppModule =
   | "immobilisations"
   | "fiscalite"
   | "parametres_sociaux"
-  | "grh"
-  | "outils_admin";
+  | "grh";
 
 export type AccessLevel = "none" | "read" | "write" | "validate";
 
@@ -22,7 +21,6 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   fiscalite: "🧮 Fiscalité",
   parametres_sociaux: "⚙️ Paramètres sociaux",
   grh: "👥 GRH",
-  outils_admin: "🛠️ Outils admin (récap, archives, export/import)",
 };
 
 export const LEVEL_LABELS: Record<AccessLevel, string> = {
@@ -48,7 +46,6 @@ export const MODULES: AppModule[] = [
   "fiscalite",
   "parametres_sociaux",
   "grh",
-  "outils_admin",
 ];
 
 export type PermissionMap = Record<AppModule, AccessLevel>;
@@ -67,7 +64,6 @@ const EMPTY: PermissionMap = {
   fiscalite: "none",
   parametres_sociaux: "none",
   grh: "none",
-  outils_admin: "none",
 };
 
 /** Niveau par défaut accordé pour chaque rôle. */
@@ -81,18 +77,6 @@ const ROLE_DEFAULTS: Record<AppRole, Partial<PermissionMap>> = {
     fiscalite: "validate",
     parametres_sociaux: "validate",
     grh: "validate",
-    outils_admin: "validate",
-  },
-  admin_general: {
-    dashboard: "validate",
-    compta: "validate",
-    factures: "validate",
-    stock: "validate",
-    immobilisations: "validate",
-    fiscalite: "validate",
-    parametres_sociaux: "validate",
-    grh: "validate",
-    outils_admin: "validate",
   },
   chef_compta: {
     dashboard: "validate",
@@ -103,7 +87,6 @@ const ROLE_DEFAULTS: Record<AppRole, Partial<PermissionMap>> = {
     fiscalite: "validate",
     parametres_sociaux: "read",
     grh: "read",
-    outils_admin: "write",
   },
   membre_compta: {
     compta: "write",
@@ -121,7 +104,6 @@ const ROLE_DEFAULTS: Record<AppRole, Partial<PermissionMap>> = {
     factures: "read",
     stock: "read",
     immobilisations: "read",
-    outils_admin: "write",
   },
   membre_grh: {
     grh: "write",

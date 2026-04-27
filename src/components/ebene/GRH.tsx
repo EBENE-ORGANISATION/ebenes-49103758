@@ -42,7 +42,6 @@ import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 interface Props {
   employes: Employe[];
@@ -103,7 +102,6 @@ export const GRH = ({
   onValiderSanction,
   onRejeterSanction,
 }: Props) => {
-  const societeActive = useSocieteActive();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
   const [bulletin, setBulletin] = useState<Employe | null>(null);
@@ -306,7 +304,7 @@ export const GRH = ({
                           size="sm"
                           variant="outline"
                           className="gap-1 h-8 text-xs"
-                          onClick={() => { void generateBulletin(e, data, annee, mois, societeActive); }}
+                          onClick={() => generateBulletin(e, data, annee, mois)}
                           title="Télécharger le bulletin PDF"
                         >
                           📄 PDF

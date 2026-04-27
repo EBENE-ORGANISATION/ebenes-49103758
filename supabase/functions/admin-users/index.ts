@@ -69,13 +69,7 @@ Deno.serve(async (req: Request) => {
       _user_id: userData.user.id,
       _role: "admin",
     });
-    const { data: isAdminGeneralData } = await admin.rpc("has_role", {
-      _user_id: userData.user.id,
-      _role: "admin_general",
-    });
-    const isAdmin = !!isAdminData;
-    const isAdminGeneral = !!isAdminGeneralData;
-    if (roleErr || (!isAdmin && !isAdminGeneral)) {
+    if (roleErr || !isAdminData) {
       return json({ error: "Accès réservé aux administrateurs" }, 403);
     }
 
@@ -83,48 +77,11 @@ Deno.serve(async (req: Request) => {
 
     switch (body.action) {
       case "list": {
-        // Toutes les sociétés (id + nom) pour grouper côté UI.
-        const { data: societesAll, error: socErr } = await admin
-          .from("societes")
-          .select("id, nom")
-          .order("nom");
-        if (socErr) throw socErr;
-
-        // Toutes les liaisons user <-> société.
-        const { data: linksAll, error: linksErr } = await admin
-          .from("user_societes")
-          .select("user_id, societe_id");
-        if (linksErr) throw linksErr;
-
-        // Si l'appelant n'est PAS admin_general, on restreint aux sociétés
-        // auxquelles il est lié, et donc aux utilisateurs liés à ces sociétés.
-        let visibleUserIds: Set<string> | null = null; // null = pas de filtrage
-        let visibleSocieteIds: Set<string> | null = null;
-        if (!isAdminGeneral) {
-          const { data: myLinks, error: myErr } = await admin
-            .from("user_societes")
-            .select("societe_id")
-            .eq("user_id", userData.user.id);
-          if (myErr) throw myErr;
-          visibleSocieteIds = new Set((myLinks || []).map((r) => r.societe_id));
-          visibleUserIds = new Set<string>();
-          for (const l of linksAll || []) {
-            if (visibleSocieteIds.has(l.societe_id)) visibleUserIds.add(l.user_id);
-          }
-          // L'admin de société se voit toujours lui-même.
-          visibleUserIds.add(userData.user.id);
-        }
-
-        let profilesQuery = admin
+        const { data: profiles, error } = await admin
           .from("profiles")
           .select("user_id, email, nom, actif, created_at")
           .order("created_at", { ascending: false });
-        if (visibleUserIds) {
-          profilesQuery = profilesQuery.in("user_id", Array.from(visibleUserIds));
-        }
-        const { data: profiles, error } = await profilesQuery;
         if (error) throw error;
-
         const { data: rolesData, error: rolesErr } = await admin
           .from("user_roles")
           .select("user_id, role");
@@ -133,26 +90,8 @@ Deno.serve(async (req: Request) => {
         for (const r of rolesData || []) {
           (rolesByUser[r.user_id] ||= []).push(r.role);
         }
-
-        // Map user_id -> liste de societe_id (filtrée à la portée visible)
-        const societesByUser: Record<string, string[]> = {};
-        for (const l of linksAll || []) {
-          if (visibleSocieteIds && !visibleSocieteIds.has(l.societe_id)) continue;
-          (societesByUser[l.user_id] ||= []).push(l.societe_id);
-        }
-
-        const visibleSocietes = (societesAll || []).filter(
-          (s) => !visibleSocieteIds || visibleSocieteIds.has(s.id),
-        );
-
         return json({
-          users: (profiles || []).map((p) => ({
-            ...p,
-            roles: rolesByUser[p.user_id] || [],
-            societe_ids: societesByUser[p.user_id] || [],
-          })),
-          societes: visibleSocietes,
-          scope: isAdminGeneral ? "all" : "own_societes",
+          users: (profiles || []).map((p) => ({ ...p, roles: rolesByUser[p.user_id] || [] })),
         });
       }
 

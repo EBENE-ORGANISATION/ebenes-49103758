@@ -10,7 +10,6 @@ import AdminUsers from "./pages/AdminUsers.tsx";
 import AuditLog from "./pages/AuditLog.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SocieteProvider } from "@/hooks/useSocieteContext";
 
 const queryClient = new QueryClient();
 
@@ -21,8 +20,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <SocieteProvider>
-            <Routes>
+          <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
@@ -35,7 +33,7 @@ const App = () => (
             <Route
               path="/admin/users"
               element={
-                <ProtectedRoute requireRoles={["admin", "admin_general"]}>
+                <ProtectedRoute requireRoles={["admin"]}>
                   <AdminUsers />
                 </ProtectedRoute>
               }
@@ -43,15 +41,14 @@ const App = () => (
             <Route
               path="/admin/audit"
               element={
-                <ProtectedRoute requireRoles={["admin", "admin_general"]}>
+                <ProtectedRoute requireRoles={["admin"]}>
                   <AuditLog />
                 </ProtectedRoute>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-            </Routes>
-          </SocieteProvider>
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

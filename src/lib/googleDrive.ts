@@ -6,8 +6,7 @@
  *  - Tous les appels Google Drive passent par l'edge function `drive-backup`,
  *    qui utilise le scope minimal `drive.file` (uniquement les fichiers créés
  *    par cette application).
- *  - Backups stockés dans un dossier dédié du Drive admin connecté
- *    (configuré côté edge function `drive-backup`).
+ *  - Backups stockés dans le dossier "EBENE_BACKUPS" du Drive admin connecté.
  *
  * Toutes les fonctions enveloppent les erreurs dans un try/catch et
  * affichent un toast.error() en cas d'échec — un échec Drive n'interrompt
@@ -88,7 +87,7 @@ export function snapshotFromStore(store: EbeneStoreLike): EbeneSnapshot {
 }
 
 /**
- * Upload du snapshot vers Drive (dossier dédié configuré côté edge function).
+ * Upload du snapshot vers Drive (dossier EBENE_BACKUPS).
  * Si un fichier du même jour existe déjà, il est écrasé.
  * silent=true → pas de toast en cas d'échec (utilisé par le backup auto).
  */
@@ -117,7 +116,7 @@ export async function backupToDrive(
   }
 }
 
-/** Liste les 10 derniers backups disponibles. */
+/** Liste les 10 derniers backups disponibles dans EBENE_BACKUPS. */
 export async function listDriveBackups(): Promise<DriveFileInfo[]> {
   try {
     const { data, error } = await supabase.functions.invoke("drive-backup", {

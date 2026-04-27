@@ -300,9 +300,7 @@ const sum = (rows: LigneJournal[], k: "debit" | "credit") =>
 export const exportGrandLivre = (
   annee: number,
   donneesMensuelles: DonneesMensuelles,
-  immobilisations: Immobilisation[] = [],
-  /** Préfixe utilisé pour le nom de fichier (slug de la société active). */
-  prefix: string = "SYSCOHADA"
+  immobilisations: Immobilisation[] = []
 ): void => {
   const lignes = construireLignes(annee, donneesMensuelles);
   // Écritures de dotations aux amortissements de l'année (31/12) :
@@ -339,5 +337,5 @@ export const exportGrandLivre = (
   const blob = new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(blob, `${prefix}_SYSCOHADA_${annee}.xlsx`);
+  saveAs(blob, `EBENE_SYSCOHADA_${annee}.xlsx`);
 };

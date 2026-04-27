@@ -9,17 +9,6 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { exportGrandLivre } from "@/lib/exportSYSCOHADA";
 import { toast } from "sonner";
-import { useSocieteActive } from "@/hooks/useSocieteContext";
-
-/** Slug ASCII en MAJUSCULES utilisé pour préfixer les noms de fichiers exports. */
-const slug = (s: string): string =>
-  (s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase()
-    .slice(0, 30);
 
 interface Props {
   open: boolean;
@@ -31,8 +20,6 @@ interface Props {
 
 export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [] }: Props) => {
   const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
-  const societeActive = useSocieteActive();
-  const prefix = slug(societeActive?.nom || "") || "EXPORT";
 
   const lignes = useMemo(() => {
     return MOIS_NOMS.map((nom, i) => {
@@ -62,7 +49,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
 
   const exportSyscohada = () => {
     try {
-      exportGrandLivre(annee, donneesMensuelles, immobilisations, prefix);
+      exportGrandLivre(annee, donneesMensuelles, immobilisations);
       toast.success(`Export SYSCOHADA ${annee} généré`);
     } catch (e) {
       toast.error("Échec de l'export SYSCOHADA");
