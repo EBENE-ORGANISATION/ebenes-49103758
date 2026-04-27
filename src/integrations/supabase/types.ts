@@ -248,6 +248,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feature_access: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature: Database["public"]["Enums"]["header_feature"]
+          granted_by: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature: Database["public"]["Enums"]["header_feature"]
+          granted_by?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature?: Database["public"]["Enums"]["header_feature"]
+          granted_by?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -362,6 +392,13 @@ export type Database = {
         | "dashboard_viewer"
         | "employe"
         | "admin_general"
+      header_feature:
+        | "alertes"
+        | "recap_annuel"
+        | "archives"
+        | "json_io"
+        | "users_admin"
+        | "audit_log"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -513,6 +550,14 @@ export const Constants = {
         "dashboard_viewer",
         "employe",
         "admin_general",
+      ],
+      header_feature: [
+        "alertes",
+        "recap_annuel",
+        "archives",
+        "json_io",
+        "users_admin",
+        "audit_log",
       ],
     },
   },
