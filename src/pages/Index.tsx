@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Shield, Building2, Settings2 } from "lucide-react";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
 import { Dashboard } from "@/components/ebene/Dashboard";
@@ -31,7 +34,7 @@ const Index = () => {
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
   const { perms, can, isEmployeOnly } = useAuth();
-  const { societeConfig } = useTenant();
+  const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -51,6 +54,56 @@ const Index = () => {
   // Compte 'employe' pur → portail self-service uniquement
   if (isEmployeOnly) {
     return <PortailEmploye />;
+  }
+
+  // Mode "Appli mère" pour le super-admin : aucune société sélectionnée.
+  // On évite d'afficher les onglets métier (Compta/Factures/GRH/…) qui
+  // chargeraient les données globales du store local et provoqueraient le
+  // chevauchement avec EBENE SERVICES.
+  if (isSuperAdmin && !currentSociete) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header
+          onExport={() => { /* indisponible en mode Appli mère */ }}
+          onImport={() => { /* indisponible en mode Appli mère */ }}
+          onShowRecap={() => setShowRecap(true)}
+          onShowArchives={() => setShowArchives(true)}
+          lastSaved={store.lastSaved}
+          alertes={[]}
+        />
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+          <div className="card-elevated p-6 sm:p-10 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Shield className="size-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold">Console Appli mère</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Vous êtes connecté en mode super-admin sur l'application mère.
+              Sélectionnez une société dans le sélecteur en haut à droite pour
+              accéder à ses modules métier, ou ouvrez la console super-admin
+              pour gérer les sociétés, utilisateurs et paramètres globaux.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Button asChild size="lg" className="gap-2">
+                <Link to="/super-admin">
+                  <Shield className="size-4" /> Ouvrir la console super-admin
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" size="lg" className="gap-2">
+                <Link to="/admin/societe">
+                  <Settings2 className="size-4" /> Paramètres société
+                </Link>
+              </Button>
+            </div>
+            <div className="pt-6 text-sm text-muted-foreground inline-flex items-center gap-2">
+              <Building2 className="size-4" />
+              {societes.length} société{societes.length > 1 ? "s" : ""} disponible
+              {societes.length > 1 ? "s" : ""}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   const alertes = useMemo(
