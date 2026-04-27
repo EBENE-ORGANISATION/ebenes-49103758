@@ -16,7 +16,7 @@ import { Immobilisations } from "@/components/ebene/Immobilisations";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
-import { useEbeneStore } from "@/hooks/useEbeneStore";
+import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";

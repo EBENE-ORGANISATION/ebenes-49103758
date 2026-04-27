@@ -18,9 +18,14 @@ import {
   CategorieArticle,
   MouvementStock,
   Sanction,
+  Devis,
+  Immobilisation,
+  COMPTES_IMMO_DEFAUT,
 } from "@/types/ebene";
 import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
+import { amortissementsAnnee } from "@/lib/amortissements";
+import { logAction } from "@/lib/audit";
 
 /**
  * useEbeneStoreRemote
@@ -44,6 +49,7 @@ const K_ARTICLES = "articles";
 const K_FOURNISSEURS = "fournisseurs";
 const K_CATEGORIES_STOCK = "categoriesStock";
 const K_SANCTIONS = "sanctions";
+const K_IMMOBILISATIONS = "immobilisations";
 
 const ALL_KEYS = [
   K_DONNEES,
@@ -54,6 +60,7 @@ const ALL_KEYS = [
   K_FOURNISSEURS,
   K_CATEGORIES_STOCK,
   K_SANCTIONS,
+  K_IMMOBILISATIONS,
 ] as const;
 
 // ─── Fallback localStorage ───
@@ -94,6 +101,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
       ? d.retenues
       : {},
   mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
+  devis: Array.isArray(d?.devis) ? d!.devis : [],
 });
 
 export const useEbeneStoreRemote = () => {
@@ -105,6 +113,7 @@ export const useEbeneStoreRemote = () => {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
+  const [immobilisations, setImmobilisations] = useState<Immobilisation[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
@@ -194,6 +203,9 @@ export const useEbeneStoreRemote = () => {
         break;
       case K_SANCTIONS:
         setSanctions(Array.isArray(value) ? (value as Sanction[]) : []);
+        break;
+      case K_IMMOBILISATIONS:
+        setImmobilisations(Array.isArray(value) ? (value as Immobilisation[]) : []);
         break;
     }
   }, []);
@@ -322,6 +334,7 @@ export const useEbeneStoreRemote = () => {
   useEffect(() => { if (loaded) persist(K_FOURNISSEURS, fournisseurs); }, [fournisseurs, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
+  useEffect(() => { if (loaded) persist(K_IMMOBILISATIONS, immobilisations); }, [immobilisations, loaded, persist]);
 
   // Garde une vue à jour du store pour le flush Drive (lit la dernière valeur au moment du timeout)
   useEffect(() => {
@@ -711,11 +724,405 @@ export const useEbeneStoreRemote = () => {
 
   // ─── Sanctions disciplinaires ───
   const addSanction = useCallback((s: Omit<Sanction, "id">) => {
-    setSanctions((prev) => [...prev, { ...s, id: newId() }]);
+    let added: Sanction | undefined;
+    setSanctions((prev) => {
+      added = { ...s, id: newId() };
+      return [...prev, added];
+    });
+    if (added) void logAction("INSERT", "sanctions", added.id, null, added);
   }, []);
   const removeSanction = useCallback((id: number) => {
-    setSanctions((prev) => prev.filter((s) => s.id !== id));
+    let removed: Sanction | undefined;
+    setSanctions((prev) => {
+      removed = prev.find((s) => s.id === id);
+      return prev.filter((s) => s.id !== id);
+    });
+    void logAction("DELETE", "sanctions", id, removed ?? null, null);
   }, []);
+
+  // ─── Devis ───
+  const addDevis = useCallback(
+    (annee: number, mois: number, d: Omit<Devis, "id">) => {
+      const id = newId();
+      const newD: Devis = { ...d, id, statut: d.statut || "envoye" };
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        devis: [...(m.devis || []), newD],
+      }));
+      void logAction("INSERT", "devis", id, null, newD);
+      return id;
+    },
+    [updateMois]
+  );
+
+  const removeDevis = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let removed: Devis | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.devis || [];
+        removed = list.find((x) => x.id === id);
+        return { ...m, devis: list.filter((x) => x.id !== id) };
+      });
+      void logAction("DELETE", "devis", id, removed ?? null, null);
+    },
+    [updateMois]
+  );
+
+  const updateDevis = useCallback(
+    (annee: number, mois: number, id: number, patch: Partial<Devis>) => {
+      let before: Devis | undefined;
+      let after: Devis | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        devis: (m.devis || []).map((d) => {
+          if (d.id !== id) return d;
+          before = d;
+          after = { ...d, ...patch };
+          return after;
+        }),
+      }));
+      void logAction("UPDATE", "devis", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const convertirDevisEnFacture = useCallback(
+    (annee: number, mois: number, devisId: number, numeroFacture: string): number | null => {
+      const m = ensureMois(donneesMensuelles[moisKey(annee, mois)]);
+      const d = (m.devis || []).find((x) => x.id === devisId);
+      if (!d) return null;
+      const factureId = addFacture(annee, mois, {
+        numero: numeroFacture,
+        client: d.client,
+        date: d.date,
+        lignes: d.lignes,
+        reduction: d.reduction,
+        avecTva: d.avecTva,
+        statut: "en_attente",
+        transactionId: null,
+        totalHT: d.totalHT,
+        totalTva: d.totalTva,
+        totalTtc: d.totalTtc,
+        activite: d.activite,
+      });
+      let before: Devis | undefined;
+      let after: Devis | undefined;
+      updateMois(annee, mois, (mm) => ({
+        ...mm,
+        devis: (mm.devis || []).map((x) => {
+          if (x.id !== devisId) return x;
+          before = x;
+          after = { ...x, statut: "converti", factureId };
+          return after;
+        }),
+      }));
+      void logAction("CONVERTIR_DEVIS", "devis", devisId, before ?? null, after ?? null);
+      return factureId;
+    },
+    [addFacture, donneesMensuelles, updateMois]
+  );
+
+  // ─── Workflow de validation : transactions / factures ───
+  const validerTransaction = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterTransaction = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const validerFacture = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_FACTURE", "factures", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterFacture = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_FACTURE", "factures", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : primes ───
+  const validerPrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number) => {
+      let before: Prime | undefined;
+      let after: Prime | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.primes[employeId] || [];
+        return {
+          ...m,
+          primes: {
+            ...m.primes,
+            [employeId]: list.map((p) => {
+              if (p.id !== primeId) return p;
+              before = p;
+              after = { ...p, statutValidation: "valide", motifRejet: undefined };
+              return after;
+            }),
+          },
+        };
+      });
+      void logAction("VALIDER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterPrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number, motif: string) => {
+      let before: Prime | undefined;
+      let after: Prime | undefined;
+      updateMois(annee, mois, (m) => {
+        const list = m.primes[employeId] || [];
+        return {
+          ...m,
+          primes: {
+            ...m.primes,
+            [employeId]: list.map((p) => {
+              if (p.id !== primeId) return p;
+              before = p;
+              after = { ...p, statutValidation: "rejete", motifRejet: motif };
+              return after;
+            }),
+          },
+        };
+      });
+      void logAction("REJETER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : absences ───
+  const validerAbsence = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Absence | undefined;
+      let after: Absence | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).map((a) => {
+          if (a.id !== id) return a;
+          before = a;
+          after = { ...a, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterAbsence = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Absence | undefined;
+      let after: Absence | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).map((a) => {
+          if (a.id !== id) return a;
+          before = a;
+          after = { ...a, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : heures supplémentaires ───
+  const validerHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number) => {
+      let before: HeuresSup | undefined;
+      let after: HeuresSup | undefined;
+      updateMois(annee, mois, (m) => {
+        const cur = (m.heuresSup || {})[employeId];
+        if (!cur) return m;
+        before = cur;
+        after = { ...cur, statutValidation: "valide", motifRejet: undefined };
+        return {
+          ...m,
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
+        };
+      });
+      void logAction("VALIDER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  const rejeterHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number, motif: string) => {
+      let before: HeuresSup | undefined;
+      let after: HeuresSup | undefined;
+      updateMois(annee, mois, (m) => {
+        const cur = (m.heuresSup || {})[employeId];
+        if (!cur) return m;
+        before = cur;
+        after = { ...cur, statutValidation: "rejete", motifRejet: motif };
+        return {
+          ...m,
+          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
+        };
+      });
+      void logAction("REJETER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+    },
+    [updateMois]
+  );
+
+  // ─── Workflow GRH : sanctions ───
+  const validerSanction = useCallback((id: number) => {
+    let before: Sanction | undefined;
+    let after: Sanction | undefined;
+    setSanctions((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        before = s;
+        after = { ...s, statutValidation: "valide", motifRejet: undefined };
+        return after;
+      })
+    );
+    void logAction("VALIDER_SANCTION", "sanctions", id, before ?? null, after ?? null);
+  }, []);
+
+  const rejeterSanction = useCallback((id: number, motif: string) => {
+    let before: Sanction | undefined;
+    let after: Sanction | undefined;
+    setSanctions((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        before = s;
+        after = { ...s, statutValidation: "rejete", motifRejet: motif };
+        return after;
+      })
+    );
+    void logAction("REJETER_SANCTION", "sanctions", id, before ?? null, after ?? null);
+  }, []);
+
+  // ─── Workflow GRH : employés ───
+  const validerEmploye = useCallback((id: number) => {
+    let before: Employe | undefined;
+    let after: Employe | undefined;
+    setEmployes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        before = e;
+        after = { ...e, statutValidation: "valide", motifRejet: undefined };
+        return after;
+      })
+    );
+    void logAction("VALIDER_EMPLOYE", "employes", id, before ?? null, after ?? null);
+  }, []);
+
+  const rejeterEmploye = useCallback((id: number, motif: string) => {
+    let before: Employe | undefined;
+    let after: Employe | undefined;
+    setEmployes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        before = e;
+        after = { ...e, statutValidation: "rejete", motifRejet: motif };
+        return after;
+      })
+    );
+    void logAction("REJETER_EMPLOYE", "employes", id, before ?? null, after ?? null);
+  }, []);
+
+  // ─── Immobilisations ───
+  const addImmobilisation = useCallback((i: Omit<Immobilisation, "id">) => {
+    const id = newId();
+    const comptes =
+      i.comptesSYSCOHADA && i.comptesSYSCOHADA.actif
+        ? i.comptesSYSCOHADA
+        : i.categorie
+          ? COMPTES_IMMO_DEFAUT[i.categorie]
+          : { actif: "24", amortissementCumule: "284", dotation: "6813" };
+    const newI: Immobilisation = { ...i, id, comptesSYSCOHADA: comptes };
+    setImmobilisations((prev) => [...prev, newI]);
+    void logAction("INSERT", "immobilisations", id, null, newI);
+    return id;
+  }, []);
+
+  const removeImmobilisation = useCallback((id: number) => {
+    let removed: Immobilisation | undefined;
+    setImmobilisations((prev) => {
+      removed = prev.find((i) => i.id === id);
+      return prev.filter((i) => i.id !== id);
+    });
+    void logAction("DELETE", "immobilisations", id, removed ?? null, null);
+  }, []);
+
+  const updateImmobilisation = useCallback(
+    (id: number, patch: Partial<Immobilisation>) => {
+      let before: Immobilisation | undefined;
+      let after: Immobilisation | undefined;
+      setImmobilisations((prev) =>
+        prev.map((i) => {
+          if (i.id !== id) return i;
+          before = i;
+          after = { ...i, ...patch };
+          return after;
+        })
+      );
+      void logAction("UPDATE", "immobilisations", id, before ?? null, after ?? null);
+    },
+    []
+  );
+
+  const getAmortissements = useCallback(
+    (annee: number) => amortissementsAnnee(immobilisations, annee),
+    [immobilisations]
+  );
 
   const importerDonnees = useCallback(
     (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
@@ -732,6 +1139,7 @@ export const useEbeneStoreRemote = () => {
         fournisseurs?: Fournisseur[];
         categoriesStock?: CategorieArticle[];
         sanctions?: Sanction[];
+        immobilisations?: Immobilisation[];
       };
       if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
@@ -740,6 +1148,7 @@ export const useEbeneStoreRemote = () => {
       if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
       if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
       if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
+      if (Array.isArray(dataAny.immobilisations)) setImmobilisations(dataAny.immobilisations);
     },
     []
   );
@@ -767,6 +1176,7 @@ export const useEbeneStoreRemote = () => {
     fournisseurs,
     categoriesStock,
     sanctions,
+    immobilisations,
     lastSaved,
     getMois,
     addTransaction,
@@ -776,9 +1186,27 @@ export const useEbeneStoreRemote = () => {
     removeFacture,
     marquerPayee,
     convertirProforma,
+    addDevis,
+    removeDevis,
+    updateDevis,
+    convertirDevisEnFacture,
+    validerTransaction,
+    rejeterTransaction,
+    validerFacture,
+    rejeterFacture,
+    validerPrime,
+    rejeterPrime,
+    validerAbsence,
+    rejeterAbsence,
+    validerHeuresSup,
+    rejeterHeuresSup,
+    validerSanction,
+    rejeterSanction,
     addEmploye,
     removeEmploye,
     updateEmploye,
+    validerEmploye,
+    rejeterEmploye,
     addPrime,
     removePrime,
     addAbsence,
@@ -801,6 +1229,10 @@ export const useEbeneStoreRemote = () => {
     removeMouvementStock,
     addSanction,
     removeSanction,
+    addImmobilisation,
+    removeImmobilisation,
+    updateImmobilisation,
+    getAmortissements,
     importerDonnees,
     anneesDisponibles,
     // ─── Statut Google Drive ───
