@@ -1,0 +1,317 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useTenant } from "@/hooks/useTenant";
+import { applyTheme } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Loader2, Settings2, Upload, Image as ImgIcon } from "lucide-react";
+import { toast } from "sonner";
+
+const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  <div className="space-y-1.5">
+    <Label className="text-xs">{label}</Label>
+    <div className="flex items-center gap-2">
+      <Input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-16 p-1 cursor-pointer"
+      />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="font-mono text-xs"
+      />
+    </div>
+  </div>
+);
+
+const ParametresSociete = () => {
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const { currentSociete, societeConfig, societes, setCurrentSocieteId, isLoading, refresh } = useTenant();
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [draft, setDraft] = useState({
+    logo_url: "" as string | null,
+    couleur_primaire: "#1F3864",
+    couleur_secondaire: "#2E75B6",
+    couleur_accent: "#C55A11",
+    adresse: "",
+    telephone: "",
+    email: "",
+    site_web: "",
+    nif: "",
+    rccm: "",
+    mention_facture: "",
+    mention_contrat: "",
+  });
+
+  useEffect(() => {
+    if (!societeConfig) return;
+    setDraft({
+      logo_url: societeConfig.logo_url ?? null,
+      couleur_primaire: societeConfig.couleur_primaire ?? "#1F3864",
+      couleur_secondaire: societeConfig.couleur_secondaire ?? "#2E75B6",
+      couleur_accent: societeConfig.couleur_accent ?? "#C55A11",
+      adresse: societeConfig.adresse ?? "",
+      telephone: societeConfig.telephone ?? "",
+      email: societeConfig.email ?? "",
+      site_web: societeConfig.site_web ?? "",
+      nif: societeConfig.nif ?? "",
+      rccm: societeConfig.rccm ?? "",
+      mention_facture: societeConfig.mention_facture ?? "",
+      mention_contrat: societeConfig.mention_contrat ?? "",
+    });
+  }, [societeConfig]);
+
+  // Aperçu en direct des couleurs
+  useEffect(() => {
+    applyTheme(draft);
+  }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent]);
+
+  if (!isAdmin && !isSuperAdmin) {
+    return (
+      <div className="min-h-screen grid place-items-center p-6">
+        <Card className="p-6 max-w-md text-center space-y-3">
+          <h1 className="text-xl font-bold">Accès refusé</h1>
+          <p className="text-sm text-muted-foreground">
+            Seul l'administrateur de la société peut modifier ces paramètres.
+          </p>
+          <Button asChild variant="outline"><Link to="/">Retour</Link></Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const onUploadLogo = async (file: File) => {
+    if (!currentSociete) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `${currentSociete.id}/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("logos-societes")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("logos-societes").getPublicUrl(path);
+      setDraft((d) => ({ ...d, logo_url: pub.publicUrl }));
+      toast.success("Logo téléchargé — n'oubliez pas d'enregistrer.");
+    } catch (e) {
+      toast.error("Échec upload : " + (e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!currentSociete) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("societe_config")
+        .update({
+          logo_url: draft.logo_url,
+          couleur_primaire: draft.couleur_primaire,
+          couleur_secondaire: draft.couleur_secondaire,
+          couleur_accent: draft.couleur_accent,
+          adresse: draft.adresse,
+          telephone: draft.telephone,
+          email: draft.email,
+          site_web: draft.site_web,
+          nif: draft.nif,
+          rccm: draft.rccm,
+          mention_facture: draft.mention_facture,
+          mention_contrat: draft.mention_contrat,
+        })
+        .eq("societe_id", currentSociete.id);
+      if (error) throw error;
+      await refresh();
+      toast.success("Paramètres enregistrés. Application immédiate.");
+    } catch (e) {
+      toast.error("Échec : " + (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/"><ArrowLeft className="size-4" /> Retour</Link>
+            </Button>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Settings2 className="size-6 text-primary" /> Paramètres société
+            </h1>
+          </div>
+
+          {societes.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Société :</Label>
+              <Select
+                value={currentSociete?.id ?? ""}
+                onValueChange={(v) => setCurrentSocieteId(v)}
+              >
+                <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {societes.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {isLoading || !currentSociete ? (
+          <div className="p-12 flex justify-center"><Loader2 className="size-6 animate-spin" /></div>
+        ) : (
+          <>
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold flex items-center gap-2"><ImgIcon className="size-4" /> Logo</h2>
+              <div className="flex items-center gap-4">
+                <div className="size-24 rounded border bg-muted/30 grid place-items-center overflow-hidden">
+                  {draft.logo_url ? (
+                    <img src={draft.logo_url} alt="logo" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <ImgIcon className="size-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    id="logo-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void onUploadLogo(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById("logo-input")?.click()}
+                    disabled={uploading}
+                    className="gap-1.5"
+                  >
+                    {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                    Téléverser un logo
+                  </Button>
+                  {draft.logo_url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDraft((d) => ({ ...d, logo_url: null }))}
+                    >
+                      Retirer
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold">Couleurs</h2>
+              <p className="text-xs text-muted-foreground">
+                L'aperçu s'applique en direct. Cliquez Enregistrer pour rendre le changement permanent.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <ColorField
+                  label="Couleur primaire"
+                  value={draft.couleur_primaire}
+                  onChange={(v) => setDraft((d) => ({ ...d, couleur_primaire: v }))}
+                />
+                <ColorField
+                  label="Couleur secondaire"
+                  value={draft.couleur_secondaire}
+                  onChange={(v) => setDraft((d) => ({ ...d, couleur_secondaire: v }))}
+                />
+                <ColorField
+                  label="Couleur d'accent"
+                  value={draft.couleur_accent}
+                  onChange={(v) => setDraft((d) => ({ ...d, couleur_accent: v }))}
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold">Informations légales</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Adresse</Label>
+                  <Input value={draft.adresse} onChange={(e) => setDraft((d) => ({ ...d, adresse: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Téléphone</Label>
+                  <Input value={draft.telephone} onChange={(e) => setDraft((d) => ({ ...d, telephone: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Site web</Label>
+                  <Input value={draft.site_web} onChange={(e) => setDraft((d) => ({ ...d, site_web: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">NIF</Label>
+                  <Input value={draft.nif} onChange={(e) => setDraft((d) => ({ ...d, nif: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">RCCM</Label>
+                  <Input value={draft.rccm} onChange={(e) => setDraft((d) => ({ ...d, rccm: e.target.value }))} />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold">Mentions sur les documents</h2>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mention en pied de facture</Label>
+                  <Textarea
+                    rows={2}
+                    value={draft.mention_facture}
+                    onChange={(e) => setDraft((d) => ({ ...d, mention_facture: e.target.value }))}
+                    placeholder="Ex : Conditions de paiement à 30 jours."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mention en pied de contrat</Label>
+                  <Textarea
+                    rows={2}
+                    value={draft.mention_contrat}
+                    onChange={(e) => setDraft((d) => ({ ...d, mention_contrat: e.target.value }))}
+                    placeholder="Ex : Contrat régi par la législation togolaise."
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <div className="sticky bottom-4 z-10 flex justify-end">
+              <Button onClick={save} disabled={busy} size="lg" className="shadow-lg">
+                {busy ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                Enregistrer
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ParametresSociete;
