@@ -41,6 +41,12 @@ interface Body {
   new_password?: string;
   /** Pour create_employe_account : info à renvoyer dans la réponse. */
   employe_nom?: string;
+  /**
+   * Société sur laquelle on veut opérer.
+   * - Pour un admin de société : ignoré, on force toujours SES sociétés.
+   * - Pour un super-admin : permet de cibler n'importe quelle société (cross-tenant).
+   */
+  societe_id?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -65,22 +71,75 @@ Deno.serve(async (req: Request) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: isAdminData, error: roleErr } = await admin.rpc("has_role", {
-      _user_id: userData.user.id,
-      _role: "admin",
-    });
-    if (roleErr || !isAdminData) {
+    const callerId = userData.user.id;
+
+    // Récupère tous les rôles de l'appelant
+    const { data: callerRoles } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    const roleSet = new Set((callerRoles || []).map((r: { role: string }) => r.role));
+    const isSuperAdmin = roleSet.has("admin_general") || roleSet.has("super_admin");
+    const isAdmin = roleSet.has("admin");
+    if (!isSuperAdmin && !isAdmin) {
       return json({ error: "Accès réservé aux administrateurs" }, 403);
     }
 
     const body = (await req.json()) as Body;
 
+    // ─── Détermine le périmètre de sociétés sur lequel l'appelant peut opérer ───
+    // - super-admin : toutes les sociétés (pas de filtre par société)
+    // - admin : uniquement les sociétés auxquelles il est rattaché via user_societes
+    let allowedSocieteIds: string[] = [];
+    if (!isSuperAdmin) {
+      const { data: mySocs } = await admin
+        .from("user_societes")
+        .select("societe_id")
+        .eq("user_id", callerId);
+      allowedSocieteIds = (mySocs || []).map((r: { societe_id: string }) => r.societe_id);
+      if (allowedSocieteIds.length === 0) {
+        return json({ error: "Aucune société associée à ce compte admin" }, 403);
+      }
+    }
+    // Société cible (par défaut : la première société de l'admin, ou celle demandée si super-admin)
+    const targetSocieteId =
+      body.societe_id ||
+      (allowedSocieteIds.length > 0 ? allowedSocieteIds[0] : undefined);
+    if (!isSuperAdmin && targetSocieteId && !allowedSocieteIds.includes(targetSocieteId)) {
+      return json({ error: "Société hors de votre périmètre" }, 403);
+    }
+
+    /**
+     * Vérifie qu'un utilisateur cible est bien dans le périmètre de l'admin appelant.
+     * Le super-admin n'a aucune restriction.
+     */
+    const userInScope = async (uid: string): Promise<boolean> => {
+      if (isSuperAdmin) return true;
+      const { data } = await admin
+        .from("user_societes")
+        .select("societe_id")
+        .eq("user_id", uid)
+        .in("societe_id", allowedSocieteIds);
+      return (data || []).length > 0;
+    };
+
     switch (body.action) {
       case "list": {
-        const { data: profiles, error } = await admin
+        // Sélectionne les user_ids du périmètre.
+        let userIds: string[] | null = null;
+        if (!isSuperAdmin) {
+          const { data: links } = await admin
+            .from("user_societes")
+            .select("user_id")
+            .in("societe_id", allowedSocieteIds);
+          userIds = Array.from(new Set((links || []).map((l: { user_id: string }) => l.user_id)));
+        }
+        let profilesQuery = admin
           .from("profiles")
           .select("user_id, email, nom, actif, created_at")
           .order("created_at", { ascending: false });
+        if (userIds) profilesQuery = profilesQuery.in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
+        const { data: profiles, error } = await profilesQuery;
         if (error) throw error;
         const { data: rolesData, error: rolesErr } = await admin
           .from("user_roles")
@@ -92,11 +151,16 @@ Deno.serve(async (req: Request) => {
         }
         return json({
           users: (profiles || []).map((p) => ({ ...p, roles: rolesByUser[p.user_id] || [] })),
+          societe_id: targetSocieteId ?? null,
         });
       }
 
       case "create": {
         if (!body.email || !body.password) return json({ error: "Email et mot de passe requis" }, 400);
+        // Garde-fou : un admin de société NE PEUT PAS créer un autre super-admin
+        if (!isSuperAdmin && body.roles?.some((r) => r === ("admin_general" as AppRole) || r === ("super_admin" as AppRole))) {
+          return json({ error: "Création d'un super-admin interdite" }, 403);
+        }
         const { data: created, error } = await admin.auth.admin.createUser({
           email: body.email,
           password: body.password,
@@ -112,12 +176,22 @@ Deno.serve(async (req: Request) => {
         if (body.nom) {
           await admin.from("profiles").update({ nom: body.nom }).eq("user_id", newUserId);
         }
+        // Rattacher automatiquement l'utilisateur créé à la société cible
+        if (targetSocieteId) {
+          await admin.from("user_societes").upsert(
+            { user_id: newUserId, societe_id: targetSocieteId, created_by: callerId },
+            { onConflict: "user_id,societe_id", ignoreDuplicates: true },
+          );
+        }
         return json({ ok: true, user_id: newUserId });
       }
 
       case "delete": {
         if (!body.user_id) return json({ error: "user_id requis" }, 400);
-        if (body.user_id === userData.user.id) return json({ error: "Vous ne pouvez pas supprimer votre propre compte" }, 400);
+        if (body.user_id === callerId) return json({ error: "Vous ne pouvez pas supprimer votre propre compte" }, 400);
+        if (!(await userInScope(body.user_id))) {
+          return json({ error: "Utilisateur hors de votre périmètre" }, 403);
+        }
         const { error } = await admin.auth.admin.deleteUser(body.user_id);
         if (error) return json({ error: error.message }, 400);
         return json({ ok: true });
@@ -125,6 +199,12 @@ Deno.serve(async (req: Request) => {
 
       case "set_roles": {
         if (!body.user_id || !body.roles) return json({ error: "user_id et roles requis" }, 400);
+        if (!(await userInScope(body.user_id))) {
+          return json({ error: "Utilisateur hors de votre périmètre" }, 403);
+        }
+        if (!isSuperAdmin && body.roles.some((r) => r === ("admin_general" as AppRole) || r === ("super_admin" as AppRole))) {
+          return json({ error: "Attribution super-admin interdite" }, 403);
+        }
         await admin.from("user_roles").delete().eq("user_id", body.user_id);
         if (body.roles.length) {
           const inserts = body.roles.map((r) => ({ user_id: body.user_id!, role: r }));
@@ -136,6 +216,9 @@ Deno.serve(async (req: Request) => {
 
       case "set_active": {
         if (!body.user_id || typeof body.actif !== "boolean") return json({ error: "user_id et actif requis" }, 400);
+        if (!(await userInScope(body.user_id))) {
+          return json({ error: "Utilisateur hors de votre périmètre" }, 403);
+        }
         await admin.from("profiles").update({ actif: body.actif }).eq("user_id", body.user_id);
         // Banir / débanir
         await admin.auth.admin.updateUserById(body.user_id, {
@@ -146,6 +229,9 @@ Deno.serve(async (req: Request) => {
 
       case "reset_password": {
         if (!body.user_id || !body.new_password) return json({ error: "user_id et new_password requis" }, 400);
+        if (!(await userInScope(body.user_id))) {
+          return json({ error: "Utilisateur hors de votre périmètre" }, 403);
+        }
         const { error } = await admin.auth.admin.updateUserById(body.user_id, {
           password: body.new_password,
         });
@@ -166,6 +252,13 @@ Deno.serve(async (req: Request) => {
           .eq("email", email)
           .maybeSingle();
         if (existing?.user_id) {
+          // Rattache à la société cible si pas déjà fait
+          if (targetSocieteId) {
+            await admin.from("user_societes").upsert(
+              { user_id: existing.user_id, societe_id: targetSocieteId, created_by: callerId },
+              { onConflict: "user_id,societe_id", ignoreDuplicates: true },
+            );
+          }
           return json({
             ok: true,
             user_id: existing.user_id,
@@ -194,6 +287,13 @@ Deno.serve(async (req: Request) => {
             .from("profiles")
             .update({ nom: body.employe_nom || body.nom })
             .eq("user_id", newUserId);
+        }
+        // Rattacher à la société cible
+        if (targetSocieteId) {
+          await admin.from("user_societes").upsert(
+            { user_id: newUserId, societe_id: targetSocieteId, created_by: callerId },
+            { onConflict: "user_id,societe_id", ignoreDuplicates: true },
+          );
         }
 
         return json({
