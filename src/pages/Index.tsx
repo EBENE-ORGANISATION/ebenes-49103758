@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { PortailEmploye } from "@/components/employe/PortailEmploye";
+import { useTenant } from "@/hooks/useTenant";
 
 const Index = () => {
   const now = new Date();
@@ -28,6 +29,7 @@ const Index = () => {
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
   const { perms, can, isEmployeOnly } = useAuth();
+  const { societeConfig } = useTenant();
 
   const store = useEbeneStore();
   const data = store.getMois(annee, mois);
@@ -128,13 +130,19 @@ const Index = () => {
   const grhValidate = can("grh", "validate");
 
   // Visibilité des onglets
+  // Module guards : si une société est sélectionnée, on respecte ses
+  // modules activés. Sans config (pas de société courante), on garde le
+  // comportement historique (tout autorisé selon les permissions).
+  const cfg = societeConfig;
+  const modOk = (key: keyof NonNullable<typeof cfg>): boolean =>
+    cfg ? Boolean(cfg[key]) : true;
   const showDashboard = can("dashboard", "read");
   const showCompta = lvlCompta !== "none";
   const showFact = lvlFact !== "none";
-  const showStock = lvlStock !== "none";
-  const showImmo = lvlImmo !== "none";
-  const showFisc = lvlFisc !== "none" || lvlParamSoc !== "none";
-  const showGrh = lvlGrh !== "none";
+  const showStock = lvlStock !== "none" && modOk("module_stock");
+  const showImmo = lvlImmo !== "none" && modOk("module_immobilisations");
+  const showFisc = (lvlFisc !== "none" || lvlParamSoc !== "none") && modOk("module_fiscalite");
+  const showGrh = lvlGrh !== "none" && modOk("module_grh");
 
   const visibleTabs = [
     showDashboard, showCompta, showFisc, showFact, showStock, showGrh, showImmo,

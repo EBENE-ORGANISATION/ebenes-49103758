@@ -1,0 +1,308 @@
+// Edge Function: super-admin-ops
+// Toutes les opérations super-admin transitent par ici. Le service-role key
+// n'est JAMAIS exposé côté client. Chaque action vérifie que l'appelant a
+// bien le rôle `admin_general` (ou `super_admin`) avant d'exécuter.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+interface Body {
+  action: string;
+  payload?: Record<string, unknown>;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return json(401, { error: "Unauthorized" });
+  }
+
+  // Client lié à l'utilisateur (pour valider son JWT et lire user_roles via RLS)
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims) {
+    return json(401, { error: "Invalid token" });
+  }
+  const userId = claimsData.claims.sub as string;
+
+  // Vérification super-admin via user_roles (lecture autorisée par RLS pour soi-même)
+  const { data: roles, error: rolesErr } = await userClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (rolesErr) {
+    return json(500, { error: "Cannot read roles" });
+  }
+  const roleList = (roles ?? []).map((r: { role: string }) => r.role);
+  const isSuper = roleList.includes("admin_general") || roleList.includes("super_admin");
+  if (!isSuper) {
+    return json(403, { error: "Super admin required" });
+  }
+
+  // Client privilégié (bypass RLS)
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  let body: Body;
+  try {
+    body = (await req.json()) as Body;
+  } catch {
+    return json(400, { error: "Invalid JSON body" });
+  }
+  const action = body.action;
+  const p = (body.payload ?? {}) as Record<string, any>;
+
+  try {
+    switch (action) {
+      // ────────── SOCIÉTÉS ──────────
+      case "create_societe": {
+        // payload: { nom, slug, plan, admin_email, config?: {...}, modules?: {...} }
+        const { nom, slug, plan, admin_email, config, modules } = p;
+        if (!nom || !slug || !plan) {
+          return json(400, { error: "nom, slug, plan requis" });
+        }
+        const { data: societe, error: e1 } = await admin
+          .from("societes")
+          .insert({ nom, slug, plan, statut: "active", created_by: userId })
+          .select("*")
+          .single();
+        if (e1) return json(400, { error: e1.message });
+
+        // Le trigger a déjà créé societe_config — on met à jour avec les valeurs fournies
+        const cfgPatch: Record<string, any> = {};
+        if (config) Object.assign(cfgPatch, config);
+        if (modules) Object.assign(cfgPatch, modules);
+        if (Object.keys(cfgPatch).length) {
+          await admin.from("societe_config").update(cfgPatch).eq("societe_id", societe.id);
+        }
+
+        // Invitation admin (optionnelle)
+        let invited: { user_id: string | null; email: string | null } = { user_id: null, email: null };
+        if (admin_email) {
+          const redirectTo = `${new URL(req.url).origin.replace("functions.supabase.co", "lovable.app")}/auth`;
+          const { data: invite, error: invErr } = await admin.auth.admin.inviteUserByEmail(
+            admin_email,
+            { redirectTo },
+          );
+          if (invErr) {
+            return json(207, {
+              warning: "Société créée, invitation échouée: " + invErr.message,
+              societe,
+            });
+          }
+          if (invite?.user) {
+            invited = { user_id: invite.user.id, email: invite.user.email ?? admin_email };
+            // Lien user ↔ société et rôle admin
+            await admin.from("user_societes").insert({
+              user_id: invite.user.id,
+              societe_id: societe.id,
+              created_by: userId,
+            });
+            await admin.from("user_roles").insert({
+              user_id: invite.user.id,
+              role: "admin",
+            });
+          }
+        }
+        return json(200, { societe, invited });
+      }
+
+      case "update_societe": {
+        const { id, patch } = p;
+        if (!id || !patch) return json(400, { error: "id, patch requis" });
+        const { data, error } = await admin
+          .from("societes")
+          .update(patch)
+          .eq("id", id)
+          .select("*")
+          .single();
+        if (error) return json(400, { error: error.message });
+        return json(200, { societe: data });
+      }
+
+      case "suspend_societe": {
+        const { id, statut } = p; // statut: 'active' | 'suspendu'
+        if (!id || !statut) return json(400, { error: "id, statut requis" });
+        const { error } = await admin.from("societes").update({ statut }).eq("id", id);
+        if (error) return json(400, { error: error.message });
+        return json(200, { ok: true });
+      }
+
+      case "delete_societe": {
+        const { id } = p;
+        if (!id) return json(400, { error: "id requis" });
+        await admin.from("user_societes").delete().eq("societe_id", id);
+        await admin.from("societe_config").delete().eq("societe_id", id);
+        const { error } = await admin.from("societes").delete().eq("id", id);
+        if (error) return json(400, { error: error.message });
+        return json(200, { ok: true });
+      }
+
+      case "update_societe_config": {
+        const { societe_id, patch } = p;
+        if (!societe_id || !patch) return json(400, { error: "societe_id, patch requis" });
+        const { data, error } = await admin
+          .from("societe_config")
+          .update(patch)
+          .eq("societe_id", societe_id)
+          .select("*")
+          .single();
+        if (error) return json(400, { error: error.message });
+        return json(200, { config: data });
+      }
+
+      // ────────── UTILISATEURS ──────────
+      case "list_users": {
+        // page optionnelle
+        const page = (p.page as number) ?? 1;
+        const perPage = (p.perPage as number) ?? 200;
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+        if (error) return json(400, { error: error.message });
+
+        const userIds = data.users.map((u) => u.id);
+        // Profils
+        const { data: profiles } = await admin
+          .from("profiles")
+          .select("user_id, nom, email, actif")
+          .in("user_id", userIds);
+        // Rôles
+        const { data: rolesRows } = await admin
+          .from("user_roles")
+          .select("user_id, role")
+          .in("user_id", userIds);
+        // Liens société
+        const { data: links } = await admin
+          .from("user_societes")
+          .select("user_id, societe_id, societes(nom, slug)")
+          .in("user_id", userIds);
+
+        const enriched = data.users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          last_sign_in_at: u.last_sign_in_at,
+          created_at: u.created_at,
+          banned_until: (u as any).banned_until ?? null,
+          profile: profiles?.find((pr) => pr.user_id === u.id) ?? null,
+          roles: rolesRows?.filter((r) => r.user_id === u.id).map((r) => r.role) ?? [],
+          societes: links?.filter((l) => l.user_id === u.id) ?? [],
+        }));
+        return json(200, { users: enriched, total: data.users.length });
+      }
+
+      case "set_user_role": {
+        const { user_id, role, mode } = p; // mode: 'add' | 'remove'
+        if (!user_id || !role) return json(400, { error: "user_id, role requis" });
+        if (mode === "remove") {
+          await admin.from("user_roles").delete().eq("user_id", user_id).eq("role", role);
+        } else {
+          await admin.from("user_roles").upsert(
+            { user_id, role },
+            { onConflict: "user_id,role", ignoreDuplicates: true },
+          );
+        }
+        return json(200, { ok: true });
+      }
+
+      case "deactivate_user": {
+        const { user_id, actif } = p;
+        if (!user_id || typeof actif !== "boolean") {
+          return json(400, { error: "user_id, actif requis" });
+        }
+        // Bannir / dé-bannir via auth.admin
+        await admin.auth.admin.updateUserById(user_id, {
+          ban_duration: actif ? "none" : "876000h", // ~100 ans
+        });
+        await admin.from("profiles").update({ actif }).eq("user_id", user_id);
+        return json(200, { ok: true });
+      }
+
+      case "reset_password": {
+        const { email } = p;
+        if (!email) return json(400, { error: "email requis" });
+        const redirectTo = `${new URL(req.url).origin.replace("functions.supabase.co", "lovable.app")}/auth`;
+        const { error } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: { redirectTo },
+        });
+        if (error) return json(400, { error: error.message });
+        return json(200, { ok: true });
+      }
+
+      // ────────── STATISTIQUES ──────────
+      case "stats": {
+        const [{ count: societesCount }, { count: usersCount }, { data: recentAudit }] = await Promise.all([
+          admin.from("societes").select("*", { count: "exact", head: true }).eq("statut", "active"),
+          admin.from("profiles").select("*", { count: "exact", head: true }).eq("actif", true),
+          admin.from("audit_log").select("*").order("created_at", { ascending: false }).limit(20),
+        ]);
+
+        // Sociétés créées par mois (12 derniers mois)
+        const since = new Date();
+        since.setMonth(since.getMonth() - 11);
+        since.setDate(1);
+        const { data: societesAll } = await admin
+          .from("societes")
+          .select("created_at")
+          .gte("created_at", since.toISOString());
+        const buckets: Record<string, number> = {};
+        for (let i = 0; i < 12; i++) {
+          const d = new Date(since);
+          d.setMonth(since.getMonth() + i);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          buckets[k] = 0;
+        }
+        (societesAll ?? []).forEach((s: any) => {
+          const d = new Date(s.created_at);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          if (k in buckets) buckets[k]++;
+        });
+        const chart = Object.entries(buckets).map(([mois, n]) => ({ mois, n }));
+
+        // Connexions aujourd'hui (depuis auth.admin)
+        const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const connexionsToday = (usersList?.users ?? []).filter(
+          (u) => u.last_sign_in_at && new Date(u.last_sign_in_at) >= today,
+        ).length;
+
+        return json(200, {
+          societes_actives: societesCount ?? 0,
+          utilisateurs_actifs: usersCount ?? 0,
+          connexions_today: connexionsToday,
+          recent_audit: recentAudit ?? [],
+          chart_societes_par_mois: chart,
+        });
+      }
+
+      default:
+        return json(400, { error: `Action inconnue: ${action}` });
+    }
+  } catch (e) {
+    console.error("super-admin-ops error", e);
+    return json(500, { error: (e as Error).message });
+  }
+});
