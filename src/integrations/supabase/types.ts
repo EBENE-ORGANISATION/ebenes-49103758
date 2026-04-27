@@ -197,7 +197,9 @@ export type Database = {
           mention_facture: string | null
           module_fiscalite: boolean
           module_grh: boolean
+          module_ia: boolean
           module_immobilisations: boolean
+          module_multi_societes: boolean
           module_stock: boolean
           nif: string | null
           police: string | null
@@ -219,7 +221,9 @@ export type Database = {
           mention_facture?: string | null
           module_fiscalite?: boolean
           module_grh?: boolean
+          module_ia?: boolean
           module_immobilisations?: boolean
+          module_multi_societes?: boolean
           module_stock?: boolean
           nif?: string | null
           police?: string | null
@@ -241,7 +245,9 @@ export type Database = {
           mention_facture?: string | null
           module_fiscalite?: boolean
           module_grh?: boolean
+          module_ia?: boolean
           module_immobilisations?: boolean
+          module_multi_societes?: boolean
           module_stock?: boolean
           nif?: string | null
           police?: string | null
