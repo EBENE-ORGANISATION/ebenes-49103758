@@ -234,11 +234,12 @@ export const SuperAdminPanel = () => {
           </div>
         ) : (
           <Tabs defaultValue="societes" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-5 h-auto">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
               <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> Sociétés</TabsTrigger>
               <TabsTrigger value="modules" className="py-2.5"><Settings2 className="size-4 mr-1.5" /> Modules</TabsTrigger>
               <TabsTrigger value="users" className="py-2.5"><Users className="size-4 mr-1.5" /> Utilisateurs</TabsTrigger>
               <TabsTrigger value="stats" className="py-2.5"><Activity className="size-4 mr-1.5" /> Activité</TabsTrigger>
+              <TabsTrigger value="account" className="py-2.5"><UserCog className="size-4 mr-1.5" /> Mon compte</TabsTrigger>
             </TabsList>
 
             {/* TAB 1 — SOCIÉTÉS */}
