@@ -132,9 +132,15 @@ export const useTenant = (): TenantState => {
 
   // Applique le thème dynamique dès qu'une nouvelle config est chargée
   useEffect(() => {
-    if (config) applyTheme(config);
+    if (config) {
+      // On enrichit la config avec le nom de la société (table societes)
+      // pour que le moteur de thème puisse mettre à jour <title> et favicon.
+      const currentNom =
+        societes.find((s) => s.id === config.societe_id)?.nom ?? null;
+      applyTheme({ ...config, nom: currentNom });
+    }
     else resetTheme();
-  }, [config]);
+  }, [config, societes]);
 
   const currentSociete = useMemo(
     () => (Array.isArray(societes) ? societes.find((s) => s.id === currentId) ?? null : null),
