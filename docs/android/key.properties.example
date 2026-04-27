@@ -1,0 +1,8 @@
+# ============================================================================
+# GABARIT — copier en android/key.properties (NE JAMAIS COMMITTER)
+# Le vrai fichier doit être ajouté à .gitignore.
+# ============================================================================
+storePassword=CHANGE_ME_STORE_PASSWORD
+keyPassword=CHANGE_ME_KEY_PASSWORD
+keyAlias=ebene-release
+storeFile=../ebene-release-key.jks
