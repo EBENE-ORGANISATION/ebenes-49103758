@@ -25,6 +25,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
+import { useSociete } from "@/hooks/useSocieteContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -80,6 +89,13 @@ export const Header = ({
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
   const { user, roles, isAdmin, signOut } = useAuth();
+  const {
+    societes,
+    societeId,
+    setSocieteId,
+    consolide,
+  } = useSociete();
+  const societeActive = societes.find((s) => s.id === societeId);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
