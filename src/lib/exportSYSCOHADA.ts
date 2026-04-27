@@ -78,6 +78,12 @@ export const SYSCOHADA_COMPTES: Record<string, string> = {
   // Dotations aux amortissements
   "6811": "Dotations aux amortissements des immo. incorporelles",
   "6813": "Dotations aux amortissements des immo. corporelles",
+  // Cessions d'immobilisations (SYSCOHADA Révisé)
+  "485": "Créances sur cessions d'immobilisations",
+  "812": "Valeurs comptables des cessions d'immobilisations",
+  "822": "Produits des cessions d'immobilisations",
+  "827": "Produits HAO sur cessions d'immobilisations (plus-value)",
+  "837": "Charges HAO sur cessions d'immobilisations (moins-value)",
   // Classe 7 — Produits
   "701": "Ventes de marchandises",
   "706": "Services vendus",
