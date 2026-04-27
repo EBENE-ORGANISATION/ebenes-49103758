@@ -465,6 +465,11 @@ export const SuperAdminPanel = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* TAB 5 — MON COMPTE */}
+            <TabsContent value="account">
+              <MonCompteSection />
+            </TabsContent>
           </Tabs>
         )}
       </main>
