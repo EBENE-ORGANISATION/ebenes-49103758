@@ -17,9 +17,6 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
   const societe = useSocieteActive();
   const logo = societe?.logoUrl || logoEbene;
   const couleur = societe?.couleurPrimaire || "#3D0000";
-  const couleurClair =
-    couleur === "#3D0000" ? "#6b1a1a" :
-    couleur; // pour le dégradé secondaire
   const nomSoc = societe?.nom || "EBENE SERVICES";
   // Construit la ligne pied : adresse / RCCM / tel / email / NIF — avec valeurs société active
   const piedLignes: string[] = [];
