@@ -251,6 +251,54 @@ Deno.serve(async (req) => {
         return json(200, { ok: true });
       }
 
+      // ────────── MON COMPTE (super-admin) ──────────
+      case "update_my_email": {
+        const { new_email, current_password } = p;
+        if (!new_email || !current_password) {
+          return json(400, { error: "new_email et current_password requis" });
+        }
+        // Re-authentifier le super-admin avec son mot de passe actuel
+        const { data: me } = await admin.auth.admin.getUserById(userId);
+        if (!me?.user?.email) return json(400, { error: "Email actuel introuvable" });
+        const { error: signInErr } = await userClient.auth.signInWithPassword({
+          email: me.user.email,
+          password: String(current_password),
+        });
+        if (signInErr) return json(401, { error: "Mot de passe actuel incorrect" });
+
+        const { data, error } = await admin.auth.admin.updateUserById(userId, {
+          email: String(new_email),
+          email_confirm: true,
+        });
+        if (error) return json(400, { error: error.message });
+        // Mettre à jour le profil
+        await admin.from("profiles").update({ email: String(new_email) }).eq("user_id", userId);
+        return json(200, { ok: true, user: { id: data.user?.id, email: data.user?.email } });
+      }
+
+      case "update_my_password": {
+        const { new_password, current_password } = p;
+        if (!new_password || !current_password) {
+          return json(400, { error: "new_password et current_password requis" });
+        }
+        if (String(new_password).length < 8) {
+          return json(400, { error: "Le nouveau mot de passe doit faire au moins 8 caractères" });
+        }
+        const { data: me } = await admin.auth.admin.getUserById(userId);
+        if (!me?.user?.email) return json(400, { error: "Email introuvable" });
+        const { error: signInErr } = await userClient.auth.signInWithPassword({
+          email: me.user.email,
+          password: String(current_password),
+        });
+        if (signInErr) return json(401, { error: "Mot de passe actuel incorrect" });
+
+        const { error } = await admin.auth.admin.updateUserById(userId, {
+          password: String(new_password),
+        });
+        if (error) return json(400, { error: error.message });
+        return json(200, { ok: true });
+      }
+
       // ────────── STATISTIQUES ──────────
       case "stats": {
         const [{ count: societesCount }, { count: usersCount }, { data: recentAudit }] = await Promise.all([
