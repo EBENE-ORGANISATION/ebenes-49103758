@@ -24,6 +24,7 @@ interface TenantState {
 }
 
 const LS_KEY = "ebene:current_societe_id";
+const LS_HOME_KEY = "ebene:appli_mere";
 
 /**
  * Hook de contexte tenant.
@@ -52,8 +53,15 @@ export const useTenant = (): TenantState => {
   const setCurrentSocieteId = useCallback((id: string | null) => {
     setCurrentIdState(id);
     try {
-      if (id) localStorage.setItem(LS_KEY, id);
-      else localStorage.removeItem(LS_KEY);
+      if (id) {
+        localStorage.setItem(LS_KEY, id);
+        localStorage.removeItem(LS_HOME_KEY);
+      } else {
+        localStorage.removeItem(LS_KEY);
+        // Marque explicitement le choix "Appli mère" pour ne pas auto-sélectionner
+        // une société au prochain chargement.
+        localStorage.setItem(LS_HOME_KEY, "1");
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -77,13 +85,20 @@ export const useTenant = (): TenantState => {
       setSocietes(list);
 
       // Sélection de la société courante :
-      // 1) celle persistée en LS si elle est dans la liste
-      // 2) sinon la première de la liste
-      let nextId = currentId;
-      if (!nextId || !list.some((s) => s.id === nextId)) {
-        nextId = list[0]?.id ?? null;
-        if (nextId) setCurrentSocieteId(nextId);
-        else setCurrentSocieteId(null);
+      // 1) si l'utilisateur a explicitement choisi "Appli mère" (super-admin), on respecte
+      // 2) celle persistée en LS si elle est dans la liste
+      // 3) sinon la première de la liste
+      let homeChosen = false;
+      try { homeChosen = localStorage.getItem(LS_HOME_KEY) === "1"; } catch { /* ignore */ }
+      if (homeChosen && isSuperAdmin) {
+        setCurrentIdState(null);
+      } else {
+        let nextId = currentId;
+        if (!nextId || !list.some((s) => s.id === nextId)) {
+          nextId = list[0]?.id ?? null;
+          if (nextId) setCurrentSocieteId(nextId);
+          else setCurrentSocieteId(null);
+        }
       }
     } catch {
       setSocietes([]);
@@ -92,7 +107,7 @@ export const useTenant = (): TenantState => {
     }
   // currentId est lu via la fonction; ne pas l'inclure pour éviter les recharges en boucle
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, setCurrentSocieteId]);
+  }, [user, setCurrentSocieteId, isSuperAdmin]);
 
   const loadConfig = useCallback(async (societeId: string | null) => {
     if (!societeId) { setConfig(null); return; }
