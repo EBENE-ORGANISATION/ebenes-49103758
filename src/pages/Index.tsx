@@ -24,6 +24,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { PortailEmploye } from "@/components/employe/PortailEmploye";
 import { useTenant } from "@/hooks/useTenant";
+import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
+import { isElectron } from "@/lib/platform";
 
 const Index = () => {
   const { t } = useTranslation();
@@ -472,6 +474,7 @@ const Index = () => {
         }}
       />
       <FacturePreview facture={previewFacture} onClose={() => setPreviewFacture(null)} />
+      {isElectron() && <UpdateNotifier />}
     </div>
   );
 };

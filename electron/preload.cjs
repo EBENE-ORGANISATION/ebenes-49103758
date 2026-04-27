@@ -50,4 +50,27 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on(channel, wrapped);
     return () => ipcRenderer.removeListener(channel, wrapped);
   },
+
+  // ─── Auto-update (electron-updater) ────────────────────────────────────
+  onUpdateAvailable: (callback) => {
+    const wrapped = (_evt, payload) => callback(payload);
+    ipcRenderer.on("update-available", wrapped);
+    return () => ipcRenderer.removeListener("update-available", wrapped);
+  },
+  onDownloadProgress: (callback) => {
+    const wrapped = (_evt, payload) => callback(payload);
+    ipcRenderer.on("download-progress", wrapped);
+    return () => ipcRenderer.removeListener("download-progress", wrapped);
+  },
+  onUpdateDownloaded: (callback) => {
+    const wrapped = (_evt, payload) => callback(payload);
+    ipcRenderer.on("update-downloaded", wrapped);
+    return () => ipcRenderer.removeListener("update-downloaded", wrapped);
+  },
+  onUpdateError: (callback) => {
+    const wrapped = (_evt, payload) => callback(payload);
+    ipcRenderer.on("update-error", wrapped);
+    return () => ipcRenderer.removeListener("update-error", wrapped);
+  },
+  installUpdate: () => ipcRenderer.send("install-update"),
 });

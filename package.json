@@ -37,7 +37,12 @@
     "asar": true,
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "public/icons/icon.ico"
     },
@@ -51,7 +56,14 @@
       "installerIcon": "public/icons/icon.ico",
       "uninstallerIcon": "public/icons/icon.ico",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Ennod22",
+        "repo": "ebenes"
+      }
+    ]
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -135,6 +147,8 @@
     "concurrently": "^9.2.1",
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
