@@ -8,6 +8,7 @@ import {
   type PermissionMap,
   type PermissionOverride,
 } from "@/lib/permissions";
+import type { HeaderFeature } from "@/lib/features";
 
 export type AppRole =
   | "admin"
@@ -36,12 +37,15 @@ interface AuthContextValue {
   grants: CrossServiceGrant[];
   overrides: PermissionOverride[];
   perms: PermissionMap;
+  features: HeaderFeature[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   /** True si le niveau effectif sur `module` est >= `required`. */
   can: (module: AppModule, required: AccessLevel) => boolean;
+  /** True si l'utilisateur a accès à la fonctionnalité du header (admin = toujours true). */
+  canFeature: (f: HeaderFeature) => boolean;
   isAdmin: boolean;
   /** Membre du service Comptabilité (admin, chef_compta, membre_compta) */
   inServiceCompta: boolean;
@@ -68,6 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [grants, setGrants] = useState<CrossServiceGrant[]>([]);
   const [overrides, setOverrides] = useState<PermissionOverride[]>([]);
+  const [features, setFeatures] = useState<HeaderFeature[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoles = useCallback(async (uid: string) => {
@@ -107,6 +112,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOverrides((data || []) as PermissionOverride[]);
   }, []);
 
+  const fetchFeatures = useCallback(async (uid: string) => {
+    const { data, error } = await supabase
+      .from("user_feature_access")
+      .select("feature, enabled")
+      .eq("user_id", uid)
+      .eq("enabled", true);
+    if (error) {
+      setFeatures([]);
+      return;
+    }
+    setFeatures((data || []).map((r) => r.feature as HeaderFeature));
+  }, []);
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       setSession(sess);
@@ -116,11 +134,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchRoles(sess.user.id);
           fetchGrants(sess.user.id);
           fetchOverrides(sess.user.id);
+          fetchFeatures(sess.user.id);
         }, 0);
       } else {
         setRoles([]);
         setGrants([]);
         setOverrides([]);
+        setFeatures([]);
       }
     });
 
@@ -131,12 +151,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fetchRoles(sess.user.id);
         fetchGrants(sess.user.id);
         fetchOverrides(sess.user.id);
+        fetchFeatures(sess.user.id);
       }
       setLoading(false);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [fetchRoles, fetchGrants, fetchOverrides]);
+  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -148,6 +169,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRoles([]);
     setGrants([]);
     setOverrides([]);
+    setFeatures([]);
   };
 
   const refreshRoles = useCallback(async () => {
@@ -155,8 +177,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await fetchRoles(user.id);
       await fetchGrants(user.id);
       await fetchOverrides(user.id);
+      await fetchFeatures(user.id);
     }
-  }, [user, fetchRoles, fetchGrants, fetchOverrides]);
+  }, [user, fetchRoles, fetchGrants, fetchOverrides, fetchFeatures]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = roles.includes("admin");
@@ -185,11 +208,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const rank = { none: 0, read: 1, write: 2, validate: 3 } as const;
     return rank[lvl] >= rank[required];
   };
+  const canFeature = (f: HeaderFeature) => isAdmin || features.includes(f);
 
   return (
     <AuthContext.Provider
       value={{
-        user, session, roles, grants, overrides, perms, loading, signIn, signOut, hasRole, can: canFn, isAdmin,
+        user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
       }}
@@ -220,11 +244,13 @@ export const useAuth = () => {
         parametres_sociaux: "none",
         grh: "none",
       } as PermissionMap,
+      features: [] as HeaderFeature[],
       loading: true,
       signIn: async () => ({ error: "AuthProvider not ready" }),
       signOut: async () => {},
       hasRole: () => false,
       can: () => false,
+      canFeature: () => false,
       isAdmin: false,
       inServiceCompta: false,
       inServiceGrh: false,
