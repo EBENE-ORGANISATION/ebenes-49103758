@@ -113,6 +113,7 @@ export const useEbeneStoreRemote = () => {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
+  const [immobilisations, setImmobilisations] = useState<Immobilisation[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
