@@ -5,6 +5,7 @@ import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import logoEbene from "@/assets/ebene-logo.png";
+import { useTenant } from "@/hooks/useTenant";
 
 interface Props {
   facture: Facture | null;
@@ -12,10 +13,21 @@ interface Props {
 }
 
 export const FacturePreview = ({ facture, onClose }: Props) => {
+  const { currentSociete, societeConfig } = useTenant();
   if (!facture) return null;
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
+  const nomSociete = currentSociete?.nom || "SOCIÉTÉ";
+  const logoSrc = societeConfig?.logo_url || logoEbene;
+  const couleurPrimaire = societeConfig?.couleur_primaire || "#3D0000";
+  const couleurAccent = societeConfig?.couleur_accent || "#89604A";
+  const adresse = societeConfig?.adresse || "";
+  const telephone = societeConfig?.telephone || "";
+  const email = societeConfig?.email || "";
+  const nif = societeConfig?.nif || "";
+  const rccm = societeConfig?.rccm || "";
+  const mention = societeConfig?.mention_facture?.trim() || "";
   const filename = `${isProforma ? "Proforma" : "Facture"}_${facture.numero.replace(/[^A-Za-z0-9_-]/g, "_")}`;
   const exportPDF = async () => {
     const el = document.getElementById("print-area");
