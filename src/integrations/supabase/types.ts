@@ -188,32 +188,62 @@ export type Database = {
       societes: {
         Row: {
           adresse: string
+          couleur_primaire: string
+          couleur_secondaire: string
           created_at: string
           created_by: string | null
+          email: string
+          fonction_representant: string
           id: string
+          logo_url: string
+          mention_legale_pied: string
           nif: string
           nom: string
           rccm: string
+          representant: string
+          site_web: string
+          slogan: string
+          telephone: string
           updated_at: string
         }
         Insert: {
           adresse?: string
+          couleur_primaire?: string
+          couleur_secondaire?: string
           created_at?: string
           created_by?: string | null
+          email?: string
+          fonction_representant?: string
           id?: string
+          logo_url?: string
+          mention_legale_pied?: string
           nif?: string
           nom: string
           rccm?: string
+          representant?: string
+          site_web?: string
+          slogan?: string
+          telephone?: string
           updated_at?: string
         }
         Update: {
           adresse?: string
+          couleur_primaire?: string
+          couleur_secondaire?: string
           created_at?: string
           created_by?: string | null
+          email?: string
+          fonction_representant?: string
           id?: string
+          logo_url?: string
+          mention_legale_pied?: string
           nif?: string
           nom?: string
           rccm?: string
+          representant?: string
+          site_web?: string
+          slogan?: string
+          telephone?: string
           updated_at?: string
         }
         Relationships: []

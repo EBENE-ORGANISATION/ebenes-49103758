@@ -9,6 +9,22 @@ export interface Societe {
   nif: string;
   rccm: string;
   adresse: string;
+  /** Coordonnées affichées sur factures/bulletins/contrats. */
+  telephone?: string;
+  email?: string;
+  siteWeb?: string;
+  /** URL du logo (Storage `logos-societes` ou URL externe). */
+  logoUrl?: string;
+  /** Couleurs HEX utilisées dans les PDF (en-tête / accents). */
+  couleurPrimaire?: string;
+  couleurSecondaire?: string;
+  /** Slogan / baseline affiché sous le nom dans le Header. */
+  slogan?: string;
+  /** Mention légale personnalisée en pied des PDF. */
+  mentionLegalePied?: string;
+  /** Représentant légal (signature des contrats). */
+  representant?: string;
+  fonctionRepresentant?: string;
 }
 
 /** Statut du workflow de validation (transactions et factures). */

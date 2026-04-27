@@ -5,6 +5,7 @@ import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import logoEbene from "@/assets/ebene-logo.png";
+import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 interface Props {
   facture: Facture | null;
@@ -13,6 +14,25 @@ interface Props {
 
 export const FacturePreview = ({ facture, onClose }: Props) => {
   if (!facture) return null;
+  const societe = useSocieteActive();
+  const logo = societe?.logoUrl || logoEbene;
+  const couleur = societe?.couleurPrimaire || "#3D0000";
+  const nomSoc = societe?.nom || "EBENE SERVICES";
+  // Construit la ligne pied : adresse / RCCM / tel / email / NIF — avec valeurs société active
+  const piedLignes: string[] = [];
+  if (societe?.adresse) piedLignes.push(societe.adresse);
+  else piedLignes.push("Quartier ADAWLATO, Rue du Grand Marché");
+  const ligne2: string[] = [];
+  if (societe?.rccm) ligne2.push(`RCCM : ${societe.rccm}`);
+  else ligne2.push("RCCM: TG-LFW-01-2026-B13-00075");
+  if (societe?.telephone) ligne2.push(`Tél : ${societe.telephone}`);
+  else ligne2.push("Tél: (+228) 97 43 38 20");
+  const ligne3: string[] = [];
+  if (societe?.email) ligne3.push(`Email : ${societe.email}`);
+  else ligne3.push("Email: ebnservicess@gmail.com");
+  if (societe?.nif) ligne3.push(`NIF : ${societe.nif}`);
+  else ligne3.push("NIF: 1 002 088 759");
+  if (societe?.siteWeb) ligne3.push(societe.siteWeb);
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
@@ -47,12 +67,6 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
           </div>
         </div>
 
-        {/*
-          Reproduction fidèle du papier à en-tête EBENE SERVICES :
-          - Haut : logo à gauche + longue barre marron qui s'étend vers la droite
-          - Bas  : deux petits traits marron de chaque côté
-          - Pied : coordonnées centrées (Quartier, RCCM, Tél, Email, NIF)
-        */}
         <div
           id="print-area"
           className="bg-white text-black mx-auto"
@@ -77,12 +91,12 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               gap: "0",
             }}
           >
-            <img src={logoEbene} alt="EBENE SERVICES" style={{ height: "22mm", width: "auto" }} />
+            <img src={logo} alt={nomSoc} style={{ height: "22mm", width: "auto", objectFit: "contain" }} />
             <div
               style={{
                 flex: 1,
                 height: "2mm",
-                background: "#3D0000",
+                background: couleur,
                 marginLeft: "4mm",
               }}
             />
@@ -100,8 +114,8 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleur, borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleur, borderRadius: "1mm" }} />
           </div>
 
           {/* ─── PIED : coordonnées centrées ─── */}
@@ -117,11 +131,11 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               color: "#1a1a1a",
             }}
           >
-            Quartier ADAWLATO, Rue du Grand Marché, N° RCCM: TG-LFW-01-2026-B13-00075
+            {piedLignes.join(" • ")}
             <br />
-            LOME-TOGO, TEL: (+228) 97 43 38 20,
+            {ligne2.join(", ")}
             <br />
-            Email: ebnservicess@gmail.com NIF: 1 002 088 759
+            {ligne3.join(" — ")}
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}
