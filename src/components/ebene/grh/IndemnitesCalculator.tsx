@@ -21,6 +21,7 @@ import {
 } from "@/lib/ebene-utils";
 import { Calculator, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { useSocieteActive } from "@/hooks/useSocieteContext";
 
 interface Props {
   employes: Employe[];
@@ -203,7 +204,10 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
 
           <div id="indemnites-print" className="card-elevated p-6 bg-card">
             <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-              <p className="font-bold text-lg">EBENE SERVICES</p>
+              {societe?.logoUrl && (
+                <img src={societe.logoUrl} alt={societe.nom} className="h-12 mx-auto mb-2 object-contain" />
+              )}
+              <p className="font-bold text-lg">{societe?.nom || "EBENE SERVICES"}</p>
               <h3 className="text-base font-bold mt-2">
                 DÉCOMPTE FINAL — {employe.nom}
               </h3>
