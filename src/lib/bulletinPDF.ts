@@ -191,12 +191,14 @@ export const generateBulletin = (
   doc.line(14, pageH - 22, pageW - 14, pageH - 22);
   doc.setFont("helvetica", "italic");
   doc.setFontSize(7.5);
-  const legal1 =
-    "Bulletin établi conformément au Code du travail togolais et à la Convention collective interprofessionnelle.";
+  const mention = societe?.mention_facture?.trim();
+  const legal1 = mention
+    ? mention
+    : "Bulletin établi conformément au Code du travail togolais et à la Convention collective interprofessionnelle.";
   const legal2 =
     "Comptabilité tenue selon le référentiel SYSCOHADA révisé (Acte uniforme OHADA relatif au droit comptable et à l'information financière).";
-  doc.text(legal1, pageW / 2, pageH - 17, { align: "center" });
-  doc.text(legal2, pageW / 2, pageH - 13, { align: "center" });
+  doc.text(legal1, pageW / 2, pageH - 17, { align: "center", maxWidth: pageW - 28 });
+  doc.text(legal2, pageW / 2, pageH - 13, { align: "center", maxWidth: pageW - 28 });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text(
