@@ -47,6 +47,8 @@ interface AuthContextValue {
   /** True si l'utilisateur a accès à la fonctionnalité du header (admin = toujours true). */
   canFeature: (f: HeaderFeature) => boolean;
   isAdmin: boolean;
+  /** Super-admin global (= rôle admin_general). Bypass RLS multi-société. */
+  isSuperAdmin: boolean;
   /** Membre du service Comptabilité (admin, chef_compta, membre_compta) */
   inServiceCompta: boolean;
   /** Membre du service GRH (admin, chef_grh, membre_grh) */
@@ -183,6 +185,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = roles.includes("admin");
+  // Le super-admin = rôle 'admin_general' (alias historique). On reconnaît
+  // aussi 'super_admin' au cas où il serait ajouté plus tard.
+  const isSuperAdmin =
+    (roles as string[]).includes("admin_general") ||
+    (roles as string[]).includes("super_admin");
   const hasGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc);
   const hasChefGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc && g.level === "chef");
   const inServiceCompta =
@@ -213,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AuthContext.Provider
       value={{
-        user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin,
+        user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin, isSuperAdmin,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
       }}
