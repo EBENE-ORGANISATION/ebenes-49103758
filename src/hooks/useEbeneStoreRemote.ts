@@ -204,6 +204,9 @@ export const useEbeneStoreRemote = () => {
       case K_SANCTIONS:
         setSanctions(Array.isArray(value) ? (value as Sanction[]) : []);
         break;
+      case K_IMMOBILISATIONS:
+        setImmobilisations(Array.isArray(value) ? (value as Immobilisation[]) : []);
+        break;
     }
   }, []);
 
