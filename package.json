@@ -56,7 +56,14 @@
       "installerIcon": "public/icons/icon.ico",
       "uninstallerIcon": "public/icons/icon.ico",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Ennod22",
+        "repo": "ebenes"
+      }
+    ]
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
