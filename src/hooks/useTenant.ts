@@ -123,7 +123,10 @@ export const useTenant = (): TenantState => {
       // Sélection de la société courante :
       // 1) si l'utilisateur a explicitement choisi "Appli mère" (super-admin), on respecte
       // 2) celle persistée en LS si elle est dans la liste
-      // 3) sinon la première de la liste
+      // 3) pour un super-admin sans préférence : rester en "Appli mère" (aucune société)
+      //    afin de ne JAMAIS exposer accidentellement les données / le branding
+      //    d'une société particulière.
+      // 4) sinon (utilisateur normal) : la première société accessible
       let homeChosen = false;
       try { homeChosen = localStorage.getItem(lsHomeKey(user.id)) === "1"; } catch { /* ignore */ }
       if (homeChosen && isSuperAdmin) {
@@ -131,9 +134,14 @@ export const useTenant = (): TenantState => {
       } else {
         let nextId = currentId;
         if (!nextId || !list.some((s) => s.id === nextId)) {
-          nextId = list[0]?.id ?? null;
-          if (nextId) setCurrentSocieteId(nextId);
-          else setCurrentSocieteId(null);
+          if (isSuperAdmin) {
+            // Super-admin : pas d'auto-sélection, on reste sur l'Appli mère.
+            setCurrentSocieteId(null);
+          } else {
+            nextId = list[0]?.id ?? null;
+            if (nextId) setCurrentSocieteId(nextId);
+            else setCurrentSocieteId(null);
+          }
         }
       }
     } catch {

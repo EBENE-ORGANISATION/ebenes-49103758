@@ -85,8 +85,14 @@ export const Header = ({
   const { user, roles, isAdmin, isSuperAdmin, signOut } = useAuth();
   const { canFeature } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
-  const logoSrc = societeConfig?.logo_url || null;
-  const nomSociete = currentSociete?.nom || "APPLI MERE";
+  // Mode "Appli mère" : aucune société sélectionnée. On NE doit JAMAIS
+  // afficher le logo, le nom ni les couleurs d'une société particulière —
+  // on retombe sur l'identité de l'application mère (EBENE Business Suite).
+  const inMasterMode = !currentSociete;
+  const logoSrc = inMasterMode ? null : (societeConfig?.logo_url || null);
+  const nomSociete = inMasterMode
+    ? "EBENE Business Suite"
+    : (currentSociete?.nom || "EBENE Business Suite");
   const showAlertes = canFeature("alertes");
   const showRecap = canFeature("recap_annuel");
   const showArchives = canFeature("archives");
