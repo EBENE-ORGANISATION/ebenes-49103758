@@ -20,12 +20,60 @@ interface ThemeInput {
   couleur_primaire?: string | null;
   couleur_secondaire?: string | null;
   couleur_accent?: string | null;
+  /** Logo de la société (URL absolue ou data:). Utilisé comme favicon. */
+  logo_url?: string | null;
+  /** Nom de la société (utilisé pour <title>). */
+  nom?: string | null;
 }
 
 const hexToRgb = (hex: string): [number, number, number] | null => {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
   if (!m) return null;
   return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+};
+
+const DEFAULT_TITLE = "EBENE SERVICES — Gestion d'Entreprise";
+const DEFAULT_FAVICON = "/favicon.png";
+
+/** Met à jour le <title> de l'onglet selon la société active. */
+const applyDocumentTitle = (nom?: string | null): void => {
+  if (typeof document === "undefined") return;
+  const clean = (nom || "").trim();
+  document.title = clean
+    ? `${clean} — Gestion d'Entreprise`
+    : DEFAULT_TITLE;
+
+  // Met aussi à jour les meta OG/Twitter title si présents
+  const setMeta = (selector: string, value: string) => {
+    const el = document.head.querySelector<HTMLMetaElement>(selector);
+    if (el) el.setAttribute("content", value);
+  };
+  setMeta('meta[property="og:title"]', document.title);
+  setMeta('meta[name="twitter:title"]', document.title);
+  setMeta('meta[name="apple-mobile-web-app-title"]', clean || "EBENE");
+};
+
+/** Remplace le favicon par le logo de la société (ou le défaut). */
+const applyFavicon = (logoUrl?: string | null): void => {
+  if (typeof document === "undefined") return;
+  const href = (logoUrl || "").trim() || DEFAULT_FAVICON;
+  const selectors = [
+    'link[rel="icon"]',
+    'link[rel="shortcut icon"]',
+    'link[rel="apple-touch-icon"]',
+  ];
+  selectors.forEach((sel) => {
+    let el = document.head.querySelector<HTMLLinkElement>(sel);
+    if (!el) {
+      el = document.createElement("link");
+      el.rel = sel.includes("apple") ? "apple-touch-icon" : "icon";
+      document.head.appendChild(el);
+    }
+    el.href = href;
+    // Si on utilise une URL externe (logo société), on retire le type figé
+    if (logoUrl) el.removeAttribute("type");
+    else el.setAttribute("type", "image/png");
+  });
 };
 
 /** Renvoie "h s% l%" prêt à être injecté dans une variable CSS HSL. */
@@ -107,6 +155,10 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
   root.style.setProperty("--color-primary", primaire);
   root.style.setProperty("--color-secondary", secondaire);
   root.style.setProperty("--color-accent", accent);
+
+  // 4) Identité visuelle de l'onglet (titre + favicon)
+  applyDocumentTitle(cfg?.nom);
+  applyFavicon(cfg?.logo_url);
 };
 
 export const resetTheme = (): void => {
@@ -114,5 +166,7 @@ export const resetTheme = (): void => {
     couleur_primaire: FALLBACK.primaire,
     couleur_secondaire: FALLBACK.secondaire,
     couleur_accent: FALLBACK.accent,
+    nom: null,
+    logo_url: null,
   });
 };
