@@ -90,7 +90,9 @@ export const useTenant = (): TenantState => {
     } finally {
       setLoading(false);
     }
-  }, [user, currentId, setCurrentSocieteId]);
+  // currentId est lu via la fonction; ne pas l'inclure pour éviter les recharges en boucle
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, setCurrentSocieteId]);
 
   const loadConfig = useCallback(async (societeId: string | null) => {
     if (!societeId) { setConfig(null); return; }
