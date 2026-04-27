@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Shield, Building2, Settings2 } from "lucide-react";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
 import { Dashboard } from "@/components/ebene/Dashboard";
