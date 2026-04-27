@@ -97,8 +97,8 @@ export const Header = ({
   } = useSociete();
   const societeActive = useSocieteActive();
   const headerLogo = societeActive?.logoUrl || logoEbene;
-  const headerNom = societeActive?.nom || "EBENE SERVICES";
-  const headerSlogan = societeActive?.slogan || "Commerce Général — Système de Gestion";
+  const headerNom = societeActive?.nom || "Espace de gestion";
+  const headerSlogan = societeActive?.slogan || "";
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -323,9 +323,9 @@ export const Header = ({
               <FolderOpen className="size-5" /> Historique des sauvegardes Google Drive
             </DialogTitle>
             <DialogDescription>
-              Les 10 dernières sauvegardes du dossier <code>EBENE_BACKUPS</code>. Cliquez
-              sur « Restaurer » pour remplacer les données actuelles par celles de la
-              sauvegarde sélectionnée.
+              Les 10 dernières sauvegardes Google Drive. Cliquez sur
+              « Restaurer » pour remplacer les données actuelles par celles de
+              la sauvegarde sélectionnée.
             </DialogDescription>
           </DialogHeader>
 

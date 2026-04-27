@@ -208,7 +208,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
               {societe?.logoUrl && (
                 <img src={societe.logoUrl} alt={societe.nom} className="h-12 mx-auto mb-2 object-contain" />
               )}
-              <p className="font-bold text-lg">{societe?.nom || "EBENE SERVICES"}</p>
+              <p className="font-bold text-lg">{societe?.nom || "Société"}</p>
               <h3 className="text-base font-bold mt-2">
                 DÉCOMPTE FINAL — {employe.nom}
               </h3>

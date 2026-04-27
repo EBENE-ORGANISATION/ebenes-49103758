@@ -147,11 +147,11 @@ export const PortailEmploye = () => {
           <div className="flex items-center gap-3">
             <img
               src={societeActive?.logoUrl || logoEbene}
-              alt={societeActive?.nom || "EBENE Services"}
+              alt={societeActive?.nom || "Portail employé"}
               className="h-9 w-9 object-contain"
             />
             <div>
-              <h1 className="font-bold leading-tight">{societeActive?.nom || "EBENE"} — Portail Employé</h1>
+              <h1 className="font-bold leading-tight">{societeActive?.nom ? `${societeActive.nom} — Portail Employé` : "Portail Employé"}</h1>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -190,11 +190,11 @@ export const PortailEmploye = () => {
         <div className="flex items-center gap-3">
           <img
             src={societeActive?.logoUrl || logoEbene}
-            alt={societeActive?.nom || "EBENE Services"}
+            alt={societeActive?.nom || "Portail employé"}
             className="h-9 w-9 object-contain"
           />
           <div>
-            <h1 className="font-bold leading-tight">{societeActive?.nom || "EBENE"} — Portail Employé</h1>
+            <h1 className="font-bold leading-tight">{societeActive?.nom ? `${societeActive.nom} — Portail Employé` : "Portail Employé"}</h1>
             <p className="text-xs text-muted-foreground">
               {employe.nom} • {employe.poste}
               {employe.matricule ? ` • Mat. ${employe.matricule}` : ""}
