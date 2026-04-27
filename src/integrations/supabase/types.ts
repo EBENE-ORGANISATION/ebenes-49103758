@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      absences: {
+        Row: {
+          annee: number
+          created_at: string
+          date_debut: string
+          date_fin: string
+          employe_id: number
+          id: number
+          jours: number
+          mois: number
+          motif: string | null
+          motif_rejet: string | null
+          societe_id: string
+          statut_validation: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          annee: number
+          created_at?: string
+          date_debut: string
+          date_fin: string
+          employe_id: number
+          id?: number
+          jours?: number
+          mois: number
+          motif?: string | null
+          motif_rejet?: string | null
+          societe_id: string
+          statut_validation?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          annee?: number
+          created_at?: string
+          date_debut?: string
+          date_fin?: string
+          employe_id?: number
+          id?: number
+          jours?: number
+          mois?: number
+          motif?: string | null
+          motif_rejet?: string | null
+          societe_id?: string
+          statut_validation?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absences_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_state: {
         Row: {
           created_at: string
@@ -40,6 +99,68 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      articles: {
+        Row: {
+          categorie_id: number | null
+          created_at: string
+          description: string | null
+          designation: string
+          emplacement: string | null
+          fournisseur_id: number | null
+          id: number
+          prix_achat: number
+          prix_vente: number
+          reference: string
+          seuil_alerte: number
+          societe_id: string
+          stock: number
+          unite: string
+          updated_at: string
+        }
+        Insert: {
+          categorie_id?: number | null
+          created_at?: string
+          description?: string | null
+          designation: string
+          emplacement?: string | null
+          fournisseur_id?: number | null
+          id?: number
+          prix_achat?: number
+          prix_vente?: number
+          reference: string
+          seuil_alerte?: number
+          societe_id: string
+          stock?: number
+          unite?: string
+          updated_at?: string
+        }
+        Update: {
+          categorie_id?: number | null
+          created_at?: string
+          description?: string | null
+          designation?: string
+          emplacement?: string | null
+          fournisseur_id?: number | null
+          id?: number
+          prix_achat?: number
+          prix_vente?: number
+          reference?: string
+          seuil_alerte?: number
+          societe_id?: string
+          stock?: number
+          unite?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "articles_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_log: {
         Row: {
@@ -86,6 +207,38 @@ export type Database = {
         }
         Relationships: []
       }
+      categories_stock: {
+        Row: {
+          created_at: string
+          id: number
+          nom: string
+          societe_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          nom: string
+          societe_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          nom?: string
+          societe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_stock_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cross_service_grants: {
         Row: {
           created_at: string
@@ -125,6 +278,541 @@ export type Database = {
         }
         Relationships: []
       }
+      devis: {
+        Row: {
+          activite: string | null
+          annee: number
+          avec_tva: boolean | null
+          client: string
+          created_at: string
+          date: string
+          date_validite: string | null
+          facture_id: number | null
+          id: number
+          lignes: Json
+          mois: number
+          notes: string | null
+          numero: string
+          reduction: number | null
+          societe_id: string
+          statut: string
+          total_ht: number
+          total_ttc: number
+          total_tva: number
+          updated_at: string
+        }
+        Insert: {
+          activite?: string | null
+          annee: number
+          avec_tva?: boolean | null
+          client: string
+          created_at?: string
+          date: string
+          date_validite?: string | null
+          facture_id?: number | null
+          id?: number
+          lignes?: Json
+          mois: number
+          notes?: string | null
+          numero: string
+          reduction?: number | null
+          societe_id: string
+          statut?: string
+          total_ht?: number
+          total_ttc?: number
+          total_tva?: number
+          updated_at?: string
+        }
+        Update: {
+          activite?: string | null
+          annee?: number
+          avec_tva?: boolean | null
+          client?: string
+          created_at?: string
+          date?: string
+          date_validite?: string | null
+          facture_id?: number | null
+          id?: number
+          lignes?: Json
+          mois?: number
+          notes?: string | null
+          numero?: string
+          reduction?: number | null
+          societe_id?: string
+          statut?: string
+          total_ht?: number
+          total_ttc?: number
+          total_tva?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devis_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employes: {
+        Row: {
+          adresse: string | null
+          categorie: string | null
+          cni: string | null
+          created_at: string
+          date_embauche: string | null
+          date_fin_contrat: string | null
+          date_naissance: string | null
+          echelon: number | null
+          email: string | null
+          enfants: number
+          id: number
+          indemnite_fonction: number | null
+          indemnite_logement: number | null
+          indemnite_transport: number | null
+          lieu_naissance: string | null
+          matricule: string | null
+          motif_rejet: string | null
+          nationalite: string | null
+          nom: string
+          num_cnss: string | null
+          poste: string
+          qualification: string | null
+          salaire: number
+          sexe: string | null
+          situation: string
+          societe_id: string
+          solde_conges: number | null
+          statut_validation: string | null
+          sursalaire: number | null
+          telephone: string | null
+          type_contrat: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          adresse?: string | null
+          categorie?: string | null
+          cni?: string | null
+          created_at?: string
+          date_embauche?: string | null
+          date_fin_contrat?: string | null
+          date_naissance?: string | null
+          echelon?: number | null
+          email?: string | null
+          enfants?: number
+          id?: number
+          indemnite_fonction?: number | null
+          indemnite_logement?: number | null
+          indemnite_transport?: number | null
+          lieu_naissance?: string | null
+          matricule?: string | null
+          motif_rejet?: string | null
+          nationalite?: string | null
+          nom: string
+          num_cnss?: string | null
+          poste?: string
+          qualification?: string | null
+          salaire?: number
+          sexe?: string | null
+          situation?: string
+          societe_id: string
+          solde_conges?: number | null
+          statut_validation?: string | null
+          sursalaire?: number | null
+          telephone?: string | null
+          type_contrat?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          adresse?: string | null
+          categorie?: string | null
+          cni?: string | null
+          created_at?: string
+          date_embauche?: string | null
+          date_fin_contrat?: string | null
+          date_naissance?: string | null
+          echelon?: number | null
+          email?: string | null
+          enfants?: number
+          id?: number
+          indemnite_fonction?: number | null
+          indemnite_logement?: number | null
+          indemnite_transport?: number | null
+          lieu_naissance?: string | null
+          matricule?: string | null
+          motif_rejet?: string | null
+          nationalite?: string | null
+          nom?: string
+          num_cnss?: string | null
+          poste?: string
+          qualification?: string | null
+          salaire?: number
+          sexe?: string | null
+          situation?: string
+          societe_id?: string
+          solde_conges?: number | null
+          statut_validation?: string | null
+          sursalaire?: number | null
+          telephone?: string | null
+          type_contrat?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employes_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      factures: {
+        Row: {
+          activite: string | null
+          annee: number
+          avec_tva: boolean | null
+          client: string
+          created_at: string
+          date: string
+          id: number
+          lignes: Json
+          mois: number
+          motif_rejet: string | null
+          numero: string
+          reduction: number | null
+          societe_id: string
+          statut: string
+          statut_validation: string | null
+          total_ht: number
+          total_ttc: number
+          total_tva: number
+          transaction_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          activite?: string | null
+          annee: number
+          avec_tva?: boolean | null
+          client: string
+          created_at?: string
+          date: string
+          id?: number
+          lignes?: Json
+          mois: number
+          motif_rejet?: string | null
+          numero: string
+          reduction?: number | null
+          societe_id: string
+          statut?: string
+          statut_validation?: string | null
+          total_ht?: number
+          total_ttc?: number
+          total_tva?: number
+          transaction_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activite?: string | null
+          annee?: number
+          avec_tva?: boolean | null
+          client?: string
+          created_at?: string
+          date?: string
+          id?: number
+          lignes?: Json
+          mois?: number
+          motif_rejet?: string | null
+          numero?: string
+          reduction?: number | null
+          societe_id?: string
+          statut?: string
+          statut_validation?: string | null
+          total_ht?: number
+          total_ttc?: number
+          total_tva?: number
+          transaction_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factures_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fournisseurs: {
+        Row: {
+          adresse: string | null
+          contact: string | null
+          created_at: string
+          email: string | null
+          id: number
+          nom: string
+          societe_id: string
+          telephone: string | null
+          updated_at: string
+        }
+        Insert: {
+          adresse?: string | null
+          contact?: string | null
+          created_at?: string
+          email?: string | null
+          id?: number
+          nom: string
+          societe_id: string
+          telephone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adresse?: string | null
+          contact?: string | null
+          created_at?: string
+          email?: string | null
+          id?: number
+          nom?: string
+          societe_id?: string
+          telephone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fournisseurs_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heures_sup: {
+        Row: {
+          annee: number
+          created_at: string
+          dimanche_ferie: number | null
+          employe_id: number
+          id: number
+          jour_semaine: number | null
+          jour_sup: number | null
+          mois: number
+          motif_rejet: string | null
+          nuit_dimanche_ferie: number | null
+          nuit_semaine: number | null
+          societe_id: string
+          statut_validation: string | null
+          updated_at: string
+        }
+        Insert: {
+          annee: number
+          created_at?: string
+          dimanche_ferie?: number | null
+          employe_id: number
+          id?: number
+          jour_semaine?: number | null
+          jour_sup?: number | null
+          mois: number
+          motif_rejet?: string | null
+          nuit_dimanche_ferie?: number | null
+          nuit_semaine?: number | null
+          societe_id: string
+          statut_validation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annee?: number
+          created_at?: string
+          dimanche_ferie?: number | null
+          employe_id?: number
+          id?: number
+          jour_semaine?: number | null
+          jour_sup?: number | null
+          mois?: number
+          motif_rejet?: string | null
+          nuit_dimanche_ferie?: number | null
+          nuit_semaine?: number | null
+          societe_id?: string
+          statut_validation?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heures_sup_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      immobilisations: {
+        Row: {
+          categorie: string | null
+          comptes_syscohada: Json
+          created_at: string
+          date_acquisition: string
+          date_cession: string | null
+          duree_amortissement: number
+          id: number
+          libelle: string
+          methode: string
+          notes: string | null
+          societe_id: string
+          updated_at: string
+          valeur_origine: number
+          valeur_residuelle: number | null
+        }
+        Insert: {
+          categorie?: string | null
+          comptes_syscohada?: Json
+          created_at?: string
+          date_acquisition: string
+          date_cession?: string | null
+          duree_amortissement?: number
+          id?: number
+          libelle: string
+          methode?: string
+          notes?: string | null
+          societe_id: string
+          updated_at?: string
+          valeur_origine?: number
+          valeur_residuelle?: number | null
+        }
+        Update: {
+          categorie?: string | null
+          comptes_syscohada?: Json
+          created_at?: string
+          date_acquisition?: string
+          date_cession?: string | null
+          duree_amortissement?: number
+          id?: number
+          libelle?: string
+          methode?: string
+          notes?: string | null
+          societe_id?: string
+          updated_at?: string
+          valeur_origine?: number
+          valeur_residuelle?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "immobilisations_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mouvements_stock: {
+        Row: {
+          annee: number
+          article_id: number
+          created_at: string
+          date: string
+          facture_id: number | null
+          id: number
+          mois: number
+          motif: string | null
+          prix_unitaire: number | null
+          quantite: number
+          reference: string | null
+          societe_id: string
+          transaction_id: number | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          annee: number
+          article_id: number
+          created_at?: string
+          date: string
+          facture_id?: number | null
+          id?: number
+          mois: number
+          motif?: string | null
+          prix_unitaire?: number | null
+          quantite: number
+          reference?: string | null
+          societe_id: string
+          transaction_id?: number | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          annee?: number
+          article_id?: number
+          created_at?: string
+          date?: string
+          facture_id?: number | null
+          id?: number
+          mois?: number
+          motif?: string | null
+          prix_unitaire?: number | null
+          quantite?: number
+          reference?: string | null
+          societe_id?: string
+          transaction_id?: number | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mouvements_stock_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      params_annuels: {
+        Row: {
+          activite: string | null
+          annee: number
+          created_at: string
+          id: number
+          rsl: number | null
+          societe_id: string
+          th: number | null
+          updated_at: string
+        }
+        Insert: {
+          activite?: string | null
+          annee: number
+          created_at?: string
+          id?: number
+          rsl?: number | null
+          societe_id: string
+          th?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activite?: string | null
+          annee?: number
+          created_at?: string
+          id?: number
+          rsl?: number | null
+          societe_id?: string
+          th?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "params_annuels_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_overrides: {
         Row: {
           created_at: string
@@ -155,6 +843,56 @@ export type Database = {
         }
         Relationships: []
       }
+      primes: {
+        Row: {
+          annee: number
+          created_at: string
+          employe_id: number
+          id: number
+          libelle: string
+          mois: number
+          montant: number
+          motif_rejet: string | null
+          societe_id: string
+          statut_validation: string | null
+          updated_at: string
+        }
+        Insert: {
+          annee: number
+          created_at?: string
+          employe_id: number
+          id?: number
+          libelle?: string
+          mois: number
+          montant?: number
+          motif_rejet?: string | null
+          societe_id: string
+          statut_validation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annee?: number
+          created_at?: string
+          employe_id?: number
+          id?: number
+          libelle?: string
+          mois?: number
+          montant?: number
+          motif_rejet?: string | null
+          societe_id?: string
+          statut_validation?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "primes_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           actif: boolean
@@ -184,6 +922,100 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      retenues: {
+        Row: {
+          annee: number
+          created_at: string
+          employe_id: number
+          id: number
+          mois: number
+          montant: number
+          societe_id: string
+          updated_at: string
+        }
+        Insert: {
+          annee: number
+          created_at?: string
+          employe_id: number
+          id?: number
+          mois: number
+          montant?: number
+          societe_id: string
+          updated_at?: string
+        }
+        Update: {
+          annee?: number
+          created_at?: string
+          employe_id?: number
+          id?: number
+          mois?: number
+          montant?: number
+          societe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retenues_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sanctions: {
+        Row: {
+          created_at: string
+          date: string
+          employe_id: number
+          id: number
+          jours_mise_a_pied: number | null
+          motif: string
+          motif_rejet: string | null
+          observations: string | null
+          societe_id: string
+          statut_validation: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employe_id: number
+          id?: number
+          jours_mise_a_pied?: number | null
+          motif?: string
+          motif_rejet?: string | null
+          observations?: string | null
+          societe_id: string
+          statut_validation?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employe_id?: number
+          id?: number
+          jours_mise_a_pied?: number | null
+          motif?: string
+          motif_rejet?: string | null
+          observations?: string | null
+          societe_id?: string
+          statut_validation?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanctions_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       societe_config: {
         Row: {
@@ -339,6 +1171,148 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      taux_historique: {
+        Row: {
+          activite_defaut: string
+          amu_emp: number
+          amu_sal: number
+          cnss_emp: number
+          cnss_sal: number
+          created_at: string
+          date_effet: string
+          id: number
+          imf_min: number
+          imf_taux: number
+          is_taux: number
+          patente_commerce: number
+          patente_service: number
+          societe_id: string
+          tva: number
+          updated_at: string
+        }
+        Insert: {
+          activite_defaut?: string
+          amu_emp?: number
+          amu_sal?: number
+          cnss_emp?: number
+          cnss_sal?: number
+          created_at?: string
+          date_effet: string
+          id?: number
+          imf_min?: number
+          imf_taux?: number
+          is_taux?: number
+          patente_commerce?: number
+          patente_service?: number
+          societe_id: string
+          tva?: number
+          updated_at?: string
+        }
+        Update: {
+          activite_defaut?: string
+          amu_emp?: number
+          amu_sal?: number
+          cnss_emp?: number
+          cnss_sal?: number
+          created_at?: string
+          date_effet?: string
+          id?: number
+          imf_min?: number
+          imf_taux?: number
+          is_taux?: number
+          patente_commerce?: number
+          patente_service?: number
+          societe_id?: string
+          tva?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "taux_historique_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          activite: string | null
+          annee: number
+          auto: boolean | null
+          created_at: string
+          date: string
+          description: string
+          facture_id: number | null
+          fournisseur: string | null
+          id: number
+          mois: number
+          montant: number
+          motif_rejet: string | null
+          piece_jointe: string | null
+          piece_jointe_nom: string | null
+          piece_jointe_type: string | null
+          societe_id: string
+          source: string
+          statut: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          activite?: string | null
+          annee: number
+          auto?: boolean | null
+          created_at?: string
+          date: string
+          description?: string
+          facture_id?: number | null
+          fournisseur?: string | null
+          id?: number
+          mois: number
+          montant?: number
+          motif_rejet?: string | null
+          piece_jointe?: string | null
+          piece_jointe_nom?: string | null
+          piece_jointe_type?: string | null
+          societe_id: string
+          source?: string
+          statut?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          activite?: string | null
+          annee?: number
+          auto?: boolean | null
+          created_at?: string
+          date?: string
+          description?: string
+          facture_id?: number | null
+          fournisseur?: string | null
+          id?: number
+          mois?: number
+          montant?: number
+          motif_rejet?: string | null
+          piece_jointe?: string | null
+          piece_jointe_nom?: string | null
+          piece_jointe_type?: string | null
+          societe_id?: string
+          source?: string
+          statut?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_feature_access: {
         Row: {
