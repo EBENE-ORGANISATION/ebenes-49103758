@@ -119,7 +119,9 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Poppins', sans-serif;
+    /* Police pilotée par le thème société (--font-base, injecté par applyTheme).
+       Fallback sur Poppins si la variable n'est pas encore définie. */
+    font-family: var(--font-base, 'Poppins', sans-serif);
   }
 
   .font-mono, code, .amount {
