@@ -25,7 +25,10 @@ interface AdminUser {
   actif: boolean;
   created_at: string;
   roles: AppRole[];
+  societe_ids: string[];
 }
+
+interface SocieteLite { id: string; nom: string }
 
 const ALL_ROLES: AppRole[] = [
   "admin_general",
@@ -47,6 +50,8 @@ const callFn = async (body: Record<string, unknown>) => {
 const AdminUsers = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [societes, setSocietes] = useState<SocieteLite[]>([]);
+  const [scope, setScope] = useState<"all" | "own_societes">("own_societes");
   const [loading, setLoading] = useState(true);
   const [openCreate, setOpenCreate] = useState(false);
   const [openRoles, setOpenRoles] = useState<AdminUser | null>(null);
@@ -67,6 +72,8 @@ const AdminUsers = () => {
     try {
       const res = await callFn({ action: "list" });
       setUsers(res.users || []);
+      setSocietes(res.societes || []);
+      setScope(res.scope || "own_societes");
     } catch (e) {
       toast.error("Chargement impossible : " + (e as Error).message);
     } finally {
@@ -196,58 +203,16 @@ const AdminUsers = () => {
           {loading ? (
             <div className="p-12 flex justify-center"><Loader2 className="size-6 animate-spin" /></div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôles</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.user_id}>
-                    <TableCell className="font-medium">{u.nom || "—"}</TableCell>
-                    <TableCell>{u.email}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {u.roles.length === 0 && <span className="text-xs text-muted-foreground">aucun</span>}
-                        {u.roles.map((r) => (
-                          <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>
-                            {ROLE_LABELS[r]}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={u.actif ? "default" : "destructive"}>
-                        {u.actif ? "Actif" : "Désactivé"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button size="sm" variant="outline" onClick={() => setOpenRoles({ ...u })}>
-                        Rôles
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setOpenReset(u)}>
-                        <KeyRound className="size-3.5" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => toggleActif(u)}>
-                        <Power className="size-3.5" />
-                      </Button>
-                      <Button
-                        size="sm" variant="destructive"
-                        disabled={u.user_id === user?.id}
-                        onClick={() => removeUser(u)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <UsersBySociete
+              users={users}
+              societes={societes}
+              scope={scope}
+              currentUserId={user?.id}
+              onEditRoles={(u) => setOpenRoles({ ...u })}
+              onResetPwd={(u) => setOpenReset(u)}
+              onToggleActif={toggleActif}
+              onDelete={removeUser}
+            />
           )}
         </Card>
 
