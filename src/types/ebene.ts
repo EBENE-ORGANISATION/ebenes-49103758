@@ -2,6 +2,15 @@ export type TransactionType = "r" | "d";
 export type TransactionSource = "manuelle" | "facture" | "salaires" | "fournisseur";
 export type ActiviteType = "service" | "commerce";
 
+/** Société (entité juridique) — multi-tenant. */
+export interface Societe {
+  id: string;
+  nom: string;
+  nif: string;
+  rccm: string;
+  adresse: string;
+}
+
 /** Statut du workflow de validation (transactions et factures). */
 export type StatutValidation =
   | "brouillon"
