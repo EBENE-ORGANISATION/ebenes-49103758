@@ -39,6 +39,7 @@ const MOTIF_LABELS: Record<Motif, string> = {
 };
 
 export const IndemnitesCalculator = ({ employes }: Props) => {
+  const societe = useSocieteActive();
   const [employeId, setEmployeId] = useState("");
   const [motif, setMotif] = useState<Motif>("licenciement_simple");
   const [dateRupture, setDateRupture] = useState(new Date().toISOString().split("T")[0]);
