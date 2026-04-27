@@ -66,6 +66,7 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
     setLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [users]);
 
   const create = async () => {
