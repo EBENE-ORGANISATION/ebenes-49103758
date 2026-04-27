@@ -351,6 +351,108 @@ const ParametresSociete = () => {
               </div>
             </Card>
 
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold">Numérotation automatique</h2>
+              <p className="text-xs text-muted-foreground">
+                Jetons disponibles : <span className="font-mono">{"{YYYY}"}</span> année,&nbsp;
+                <span className="font-mono">{"{YY}"}</span> année courte,&nbsp;
+                <span className="font-mono">{"{MM}"}</span> mois,&nbsp;
+                <span className="font-mono">{"{NNN}"}</span> compteur (3 chiffres),&nbsp;
+                <span className="font-mono">{"{NNNN}"}</span> 4 chiffres,&nbsp;
+                <span className="font-mono">{"{N}"}</span> brut.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Format facture</Label>
+                  <Input
+                    value={draft.format_facture}
+                    onChange={(e) => setDraft((d) => ({ ...d, format_facture: e.target.value }))}
+                    className="font-mono"
+                    placeholder={DEFAULT_FORMAT_FACTURE}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Aperçu : <span className="font-mono font-semibold">{previewFacture}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      (compteur actuel : {Number(societeConfig?.compteur_facture ?? 1)})
+                    </span>
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1"
+                        disabled={resetting !== null}
+                      >
+                        Réinitialiser le compteur
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Réinitialiser le compteur factures ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Le prochain numéro de facture repartira à 1. Cette action est
+                          immédiate et peut créer des doublons si des factures portent déjà
+                          ce numéro. Confirmer ?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleReset("facture")}>
+                          Confirmer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Format devis</Label>
+                  <Input
+                    value={draft.format_devis}
+                    onChange={(e) => setDraft((d) => ({ ...d, format_devis: e.target.value }))}
+                    className="font-mono"
+                    placeholder={DEFAULT_FORMAT_DEVIS}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Aperçu : <span className="font-mono font-semibold">{previewDevis}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      (compteur actuel : {Number(societeConfig?.compteur_devis ?? 1)})
+                    </span>
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1"
+                        disabled={resetting !== null}
+                      >
+                        Réinitialiser le compteur
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Réinitialiser le compteur devis ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Le prochain numéro de devis repartira à 1. Cette action est
+                          immédiate et peut créer des doublons si des devis portent déjà
+                          ce numéro. Confirmer ?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleReset("devis")}>
+                          Confirmer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            </Card>
+
             <div className="sticky bottom-4 z-10 flex justify-end">
               <Button onClick={save} disabled={busy} size="lg" className="shadow-lg">
                 {busy ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
