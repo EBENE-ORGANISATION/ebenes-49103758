@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActiviteType,
   Devis,
@@ -19,6 +19,12 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, X, RefreshCw, FileText, Pencil } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { useTenant } from "@/hooks/useTenant";
+import {
+  genererNumeroDevis,
+  genererNumeroFacture as genererNumeroFactureFmt,
+  incrementerCompteur,
+} from "@/lib/numerotation";
 
 interface Props {
   annee: number;
@@ -39,7 +45,7 @@ const STATUT_BADGES: Record<StatutDevis, { cls: string; label: string }> = {
   converti: { cls: "bg-primary/15 text-primary", label: "→ Facturé" },
 };
 
-const prochainNumeroDevis = (annee: number, dm: DonneesMensuelles): string => {
+const prochainNumeroDevisFallback = (annee: number, dm: DonneesMensuelles): string => {
   let max = 0;
   Object.values(dm).forEach((m) => {
     (m?.devis || []).forEach((d) => {
@@ -51,7 +57,7 @@ const prochainNumeroDevis = (annee: number, dm: DonneesMensuelles): string => {
   return `D-${annee}-${String(max + 1).padStart(3, "0")}`;
 };
 
-const prochainNumeroFacture = (annee: number, dm: DonneesMensuelles): string => {
+const prochainNumeroFactureFallback = (annee: number, dm: DonneesMensuelles): string => {
   let max = 0;
   Object.values(dm).forEach((m) => {
     (m?.factures || []).forEach((f) => {
@@ -83,6 +89,21 @@ export const DevisSection = ({
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
+  const [numero, setNumero] = useState("");
+  const [numeroEdited, setNumeroEdited] = useState(false);
+
+  const { currentSociete, societeConfig, refresh: refreshTenant } = useTenant();
+
+  const numeroAuto = useMemo(() => {
+    if (societeConfig) return genererNumeroDevis(societeConfig, annee);
+    return prochainNumeroDevisFallback(annee, donneesMensuelles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [societeConfig?.format_devis, societeConfig?.compteur_devis, annee, donneesMensuelles]);
+
+  useEffect(() => {
+    if (!open || editingId != null) return;
+    if (!numeroEdited) setNumero(numeroAuto);
+  }, [open, editingId, numeroAuto, numeroEdited]);
 
   const reset = () => {
     setEditingId(null);
@@ -93,6 +114,8 @@ export const DevisSection = ({
     setAvecTva(true);
     setActivite("service");
     setLignes([{ description: "", montant: "" }]);
+    setNumero("");
+    setNumeroEdited(false);
   };
 
   const submit = () => {
@@ -126,8 +149,9 @@ export const DevisSection = ({
       return;
     }
 
+    const numeroFinal = numero.trim() || numeroAuto;
     onAdd({
-      numero: prochainNumeroDevis(annee, donneesMensuelles),
+      numero: numeroFinal,
       client: client.trim(),
       date,
       dateValidite: validite || undefined,
@@ -140,6 +164,13 @@ export const DevisSection = ({
       totalTtc,
       activite,
     });
+    if (currentSociete?.id && societeConfig && numeroFinal === numeroAuto) {
+      void incrementerCompteur(
+        currentSociete.id,
+        "devis",
+        Number(societeConfig.compteur_devis ?? 1),
+      ).then((ok) => { if (ok) void refreshTenant(); });
+    }
     reset();
     setOpen(false);
   };
@@ -166,6 +197,38 @@ export const DevisSection = ({
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
           <h4 className="font-bold">{editingId != null ? "Modifier le devis" : "Nouveau devis"}</h4>
+          {editingId == null && (
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Numéro
+              </Label>
+              <div className="flex gap-2 mt-1 items-center">
+                <Input
+                  value={numero}
+                  onChange={(e) => { setNumero(e.target.value); setNumeroEdited(true); }}
+                  className="font-mono w-56"
+                  placeholder={numeroAuto}
+                />
+                {numeroEdited && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setNumero(numeroAuto); setNumeroEdited(false); }}
+                    className="gap-1"
+                  >
+                    <RefreshCw className="size-3.5" /> Auto
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Aperçu auto : <span className="font-mono">{numeroAuto}</span>
+                {societeConfig && (
+                  <> &middot; format : <span className="font-mono">{societeConfig.format_devis}</span></>
+                )}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -354,7 +417,17 @@ export const DevisSection = ({
                         className="gap-1 text-success border-success/30 hover:bg-success/10"
                         onClick={() => {
                           if (confirm("Convertir ce devis en facture définitive ?")) {
-                            onConvertir(d.id, prochainNumeroFacture(annee, donneesMensuelles));
+                            const num = societeConfig
+                              ? genererNumeroFactureFmt(societeConfig, annee)
+                              : prochainNumeroFactureFallback(annee, donneesMensuelles);
+                            onConvertir(d.id, num);
+                            if (currentSociete?.id && societeConfig) {
+                              void incrementerCompteur(
+                                currentSociete.id,
+                                "facture",
+                                Number(societeConfig.compteur_facture ?? 1),
+                              ).then((ok) => { if (ok) void refreshTenant(); });
+                            }
                           }
                         }}
                       >
