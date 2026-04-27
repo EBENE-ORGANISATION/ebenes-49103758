@@ -90,6 +90,12 @@ export const useEbeneStore = () => {
 
   // Anti-boucle : signature locale des dernières valeurs envoyées
   const localSig = useRef<Record<string, string>>({});
+  // Société sur laquelle les states courants sont synchronisés.
+  // Toute écriture (`persist`) qui ne correspond pas à cette ref est
+  // bloquée — empêche les fuites de données entre sociétés pendant la
+  // transition (les setState de reset sont batchés et le useEffect de
+  // persistance peut tirer avec les anciens states + la nouvelle clé).
+  const syncedSocieteRef = useRef<string | null>(null);
 
   // Application d'une valeur reçue (initial ou realtime)
   const applyValue = useCallback((key: string, value: unknown) => {
@@ -132,6 +138,9 @@ export const useEbeneStore = () => {
     // qu'on bascule en mode consolidé). On évite ainsi toute fuite de
     // données entre sociétés.
     setLoaded(false);
+    // Marque immédiatement qu'aucune société n'est synchronisée → bloque
+    // toute écriture jusqu'à la fin du chargement de la nouvelle société.
+    syncedSocieteRef.current = null;
     setDonneesMensuelles({});
     setEmployes([]);
     setParamsAnnuels({});
@@ -203,7 +212,10 @@ export const useEbeneStore = () => {
         if (firstTaux) setTauxHistorique(firstTaux as TauxFiscaux[]);
         const firstParams = (grouped[K_PARAMS_ANNUELS] || []).find((v) => v && typeof v === "object");
         if (firstParams) setParamsAnnuels(firstParams as Record<number, ParamsAnnuels>);
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          syncedSocieteRef.current = "__consolide__";
+          setLoaded(true);
+        }
       })();
       // Pas de realtime en mode consolidé (lecture seule)
       return () => { cancelled = true; };
@@ -224,7 +236,10 @@ export const useEbeneStore = () => {
           applyValue(base, row.value);
         }
       }
-      if (!cancelled) setLoaded(true);
+      if (!cancelled) {
+        syncedSocieteRef.current = societeId;
+        setLoaded(true);
+      }
     })();
 
     const channel = supabase
@@ -260,6 +275,10 @@ export const useEbeneStore = () => {
   const persist = useCallback(async (baseKey: string, value: unknown) => {
     // En mode consolidé, on ne persiste rien (lecture seule)
     if (consolide) return;
+    // Garde-fou : on ne persiste que si les states React sont bien
+    // synchronisés avec la société active. Évite d'écrire des données
+    // de l'ancienne société sous la clé de la nouvelle.
+    if (syncedSocieteRef.current !== societeId) return;
     const sig = JSON.stringify(value);
     if (localSig.current[baseKey] === sig) return;
     localSig.current[baseKey] = sig;
