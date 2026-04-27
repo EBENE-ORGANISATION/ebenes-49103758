@@ -1,0 +1,61 @@
+import type { Translation } from "./fr";
+
+const es: Translation = {
+  common: {
+    save: "Guardar",
+    cancel: "Cancelar",
+    delete: "Eliminar",
+    edit: "Editar",
+    add: "Añadir",
+    close: "Cerrar",
+    confirm: "Confirmar",
+    loading: "Cargando…",
+    actions: "Acciones",
+    yes: "Sí",
+    no: "No",
+    language: "Idioma",
+  },
+  header: {
+    subtitle: "Comercio General — Sistema de Gestión",
+    saved_at: "Guardado {{when}}",
+    export_json: "Exportar JSON",
+    import_json: "Importar JSON",
+    archives: "Archivos",
+    yearly_recap: "Resumen anual",
+    users: "Usuarios",
+    audit: "Auditoría",
+    settings: "Ajustes empresa",
+    super_admin: "Super Admin",
+    logout: "Cerrar sesión",
+    select_company: "Empresa",
+    install_app: "Instalar la app",
+  },
+  tabs: {
+    dashboard: "Panel",
+    accounting: "Contabilidad",
+    tax: "Fiscalidad",
+    invoices: "Facturas",
+    stock: "Inventario",
+    hr: "RRHH",
+    fixed_assets: "Inmovilizado",
+  },
+  dashboard: {
+    revenue_month: "Ingresos (mes)",
+    payroll: "Nómina",
+    unpaid_invoices: "Facturas impagadas",
+    treasury: "Tesorería estimada",
+    revenue_12m: "Ingresos — últimos 12 meses",
+    tax_charges: "Cargas fiscales mensuales — IVA, CNSS, IRPP",
+    unit: "Unidad",
+    unit_franc: "F (francos)",
+    unit_thousand: "k F (miles)",
+    unit_hundred_thousand: "100k F (cientos de miles)",
+  },
+  langs: {
+    fr: "Francés",
+    en: "Inglés",
+    es: "Español",
+  },
+};
+
+export default es;

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
 import { Dashboard } from "@/components/ebene/Dashboard";
@@ -22,6 +23,7 @@ import { PortailEmploye } from "@/components/employe/PortailEmploye";
 import { useTenant } from "@/hooks/useTenant";
 
 const Index = () => {
+  const { t } = useTranslation();
   const now = new Date();
   const [annee, setAnnee] = useState(now.getFullYear());
   const [mois, setMois] = useState(now.getMonth() + 1);
@@ -145,16 +147,16 @@ const Index = () => {
   const showGrh = lvlGrh !== "none" && modOk("module_grh");
 
   const visibleTabs = [
-    showDashboard, showCompta, showFisc, showFact, showStock, showGrh, showImmo,
+    showDashboard, showCompta, showFisc, showFact, showStock, showImmo, showGrh,
   ].filter(Boolean).length;
   const defaultTab = showDashboard
     ? "dashboard"
     : showCompta ? "compta"
     : showFact ? "fact"
     : showStock ? "stock"
+    : showImmo ? "immo"
     : showGrh ? "grh"
     : showFisc ? "fisc"
-    : showImmo ? "immo"
     : "compta";
   const gridCols = visibleTabs >= 7 ? "sm:grid-cols-7"
     : visibleTabs === 6 ? "sm:grid-cols-6"
@@ -189,37 +191,37 @@ const Index = () => {
             <TabsList className={`grid grid-cols-2 ${gridCols} w-full mb-5 h-auto`}>
               {showDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
-                  📊 Dashboard
+                  📊 {t("tabs.dashboard")}
                 </TabsTrigger>
               )}
               {showCompta && (
                 <TabsTrigger value="compta" className="py-2.5 text-sm font-semibold">
-                  💰 Comptabilité
+                  💰 {t("tabs.accounting")}
                 </TabsTrigger>
               )}
               {showFisc && (
                 <TabsTrigger value="fisc" className="py-2.5 text-sm font-semibold">
-                  🧮 Fiscalité
+                  🧮 {t("tabs.tax")}
                 </TabsTrigger>
               )}
               {showFact && (
                 <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
-                  📄 Factures
+                  📄 {t("tabs.invoices")}
                 </TabsTrigger>
               )}
               {showStock && (
                 <TabsTrigger value="stock" className="py-2.5 text-sm font-semibold">
-                  📦 Stock
-                </TabsTrigger>
-              )}
-              {showGrh && (
-                <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
-                  👥 GRH
+                  📦 {t("tabs.stock")}
                 </TabsTrigger>
               )}
               {showImmo && (
                 <TabsTrigger value="immo" className="py-2.5 text-sm font-semibold">
-                  🏢 Immobilisations
+                  🏢 {t("tabs.fixed_assets")}
+                </TabsTrigger>
+              )}
+              {showGrh && (
+                <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
+                  👥 {t("tabs.hr")}
                 </TabsTrigger>
               )}
             </TabsList>

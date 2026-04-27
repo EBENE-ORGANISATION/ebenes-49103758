@@ -1,0 +1,61 @@
+import type { Translation } from "./fr";
+
+const en: Translation = {
+  common: {
+    save: "Save",
+    cancel: "Cancel",
+    delete: "Delete",
+    edit: "Edit",
+    add: "Add",
+    close: "Close",
+    confirm: "Confirm",
+    loading: "Loading…",
+    actions: "Actions",
+    yes: "Yes",
+    no: "No",
+    language: "Language",
+  },
+  header: {
+    subtitle: "General Trade — Management System",
+    saved_at: "Saved {{when}}",
+    export_json: "Export JSON",
+    import_json: "Import JSON",
+    archives: "Archives",
+    yearly_recap: "Yearly Recap",
+    users: "Users",
+    audit: "Audit",
+    settings: "Company settings",
+    super_admin: "Super Admin",
+    logout: "Sign out",
+    select_company: "Company",
+    install_app: "Install the app",
+  },
+  tabs: {
+    dashboard: "Dashboard",
+    accounting: "Accounting",
+    tax: "Tax",
+    invoices: "Invoices",
+    stock: "Stock",
+    hr: "HR",
+    fixed_assets: "Fixed assets",
+  },
+  dashboard: {
+    revenue_month: "Revenue (month)",
+    payroll: "Payroll",
+    unpaid_invoices: "Unpaid invoices",
+    treasury: "Estimated treasury",
+    revenue_12m: "Revenue — last 12 months",
+    tax_charges: "Monthly tax charges — VAT, CNSS, IRPP",
+    unit: "Unit",
+    unit_franc: "F (francs)",
+    unit_thousand: "k F (thousands)",
+    unit_hundred_thousand: "100k F (hundreds of thousands)",
+  },
+  langs: {
+    fr: "French",
+    en: "English",
+    es: "Spanish",
+  },
+};
+
+export default en;
