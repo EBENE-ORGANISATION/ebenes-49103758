@@ -1,0 +1,63 @@
+// ============================================================================
+// GABARIT — à fusionner dans android/app/build.gradle après `npx cap add android`
+//
+// Capacitor génère ce fichier. Adapter les valeurs ci-dessous (defaultConfig)
+// puis décommenter le bloc signingConfigs/buildTypes pour signer la release.
+// ============================================================================
+
+apply plugin: 'com.android.application'
+
+// ----- Charger key.properties (gitignored) -----
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace "com.ebeneservices.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.ebeneservices.app"
+        minSdkVersion 22          // Android 5.1+
+        targetSdkVersion 34       // Android 14
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions { ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~' }
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias     keystoreProperties['keyAlias']
+                keyPassword  keystoreProperties['keyPassword']
+                storeFile    file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+repositories { flatDir { dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs' } }
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation project(':capacitor-android')
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+try { def servicesJSON = file('google-services.json'); if (servicesJSON.text) { apply plugin: 'com.google.gms.google-services' } } catch(Exception e) { logger.info "google-services.json not found, google-services plugin not applied. Push Notifications won't work" }
