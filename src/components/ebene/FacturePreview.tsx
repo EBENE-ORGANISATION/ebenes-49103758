@@ -89,12 +89,12 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               gap: "0",
             }}
           >
-            <img src={logoEbene} alt="EBENE SERVICES" style={{ height: "22mm", width: "auto" }} />
+            <img src={logoSrc} alt={nomSociete} style={{ height: "22mm", width: "auto", maxWidth: "60mm", objectFit: "contain" }} />
             <div
               style={{
                 flex: 1,
                 height: "2mm",
-                background: "#3D0000",
+                background: couleurPrimaire,
                 marginLeft: "4mm",
               }}
             />
@@ -112,8 +112,8 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
-            <div style={{ width: "30mm", height: "1.5mm", background: "#3D0000", borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleurPrimaire, borderRadius: "1mm" }} />
+            <div style={{ width: "30mm", height: "1.5mm", background: couleurPrimaire, borderRadius: "1mm" }} />
           </div>
 
           {/* ─── PIED : coordonnées centrées ─── */}
@@ -129,11 +129,11 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               color: "#1a1a1a",
             }}
           >
-            Quartier ADAWLATO, Rue du Grand Marché, N° RCCM: TG-LFW-01-2026-B13-00075
-            <br />
-            LOME-TOGO, TEL: (+228) 97 43 38 20,
-            <br />
-            Email: ebnservicess@gmail.com NIF: 1 002 088 759
+            <div style={{ fontWeight: 700, marginBottom: "1mm", color: couleurPrimaire }}>{nomSociete}</div>
+            {adresse && <>{adresse}<br /></>}
+            {[telephone && `Tél : ${telephone}`, email && `Email : ${email}`].filter(Boolean).join("  •  ")}
+            {(telephone || email) && <br />}
+            {[rccm && `RCCM : ${rccm}`, nif && `NIF : ${nif}`].filter(Boolean).join("  •  ")}
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}
