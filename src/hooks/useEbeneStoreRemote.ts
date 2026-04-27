@@ -101,6 +101,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
       ? d.retenues
       : {},
   mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
+  devis: Array.isArray(d?.devis) ? d!.devis : [],
 });
 
 export const useEbeneStoreRemote = () => {
