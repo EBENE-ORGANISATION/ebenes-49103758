@@ -260,19 +260,37 @@ Deno.serve(async (req) => {
         // Re-authentifier le super-admin avec son mot de passe actuel
         const { data: me } = await admin.auth.admin.getUserById(userId);
         if (!me?.user?.email) return json(400, { error: "Email actuel introuvable" });
+        const targetEmail = String(new_email).trim().toLowerCase();
+        if (targetEmail === me.user.email.toLowerCase()) {
+          return json(400, { error: "Le nouvel email est identique à l'actuel" });
+        }
         const { error: signInErr } = await userClient.auth.signInWithPassword({
           email: me.user.email,
           password: String(current_password),
         });
         if (signInErr) return json(401, { error: "Mot de passe actuel incorrect" });
 
+        // Vérifier qu'aucun autre compte n'utilise déjà cet email
+        const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const conflict = existing?.users.find(
+          (u) => u.id !== userId && u.email?.toLowerCase() === targetEmail,
+        );
+        if (conflict) {
+          return json(409, { error: "Cet email est déjà utilisé par un autre compte" });
+        }
+
         const { data, error } = await admin.auth.admin.updateUserById(userId, {
-          email: String(new_email),
+          email: targetEmail,
           email_confirm: true,
         });
-        if (error) return json(400, { error: error.message });
+        if (error) {
+          const msg = error.message?.includes("duplicate")
+            ? "Cet email est déjà utilisé par un autre compte"
+            : error.message || "Erreur de mise à jour";
+          return json(400, { error: msg });
+        }
         // Mettre à jour le profil
-        await admin.from("profiles").update({ email: String(new_email) }).eq("user_id", userId);
+        await admin.from("profiles").update({ email: targetEmail }).eq("user_id", userId);
         return json(200, { ok: true, user: { id: data.user?.id, email: data.user?.email } });
       }
 
