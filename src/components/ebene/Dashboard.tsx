@@ -18,6 +18,10 @@ import {
   Banknote,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Layers } from "lucide-react";
+import { useSociete } from "@/hooks/useSocieteContext";
 import type {
   DonneesMensuelles,
   Employe,
@@ -63,6 +67,11 @@ export const Dashboard = ({
   annee,
   mois,
 }: DashboardProps) => {
+  // Toggle "Vue consolidée" : agrège les KPI de toutes les sociétés
+  // accessibles à l'utilisateur. Visible uniquement si plusieurs sociétés.
+  const { societes, consolide, setConsolide } = useSociete();
+  const showConsolideToggle = societes.length > 1;
+
   // ─── KPIs du mois en cours ──────────────────────────────────────────────
   const moisCourant = donneesMensuelles[moisKey(annee, mois)];
   const taux = tauxPourMois(tauxHistorique, annee, mois) || TAUX_DEFAUT;
@@ -149,6 +158,31 @@ export const Dashboard = ({
 
   return (
     <div className="space-y-6">
+      {showConsolideToggle && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <Layers className="size-4 text-primary shrink-0" />
+              <div className="min-w-0">
+                <Label htmlFor="consolide-toggle" className="text-sm font-semibold cursor-pointer">
+                  Vue consolidée
+                </Label>
+                <div className="text-xs text-muted-foreground">
+                  {consolide
+                    ? `Agrégation des données de ${societes.length} sociétés (lecture seule)`
+                    : "Affiche les KPI cumulés de toutes les sociétés auxquelles vous avez accès"}
+                </div>
+              </div>
+            </div>
+            <Switch
+              id="consolide-toggle"
+              checked={consolide}
+              onCheckedChange={setConsolide}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* ─── KPIs ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
