@@ -49,6 +49,7 @@ const K_ARTICLES = "articles";
 const K_FOURNISSEURS = "fournisseurs";
 const K_CATEGORIES_STOCK = "categoriesStock";
 const K_SANCTIONS = "sanctions";
+const K_IMMOBILISATIONS = "immobilisations";
 
 const ALL_KEYS = [
   K_DONNEES,
@@ -59,6 +60,7 @@ const ALL_KEYS = [
   K_FOURNISSEURS,
   K_CATEGORIES_STOCK,
   K_SANCTIONS,
+  K_IMMOBILISATIONS,
 ] as const;
 
 // ─── Fallback localStorage ───
