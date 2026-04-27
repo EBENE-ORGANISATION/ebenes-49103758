@@ -185,6 +185,83 @@ export type Database = {
         }
         Relationships: []
       }
+      societe_config: {
+        Row: {
+          adresse: string | null
+          couleur_accent: string | null
+          couleur_primaire: string | null
+          couleur_secondaire: string | null
+          email: string | null
+          logo_url: string | null
+          mention_contrat: string | null
+          mention_facture: string | null
+          module_fiscalite: boolean
+          module_grh: boolean
+          module_immobilisations: boolean
+          module_stock: boolean
+          nif: string | null
+          police: string | null
+          rccm: string | null
+          site_web: string | null
+          societe_id: string
+          telephone: string | null
+          theme_custom: Json
+          updated_at: string
+        }
+        Insert: {
+          adresse?: string | null
+          couleur_accent?: string | null
+          couleur_primaire?: string | null
+          couleur_secondaire?: string | null
+          email?: string | null
+          logo_url?: string | null
+          mention_contrat?: string | null
+          mention_facture?: string | null
+          module_fiscalite?: boolean
+          module_grh?: boolean
+          module_immobilisations?: boolean
+          module_stock?: boolean
+          nif?: string | null
+          police?: string | null
+          rccm?: string | null
+          site_web?: string | null
+          societe_id: string
+          telephone?: string | null
+          theme_custom?: Json
+          updated_at?: string
+        }
+        Update: {
+          adresse?: string | null
+          couleur_accent?: string | null
+          couleur_primaire?: string | null
+          couleur_secondaire?: string | null
+          email?: string | null
+          logo_url?: string | null
+          mention_contrat?: string | null
+          mention_facture?: string | null
+          module_fiscalite?: boolean
+          module_grh?: boolean
+          module_immobilisations?: boolean
+          module_stock?: boolean
+          nif?: string | null
+          police?: string | null
+          rccm?: string | null
+          site_web?: string | null
+          societe_id?: string
+          telephone?: string | null
+          theme_custom?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "societe_config_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: true
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       societes: {
         Row: {
           adresse: string
@@ -199,10 +276,13 @@ export type Database = {
           mention_legale_pied: string
           nif: string
           nom: string
+          plan: string
           rccm: string
           representant: string
           site_web: string
           slogan: string
+          slug: string | null
+          statut: string
           telephone: string
           updated_at: string
         }
@@ -219,10 +299,13 @@ export type Database = {
           mention_legale_pied?: string
           nif?: string
           nom: string
+          plan?: string
           rccm?: string
           representant?: string
           site_web?: string
           slogan?: string
+          slug?: string | null
+          statut?: string
           telephone?: string
           updated_at?: string
         }
@@ -239,10 +322,13 @@ export type Database = {
           mention_legale_pied?: string
           nif?: string
           nom?: string
+          plan?: string
           rccm?: string
           representant?: string
           site_web?: string
           slogan?: string
+          slug?: string | null
+          statut?: string
           telephone?: string
           updated_at?: string
         }
