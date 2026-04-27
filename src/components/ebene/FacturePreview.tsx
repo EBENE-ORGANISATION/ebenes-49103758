@@ -153,7 +153,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                   flex: 1,
                   background: isProforma
                     ? "linear-gradient(135deg, #a06800 0%, #c98a1f 100%)"
-                    : "linear-gradient(135deg, #3D0000 0%, #6b1a1a 100%)",
+                    : `linear-gradient(135deg, ${couleurPrimaire} 0%, ${couleurAccent} 100%)`,
                   color: "#fff",
                   padding: "6mm 8mm",
                   borderRadius: "3mm",
@@ -208,7 +208,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
             <div
               style={{
                 background: "#fafafa",
-                borderLeft: "4px solid #3D0000",
+                borderLeft: `4px solid ${couleurPrimaire}`,
                 padding: "5mm 6mm",
                 marginBottom: "10mm",
                 borderRadius: "0 2mm 2mm 0",
@@ -248,7 +248,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       textAlign: "left",
                       padding: "4mm 5mm",
                       fontWeight: 600,
-                      background: "#3D0000",
+                      background: couleurPrimaire,
                       color: "#fff",
                       borderTopLeftRadius: "2mm",
                       fontSize: "10pt",
@@ -263,7 +263,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       padding: "4mm 5mm",
                       width: "50mm",
                       fontWeight: 600,
-                      background: "#3D0000",
+                      background: couleurPrimaire,
                       color: "#fff",
                       borderTopRightRadius: "2mm",
                       fontSize: "10pt",
@@ -354,7 +354,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <div
                   style={{
                     marginTop: "3mm",
-                    background: "linear-gradient(135deg, #3D0000 0%, #6b1a1a 100%)",
+                    background: `linear-gradient(135deg, ${couleurPrimaire} 0%, ${couleurAccent} 100%)`,
                     color: "#fff",
                     padding: "4mm 5mm",
                     borderRadius: "2mm",
@@ -403,9 +403,26 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <p style={{ margin: 0, color: "#89604A", fontWeight: 600, letterSpacing: "1px", fontSize: "9.5pt" }}>
                   LA DIRECTION
                 </p>
-                <div style={{ marginTop: "16mm", borderTop: "1.5px solid #3D0000", width: "100%" }} />
+                <div style={{ marginTop: "16mm", borderTop: `1.5px solid ${couleurPrimaire}`, width: "100%" }} />
               </div>
             </div>
+
+            {mention && (
+              <div
+                style={{
+                  marginTop: "8mm",
+                  padding: "3mm 4mm",
+                  background: "#fbf7f3",
+                  borderRadius: "2mm",
+                  fontSize: "9pt",
+                  fontStyle: "italic",
+                  color: "#555",
+                  textAlign: "center",
+                }}
+              >
+                {mention}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
