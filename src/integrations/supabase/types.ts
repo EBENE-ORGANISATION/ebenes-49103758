@@ -185,6 +185,39 @@ export type Database = {
         }
         Relationships: []
       }
+      societes: {
+        Row: {
+          adresse: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nif: string
+          nom: string
+          rccm: string
+          updated_at: string
+        }
+        Insert: {
+          adresse?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nif?: string
+          nom: string
+          rccm?: string
+          updated_at?: string
+        }
+        Update: {
+          adresse?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nif?: string
+          nom?: string
+          rccm?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -209,11 +242,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_societes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          societe_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          societe_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          societe_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_societes_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      app_state_societe_id: { Args: { _key: string }; Returns: string }
       has_active_chef_grant: {
         Args: { _service: string; _user_id: string }
         Returns: boolean
@@ -229,9 +295,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_societe_access: {
+        Args: { _societe_id: string; _user_id: string }
+        Returns: boolean
+      }
       in_service_compta: { Args: { _user_id: string }; Returns: boolean }
       in_service_grh: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_general: { Args: { _user_id: string }; Returns: boolean }
       is_chef: { Args: { _user_id: string }; Returns: boolean }
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
