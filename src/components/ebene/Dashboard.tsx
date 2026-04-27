@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -18,6 +18,15 @@ import {
   Banknote,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useTranslation } from "react-i18next";
 import type {
   DonneesMensuelles,
   Employe,
@@ -56,6 +65,30 @@ const sumTvaCollectee = (m: MoisData): number =>
     .filter((f) => f.statut === "payee" && f.avecTva)
     .reduce((s, f) => s + f.totalTva, 0);
 
+/** Unités d'affichage des montants pour le dashboard. */
+type UnitMode = "F" | "kF" | "100kF";
+
+/** Diviseur appliqué à la valeur brute selon l'unité choisie. */
+const UNIT_DIV: Record<UnitMode, number> = { F: 1, kF: 1_000, "100kF": 100_000 };
+/** Suffixe affiché après le nombre. */
+const UNIT_SUFFIX: Record<UnitMode, string> = {
+  F: "F",
+  kF: "k F",
+  "100kF": "×100k F",
+};
+
+/** Formate un montant brut (en F) selon le mode d'unité choisi. */
+const formatUnit = (n: number, mode: UnitMode): string => {
+  if (mode === "F") return formatMontant(n);
+  const v = n / UNIT_DIV[mode];
+  const abs = Math.abs(v);
+  const formatted = abs.toLocaleString("fr-FR", {
+    minimumFractionDigits: abs >= 100 ? 0 : 1,
+    maximumFractionDigits: abs >= 100 ? 0 : 1,
+  });
+  return `${v < 0 ? "-" : ""}${formatted} ${UNIT_SUFFIX[mode]}`;
+};
+
 export const Dashboard = ({
   donneesMensuelles,
   employes,
@@ -63,6 +96,20 @@ export const Dashboard = ({
   annee,
   mois,
 }: DashboardProps) => {
+  const { t } = useTranslation();
+  // Mode d'affichage des montants. Persistance locale.
+  const [unit, setUnit] = useState<UnitMode>(() => {
+    try {
+      const saved = localStorage.getItem("ebene:dashboard:unit");
+      if (saved === "F" || saved === "kF" || saved === "100kF") return saved;
+    } catch { /* ignore */ }
+    return "F";
+  });
+  const setUnitPersist = (u: UnitMode) => {
+    setUnit(u);
+    try { localStorage.setItem("ebene:dashboard:unit", u); } catch { /* ignore */ }
+  };
+  const fmt = (n: number) => formatUnit(n, unit);
   // ─── KPIs du mois en cours ──────────────────────────────────────────────
   const moisCourant = donneesMensuelles[moisKey(annee, mois)];
   const taux = tauxPourMois(tauxHistorique, annee, mois) || TAUX_DEFAUT;
@@ -149,30 +196,47 @@ export const Dashboard = ({
 
   return (
     <div className="space-y-6">
+      {/* ─── Sélecteur d'unité ────────────────────────────── */}
+      <div className="flex items-center justify-end gap-3">
+        <Label htmlFor="unit-select" className="text-xs text-muted-foreground">
+          {t("dashboard.unit")} :
+        </Label>
+        <Select value={unit} onValueChange={(v) => setUnitPersist(v as UnitMode)}>
+          <SelectTrigger id="unit-select" className="h-8 w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="F">{t("dashboard.unit_franc")}</SelectItem>
+            <SelectItem value="kF">{t("dashboard.unit_thousand")}</SelectItem>
+            <SelectItem value="100kF">{t("dashboard.unit_hundred_thousand")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* ─── KPIs ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={<TrendingUp className="size-5" />}
-          label="Chiffre d'affaires (mois)"
-          value={`${formatMontant(kpis.ca)} F`}
+          label={t("dashboard.revenue_month")}
+          value={fmt(kpis.ca)}
           tone="success"
         />
         <KpiCard
           icon={<Wallet className="size-5" />}
-          label="Masse salariale"
-          value={`${formatMontant(kpis.masseSalariale)} F`}
+          label={t("dashboard.payroll")}
+          value={fmt(kpis.masseSalariale)}
           tone="primary"
         />
         <KpiCard
           icon={<FileWarning className="size-5" />}
-          label="Factures impayées"
+          label={t("dashboard.unpaid_invoices")}
           value={String(kpis.facturesImpayees)}
           tone={kpis.facturesImpayees > 0 ? "warning" : "muted"}
         />
         <KpiCard
           icon={<Banknote className="size-5" />}
-          label="Trésorerie estimée"
-          value={`${formatMontant(kpis.tresorerie)} F`}
+          label={t("dashboard.treasury")}
+          value={fmt(kpis.tresorerie)}
           tone={kpis.tresorerie >= 0 ? "success" : "destructive"}
         />
       </div>
@@ -189,7 +253,7 @@ export const Dashboard = ({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Chiffre d'affaires — 12 derniers mois
+            {t("dashboard.revenue_12m")}
           </CardTitle>
         </CardHeader>
         <CardContent className="h-72">
@@ -200,7 +264,7 @@ export const Dashboard = ({
               <YAxis
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
-                tickFormatter={(v) => formatMontant(Number(v))}
+                tickFormatter={(v) => fmt(Number(v))}
                 width={80}
               />
               <Tooltip
@@ -210,7 +274,7 @@ export const Dashboard = ({
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => [`${formatMontant(v)} F`, "CA"]}
+                formatter={(v: number) => [fmt(v), "CA"]}
               />
               <Line
                 type="monotone"
@@ -229,7 +293,7 @@ export const Dashboard = ({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Charges fiscales mensuelles — TVA, CNSS, IRPP
+            {t("dashboard.tax_charges")}
           </CardTitle>
         </CardHeader>
         <CardContent className="h-72">
@@ -240,7 +304,7 @@ export const Dashboard = ({
               <YAxis
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
-                tickFormatter={(v) => formatMontant(Number(v))}
+                tickFormatter={(v) => fmt(Number(v))}
                 width={80}
               />
               <Tooltip
@@ -250,12 +314,13 @@ export const Dashboard = ({
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => `${formatMontant(v)} F`}
+                formatter={(v: number) => fmt(v)}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="TVA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="CNSS" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="IRPP" fill="hsl(var(--secondary-foreground))" radius={[4, 4, 0, 0]} />
+              {/* IRPP : couleur destructive (rouge/orangé) — visible sur fond clair ET sombre */}
+              <Bar dataKey="IRPP" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
