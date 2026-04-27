@@ -459,6 +459,7 @@ export type Database = {
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
       is_employe: { Args: { _user_id: string }; Returns: boolean }
+      is_modele_societe: { Args: { _societe_id: string }; Returns: boolean }
     }
     Enums: {
       access_level: "none" | "read" | "write" | "validate"
