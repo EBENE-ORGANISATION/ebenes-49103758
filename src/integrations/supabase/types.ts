@@ -1020,10 +1020,14 @@ export type Database = {
       societe_config: {
         Row: {
           adresse: string | null
+          compteur_devis: number
+          compteur_facture: number
           couleur_accent: string | null
           couleur_primaire: string | null
           couleur_secondaire: string | null
           email: string | null
+          format_devis: string
+          format_facture: string
           logo_url: string | null
           mention_contrat: string | null
           mention_facture: string | null
@@ -1044,10 +1048,14 @@ export type Database = {
         }
         Insert: {
           adresse?: string | null
+          compteur_devis?: number
+          compteur_facture?: number
           couleur_accent?: string | null
           couleur_primaire?: string | null
           couleur_secondaire?: string | null
           email?: string | null
+          format_devis?: string
+          format_facture?: string
           logo_url?: string | null
           mention_contrat?: string | null
           mention_facture?: string | null
@@ -1068,10 +1076,14 @@ export type Database = {
         }
         Update: {
           adresse?: string | null
+          compteur_devis?: number
+          compteur_facture?: number
           couleur_accent?: string | null
           couleur_primaire?: string | null
           couleur_secondaire?: string | null
           email?: string | null
+          format_devis?: string
+          format_facture?: string
           logo_url?: string | null
           mention_contrat?: string | null
           mention_facture?: string | null

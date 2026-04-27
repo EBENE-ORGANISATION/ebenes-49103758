@@ -14,6 +14,23 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Settings2, Upload, Image as ImgIcon } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DEFAULT_FORMAT_FACTURE,
+  DEFAULT_FORMAT_DEVIS,
+  formaterNumero,
+  resetCompteur,
+} from "@/lib/numerotation";
 
 const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="space-y-1.5">
@@ -52,7 +69,10 @@ const ParametresSociete = () => {
     rccm: "",
     mention_facture: "",
     mention_contrat: "",
+    format_facture: DEFAULT_FORMAT_FACTURE,
+    format_devis: DEFAULT_FORMAT_DEVIS,
   });
+  const [resetting, setResetting] = useState<null | "facture" | "devis">(null);
 
   useEffect(() => {
     if (!societeConfig) return;
@@ -69,6 +89,8 @@ const ParametresSociete = () => {
       rccm: societeConfig.rccm ?? "",
       mention_facture: societeConfig.mention_facture ?? "",
       mention_contrat: societeConfig.mention_contrat ?? "",
+      format_facture: societeConfig.format_facture ?? DEFAULT_FORMAT_FACTURE,
+      format_devis: societeConfig.format_devis ?? DEFAULT_FORMAT_DEVIS,
     });
   }, [societeConfig]);
 
@@ -130,6 +152,8 @@ const ParametresSociete = () => {
           rccm: draft.rccm,
           mention_facture: draft.mention_facture,
           mention_contrat: draft.mention_contrat,
+          format_facture: draft.format_facture || DEFAULT_FORMAT_FACTURE,
+          format_devis: draft.format_devis || DEFAULT_FORMAT_DEVIS,
         })
         .eq("societe_id", currentSociete.id);
       if (error) throw error;
@@ -141,6 +165,32 @@ const ParametresSociete = () => {
       setBusy(false);
     }
   };
+
+  const handleReset = async (type: "facture" | "devis") => {
+    if (!currentSociete) return;
+    setResetting(type);
+    try {
+      await resetCompteur(currentSociete.id, type, 1);
+      await refresh();
+      toast.success(`Compteur ${type === "facture" ? "factures" : "devis"} réinitialisé à 1.`);
+    } catch (e) {
+      toast.error("Échec : " + (e as Error).message);
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  const annee = new Date().getFullYear();
+  const previewFacture = formaterNumero(
+    draft.format_facture || DEFAULT_FORMAT_FACTURE,
+    annee,
+    Number(societeConfig?.compteur_facture ?? 1),
+  );
+  const previewDevis = formaterNumero(
+    draft.format_devis || DEFAULT_FORMAT_DEVIS,
+    annee,
+    Number(societeConfig?.compteur_devis ?? 1),
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -297,6 +347,108 @@ const ParametresSociete = () => {
                     onChange={(e) => setDraft((d) => ({ ...d, mention_contrat: e.target.value }))}
                     placeholder="Ex : Contrat régi par la législation togolaise."
                   />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <h2 className="font-bold">Numérotation automatique</h2>
+              <p className="text-xs text-muted-foreground">
+                Jetons disponibles : <span className="font-mono">{"{YYYY}"}</span> année,&nbsp;
+                <span className="font-mono">{"{YY}"}</span> année courte,&nbsp;
+                <span className="font-mono">{"{MM}"}</span> mois,&nbsp;
+                <span className="font-mono">{"{NNN}"}</span> compteur (3 chiffres),&nbsp;
+                <span className="font-mono">{"{NNNN}"}</span> 4 chiffres,&nbsp;
+                <span className="font-mono">{"{N}"}</span> brut.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Format facture</Label>
+                  <Input
+                    value={draft.format_facture}
+                    onChange={(e) => setDraft((d) => ({ ...d, format_facture: e.target.value }))}
+                    className="font-mono"
+                    placeholder={DEFAULT_FORMAT_FACTURE}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Aperçu : <span className="font-mono font-semibold">{previewFacture}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      (compteur actuel : {Number(societeConfig?.compteur_facture ?? 1)})
+                    </span>
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1"
+                        disabled={resetting !== null}
+                      >
+                        Réinitialiser le compteur
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Réinitialiser le compteur factures ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Le prochain numéro de facture repartira à 1. Cette action est
+                          immédiate et peut créer des doublons si des factures portent déjà
+                          ce numéro. Confirmer ?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleReset("facture")}>
+                          Confirmer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Format devis</Label>
+                  <Input
+                    value={draft.format_devis}
+                    onChange={(e) => setDraft((d) => ({ ...d, format_devis: e.target.value }))}
+                    className="font-mono"
+                    placeholder={DEFAULT_FORMAT_DEVIS}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Aperçu : <span className="font-mono font-semibold">{previewDevis}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      (compteur actuel : {Number(societeConfig?.compteur_devis ?? 1)})
+                    </span>
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1"
+                        disabled={resetting !== null}
+                      >
+                        Réinitialiser le compteur
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Réinitialiser le compteur devis ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Le prochain numéro de devis repartira à 1. Cette action est
+                          immédiate et peut créer des doublons si des devis portent déjà
+                          ce numéro. Confirmer ?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleReset("devis")}>
+                          Confirmer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </Card>
