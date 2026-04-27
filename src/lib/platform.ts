@@ -46,12 +46,75 @@ export function isWeb(): boolean {
 }
 
 /** Plateforme courante : "web" | "android" | "ios". */
-export function platform(): "web" | "android" | "ios" {
+export function platform(): "web" | "android" | "ios" | "electron" {
   try {
+    if (isElectron()) return "electron";
     const p = Capacitor.getPlatform();
     if (p === "android" || p === "ios") return p;
     return "web";
   } catch {
     return "web";
   }
+}
+
+// ─── Electron (desktop Windows/macOS/Linux) ──────────────────────────────
+/**
+ * Vrai si l'app tourne dans le shell Electron (desktop .exe / .app / .AppImage).
+ * On détecte l'API exposée par `electron/preload.cjs` via contextBridge.
+ */
+export function isElectron(): boolean {
+  try {
+    return typeof window !== "undefined"
+      && typeof (window as unknown as { electronAPI?: { platform?: string } }).electronAPI === "object"
+      && (window as unknown as { electronAPI?: { platform?: string } }).electronAPI?.platform === "electron";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sauvegarde un Blob/Uint8Array via la boîte de dialogue native Electron
+ * "Enregistrer sous…" si on est dans Electron, sinon retourne false pour
+ * que l'appelant utilise le fallback navigateur (téléchargement classique).
+ *
+ * @returns true si le fichier a été enregistré via Electron, false sinon.
+ */
+export async function saveFileViaElectron(
+  filename: string,
+  data: Blob | Uint8Array | string,
+  filters?: Array<{ name: string; extensions: string[] }>,
+): Promise<boolean> {
+  if (!isElectron()) return false;
+  const api = (window as unknown as {
+    electronAPI?: {
+      saveFileDialog: (opts: {
+        defaultPath?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+        data: Uint8Array | string;
+        encoding?: "utf8" | "binary";
+      }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
+    };
+  }).electronAPI;
+  if (!api) return false;
+
+  let payload: Uint8Array | string;
+  let encoding: "utf8" | "binary" = "binary";
+  if (typeof data === "string") {
+    payload = data;
+    encoding = "utf8";
+  } else if (data instanceof Uint8Array) {
+    payload = data;
+  } else {
+    // Blob → Uint8Array
+    const buf = await data.arrayBuffer();
+    payload = new Uint8Array(buf);
+  }
+
+  const result = await api.saveFileDialog({
+    defaultPath: filename,
+    filters,
+    data: payload,
+    encoding,
+  });
+  return !result.canceled && !!result.filePath;
 }
