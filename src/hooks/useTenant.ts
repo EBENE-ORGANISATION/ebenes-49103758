@@ -122,7 +122,7 @@ export const useTenant = (): TenantState => {
   }, [config]);
 
   const currentSociete = useMemo(
-    () => societes.find((s) => s.id === currentId) ?? null,
+    () => (Array.isArray(societes) ? societes.find((s) => s.id === currentId) ?? null : null),
     [societes, currentId]
   );
 
