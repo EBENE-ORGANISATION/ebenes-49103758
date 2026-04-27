@@ -348,12 +348,6 @@ export const exportGrandLivre = (
   headerRows.push([`Exercice ${annee}`]);
   headerRows.push([]);
 
-  const withHeader = (sheet: XLSX.WorkSheet) => {
-    if (!headerRows.length) return sheet;
-    XLSX.utils.sheet_add_aoa(sheet, headerRows, { origin: "A1" });
-    return sheet;
-  };
-
   // On construit puis on insère l'en-tête en haut (déplaçant les rows existantes)
   const gl = buildGrandLivreSheet(lignes);
   const bl = buildBalanceSheet(lignes);
