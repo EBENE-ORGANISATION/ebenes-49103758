@@ -20,11 +20,13 @@ import {
   AlertCircle,
   Info,
   Smartphone,
+  Settings2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
+import { useTenant } from "@/hooks/useTenant";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -81,12 +83,16 @@ export const Header = ({
   const [savedAgo, setSavedAgo] = useState("à l'instant");
   const { user, roles, isAdmin, signOut } = useAuth();
   const { canFeature } = useAuth();
+  const { currentSociete, societeConfig } = useTenant();
+  const logoSrc = societeConfig?.logo_url || logoEbene;
+  const nomSociete = currentSociete?.nom || "EBENE SERVICES";
   const showAlertes = canFeature("alertes");
   const showRecap = canFeature("recap_annuel");
   const showArchives = canFeature("archives");
   const showJsonIO = canFeature("json_io");
   const showUsersAdmin = isAdmin && canFeature("users_admin");
   const showAuditLog = isAdmin && canFeature("audit_log");
+  const showParamSociete = isAdmin;
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -165,10 +171,19 @@ export const Header = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
-              <img src={logoEbene} alt="EBENE SERVICES" className="h-20 sm:h-24 w-auto" />
+              {societeConfig?.logo_url ? (
+                <img
+                  src={logoSrc}
+                  alt={nomSociete}
+                  className="h-12 w-auto object-contain"
+                  style={{ maxHeight: "48px" }}
+                />
+              ) : (
+                <img src={logoEbene} alt={nomSociete} className="h-20 sm:h-24 w-auto" />
+              )}
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">EBENE SERVICES</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{nomSociete}</h1>
               <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 <span className="badge-soft bg-success/20 text-success-foreground inline-flex items-center gap-1">
@@ -276,6 +291,11 @@ export const Header = ({
                   </Button>
                 )}
               </>
+            )}
+            {showParamSociete && (
+              <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                <Link to="/admin/societe"><Settings2 className="size-4" /> Paramètres société</Link>
+              </Button>
             )}
             {user && (
               <Button onClick={() => signOut()} variant="secondary" size="sm" className="gap-1.5">
