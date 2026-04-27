@@ -1139,6 +1139,7 @@ export const useEbeneStoreRemote = () => {
         fournisseurs?: Fournisseur[];
         categoriesStock?: CategorieArticle[];
         sanctions?: Sanction[];
+        immobilisations?: Immobilisation[];
       };
       if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
@@ -1147,6 +1148,7 @@ export const useEbeneStoreRemote = () => {
       if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
       if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
       if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
+      if (Array.isArray(dataAny.immobilisations)) setImmobilisations(dataAny.immobilisations);
     },
     []
   );
