@@ -9,8 +9,10 @@ import Auth from "./pages/Auth.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import AuditLog from "./pages/AuditLog.tsx";
 import ParametresSociete from "./pages/ParametresSociete.tsx";
+import SuperAdmin from "./pages/SuperAdmin.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +55,14 @@ const App = () => (
                 <ProtectedRoute requireRoles={["admin"]}>
                   <ParametresSociete />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/super-admin"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdmin />
+                </SuperAdminRoute>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
