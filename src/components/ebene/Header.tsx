@@ -80,6 +80,13 @@ export const Header = ({
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
   const { user, roles, isAdmin, signOut } = useAuth();
+  const { canFeature } = useAuth();
+  const showAlertes = canFeature("alertes");
+  const showRecap = canFeature("recap_annuel");
+  const showArchives = canFeature("archives");
+  const showJsonIO = canFeature("json_io");
+  const showUsersAdmin = isAdmin && canFeature("users_admin");
+  const showAuditLog = isAdmin && canFeature("audit_log");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -195,31 +202,39 @@ export const Header = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <AlertesBell alertes={alertes} />
+            {showAlertes && <AlertesBell alertes={alertes} />}
             <InstallPWAButton />
-            <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
-              <BarChart3 className="size-4" /> Récap Annuel
-            </Button>
-            <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
-              <Archive className="size-4" /> Archives
-            </Button>
-            <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
-              <Download className="size-4" /> Exporter JSON
-            </Button>
-            <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
-              <Upload className="size-4" /> Importer JSON
-            </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onImport(f);
-                e.target.value = "";
-              }}
-            />
+            {showRecap && (
+              <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
+                <BarChart3 className="size-4" /> Récap Annuel
+              </Button>
+            )}
+            {showArchives && (
+              <Button onClick={onShowArchives} variant="secondary" size="sm" className="gap-1.5">
+                <Archive className="size-4" /> Archives
+              </Button>
+            )}
+            {showJsonIO && (
+              <>
+                <Button onClick={onExport} variant="secondary" size="sm" className="gap-1.5">
+                  <Download className="size-4" /> Exporter JSON
+                </Button>
+                <Button onClick={() => fileRef.current?.click()} variant="secondary" size="sm" className="gap-1.5">
+                  <Upload className="size-4" /> Importer JSON
+                </Button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onImport(f);
+                    e.target.value = "";
+                  }}
+                />
+              </>
+            )}
             {onDriveBackup && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -248,14 +263,18 @@ export const Header = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {isAdmin && (
+            {(showUsersAdmin || showAuditLog) && (
               <>
-                <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                  <Link to="/admin/users"><Users className="size-4" /> Utilisateurs</Link>
-                </Button>
-                <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                  <Link to="/admin/audit"><History className="size-4" /> Audit</Link>
-                </Button>
+                {showUsersAdmin && (
+                  <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                    <Link to="/admin/users"><Users className="size-4" /> Utilisateurs</Link>
+                  </Button>
+                )}
+                {showAuditLog && (
+                  <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                    <Link to="/admin/audit"><History className="size-4" /> Audit</Link>
+                  </Button>
+                )}
               </>
             )}
             {user && (
