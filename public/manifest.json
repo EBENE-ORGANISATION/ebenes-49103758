@@ -1,7 +1,7 @@
 {
-  "name": "EBENE SERVICES",
-  "short_name": "EBENE",
-  "description": "Système de gestion d'entreprise EBENE SERVICES : comptabilité, fiscalité, factures et social.",
+  "name": "Appli mère",
+  "short_name": "Appli mère",
+  "description": "Plateforme multi-sociétés de gestion d'entreprise : comptabilité, fiscalité, factures et social.",
   "theme_color": "#1F3864",
   "background_color": "#ffffff",
   "display": "standalone",
