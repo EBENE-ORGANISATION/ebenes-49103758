@@ -29,6 +29,21 @@ import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation } from "@
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 
+/** Construit l'objet societeInfo passé aux générateurs PDF / en-têtes. */
+const buildSocieteInfo = (
+  societe: ReturnType<typeof useTenant>["currentSociete"],
+  config: ReturnType<typeof useTenant>["societeConfig"],
+) => ({
+  nom: societe?.nom ?? null,
+  adresse: config?.adresse ?? societe?.adresse ?? null,
+  telephone: config?.telephone ?? societe?.telephone ?? null,
+  email: config?.email ?? societe?.email ?? null,
+  nif: config?.nif ?? societe?.nif ?? null,
+  rccm: config?.rccm ?? societe?.rccm ?? null,
+  logo_url: config?.logo_url ?? societe?.logo_url ?? null,
+  mention_facture: config?.mention_facture ?? null,
+});
+
 const statutBadge = (s?: StatutValidation) => {
   switch (s) {
     case "valide":
@@ -54,6 +69,13 @@ export const PortailEmploye = () => {
   const { user, signOut } = useAuth();
   const store = useEbeneStore();
   const annee = new Date().getFullYear();
+  const { currentSociete, societeConfig } = useTenant();
+  const societeInfo = useMemo(
+    () => buildSocieteInfo(currentSociete, societeConfig),
+    [currentSociete, societeConfig],
+  );
+  const brandLogo = societeInfo.logo_url || logoEbene;
+  const brandNom = societeInfo.nom || "EBENE";
 
   // ─── Recherche de la fiche employé liée au compte ──────────────────────
   const employe = useMemo(
@@ -144,9 +166,9 @@ export const PortailEmploye = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logoEbene} alt="EBENE Services" className="h-9 w-9" />
+            <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />
             <div>
-              <h1 className="font-bold leading-tight">EBENE — Portail Employé</h1>
+              <h1 className="font-bold leading-tight">{brandNom} — Portail Employé</h1>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -183,9 +205,9 @@ export const PortailEmploye = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={logoEbene} alt="EBENE Services" className="h-9 w-9" />
+          <img src={brandLogo} alt={brandNom} className="h-9 w-9 object-contain" />
           <div>
-            <h1 className="font-bold leading-tight">EBENE — Portail Employé</h1>
+            <h1 className="font-bold leading-tight">{brandNom} — Portail Employé</h1>
             <p className="text-xs text-muted-foreground">
               {employe.nom} • {employe.poste}
               {employe.matricule ? ` • Mat. ${employe.matricule}` : ""}
@@ -266,7 +288,7 @@ export const PortailEmploye = () => {
                           className="gap-1.5"
                           onClick={() => {
                             try {
-                              generateBulletin(employe, store.getMois(annee, mois), annee, mois);
+                              generateBulletin(employe, store.getMois(annee, mois), annee, mois, societeInfo);
                             } catch (err) {
                               console.error(err);
                               toast.error("Impossible de générer le bulletin");
