@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, LogIn, ShieldPlus } from "lucide-react";
-import logoEbene from "@/assets/ebene-logo.png";
+import logoApp from "@/assets/ebene-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
@@ -102,9 +102,9 @@ const Auth = () => {
       <Card className="w-full max-w-md p-8 shadow-2xl border-2">
         <div className="flex flex-col items-center gap-3 mb-6">
           <div className="bg-card rounded-2xl p-4 ring-2 ring-primary/20 shadow-lg">
-            <img src={logoEbene} alt="EBENE SERVICES" className="h-24 w-auto" />
+            <img src={logoApp} alt="Plateforme de gestion" className="h-24 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-center">EBENE SERVICES</h1>
+          <h1 className="text-2xl font-bold text-center">Plateforme de gestion</h1>
           <p className="text-sm text-muted-foreground text-center">
             Connectez-vous pour accéder à votre espace
           </p>
@@ -164,7 +164,7 @@ const Auth = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@ebene-services.com"
+              placeholder="vous@exemple.com"
             />
           </div>
           <div className="space-y-2">
