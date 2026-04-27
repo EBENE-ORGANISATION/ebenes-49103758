@@ -87,7 +87,26 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               gap: "0",
             }}
           >
-            <img src={logo} alt={nomSoc} style={{ height: "22mm", width: "auto", objectFit: "contain" }} />
+            {logo ? (
+              <img src={logo} alt={nomSoc} style={{ height: "22mm", width: "auto", objectFit: "contain" }} />
+            ) : (
+              <div
+                style={{
+                  height: "22mm",
+                  width: "22mm",
+                  background: couleur,
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 700,
+                  fontSize: "12pt",
+                  borderRadius: "2mm",
+                }}
+              >
+                {nomSoc.slice(0, 2).toUpperCase()}
+              </div>
+            )}
             <div
               style={{
                 flex: 1,
