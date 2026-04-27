@@ -26,7 +26,7 @@ const SocieteContext = createContext<SocieteContextValue | null>(null);
 
 export const SocieteProvider = ({ children }: { children: ReactNode }) => {
   const { user, roles } = useAuth();
-  const isAdminGeneral = roles.includes("admin_general" as never);
+  const isAdminGeneral = roles.includes("admin_general");
 
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [societeId, setSocieteIdState] = useState<string | null>(null);
