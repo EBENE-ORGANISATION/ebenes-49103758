@@ -3,6 +3,7 @@ import { saveAs } from "file-saver";
 import type { DonneesMensuelles, Transaction, Immobilisation } from "@/types/ebene";
 import { moisKey } from "@/lib/ebene-utils";
 import { amortissementsAnnee } from "@/lib/amortissements";
+import { ecrituresCession } from "@/lib/cessionImmo";
 
 /** Sous-ensemble de societe_config + societes utilisé pour l'en-tête du classeur. */
 export interface ExportSocieteInfo {
@@ -78,6 +79,12 @@ export const SYSCOHADA_COMPTES: Record<string, string> = {
   // Dotations aux amortissements
   "6811": "Dotations aux amortissements des immo. incorporelles",
   "6813": "Dotations aux amortissements des immo. corporelles",
+  // Cessions d'immobilisations (SYSCOHADA Révisé)
+  "485": "Créances sur cessions d'immobilisations",
+  "812": "Valeurs comptables des cessions d'immobilisations",
+  "822": "Produits des cessions d'immobilisations",
+  "827": "Produits HAO sur cessions d'immobilisations (plus-value)",
+  "837": "Charges HAO sur cessions d'immobilisations (moins-value)",
   // Classe 7 — Produits
   "701": "Ventes de marchandises",
   "706": "Services vendus",
@@ -337,6 +344,35 @@ export const exportGrandLivre = (
       });
     });
   }
+
+  // ─── Écritures de cession d'immobilisations ────────────────────────────
+  // On ne retient que les cessions effectuées durant l'exercice exporté.
+  const cessionsAnnee = immobilisations.filter(
+    (i) =>
+      i.statut === "cede" &&
+      i.dateCession &&
+      new Date(i.dateCession).getFullYear() === annee,
+  );
+  if (cessionsAnnee.length > 0) {
+    let pieceSeq = lignes.length + 1;
+    cessionsAnnee.forEach((immo) => {
+      const piece = `CE${String(pieceSeq).padStart(5, "0")}`;
+      pieceSeq++;
+      const date = immo.dateCession!;
+      ecrituresCession(immo).forEach((e) => {
+        lignes.push({
+          date,
+          piece,
+          compte: e.compte,
+          libelleCompte: SYSCOHADA_COMPTES[e.compte] || "—",
+          desc: e.libelle,
+          debit: e.debit,
+          credit: e.credit,
+        });
+      });
+    });
+  }
+
   const wb = XLSX.utils.book_new();
   // En-tête société sur les deux feuilles
   const headerRows: (string | number)[][] = [];

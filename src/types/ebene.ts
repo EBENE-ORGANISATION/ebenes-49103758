@@ -417,8 +417,17 @@ export interface Immobilisation {
   comptesSYSCOHADA: ComptesSYSCOHADAImmo;
   /** Optionnel : valeur résiduelle prévue en fin de plan. */
   valeurResiduelle?: number;
+  /** Statut de l'immobilisation. */
+  statut?: "actif" | "cede" | "rebut";
   /** Optionnel : date de cession (sortie d'inventaire). */
   dateCession?: string;
+  /** Prix de cession (HT, FCFA). */
+  valeurCession?: number;
+  /**
+   * Plus-value (positif) ou moins-value (négatif) constatée lors de la cession.
+   * Calculé automatiquement = valeurCession - VNC à la date de cession.
+   */
+  plusMoinsValue?: number;
   notes?: string;
 }
 

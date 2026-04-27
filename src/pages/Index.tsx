@@ -441,6 +441,7 @@ const Index = () => {
                 onRemove={immoValidate
                   ? store.removeImmobilisation
                   : blockedId("Suppression réservée au chef Comptabilité / admin.")}
+                onUpdate={immoWrite ? store.updateImmobilisation : undefined}
                 canEdit={immoWrite}
               />
             </TabsContent>

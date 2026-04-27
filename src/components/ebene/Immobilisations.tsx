@@ -15,7 +15,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, FileSpreadsheet, Building2 } from "lucide-react";
+import { Plus, Trash2, FileSpreadsheet, Building2, ArrowRightLeft } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { StatCard } from "./StatCard";
@@ -23,6 +23,15 @@ import {
   amortissementsAnnee,
   planAmortissement,
 } from "@/lib/amortissements";
+import {
+  calculerPlusMoinsValue,
+  vncADate,
+  cumulADate,
+  typeResultatCession,
+} from "@/lib/cessionImmo";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
@@ -31,6 +40,8 @@ interface Props {
   immobilisations: Immobilisation[];
   onAdd: (i: Omit<Immobilisation, "id">) => void;
   onRemove: (id: number) => void;
+  /** Mise à jour partielle (utilisée pour la cession). Optionnel. */
+  onUpdate?: (id: number, patch: Partial<Immobilisation>) => void;
   canEdit: boolean;
 }
 
@@ -44,6 +55,7 @@ export const Immobilisations = ({
   immobilisations,
   onAdd,
   onRemove,
+  onUpdate,
   canEdit,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +65,53 @@ export const Immobilisations = ({
   const [valeur, setValeur] = useState("");
   const [duree, setDuree] = useState("5");
   const [methode, setMethode] = useState<MethodeAmortissement>("lineaire");
+
+  // ─── Cession ─────────────────────────────────────────────────────────────
+  const [cessionImmo, setCessionImmo] = useState<Immobilisation | null>(null);
+  const [cessionDate, setCessionDate] = useState(todayISO());
+  const [cessionValeur, setCessionValeur] = useState("");
+
+  const openCession = (i: Immobilisation) => {
+    setCessionImmo(i);
+    setCessionDate(todayISO());
+    setCessionValeur("");
+  };
+  const closeCession = () => {
+    setCessionImmo(null);
+    setCessionDate(todayISO());
+    setCessionValeur("");
+  };
+
+  const cessionPreview = useMemo(() => {
+    if (!cessionImmo) return null;
+    const valeur = Number(cessionValeur) || 0;
+    const vnc = vncADate(cessionImmo, cessionDate);
+    const cumul = cumulADate(cessionImmo, cessionDate);
+    const pmv = calculerPlusMoinsValue(cessionImmo, cessionDate, valeur);
+    return { valeur, vnc, cumul, pmv, type: typeResultatCession(pmv) };
+  }, [cessionImmo, cessionDate, cessionValeur]);
+
+  const confirmerCession = () => {
+    if (!cessionImmo || !onUpdate) return;
+    const valeur = Number(cessionValeur);
+    if (!cessionDate) return toast.error("Date de cession requise");
+    if (isNaN(valeur) || valeur < 0) return toast.error("Valeur de cession invalide");
+    const pmv = calculerPlusMoinsValue(cessionImmo, cessionDate, valeur);
+    onUpdate(cessionImmo.id, {
+      statut: "cede",
+      dateCession: cessionDate,
+      valeurCession: valeur,
+      plusMoinsValue: pmv,
+    });
+    toast.success(
+      pmv > 0
+        ? `Cession enregistrée — plus-value de ${formatMontant(pmv)}`
+        : pmv < 0
+        ? `Cession enregistrée — moins-value de ${formatMontant(-pmv)}`
+        : "Cession enregistrée — résultat nul",
+    );
+    closeCession();
+  };
 
   const lignes = useMemo(
     () => amortissementsAnnee(immobilisations, annee),
@@ -239,6 +298,7 @@ export const Immobilisations = ({
             <TableRow>
               <TableHead>Libellé</TableHead>
               <TableHead>Catégorie</TableHead>
+              <TableHead>Statut</TableHead>
               <TableHead>Acquisition</TableHead>
               <TableHead>Méthode</TableHead>
               <TableHead className="text-right">Valeur origine</TableHead>
@@ -251,18 +311,50 @@ export const Immobilisations = ({
           <TableBody>
             {lignes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canEdit ? 9 : 8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={canEdit ? 10 : 9} className="text-center text-muted-foreground py-8">
                   Aucune immobilisation enregistrée.
                 </TableCell>
               </TableRow>
             )}
             {lignes.map((l) => {
               const i = l.immobilisation;
+              const statut = i.statut ?? "actif";
+              const statutBadge =
+                statut === "cede"
+                  ? "bg-info/15 text-info"
+                  : statut === "rebut"
+                  ? "bg-destructive/15 text-destructive"
+                  : "bg-success/15 text-success";
+              const statutLabel =
+                statut === "cede" ? "Cédé" : statut === "rebut" ? "Mis au rebut" : "Actif";
+              const dim = statut !== "actif" ? "opacity-60" : "";
               return (
-                <TableRow key={i.id}>
+                <TableRow key={i.id} className={dim}>
                   <TableCell className="font-medium">{i.libelle}</TableCell>
                   <TableCell className="text-xs">
                     {i.categorie ? CATEGORIE_IMMO_LABELS[i.categorie] : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <span className={`badge-soft ${statutBadge}`}>{statutLabel}</span>
+                    {statut === "cede" && i.dateCession && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Le {i.dateCession}
+                        {typeof i.plusMoinsValue === "number" && (
+                          <span
+                            className={
+                              i.plusMoinsValue > 0
+                                ? "ml-1 text-success"
+                                : i.plusMoinsValue < 0
+                                ? "ml-1 text-destructive"
+                                : "ml-1"
+                            }
+                          >
+                            ({i.plusMoinsValue > 0 ? "+" : ""}
+                            {formatMontant(i.plusMoinsValue)})
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs">{i.dateAcquisition}</TableCell>
                   <TableCell className="text-xs">
@@ -274,17 +366,29 @@ export const Immobilisations = ({
                   <TableCell className="text-right tabular-nums font-semibold">{formatMontant(l.vnc)}</TableCell>
                   {canEdit && (
                     <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Supprimer "${i.libelle}" ? Le plan d'amortissement sera perdu.`)) {
-                            onRemove(i.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {statut === "actif" && onUpdate && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openCession(i)}
+                            title="Céder cette immobilisation"
+                          >
+                            <ArrowRightLeft className="size-4 text-info" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Supprimer "${i.libelle}" ? Le plan d'amortissement sera perdu.`)) {
+                              onRemove(i.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -292,7 +396,7 @@ export const Immobilisations = ({
             })}
             {lignes.length > 0 && (
               <TableRow className="bg-muted/40 font-semibold">
-                <TableCell colSpan={4}>TOTAUX</TableCell>
+                <TableCell colSpan={5}>TOTAUX</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.base)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.dotation)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.cumul)}</TableCell>
@@ -303,6 +407,88 @@ export const Immobilisations = ({
           </TableBody>
         </Table>
       </div>
+
+      {/* ─── Modale de cession ───────────────────────────────────────────── */}
+      <Dialog open={!!cessionImmo} onOpenChange={(v) => { if (!v) closeCession(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="size-5 text-info" />
+              Céder une immobilisation
+            </DialogTitle>
+            {cessionImmo && (
+              <DialogDescription>
+                {cessionImmo.libelle} — Valeur d'origine {formatMontant(cessionImmo.valeurOrigine)}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <Label>Date de cession</Label>
+              <Input type="date" value={cessionDate} onChange={(e) => setCessionDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Valeur de cession (FCFA)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={cessionValeur}
+                onChange={(e) => setCessionValeur(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            {cessionPreview && (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cumul amort. à la date</span>
+                  <span className="tabular-nums">{formatMontant(cessionPreview.cumul)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valeur nette comptable (VNC)</span>
+                  <span className="tabular-nums font-semibold">{formatMontant(cessionPreview.vnc)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Prix de cession</span>
+                  <span className="tabular-nums">{formatMontant(cessionPreview.valeur)}</span>
+                </div>
+                <div className="border-t border-border pt-1.5 flex justify-between items-center">
+                  <span className="font-semibold">
+                    {cessionPreview.type === "plus_value"
+                      ? "Plus-value (827)"
+                      : cessionPreview.type === "moins_value"
+                      ? "Moins-value (837)"
+                      : "Résultat"}
+                  </span>
+                  <span
+                    className={`tabular-nums font-bold ${
+                      cessionPreview.type === "plus_value"
+                        ? "text-success"
+                        : cessionPreview.type === "moins_value"
+                        ? "text-destructive"
+                        : ""
+                    }`}
+                  >
+                    {cessionPreview.pmv > 0 ? "+" : ""}
+                    {formatMontant(cessionPreview.pmv)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Écritures SYSCOHADA générées : 485 (créance) / {cessionImmo?.comptesSYSCOHADA?.actif || "2xx"} (sortie) / {cessionPreview.type === "plus_value" ? "827 (plus-value)" : cessionPreview.type === "moins_value" ? "837 (moins-value)" : "812/822"}.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeCession}>Annuler</Button>
+            <Button onClick={confirmerCession} disabled={!cessionDate}>
+              Confirmer la cession
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
