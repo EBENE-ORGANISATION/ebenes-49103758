@@ -73,6 +73,30 @@ export type Database = {
           },
         ]
       }
+      alertes_lues: {
+        Row: {
+          alerte_id: string
+          created_at: string
+          id: string
+          societe_id: string
+          user_id: string
+        }
+        Insert: {
+          alerte_id: string
+          created_at?: string
+          id?: string
+          societe_id: string
+          user_id: string
+        }
+        Update: {
+          alerte_id?: string
+          created_at?: string
+          id?: string
+          societe_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_state: {
         Row: {
           created_at: string
