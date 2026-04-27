@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ChevronLeft, ChevronRight, Check, Copy } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, Copy, Eye, EyeOff } from "lucide-react";
 import {
   callSuperAdmin,
   slugify,
@@ -36,6 +36,7 @@ interface Props {
 }
 
 type Plan = "starter" | "pro" | "enterprise";
+type AdminMethod = "invite" | "password";
 
 export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
   const [step, setStep] = useState(1);
@@ -47,6 +48,10 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
   const [slugTouched, setSlugTouched] = useState(false);
   const [plan, setPlan] = useState<Plan>("starter");
   const [adminEmail, setAdminEmail] = useState("");
+  const [adminNom, setAdminNom] = useState("");
+  const [adminMethod, setAdminMethod] = useState<AdminMethod>("invite");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Step 2
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -59,6 +64,12 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
   const [modules, setModules] = useState<ModuleFlags>(DEFAULT_MODULES_BY_PLAN.starter);
 
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [createdInfo, setCreatedInfo] = useState<{
+    email?: string;
+    password?: string;
+    method?: AdminMethod;
+    already_existed?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!slugTouched) setSlug(slugify(nom));
@@ -70,15 +81,22 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
 
   const reset = () => {
     setStep(1); setBusy(false);
-    setNom(""); setSlug(""); setSlugTouched(false); setPlan("starter"); setAdminEmail("");
+    setNom(""); setSlug(""); setSlugTouched(false); setPlan("starter");
+    setAdminEmail(""); setAdminNom(""); setAdminMethod("invite"); setAdminPassword(""); setShowPassword(false);
     setLogoFile(null); setCouleur("#1F3864"); setAdresse(""); setNif(""); setRccm("");
     setModules(DEFAULT_MODULES_BY_PLAN.starter);
-    setCreatedUrl(null);
+    setCreatedUrl(null); setCreatedInfo(null);
   };
 
   useEffect(() => { if (!open) reset(); }, [open]);
 
-  const canNext1 = nom.trim() && slug.trim() && plan;
+  const canNext1 =
+    !!nom.trim() &&
+    !!slug.trim() &&
+    !!plan &&
+    !!adminEmail.trim() &&
+    /\S+@\S+\.\S+/.test(adminEmail.trim()) &&
+    (adminMethod === "invite" || (adminMethod === "password" && adminPassword.length >= 8));
   const previewUrl = useMemo(() => `${window.location.origin}/?s=${slug}`, [slug]);
 
   const submit = async () => {
@@ -93,9 +111,15 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
       };
 
       // 1. Création société + config + invitation
-      const res = await callSuperAdmin<{ societe: { id: string; slug: string } }>("create_societe", {
+      const res = await callSuperAdmin<{
+        societe: { id: string; slug: string };
+        invited: { email: string | null; method: AdminMethod; password?: string; already_existed?: boolean };
+      }>("create_societe", {
         nom, slug, plan,
-        admin_email: adminEmail || undefined,
+        admin_email: adminEmail.trim(),
+        admin_nom: adminNom.trim() || undefined,
+        admin_method: adminMethod,
+        admin_password: adminMethod === "password" ? adminPassword : undefined,
         config,
         modules,
       });
@@ -117,6 +141,12 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
       }
 
       setCreatedUrl(`${window.location.origin}/?s=${res.societe?.slug ?? slug}`);
+      setCreatedInfo({
+        email: res.invited?.email ?? adminEmail,
+        password: res.invited?.password,
+        method: res.invited?.method ?? adminMethod,
+        already_existed: res.invited?.already_existed,
+      });
       toast.success("Société créée avec succès");
       onCreated();
     } catch (e) {
