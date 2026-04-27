@@ -519,7 +519,17 @@ export const Factures = ({
                         className="gap-1 text-info border-info/30 hover:bg-info/10"
                         onClick={() => {
                           if (confirm("Convertir cette proforma en facture définitive ?")) {
-                            onConvertir(f.id, prochainNumero(false, annee, donneesMensuelles));
+                            const num = societeConfig
+                              ? genererNumeroFacture(societeConfig, annee)
+                              : prochainNumeroFallback(false, annee, donneesMensuelles);
+                            onConvertir(f.id, num);
+                            if (currentSociete?.id && societeConfig) {
+                              void incrementerCompteur(
+                                currentSociete.id,
+                                "facture",
+                                Number(societeConfig.compteur_facture ?? 1),
+                              ).then((ok) => { if (ok) void refreshTenant(); });
+                            }
                           }
                         }}
                       >
