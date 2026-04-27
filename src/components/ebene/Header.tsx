@@ -25,6 +25,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import logoEbene from "@/assets/ebene-logo.png";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
+import { useSociete } from "@/hooks/useSocieteContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -80,6 +89,13 @@ export const Header = ({
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
   const { user, roles, isAdmin, signOut } = useAuth();
+  const {
+    societes,
+    societeId,
+    setSocieteId,
+    consolide,
+  } = useSociete();
+  const societeActive = societes.find((s) => s.id === societeId);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -195,6 +211,35 @@ export const Header = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {societes.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-2 py-1">
+                <Building2 className="size-4 text-primary-foreground" />
+                <Select
+                  value={consolide ? "__consolide__" : (societeId ?? "")}
+                  onValueChange={(v) => {
+                    if (v === "__consolide__") return; // toggle Dashboard gère le consolidé
+                    setSocieteId(v);
+                  }}
+                  disabled={consolide}
+                >
+                  <SelectTrigger className="h-8 min-w-[180px] bg-transparent border-primary-foreground/30 text-primary-foreground text-xs">
+                    <SelectValue placeholder="Sélectionner une société" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {consolide && (
+                      <SelectItem value="__consolide__" disabled>
+                        Vue consolidée (toutes)
+                      </SelectItem>
+                    )}
+                    {societes.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <AlertesBell alertes={alertes} />
             <InstallPWAButton />
             <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">

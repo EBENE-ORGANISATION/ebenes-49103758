@@ -11,6 +11,7 @@ import {
 
 export type AppRole =
   | "admin"
+  | "admin_general"
   | "chef_compta"
   | "membre_compta"
   | "chef_grh"
@@ -159,7 +160,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user, fetchRoles, fetchGrants, fetchOverrides]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const isAdmin = roles.includes("admin");
+  const isAdminGeneral = roles.includes("admin_general");
+  // L'admin général est super-admin : il a toutes les capacités d'un admin.
+  const isAdmin = roles.includes("admin") || isAdminGeneral;
   const hasGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc);
   const hasChefGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc && g.level === "chef");
   const inServiceCompta =
@@ -241,6 +244,7 @@ export const useAuth = () => {
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrateur",
+  admin_general: "Administrateur général (toutes sociétés)",
   chef_compta: "Chef Service Comptabilité",
   membre_compta: "Membre Service Comptabilité",
   chef_grh: "Chef Service GRH",
