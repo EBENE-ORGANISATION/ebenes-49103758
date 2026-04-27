@@ -4,7 +4,6 @@ import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
-import logoEbene from "@/assets/ebene-logo.png";
 import { useTenant } from "@/hooks/useTenant";
 
 interface Props {
@@ -19,7 +18,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
   const nomSociete = currentSociete?.nom || "SOCIÉTÉ";
-  const logoSrc = societeConfig?.logo_url || logoEbene;
+  const logoSrc = societeConfig?.logo_url || null;
   const couleurPrimaire = societeConfig?.couleur_primaire || "#3D0000";
   const couleurAccent = societeConfig?.couleur_accent || "#89604A";
   const adresse = societeConfig?.adresse || "";
@@ -59,12 +58,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
           </div>
         </div>
 
-        {/*
-          Reproduction fidèle du papier à en-tête EBENE SERVICES :
-          - Haut : logo à gauche + longue barre marron qui s'étend vers la droite
-          - Bas  : deux petits traits marron de chaque côté
-          - Pied : coordonnées centrées (Quartier, RCCM, Tél, Email, NIF)
-        */}
+        {/* Mise en page de facture : logo + barre colorée + pied avec coordonnées */}
         <div
           id="print-area"
           className="bg-white text-black mx-auto"
