@@ -184,9 +184,35 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                 </Button>
               </div>
             </div>
-            {adminEmail && (
+            {createdInfo?.already_existed ? (
               <p className="text-xs text-muted-foreground">
-                Un email d'invitation a été envoyé à <strong>{adminEmail}</strong>.
+                Le compte <strong>{createdInfo.email}</strong> existait déjà — il a simplement été
+                rattaché à cette société avec le rôle admin.
+              </p>
+            ) : createdInfo?.method === "password" ? (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm space-y-2">
+                <p className="font-medium">Identifiants de connexion de l'administrateur</p>
+                <div className="grid grid-cols-[80px_1fr_auto] items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Email</span>
+                  <code className="break-all">{createdInfo.email}</code>
+                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.email!); toast.success("Email copié"); }}>
+                    <Copy className="size-3" />
+                  </Button>
+                  <span className="text-muted-foreground">Mot de passe</span>
+                  <code className="break-all">{createdInfo.password}</code>
+                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.password!); toast.success("Mot de passe copié"); }}>
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Notez ces informations — elles ne seront plus affichées. Transmettez-les à
+                  l'administrateur de la société.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Un email d'invitation a été envoyé à <strong>{createdInfo?.email ?? adminEmail}</strong>{" "}
+                pour qu'il définisse son mot de passe.
               </p>
             )}
             <DialogFooter>
@@ -222,17 +248,68 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email de l'administrateur</Label>
+                  <Label>Email de l'administrateur *</Label>
                   <Input
                     type="email"
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
                     placeholder="admin@societe.com"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nom de l'administrateur</Label>
+                  <Input
+                    value={adminNom}
+                    onChange={(e) => setAdminNom(e.target.value)}
+                    placeholder="Ex: Jean Dupont"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Méthode d'accès *</Label>
+                  <Select value={adminMethod} onValueChange={(v) => setAdminMethod(v as AdminMethod)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invite">Envoyer une invitation par email</SelectItem>
+                      <SelectItem value="password">Définir un mot de passe maintenant</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground">
-                    Optionnel — recevra un email d'invitation pour définir son mot de passe.
+                    {adminMethod === "invite"
+                      ? "L'administrateur recevra un email pour définir son mot de passe."
+                      : "Le compte sera créé immédiatement avec le mot de passe ci-dessous."}
                   </p>
                 </div>
+                {adminMethod === "password" && (
+                  <div className="space-y-1.5">
+                    <Label>Mot de passe initial * (min 8 caractères)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                      <Button type="button" size="icon" variant="outline" onClick={() => setShowPassword((v) => !v)}>
+                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const pwd =
+                            Math.random().toString(36).slice(-8) +
+                            Math.random().toString(36).slice(-4).toUpperCase() +
+                            "!";
+                          setAdminPassword(pwd);
+                          setShowPassword(true);
+                        }}
+                      >
+                        Générer
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
