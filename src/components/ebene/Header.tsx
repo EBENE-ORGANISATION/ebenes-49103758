@@ -26,6 +26,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { SocieteSwitcher } from "@/components/SocieteSwitcher";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -215,6 +217,8 @@ export const Header = ({
 
           <div className="flex flex-wrap items-center gap-2">
             {showAlertes && <AlertesBell alertes={alertes} />}
+            <SocieteSwitcher />
+            <LanguageSwitcher />
             <InstallPWAButton />
             {showRecap && (
               <Button onClick={onShowRecap} variant="secondary" size="sm" className="gap-1.5">
