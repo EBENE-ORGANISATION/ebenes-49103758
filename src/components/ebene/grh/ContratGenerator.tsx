@@ -40,6 +40,11 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
         </div>
 
         <div id="print-area" className="bg-white text-foreground p-8 border-2 border-border rounded-lg space-y-4 text-sm leading-relaxed">
+          {societe?.logoUrl && (
+            <div className="flex justify-center mb-2">
+              <img src={societe.logoUrl} alt={nomSoc} className="h-16 object-contain" />
+            </div>
+          )}
           <div className="text-center border-b-2 border-foreground pb-3 mb-4">
             <p className="font-bold text-base">RÉPUBLIQUE TOGOLAISE</p>
             <p className="text-xs">Travail – Liberté – Patrie</p>
