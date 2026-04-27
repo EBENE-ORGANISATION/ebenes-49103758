@@ -34,6 +34,11 @@ declare global {
       channel: "menu:export-archive",
       handler: (...args: unknown[]) => void,
     ): () => void;
+    onUpdateAvailable(cb: (payload: { version?: string }) => void): () => void;
+    onDownloadProgress(cb: (payload: { percent?: number }) => void): () => void;
+    onUpdateDownloaded(cb: (payload: { version?: string }) => void): () => void;
+    onUpdateError(cb: (payload: { message?: string }) => void): () => void;
+    installUpdate(): void;
   }
 
   interface Window {

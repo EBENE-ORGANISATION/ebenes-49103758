@@ -15,10 +15,54 @@
 const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { autoUpdater } = require("electron-updater");
+const log = require("electron-log");
 
 const isDev = !app.isPackaged;
 
 let mainWindow = null;
+
+// ─── Auto-update (electron-updater) ──────────────────────────────────────
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = "info";
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function sendToRenderer(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, payload);
+  }
+}
+
+autoUpdater.on("checking-for-update", () => {
+  log.info("Checking for update...");
+});
+autoUpdater.on("update-available", (info) => {
+  log.info("Update available:", info && info.version);
+  sendToRenderer("update-available", { version: info && info.version });
+});
+autoUpdater.on("update-not-available", () => {
+  log.info("App is up to date");
+});
+autoUpdater.on("download-progress", (progress) => {
+  sendToRenderer("download-progress", { percent: progress && progress.percent });
+});
+autoUpdater.on("update-downloaded", (info) => {
+  log.info("Update downloaded:", info && info.version);
+  sendToRenderer("update-downloaded", { version: info && info.version });
+});
+autoUpdater.on("error", (err) => {
+  log.error("Auto-updater error:", err);
+  sendToRenderer("update-error", { message: String(err && err.message ? err.message : err) });
+});
+
+ipcMain.on("install-update", () => {
+  try {
+    autoUpdater.quitAndInstall();
+  } catch (err) {
+    log.error("quitAndInstall failed:", err);
+  }
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -180,6 +224,15 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Vérifie les mises à jour 3s après le démarrage pour ne pas bloquer.
+  if (!isDev) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        log.error("checkForUpdatesAndNotify failed:", err);
+      });
+    }, 3000);
+  }
 });
 
 app.on("window-all-closed", () => {
