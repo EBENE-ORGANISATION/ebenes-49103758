@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import {
   DonneesMensuelles,
   Employe,
@@ -25,7 +26,10 @@ import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
 import { logAction } from "@/lib/audit";
 import { amortissementsAnnee } from "@/lib/amortissements";
 
-// Clés cloud (table app_state)
+// ─── Clés métier (table app_state) ───
+// Ces clés sont des SUFFIXES — elles sont toujours préfixées par `s:<societe_id>:`
+// pour scoper strictement les données par société (multi-tenant). Sans ce
+// préfixe, toutes les sociétés partageraient les mêmes lignes en base.
 const K_DONNEES = "donneesMensuelles";
 const K_EMPLOYES = "employes";
 const K_PARAMS_ANNUELS = "paramsAnnuels";
@@ -36,7 +40,7 @@ const K_CATEGORIES_STOCK = "categoriesStock";
 const K_SANCTIONS = "sanctions";
 const K_IMMOBILISATIONS = "immobilisations";
 
-const ALL_KEYS = [
+const RAW_KEYS = [
   K_DONNEES,
   K_EMPLOYES,
   K_PARAMS_ANNUELS,
@@ -47,6 +51,14 @@ const ALL_KEYS = [
   K_SANCTIONS,
   K_IMMOBILISATIONS,
 ] as const;
+
+/** Construit la clé scopée société : `s:<uuid>:<rawKey>`. */
+const tk = (societeId: string, raw: string) => `s:${societeId}:${raw}`;
+/** Inverse de tk : retourne le suffixe pour la société courante, ou null. */
+const untk = (key: string, societeId: string): string | null => {
+  const prefix = `s:${societeId}:`;
+  return key.startsWith(prefix) ? key.slice(prefix.length) : null;
+};
 
 const ensureMois = (d: MoisData | undefined): MoisData => ({
   transactions: Array.isArray(d?.transactions) ? d!.transactions : [],
@@ -69,6 +81,9 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
 });
 
 export const useEbeneStore = () => {
+  const { currentSociete } = useTenant();
+  const societeId = currentSociete?.id ?? null;
+
   const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
   const [employes, setEmployes] = useState<Employe[]>([]);
   const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>({});
@@ -119,35 +134,58 @@ export const useEbeneStore = () => {
     }
   }, []);
 
-  // Chargement initial + realtime
+  // Reset complet du state quand on change de société.
+  // Les valeurs réelles seront re-chargées par l'effet ci-dessous.
   useEffect(() => {
+    setLoaded(false);
+    setDonneesMensuelles({});
+    setEmployes([]);
+    setParamsAnnuels({});
+    setTauxHistorique([TAUX_DEFAUT]);
+    setArticles([]);
+    setFournisseurs([]);
+    setCategoriesStock([]);
+    setSanctions([]);
+    setImmobilisations([]);
+    localSig.current = {};
+  }, [societeId]);
+
+  // Chargement initial (scopé société) + realtime
+  useEffect(() => {
+    if (!societeId) return; // Pas de société active → on n'écrit/lit rien.
     let cancelled = false;
+    const scopedKeys = RAW_KEYS.map((k) => tk(societeId, k));
+
     (async () => {
       const { data, error } = await supabase
         .from("app_state")
         .select("key,value")
-        .in("key", ALL_KEYS as unknown as string[]);
+        .in("key", scopedKeys);
       if (!cancelled && !error && data) {
         for (const row of data) {
-          localSig.current[row.key] = JSON.stringify(row.value);
-          applyValue(row.key, row.value);
+          const raw = untk(row.key, societeId);
+          if (!raw) continue;
+          localSig.current[raw] = JSON.stringify(row.value);
+          applyValue(raw, row.value);
         }
       }
       if (!cancelled) setLoaded(true);
     })();
 
     const channel = supabase
-      .channel("app_state_sync")
+      .channel(`app_state_sync_${societeId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_state" },
         (payload) => {
           const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
           if (!row?.key) return;
+          const raw = untk(row.key, societeId);
+          if (!raw) return; // ignore les lignes des autres sociétés
           const sig = JSON.stringify(row.value);
-          if (localSig.current[row.key] === sig) return; // déjà à jour localement
-          localSig.current[row.key] = sig;
-          applyValue(row.key, row.value);
+          if (localSig.current[raw] === sig) return;
+          localSig.current[raw] = sig;
+          applyValue(raw, row.value);
         }
       )
       .subscribe();
@@ -156,27 +194,29 @@ export const useEbeneStore = () => {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [applyValue]);
+  }, [applyValue, societeId]);
 
-  // Persistance vers le cloud (debounced par effet React)
-  const persist = useCallback(async (key: string, value: unknown) => {
-    const sig = JSON.stringify(value);
-    if (localSig.current[key] === sig) return;
-    localSig.current[key] = sig;
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase
-      .from("app_state")
-      .upsert(
+  // Persistance vers le cloud (clé scopée société)
+  const persist = useCallback(
+    async (rawKey: string, value: unknown) => {
+      if (!societeId) return; // Pas de société → ne pas écrire
+      const sig = JSON.stringify(value);
+      if (localSig.current[rawKey] === sig) return;
+      localSig.current[rawKey] = sig;
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("app_state").upsert(
         {
-          key,
+          key: tk(societeId, rawKey),
           value: value as never,
           updated_by: userData.user?.id ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "key" }
       );
-    if (!error) setLastSaved(new Date());
-  }, []);
+      if (!error) setLastSaved(new Date());
+    },
+    [societeId]
+  );
 
   useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_EMPLOYES, employes); }, [employes, loaded, persist]);
