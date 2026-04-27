@@ -169,16 +169,16 @@ export const Header = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
-              {societeConfig?.logo_url ? (
+            {logoSrc && (
+              <div className="bg-primary-foreground/95 rounded-2xl p-3 shadow-xl ring-2 ring-primary-foreground/40">
                 <img
                   src={logoSrc}
                   alt={nomSociete}
                   className="h-12 w-auto object-contain"
                   style={{ maxHeight: "48px" }}
                 />
-              ) : null}
-            </div>
+              </div>
+            )}
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{nomSociete}</h1>
               <p className="text-sm text-primary-foreground/80 font-medium">Commerce Général — Système de Gestion</p>
