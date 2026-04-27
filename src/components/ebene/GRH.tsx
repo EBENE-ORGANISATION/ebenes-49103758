@@ -40,6 +40,7 @@ import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { useTenant } from "@/hooks/useTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
