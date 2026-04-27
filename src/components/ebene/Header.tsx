@@ -123,6 +123,15 @@ export const Header = ({
         cls: "bg-success/20 text-success-foreground",
       };
     }
+    // Statut idle : on affiche tout de même un badge discret pour signaler
+    // que la sauvegarde Drive est armée mais qu'aucun backup n'a encore eu lieu.
+    if (onDriveBackup) {
+      return {
+        icon: <Cloud className="size-3" />,
+        label: "Drive prêt",
+        cls: "bg-primary-foreground/10 text-primary-foreground/80",
+      };
+    }
     return null;
   })();
 
