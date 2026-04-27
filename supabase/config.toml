@@ -2,3 +2,9 @@ project_id = "nmeyylvltlvvcvbhvxpz"
 
 [functions.bootstrap-admin]
 verify_jwt = false
+
+[functions.notification-validation]
+verify_jwt = false
+
+[functions.notification-alertes]
+verify_jwt = false

@@ -6,6 +6,7 @@ import type {
   MoisData,
 } from "@/types/ebene";
 import { moisKey } from "@/lib/ebene-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AlerteSeverite = "info" | "warning" | "danger";
 export type AlerteCategorie = "facture" | "fiscal" | "rh" | "stock";
@@ -132,4 +133,50 @@ export const getAlertes = (store: AlertesStoreInput): Alerte[] => {
   // Tri : danger d'abord, puis warning, puis info
   const ordre: Record<AlerteSeverite, number> = { danger: 0, warning: 1, info: 2 };
   return alertes.sort((a, b) => ordre[a.severite] - ordre[b.severite]);
+};
+
+/**
+ * Marque une alerte comme lue/ignorée pour l'utilisateur courant.
+ * Stocke dans la table `alertes_lues`.
+ */
+export const markAlertRead = async (
+  alerteId: string,
+  societeId: string
+): Promise<{ ok: boolean; error?: string }> => {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id;
+    if (!userId) return { ok: false, error: "not_authenticated" };
+    const { error } = await supabase
+      .from("alertes_lues")
+      .insert({ user_id: userId, societe_id: societeId, alerte_id: alerteId });
+    if (error && !error.message.includes("duplicate")) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: String(e) };
+  }
+};
+
+/**
+ * Récupère les IDs des alertes déjà ignorées par l'utilisateur courant.
+ */
+export const getDismissedAlertIds = async (
+  societeId: string
+): Promise<Set<string>> => {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id;
+    if (!userId) return new Set();
+    const { data, error } = await supabase
+      .from("alertes_lues")
+      .select("alerte_id")
+      .eq("user_id", userId)
+      .eq("societe_id", societeId);
+    if (error) return new Set();
+    return new Set((data ?? []).map((r: any) => r.alerte_id));
+  } catch {
+    return new Set();
+  }
 };
