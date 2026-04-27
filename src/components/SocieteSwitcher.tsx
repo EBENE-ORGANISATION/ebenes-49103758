@@ -1,4 +1,4 @@
-import { Building2, Check } from "lucide-react";
+import { Building2, Check, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,8 +27,12 @@ export const SocieteSwitcher = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="sm" className="gap-1.5 max-w-[200px]">
-          <Building2 className="size-4 shrink-0" />
-          <span className="truncate">{currentSociete?.nom ?? "Choisir une société"}</span>
+          {currentSociete ? (
+            <Building2 className="size-4 shrink-0" />
+          ) : (
+            <Home className="size-4 shrink-0" />
+          )}
+          <span className="truncate">{currentSociete?.nom ?? "Appli mère"}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 max-h-96 overflow-y-auto">
@@ -41,6 +45,24 @@ export const SocieteSwitcher = () => {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {isSuperAdmin && (
+          <>
+            <DropdownMenuItem
+              onClick={() => setCurrentSocieteId(null)}
+              className={!currentSociete ? "bg-accent/40 font-medium" : ""}
+            >
+              <Home className="size-4 shrink-0 mr-2 text-primary" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm truncate">🏠 Appli mère</div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  Vue globale super-admin
+                </div>
+              </div>
+              {!currentSociete && <Check className="size-4 text-primary shrink-0 ml-2" />}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {societes.map((s) => {
           const active = currentSociete?.id === s.id;
           return (
