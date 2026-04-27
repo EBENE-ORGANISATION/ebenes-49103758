@@ -14,6 +14,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { isNative } from "@/lib/platform";
 
 export interface DriveFileInfo {
   id: string;
@@ -97,6 +98,13 @@ export async function backupToDrive(
 ): Promise<DriveBackupResult> {
   try {
     const snapshot = snapshotFromStore(store);
+    // En natif (Android/iOS), l'OAuth Google Drive interactif n'est pas supporté
+    // de la même façon — on fait une sauvegarde locale via le Filesystem natif
+    // et on propose un partage via Share. Cette branche est strictement no-op
+    // sur le web : l'edge function `drive-backup` reste utilisée.
+    if (isNative()) {
+      return await backupToNativeFilesystem(snapshot, options);
+    }
     const { data, error } = await supabase.functions.invoke("drive-backup", {
       body: { snapshot },
     });
@@ -111,6 +119,48 @@ export async function backupToDrive(
     console.error("[googleDrive] backupToDrive failed:", message);
     if (!options.silent) {
       toast.error(`Échec sauvegarde Drive : ${message}`);
+    }
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * Sauvegarde locale (Capacitor Filesystem) — utilisée en mode natif uniquement.
+ * Écrit le snapshot dans le dossier Documents/EBENE_BACKUPS/ et propose
+ * éventuellement un partage via la feuille système.
+ */
+async function backupToNativeFilesystem(
+  snapshot: EbeneSnapshot,
+  options: { silent?: boolean } = {}
+): Promise<DriveBackupResult> {
+  try {
+    const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileName = `EBENE_BACKUPS/backup-${stamp}.json`;
+    const data = JSON.stringify(snapshot, null, 2);
+    const result = await Filesystem.writeFile({
+      path: fileName,
+      data,
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    });
+    if (!options.silent) {
+      toast.success("Sauvegarde locale réussie");
+    }
+    return {
+      ok: true,
+      file: {
+        id: result.uri,
+        name: fileName,
+        modifiedTime: new Date().toISOString(),
+      },
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[googleDrive] backupToNativeFilesystem failed:", message);
+    if (!options.silent) {
+      toast.error(`Échec sauvegarde locale : ${message}`);
     }
     return { ok: false, error: message };
   }
