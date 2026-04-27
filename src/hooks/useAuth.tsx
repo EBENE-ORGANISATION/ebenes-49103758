@@ -259,6 +259,7 @@ export const useAuth = () => {
       can: () => false,
       canFeature: () => false,
       isAdmin: false,
+      isSuperAdmin: false,
       inServiceCompta: false,
       inServiceGrh: false,
       isChefCompta: false,
