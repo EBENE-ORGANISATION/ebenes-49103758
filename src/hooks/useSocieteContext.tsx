@@ -111,6 +111,12 @@ export const useSociete = (): SocieteContextValue => {
   return ctx;
 };
 
+/** Retourne la société active (objet complet). Utilisé pour brander les PDF/UI. */
+export const useSocieteActive = (): Societe | null => {
+  const { societes, societeId } = useSociete();
+  return societes.find((s) => s.id === societeId) ?? null;
+};
+
 /** Construit une clé app_state préfixée par société. Si societeId est null,
  *  retourne la clé legacy (compat avec données existantes pré-multi-société). */
 export const societeKey = (societeId: string | null, baseKey: string): string =>
