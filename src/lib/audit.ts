@@ -45,11 +45,9 @@ export async function logAction(
     });
 
     if (error) {
-      // eslint-disable-next-line no-console
       console.warn("[audit] insert failed:", error.message);
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn("[audit] unexpected error:", err);
   }
 }
