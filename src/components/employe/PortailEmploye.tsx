@@ -53,6 +53,7 @@ const diffJours = (a: string, b: string) => {
 export const PortailEmploye = () => {
   const { user, signOut } = useAuth();
   const store = useEbeneStore();
+  const societeActive = useSocieteActive();
   const annee = new Date().getFullYear();
 
   // ─── Recherche de la fiche employé liée au compte ──────────────────────
@@ -266,7 +267,7 @@ export const PortailEmploye = () => {
                           className="gap-1.5"
                           onClick={() => {
                             try {
-                              generateBulletin(employe, store.getMois(annee, mois), annee, mois);
+                              void generateBulletin(employe, store.getMois(annee, mois), annee, mois, societeActive);
                             } catch (err) {
                               console.error(err);
                               toast.error("Impossible de générer le bulletin");
