@@ -38,11 +38,10 @@ function createWindow() {
   });
 
   if (isDev) {
-    mainWindow.loadURL("http://localhost:8080");
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    const indexPath = path.join(__dirname, "..", "dist", "index.html");
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
   // Liens externes → navigateur par défaut (jamais dans la fenêtre Electron).
