@@ -151,6 +151,14 @@ export function computePermissions(
   overrides: PermissionOverride[],
 ): PermissionMap {
   let perms: PermissionMap = { ...EMPTY };
+  // Super-admin global : on lui applique exactement les défauts du rôle admin
+  // afin qu'il dispose de tous les modules sur la société qu'il "impersonne".
+  const isSuper =
+    (roles as string[]).includes("admin_general") ||
+    (roles as string[]).includes("super_admin");
+  if (isSuper) {
+    perms = merge(perms, ROLE_DEFAULTS.admin);
+  }
   for (const r of roles) {
     perms = merge(perms, ROLE_DEFAULTS[r] || {});
   }
