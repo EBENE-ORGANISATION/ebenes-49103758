@@ -47,6 +47,112 @@ const callFn = async (body: Record<string, unknown>) => {
   return data;
 };
 
+interface UsersBySocieteProps {
+  users: AdminUser[];
+  societes: SocieteLite[];
+  scope: "all" | "own_societes";
+  currentUserId?: string;
+  onEditRoles: (u: AdminUser) => void;
+  onResetPwd: (u: AdminUser) => void;
+  onToggleActif: (u: AdminUser) => void;
+  onDelete: (u: AdminUser) => void;
+}
+
+const UsersBySociete = ({
+  users, societes, scope, currentUserId,
+  onEditRoles, onResetPwd, onToggleActif, onDelete,
+}: UsersBySocieteProps) => {
+  // Groupes : une entrée par société + une entrée pour "non rattachés".
+  const groups: { id: string; nom: string; users: AdminUser[] }[] = societes.map((s) => ({
+    id: s.id, nom: s.nom,
+    users: users.filter((u) => u.societe_ids.includes(s.id)),
+  }));
+  // En "all" (admin général), on affiche aussi les utilisateurs sans société.
+  if (scope === "all") {
+    const orphans = users.filter((u) => u.societe_ids.length === 0);
+    if (orphans.length > 0) {
+      groups.push({ id: "__none__", nom: "Sans société", users: orphans });
+    }
+  }
+
+  const renderRow = (u: AdminUser) => (
+    <TableRow key={u.user_id}>
+      <TableCell className="font-medium">{u.nom || "—"}</TableCell>
+      <TableCell>{u.email}</TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-1">
+          {u.roles.length === 0 && <span className="text-xs text-muted-foreground">aucun</span>}
+          {u.roles.map((r) => (
+            <Badge key={r} variant={r === "admin" || r === "admin_general" ? "default" : "secondary"}>
+              {ROLE_LABELS[r]}
+            </Badge>
+          ))}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant={u.actif ? "default" : "destructive"}>
+          {u.actif ? "Actif" : "Désactivé"}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right space-x-1">
+        <Button size="sm" variant="outline" onClick={() => onEditRoles(u)}>Rôles</Button>
+        <Button size="sm" variant="outline" onClick={() => onResetPwd(u)}>
+          <KeyRound className="size-3.5" />
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => onToggleActif(u)}>
+          <Power className="size-3.5" />
+        </Button>
+        <Button
+          size="sm" variant="destructive"
+          disabled={u.user_id === currentUserId}
+          onClick={() => onDelete(u)}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+
+  if (groups.length === 0) {
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        Aucune société accessible.
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y">
+      {groups.map((g) => (
+        <div key={g.id} className="py-2">
+          <div className="px-4 py-2 bg-muted/40 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">{g.nom}</h3>
+            <span className="text-xs text-muted-foreground">
+              {g.users.length} utilisateur{g.users.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          {g.users.length === 0 ? (
+            <div className="px-4 py-3 text-xs text-muted-foreground">Aucun utilisateur lié.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Rôles</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>{g.users.map(renderRow)}</TableBody>
+            </Table>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const AdminUsers = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
