@@ -43,11 +43,13 @@ import {
   Settings2,
   KeyRound,
   UserX,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
 import { CreerSocieteModal } from "./CreerSocieteModal";
+import { MonCompteSection } from "./MonCompteSection";
 import {
   ResponsiveContainer,
   BarChart,
