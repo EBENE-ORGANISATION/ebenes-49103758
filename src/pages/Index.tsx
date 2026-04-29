@@ -16,6 +16,7 @@ import { Immobilisations } from "@/components/ebene/Immobilisations";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
+import { SupabaseStatus } from "@/components/ebene/SupabaseStatus";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
@@ -452,7 +453,7 @@ const Index = () => {
         </div>
 
         <footer className="text-center text-xs text-muted-foreground py-4 no-print">
-          Données stockées localement (sauvegarde auto). Pensez à exporter votre archive
+          <SupabaseStatus />
           régulièrement.
         </footer>
       </main>

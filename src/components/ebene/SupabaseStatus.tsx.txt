@@ -1,0 +1,58 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Wifi, WifiOff, RefreshCw } from "lucide-react";
+
+export const SupabaseStatus = () => {
+  const [status, setStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+
+  const checkConnection = async () => {
+    try {
+      const { error } = await supabase.from("societes").select("id").limit(1);
+      if (error) throw error;
+      setStatus("online");
+      setLastSync(new Date());
+    } catch {
+      setStatus("offline");
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+    const interval = setInterval(checkConnection, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTimeAgo = () => {
+    if (!lastSync) return "";
+    const diff = Math.floor((Date.now() - lastSync.getTime()) / 60000);
+    if (diff === 0) return "à l'instant";
+    if (diff === 1) return "il y a 1 minute";
+    return `il y a ${diff} minutes`;
+  };
+
+  if (status === "checking") {
+    return (
+      <span className="flex items-center justify-center gap-1">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        Vérification de la connexion...
+      </span>
+    );
+  }
+
+  if (status === "offline") {
+    return (
+      <span className="flex items-center justify-center gap-1 text-red-500">
+        <WifiOff className="h-3 w-3" />
+        Hors ligne — données en cache local
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center justify-center gap-1 text-green-600">
+      <Wifi className="h-3 w-3" />
+      Synchronisé {getTimeAgo()}
+    </span>
+  );
+};

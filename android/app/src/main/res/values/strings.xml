@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EBENE SERVICES</string>
+    <string name="title_activity_main">EBENE SERVICES</string>
+    <string name="package_name">com.ebeneservices.app</string>
+    <string name="custom_url_scheme">com.ebeneservices.app</string>
+</resources>
