@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { callSuperAdmin } from "@/lib/superAdminApi";
  * (avec re-vérification du mot de passe actuel).
  */
 export const MonCompteSection = () => {
+  const { t } = useTranslation();
   const [currentEmail, setCurrentEmail] = useState<string>("");
 
   // Email
@@ -37,11 +39,11 @@ export const MonCompteSection = () => {
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail || !pwdForEmail) {
-      toast.error("Renseignez le nouvel email et votre mot de passe actuel");
+      toast.error(t("account.err_email_pwd_required"));
       return;
     }
     if (newEmail === currentEmail) {
-      toast.error("Le nouvel email est identique à l'actuel");
+      toast.error(t("account.err_email_same"));
       return;
     }
     setSavingEmail(true);
@@ -50,7 +52,7 @@ export const MonCompteSection = () => {
         new_email: newEmail.trim(),
         current_password: pwdForEmail,
       });
-      toast.success(`Email mis à jour : ${newEmail}`);
+      toast.success(t("account.email_updated", { email: newEmail }));
       setCurrentEmail(newEmail.trim());
       setNewEmail("");
       setPwdForEmail("");
@@ -64,15 +66,15 @@ export const MonCompteSection = () => {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!oldPwd || !newPwd || !confirmPwd) {
-      toast.error("Tous les champs sont obligatoires");
+      toast.error(t("account.err_all_required"));
       return;
     }
     if (newPwd !== confirmPwd) {
-      toast.error("Les nouveaux mots de passe ne correspondent pas");
+      toast.error(t("account.err_pwd_mismatch"));
       return;
     }
     if (newPwd.length < 8) {
-      toast.error("Au moins 8 caractères");
+      toast.error(t("account.err_pwd_short"));
       return;
     }
     setSavingPwd(true);
@@ -81,7 +83,7 @@ export const MonCompteSection = () => {
         new_password: newPwd,
         current_password: oldPwd,
       });
-      toast.success("Mot de passe mis à jour");
+      toast.success(t("account.pwd_updated"));
       setOldPwd("");
       setNewPwd("");
       setConfirmPwd("");
@@ -97,27 +99,27 @@ export const MonCompteSection = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Mail className="size-4" /> Adresse email
+            <Mail className="size-4" /> {t("account.email_section")}
           </CardTitle>
           <CardDescription>
-            Email actuel : <span className="font-mono">{currentEmail || "…"}</span>
+            {t("account.current_email")}<span className="font-mono">{currentEmail || "…"}</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleChangeEmail} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="new-email">Nouvel email</Label>
+              <Label htmlFor="new-email">{t("account.new_email")}</Label>
               <Input
                 id="new-email"
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="nouveau@exemple.com"
+                placeholder={t("account.new_email_ph")}
                 autoComplete="email"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pwd-email">Mot de passe actuel (confirmation)</Label>
+              <Label htmlFor="pwd-email">{t("account.current_password_confirm")}</Label>
               <Input
                 id="pwd-email"
                 type="password"
@@ -128,7 +130,7 @@ export const MonCompteSection = () => {
             </div>
             <Button type="submit" disabled={savingEmail}>
               {savingEmail && <Loader2 className="size-4 animate-spin mr-1.5" />}
-              Mettre à jour l'email
+              {t("account.update_email_btn")}
             </Button>
           </form>
         </CardContent>
@@ -137,16 +139,14 @@ export const MonCompteSection = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Lock className="size-4" /> Mot de passe
+            <Lock className="size-4" /> {t("account.pwd_section")}
           </CardTitle>
-          <CardDescription>
-            Au moins 8 caractères. Le changement déconnecte les autres sessions.
-          </CardDescription>
+          <CardDescription>{t("account.pwd_hint")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleChangePassword} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="old-pwd">Mot de passe actuel</Label>
+              <Label htmlFor="old-pwd">{t("account.current_password")}</Label>
               <Input
                 id="old-pwd"
                 type="password"
@@ -157,7 +157,7 @@ export const MonCompteSection = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="new-pwd">Nouveau mot de passe</Label>
+                <Label htmlFor="new-pwd">{t("account.new_password")}</Label>
                 <Input
                   id="new-pwd"
                   type="password"
@@ -167,7 +167,7 @@ export const MonCompteSection = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="confirm-pwd">Confirmation</Label>
+                <Label htmlFor="confirm-pwd">{t("account.confirm_password")}</Label>
                 <Input
                   id="confirm-pwd"
                   type="password"
@@ -179,7 +179,7 @@ export const MonCompteSection = () => {
             </div>
             <Button type="submit" disabled={savingPwd}>
               {savingPwd && <Loader2 className="size-4 animate-spin mr-1.5" />}
-              Changer le mot de passe
+              {t("account.change_password_btn")}
             </Button>
           </form>
         </CardContent>
