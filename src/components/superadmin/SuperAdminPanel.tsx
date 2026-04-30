@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation, Trans } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ const ROLE_OPTIONS = [
 ] as const;
 
 export const SuperAdminPanel = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { setCurrentSocieteId } = useTenant();
   const [societes, setSocietes] = useState<SocieteRow[]>([]);
@@ -154,7 +156,7 @@ export const SuperAdminPanel = () => {
     const next = s.statut === "active" ? "suspendu" : "active";
     try {
       await callSuperAdmin("suspend_societe", { id: s.id, statut: next });
-      toast.success(next === "active" ? "Société réactivée" : "Société suspendue");
+      toast.success(next === "active" ? t("superadmin.society_reactivated") : t("superadmin.society_suspended"));
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -162,7 +164,7 @@ export const SuperAdminPanel = () => {
   const deleteSociete = async (s: SocieteRow) => {
     try {
       await callSuperAdmin("delete_societe", { id: s.id });
-      toast.success("Société supprimée");
+      toast.success(t("superadmin.society_deleted"));
       setConfirmDelete(null);
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
@@ -175,7 +177,7 @@ export const SuperAdminPanel = () => {
    */
   const enterSociete = (s: SocieteRow) => {
     setCurrentSocieteId(s.id);
-    toast.success(`Vous êtes maintenant dans : ${s.nom}`);
+    toast.success(t("superadmin.you_are_in", { nom: s.nom }));
     navigate("/");
   };
 
@@ -195,7 +197,7 @@ export const SuperAdminPanel = () => {
   const updatePlan = async (s: SocieteRow, plan: string) => {
     try {
       await callSuperAdmin("update_societe", { id: s.id, patch: { plan } });
-      toast.success("Plan mis à jour");
+      toast.success(t("superadmin.plan_updated"));
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -204,7 +206,7 @@ export const SuperAdminPanel = () => {
   const setUserRole = async (u: UserRow, role: string) => {
     try {
       await callSuperAdmin("set_user_role", { user_id: u.id, role, mode: "add" });
-      toast.success(`Rôle ${role} attribué`);
+      toast.success(t("superadmin.role_assigned", { role }));
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -213,7 +215,7 @@ export const SuperAdminPanel = () => {
     const actif = !(u.profile?.actif ?? true);
     try {
       await callSuperAdmin("deactivate_user", { user_id: u.id, actif });
-      toast.success(actif ? "Compte réactivé" : "Compte désactivé");
+      toast.success(actif ? t("superadmin.account_reactivated") : t("superadmin.account_deactivated"));
       loadAll();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -222,7 +224,7 @@ export const SuperAdminPanel = () => {
     if (!u.email) return;
     try {
       await callSuperAdmin("reset_password", { email: u.email });
-      toast.success("Email de réinitialisation envoyé");
+      toast.success(t("superadmin.reset_email_sent"));
     } catch (e) { toast.error((e as Error).message); }
   };
 
@@ -233,14 +235,14 @@ export const SuperAdminPanel = () => {
       <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate("/")}>
-            <ArrowLeft className="size-4 mr-1" /> Retour
+            <ArrowLeft className="size-4 mr-1" /> {t("superadmin.back")}
           </Button>
           <div>
-            <h1 className="font-bold text-lg leading-tight">Super Admin</h1>
-            <p className="text-xs text-muted-foreground">Gestion globale de la plateforme</p>
+            <h1 className="font-bold text-lg leading-tight">{t("superadmin.title")}</h1>
+            <p className="text-xs text-muted-foreground">{t("superadmin.subtitle")}</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-primary/10 text-primary">Mode Super-Admin</Badge>
+        <Badge variant="outline" className="bg-primary/10 text-primary">{t("superadmin.mode_badge")}</Badge>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -251,33 +253,33 @@ export const SuperAdminPanel = () => {
         ) : (
           <Tabs defaultValue="societes" className="w-full">
             <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
-              <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> Sociétés</TabsTrigger>
-              <TabsTrigger value="modules" className="py-2.5"><Settings2 className="size-4 mr-1.5" /> Modules</TabsTrigger>
-              <TabsTrigger value="users" className="py-2.5"><Users className="size-4 mr-1.5" /> Utilisateurs</TabsTrigger>
-              <TabsTrigger value="stats" className="py-2.5"><Activity className="size-4 mr-1.5" /> Activité</TabsTrigger>
-              <TabsTrigger value="account" className="py-2.5"><UserCog className="size-4 mr-1.5" /> Mon compte</TabsTrigger>
+              <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> {t("superadmin.tab_societies")}</TabsTrigger>
+              <TabsTrigger value="modules" className="py-2.5"><Settings2 className="size-4 mr-1.5" /> {t("superadmin.tab_modules")}</TabsTrigger>
+              <TabsTrigger value="users" className="py-2.5"><Users className="size-4 mr-1.5" /> {t("superadmin.tab_users")}</TabsTrigger>
+              <TabsTrigger value="stats" className="py-2.5"><Activity className="size-4 mr-1.5" /> {t("superadmin.tab_activity")}</TabsTrigger>
+              <TabsTrigger value="account" className="py-2.5"><UserCog className="size-4 mr-1.5" /> {t("superadmin.tab_account")}</TabsTrigger>
             </TabsList>
 
             {/* TAB 1 — SOCIÉTÉS */}
             <TabsContent value="societes">
               <Card>
                 <CardHeader className="flex-row items-center justify-between">
-                  <CardTitle>Sociétés</CardTitle>
+                  <CardTitle>{t("superadmin.societies")}</CardTitle>
                   <Button onClick={() => setCreating(true)}>
-                    <Plus className="size-4 mr-1.5" /> Créer une société
+                    <Plus className="size-4 mr-1.5" /> {t("superadmin.create_society")}
                   </Button>
                 </CardHeader>
                 <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Slug</TableHead>
-                        <TableHead>Plan</TableHead>
-                        <TableHead>Statut</TableHead>
-                        <TableHead className="text-right">Utilisateurs</TableHead>
-                        <TableHead>Créée le</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t("superadmin.col_name")}</TableHead>
+                        <TableHead>{t("superadmin.col_slug")}</TableHead>
+                        <TableHead>{t("superadmin.col_plan")}</TableHead>
+                        <TableHead>{t("superadmin.col_status")}</TableHead>
+                        <TableHead className="text-right">{t("superadmin.col_users")}</TableHead>
+                        <TableHead>{t("superadmin.col_created")}</TableHead>
+                        <TableHead className="text-right">{t("superadmin.col_actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -293,28 +295,28 @@ export const SuperAdminPanel = () => {
                           </TableCell>
                           <TableCell className="text-right">{counts[s.id] ?? 0}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {new Date(s.created_at).toLocaleDateString("fr-FR")}
+                            {new Date(s.created_at).toLocaleDateString(i18n.language)}
                           </TableCell>
                           <TableCell className="text-right space-x-1">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => enterSociete(s)}
-                              title="Entrer dans cette société (mode super-admin)"
+                              title={t("superadmin.enter_title")}
                             >
-                              <LogIn className="size-4 mr-1" /> Entrer
+                              <LogIn className="size-4 mr-1" /> {t("superadmin.enter")}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => toggleSuspend(s)} title={s.statut === "active" ? "Suspendre" : "Réactiver"}>
+                            <Button size="sm" variant="ghost" onClick={() => toggleSuspend(s)} title={s.statut === "active" ? t("superadmin.suspend") : t("superadmin.reactivate")}>
                               {s.statut === "active" ? <Pause className="size-4" /> : <Play className="size-4" />}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(s)} title="Supprimer">
+                            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(s)} title={t("superadmin.delete")}>
                               <Trash2 className="size-4 text-destructive" />
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))}
                       {!societes.length && (
-                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Aucune société</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">{t("superadmin.no_society")}</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -337,9 +339,9 @@ export const SuperAdminPanel = () => {
                         <Select value={s.plan} onValueChange={(v) => updatePlan(s, v)}>
                           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="starter">Starter</SelectItem>
-                            <SelectItem value="pro">Pro</SelectItem>
-                            <SelectItem value="enterprise">Enterprise</SelectItem>
+                            <SelectItem value="starter">{t("superadmin.plan_starter")}</SelectItem>
+                            <SelectItem value="pro">{t("superadmin.plan_pro")}</SelectItem>
+                            <SelectItem value="enterprise">{t("superadmin.plan_enterprise")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </CardHeader>
@@ -365,18 +367,18 @@ export const SuperAdminPanel = () => {
             {/* TAB 3 — UTILISATEURS */}
             <TabsContent value="users">
               <Card>
-                <CardHeader><CardTitle>Tous les utilisateurs ({users.length})</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("superadmin.all_users", { n: users.length })}</CardTitle></CardHeader>
                 <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Société(s)</TableHead>
-                        <TableHead>Rôle(s)</TableHead>
-                        <TableHead>Dernière connexion</TableHead>
-                        <TableHead>Statut</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t("superadmin.col_email")}</TableHead>
+                        <TableHead>{t("superadmin.col_name")}</TableHead>
+                        <TableHead>{t("superadmin.col_societies")}</TableHead>
+                        <TableHead>{t("superadmin.col_roles")}</TableHead>
+                        <TableHead>{t("superadmin.col_last_login")}</TableHead>
+                        <TableHead>{t("superadmin.col_status")}</TableHead>
+                        <TableHead className="text-right">{t("superadmin.col_actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -398,24 +400,24 @@ export const SuperAdminPanel = () => {
                               </div>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
-                              {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("fr-FR") : "Jamais"}
+                              {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString(i18n.language) : t("superadmin.never")}
                             </TableCell>
                             <TableCell>
                               {banned || !actif
-                                ? <Badge variant="destructive">Désactivé</Badge>
-                                : <Badge className="bg-success text-success-foreground">Actif</Badge>}
+                                ? <Badge variant="destructive">{t("superadmin.deactivated")}</Badge>
+                                : <Badge className="bg-success text-success-foreground">{t("superadmin.active")}</Badge>}
                             </TableCell>
                             <TableCell className="text-right space-x-1">
                               <Select onValueChange={(v) => setUserRole(u, v)}>
-                                <SelectTrigger className="h-8 w-32 inline-flex"><SelectValue placeholder="+ Rôle" /></SelectTrigger>
+                                <SelectTrigger className="h-8 w-32 inline-flex"><SelectValue placeholder={t("superadmin.add_role")} /></SelectTrigger>
                                 <SelectContent>
                                   {ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              <Button size="sm" variant="ghost" onClick={() => toggleActif(u)} title={actif ? "Désactiver" : "Réactiver"}>
+                              <Button size="sm" variant="ghost" onClick={() => toggleActif(u)} title={actif ? t("superadmin.deactivate_account") : t("superadmin.reactivate_account")}>
                                 <UserX className="size-4" />
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => resetPwd(u)} title="Réinitialiser mot de passe">
+                              <Button size="sm" variant="ghost" onClick={() => resetPwd(u)} title={t("superadmin.reset_password")}>
                                 <KeyRound className="size-4" />
                               </Button>
                             </TableCell>
@@ -432,21 +434,21 @@ export const SuperAdminPanel = () => {
             <TabsContent value="stats">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Sociétés actives</CardTitle></CardHeader>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t("superadmin.societies_active")}</CardTitle></CardHeader>
                   <CardContent><div className="text-3xl font-bold">{stats?.societes_actives ?? 0}</div></CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Utilisateurs actifs</CardTitle></CardHeader>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t("superadmin.users_active")}</CardTitle></CardHeader>
                   <CardContent><div className="text-3xl font-bold">{stats?.utilisateurs_actifs ?? 0}</div></CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Connexions aujourd'hui</CardTitle></CardHeader>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t("superadmin.logins_today")}</CardTitle></CardHeader>
                   <CardContent><div className="text-3xl font-bold">{stats?.connexions_today ?? 0}</div></CardContent>
                 </Card>
               </div>
 
               <Card className="mb-4">
-                <CardHeader><CardTitle>Nouvelles sociétés (12 derniers mois)</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("superadmin.new_societies_12m")}</CardTitle></CardHeader>
                 <CardContent style={{ height: 280 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={stats?.chart_societes_par_mois ?? []}>
@@ -461,28 +463,28 @@ export const SuperAdminPanel = () => {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Dernières actions (audit)</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("superadmin.last_audit")}</CardTitle></CardHeader>
                 <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Utilisateur</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Table</TableHead>
+                        <TableHead>{t("superadmin.col_date")}</TableHead>
+                        <TableHead>{t("superadmin.col_user")}</TableHead>
+                        <TableHead>{t("superadmin.col_action")}</TableHead>
+                        <TableHead>{t("superadmin.col_table")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(stats?.recent_audit ?? []).map((a) => (
                         <TableRow key={a.id}>
-                          <TableCell className="text-xs">{new Date(a.created_at).toLocaleString("fr-FR")}</TableCell>
+                          <TableCell className="text-xs">{new Date(a.created_at).toLocaleString(i18n.language)}</TableCell>
                           <TableCell className="text-xs">{a.user_email ?? "—"}</TableCell>
                           <TableCell><Badge variant="outline">{a.action}</Badge></TableCell>
                           <TableCell className="font-mono text-xs">{a.table_name}</TableCell>
                         </TableRow>
                       ))}
                       {!(stats?.recent_audit?.length) && (
-                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Aucune activité récente</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">{t("superadmin.no_recent_activity")}</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -503,19 +505,22 @@ export const SuperAdminPanel = () => {
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cette société ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("superadmin.delete_society_title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{confirmDelete?.nom}</strong> et toutes ses configurations seront supprimées.
-              Les utilisateurs liés à cette société perdront leur accès. Cette action est irréversible.
+              <Trans
+                i18nKey="superadmin.delete_society_desc"
+                values={{ nom: confirmDelete?.nom ?? "" }}
+                components={[<strong key="0" />]}
+              />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => confirmDelete && deleteSociete(confirmDelete)}
             >
-              Supprimer
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

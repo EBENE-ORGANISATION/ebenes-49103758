@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
@@ -52,6 +53,7 @@ const ColorField = ({ label, value, onChange }: { label: string; value: string; 
 );
 
 const ParametresSociete = () => {
+  const { t } = useTranslation();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { currentSociete, societeConfig, societes, setCurrentSocieteId, isLoading, refresh } = useTenant();
   const [busy, setBusy] = useState(false);
@@ -103,11 +105,9 @@ const ParametresSociete = () => {
     return (
       <div className="min-h-screen grid place-items-center p-6">
         <Card className="p-6 max-w-md text-center space-y-3">
-          <h1 className="text-xl font-bold">Accès refusé</h1>
-          <p className="text-sm text-muted-foreground">
-            Seul l'administrateur de la société peut modifier ces paramètres.
-          </p>
-          <Button asChild variant="outline"><Link to="/">Retour</Link></Button>
+          <h1 className="text-xl font-bold">{t("params.access_denied")}</h1>
+          <p className="text-sm text-muted-foreground">{t("params.access_denied_desc")}</p>
+          <Button asChild variant="outline"><Link to="/">{t("params.back")}</Link></Button>
         </Card>
       </div>
     );
@@ -125,9 +125,9 @@ const ParametresSociete = () => {
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("logos-societes").getPublicUrl(path);
       setDraft((d) => ({ ...d, logo_url: pub.publicUrl }));
-      toast.success("Logo téléchargé — n'oubliez pas d'enregistrer.");
+      toast.success(t("params.logo_uploaded"));
     } catch (e) {
-      toast.error("Échec upload : " + (e as Error).message);
+      toast.error(t("params.upload_failed", { msg: (e as Error).message }));
     } finally {
       setUploading(false);
     }
@@ -158,9 +158,9 @@ const ParametresSociete = () => {
         .eq("societe_id", currentSociete.id);
       if (error) throw error;
       await refresh();
-      toast.success("Paramètres enregistrés. Application immédiate.");
+      toast.success(t("params.save_done"));
     } catch (e) {
-      toast.error("Échec : " + (e as Error).message);
+      toast.error(t("params.save_failed", { msg: (e as Error).message }));
     } finally {
       setBusy(false);
     }
@@ -172,9 +172,9 @@ const ParametresSociete = () => {
     try {
       await resetCompteur(currentSociete.id, type, 1);
       await refresh();
-      toast.success(`Compteur ${type === "facture" ? "factures" : "devis"} réinitialisé à 1.`);
+      toast.success(type === "facture" ? t("params.reset_done_invoice") : t("params.reset_done_quote"));
     } catch (e) {
-      toast.error("Échec : " + (e as Error).message);
+      toast.error(t("params.save_failed", { msg: (e as Error).message }));
     } finally {
       setResetting(null);
     }
@@ -198,16 +198,16 @@ const ParametresSociete = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> Retour</Link>
+              <Link to="/"><ArrowLeft className="size-4" /> {t("params.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Settings2 className="size-6 text-primary" /> Paramètres société
+              <Settings2 className="size-6 text-primary" /> {t("params.title")}
             </h1>
           </div>
 
           {societes.length > 1 && (
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground">Société :</Label>
+              <Label className="text-xs text-muted-foreground">{t("params.company_label")}</Label>
               <Select
                 value={currentSociete?.id ?? ""}
                 onValueChange={(v) => setCurrentSocieteId(v)}
@@ -228,7 +228,7 @@ const ParametresSociete = () => {
         ) : (
           <>
             <Card className="p-5 space-y-4">
-              <h2 className="font-bold flex items-center gap-2"><ImgIcon className="size-4" /> Logo</h2>
+              <h2 className="font-bold flex items-center gap-2"><ImgIcon className="size-4" /> {t("params.section_logo")}</h2>
               <div className="flex items-center gap-4">
                 <div className="size-24 rounded border bg-muted/30 grid place-items-center overflow-hidden">
                   {draft.logo_url ? (
@@ -257,7 +257,7 @@ const ParametresSociete = () => {
                     className="gap-1.5"
                   >
                     {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-                    Téléverser un logo
+                    {t("params.upload_logo")}
                   </Button>
                   {draft.logo_url && (
                     <Button
@@ -266,7 +266,7 @@ const ParametresSociete = () => {
                       size="sm"
                       onClick={() => setDraft((d) => ({ ...d, logo_url: null }))}
                     >
-                      Retirer
+                      {t("params.remove_logo")}
                     </Button>
                   )}
                 </div>
@@ -274,23 +274,21 @@ const ParametresSociete = () => {
             </Card>
 
             <Card className="p-5 space-y-4">
-              <h2 className="font-bold">Couleurs</h2>
-              <p className="text-xs text-muted-foreground">
-                L'aperçu s'applique en direct. Cliquez Enregistrer pour rendre le changement permanent.
-              </p>
+              <h2 className="font-bold">{t("params.section_colors")}</h2>
+              <p className="text-xs text-muted-foreground">{t("params.colors_hint")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <ColorField
-                  label="Couleur primaire"
+                  label={t("params.color_primary")}
                   value={draft.couleur_primaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_primaire: v }))}
                 />
                 <ColorField
-                  label="Couleur secondaire"
+                  label={t("params.color_secondary")}
                   value={draft.couleur_secondaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_secondaire: v }))}
                 />
                 <ColorField
-                  label="Couleur d'accent"
+                  label={t("params.color_accent")}
                   value={draft.couleur_accent}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_accent: v }))}
                 />
@@ -298,73 +296,73 @@ const ParametresSociete = () => {
             </Card>
 
             <Card className="p-5 space-y-4">
-              <h2 className="font-bold">Informations légales</h2>
+              <h2 className="font-bold">{t("params.section_legal")}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Adresse</Label>
+                  <Label className="text-xs">{t("params.address")}</Label>
                   <Input value={draft.adresse} onChange={(e) => setDraft((d) => ({ ...d, adresse: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Téléphone</Label>
+                  <Label className="text-xs">{t("params.phone")}</Label>
                   <Input value={draft.telephone} onChange={(e) => setDraft((d) => ({ ...d, telephone: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Email</Label>
+                  <Label className="text-xs">{t("params.email")}</Label>
                   <Input type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Site web</Label>
+                  <Label className="text-xs">{t("params.website")}</Label>
                   <Input value={draft.site_web} onChange={(e) => setDraft((d) => ({ ...d, site_web: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">NIF</Label>
+                  <Label className="text-xs">{t("params.nif")}</Label>
                   <Input value={draft.nif} onChange={(e) => setDraft((d) => ({ ...d, nif: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">RCCM</Label>
+                  <Label className="text-xs">{t("params.rccm")}</Label>
                   <Input value={draft.rccm} onChange={(e) => setDraft((d) => ({ ...d, rccm: e.target.value }))} />
                 </div>
               </div>
             </Card>
 
             <Card className="p-5 space-y-4">
-              <h2 className="font-bold">Mentions sur les documents</h2>
+              <h2 className="font-bold">{t("params.section_mentions")}</h2>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Mention en pied de facture</Label>
+                  <Label className="text-xs">{t("params.mention_invoice")}</Label>
                   <Textarea
                     rows={2}
                     value={draft.mention_facture}
                     onChange={(e) => setDraft((d) => ({ ...d, mention_facture: e.target.value }))}
-                    placeholder="Ex : Conditions de paiement à 30 jours."
+                    placeholder={t("params.mention_invoice_ph")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Mention en pied de contrat</Label>
+                  <Label className="text-xs">{t("params.mention_contract")}</Label>
                   <Textarea
                     rows={2}
                     value={draft.mention_contrat}
                     onChange={(e) => setDraft((d) => ({ ...d, mention_contrat: e.target.value }))}
-                    placeholder="Ex : Contrat régi par la législation togolaise."
+                    placeholder={t("params.mention_contract_ph")}
                   />
                 </div>
               </div>
             </Card>
 
             <Card className="p-5 space-y-4">
-              <h2 className="font-bold">Numérotation automatique</h2>
+              <h2 className="font-bold">{t("params.section_numbering")}</h2>
               <p className="text-xs text-muted-foreground">
-                Jetons disponibles : <span className="font-mono">{"{YYYY}"}</span> année,&nbsp;
-                <span className="font-mono">{"{YY}"}</span> année courte,&nbsp;
-                <span className="font-mono">{"{MM}"}</span> mois,&nbsp;
-                <span className="font-mono">{"{NNN}"}</span> compteur (3 chiffres),&nbsp;
-                <span className="font-mono">{"{NNNN}"}</span> 4 chiffres,&nbsp;
-                <span className="font-mono">{"{N}"}</span> brut.
+                {t("params.numbering_tokens")} <span className="font-mono">{"{YYYY}"}</span> {t("params.token_year")},&nbsp;
+                <span className="font-mono">{"{YY}"}</span> {t("params.token_year_short")},&nbsp;
+                <span className="font-mono">{"{MM}"}</span> {t("params.token_month")},&nbsp;
+                <span className="font-mono">{"{NNN}"}</span> {t("params.token_counter3")},&nbsp;
+                <span className="font-mono">{"{NNNN}"}</span> {t("params.token_counter4")},&nbsp;
+                <span className="font-mono">{"{N}"}</span> {t("params.token_raw")}.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Format facture</Label>
+                  <Label className="text-xs">{t("params.format_invoice")}</Label>
                   <Input
                     value={draft.format_facture}
                     onChange={(e) => setDraft((d) => ({ ...d, format_facture: e.target.value }))}
@@ -372,9 +370,9 @@ const ParametresSociete = () => {
                     placeholder={DEFAULT_FORMAT_FACTURE}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Aperçu : <span className="font-mono font-semibold">{previewFacture}</span>
+                    {t("params.preview")} <span className="font-mono font-semibold">{previewFacture}</span>
                     <span className="ml-2 text-muted-foreground">
-                      (compteur actuel : {Number(societeConfig?.compteur_facture ?? 1)})
+                      {t("params.current_counter", { n: Number(societeConfig?.compteur_facture ?? 1) })}
                     </span>
                   </p>
                   <AlertDialog>
@@ -385,22 +383,18 @@ const ParametresSociete = () => {
                         className="mt-1"
                         disabled={resetting !== null}
                       >
-                        Réinitialiser le compteur
+                        {t("params.reset_counter")}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Réinitialiser le compteur factures ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Le prochain numéro de facture repartira à 1. Cette action est
-                          immédiate et peut créer des doublons si des factures portent déjà
-                          ce numéro. Confirmer ?
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>{t("params.reset_invoice_title")}</AlertDialogTitle>
+                        <AlertDialogDescription>{t("params.reset_invoice_desc")}</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleReset("facture")}>
-                          Confirmer
+                          {t("common.confirm")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -408,7 +402,7 @@ const ParametresSociete = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Format devis</Label>
+                  <Label className="text-xs">{t("params.format_quote")}</Label>
                   <Input
                     value={draft.format_devis}
                     onChange={(e) => setDraft((d) => ({ ...d, format_devis: e.target.value }))}
@@ -416,9 +410,9 @@ const ParametresSociete = () => {
                     placeholder={DEFAULT_FORMAT_DEVIS}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Aperçu : <span className="font-mono font-semibold">{previewDevis}</span>
+                    {t("params.preview")} <span className="font-mono font-semibold">{previewDevis}</span>
                     <span className="ml-2 text-muted-foreground">
-                      (compteur actuel : {Number(societeConfig?.compteur_devis ?? 1)})
+                      {t("params.current_counter", { n: Number(societeConfig?.compteur_devis ?? 1) })}
                     </span>
                   </p>
                   <AlertDialog>
@@ -429,22 +423,18 @@ const ParametresSociete = () => {
                         className="mt-1"
                         disabled={resetting !== null}
                       >
-                        Réinitialiser le compteur
+                        {t("params.reset_counter")}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Réinitialiser le compteur devis ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Le prochain numéro de devis repartira à 1. Cette action est
-                          immédiate et peut créer des doublons si des devis portent déjà
-                          ce numéro. Confirmer ?
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>{t("params.reset_quote_title")}</AlertDialogTitle>
+                        <AlertDialogDescription>{t("params.reset_quote_desc")}</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleReset("devis")}>
-                          Confirmer
+                          {t("common.confirm")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -456,7 +446,7 @@ const ParametresSociete = () => {
             <div className="sticky bottom-4 z-10 flex justify-end">
               <Button onClick={save} disabled={busy} size="lg" className="shadow-lg">
                 {busy ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                Enregistrer
+                {t("params.save")}
               </Button>
             </div>
           </>

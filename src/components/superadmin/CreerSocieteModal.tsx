@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ type Plan = "starter" | "pro" | "enterprise";
 type AdminMethod = "invite" | "password";
 
 export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
 
@@ -147,7 +149,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
         method: res.invited?.method ?? adminMethod,
         already_existed: res.invited?.already_existed,
       });
-      toast.success("Société créée avec succès");
+      toast.success(t("creer.created_toast"));
       onCreated();
     } catch (e) {
       toast.error((e as Error).message);
@@ -160,16 +162,16 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Créer une nouvelle société</DialogTitle>
+          <DialogTitle>{t("creer.title")}</DialogTitle>
           <DialogDescription>
-            {createdUrl ? "Société créée." : `Étape ${step} / 3`}
+            {createdUrl ? t("creer.created") : t("creer.step_of", { n: step })}
           </DialogDescription>
         </DialogHeader>
 
         {createdUrl ? (
           <div className="space-y-4">
             <div className="rounded-md border bg-muted/40 p-4 text-sm">
-              <p className="font-medium mb-1">URL d'accès de la société :</p>
+              <p className="font-medium mb-1">{t("creer.access_url")}</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 break-all text-xs">{createdUrl}</code>
                 <Button
@@ -177,7 +179,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                   variant="outline"
                   onClick={() => {
                     navigator.clipboard.writeText(createdUrl);
-                    toast.success("URL copiée");
+                    toast.success(t("creer.url_copied"));
                   }}
                 >
                   <Copy className="size-4" />
@@ -186,37 +188,40 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             </div>
             {createdInfo?.already_existed ? (
               <p className="text-xs text-muted-foreground">
-                Le compte <strong>{createdInfo.email}</strong> existait déjà — il a simplement été
-                rattaché à cette société avec le rôle admin.
+                <Trans
+                  i18nKey="creer.already_existed"
+                  values={{ email: createdInfo.email ?? "" }}
+                  components={[<strong key="0" />]}
+                />
               </p>
             ) : createdInfo?.method === "password" ? (
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm space-y-2">
-                <p className="font-medium">Identifiants de connexion de l'administrateur</p>
+                <p className="font-medium">{t("creer.admin_credentials")}</p>
                 <div className="grid grid-cols-[80px_1fr_auto] items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">Email</span>
+                  <span className="text-muted-foreground">{t("creer.label_email")}</span>
                   <code className="break-all">{createdInfo.email}</code>
-                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.email!); toast.success("Email copié"); }}>
+                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.email!); toast.success(t("creer.email_copied")); }}>
                     <Copy className="size-3" />
                   </Button>
-                  <span className="text-muted-foreground">Mot de passe</span>
+                  <span className="text-muted-foreground">{t("creer.label_password")}</span>
                   <code className="break-all">{createdInfo.password}</code>
-                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.password!); toast.success("Mot de passe copié"); }}>
+                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(createdInfo.password!); toast.success(t("creer.pwd_copied")); }}>
                     <Copy className="size-3" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  ⚠️ Notez ces informations — elles ne seront plus affichées. Transmettez-les à
-                  l'administrateur de la société.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("creer.notice_save_creds")}</p>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Un email d'invitation a été envoyé à <strong>{createdInfo?.email ?? adminEmail}</strong>{" "}
-                pour qu'il définisse son mot de passe.
+                <Trans
+                  i18nKey="creer.invite_sent"
+                  values={{ email: createdInfo?.email ?? adminEmail }}
+                  components={[<strong key="0" />]}
+                />
               </p>
             )}
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Fermer</Button>
+              <Button onClick={() => onOpenChange(false)}>{t("creer.close")}</Button>
             </DialogFooter>
           </div>
         ) : (
@@ -224,64 +229,64 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             {step === 1 && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Nom de la société *</Label>
-                  <Input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex: ACME SARL" />
+                  <Label>{t("creer.society_name")}</Label>
+                  <Input value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t("creer.society_name_ph")} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Slug (URL) *</Label>
+                  <Label>{t("creer.slug_label")}</Label>
                   <Input
                     value={slug}
                     onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)); }}
-                    placeholder="acme-sarl"
+                    placeholder={t("creer.slug_ph")}
                   />
-                  <p className="text-xs text-muted-foreground">URL : {previewUrl}</p>
+                  <p className="text-xs text-muted-foreground">{t("creer.url_label", { url: previewUrl })}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Plan *</Label>
+                  <Label>{t("creer.plan_label")}</Label>
                   <Select value={plan} onValueChange={(v) => setPlan(v as Plan)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="starter">Starter</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      <SelectItem value="starter">{t("superadmin.plan_starter")}</SelectItem>
+                      <SelectItem value="pro">{t("superadmin.plan_pro")}</SelectItem>
+                      <SelectItem value="enterprise">{t("superadmin.plan_enterprise")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email de l'administrateur *</Label>
+                  <Label>{t("creer.admin_email_label")}</Label>
                   <Input
                     type="email"
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="admin@societe.com"
+                    placeholder={t("creer.admin_email_ph")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Nom de l'administrateur</Label>
+                  <Label>{t("creer.admin_name_label")}</Label>
                   <Input
                     value={adminNom}
                     onChange={(e) => setAdminNom(e.target.value)}
-                    placeholder="Ex: Jean Dupont"
+                    placeholder={t("creer.admin_name_ph")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Méthode d'accès *</Label>
+                  <Label>{t("creer.access_method")}</Label>
                   <Select value={adminMethod} onValueChange={(v) => setAdminMethod(v as AdminMethod)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="invite">Envoyer une invitation par email</SelectItem>
-                      <SelectItem value="password">Définir un mot de passe maintenant</SelectItem>
+                      <SelectItem value="invite">{t("creer.method_invite")}</SelectItem>
+                      <SelectItem value="password">{t("creer.method_password")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {adminMethod === "invite"
-                      ? "L'administrateur recevra un email pour définir son mot de passe."
-                      : "Le compte sera créé immédiatement avec le mot de passe ci-dessous."}
+                      ? t("creer.method_invite_hint")
+                      : t("creer.method_password_hint")}
                   </p>
                 </div>
                 {adminMethod === "password" && (
                   <div className="space-y-1.5">
-                    <Label>Mot de passe initial * (min 8 caractères)</Label>
+                    <Label>{t("creer.initial_pwd")}</Label>
                     <div className="flex items-center gap-2">
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -305,7 +310,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                           setShowPassword(true);
                         }}
                       >
-                        Générer
+                        {t("creer.generate")}
                       </Button>
                     </div>
                   </div>
@@ -316,11 +321,11 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             {step === 2 && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Logo</Label>
+                  <Label>{t("creer.logo")}</Label>
                   <Input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Couleur primaire</Label>
+                  <Label>{t("creer.primary_color")}</Label>
                   <div className="flex items-center gap-2">
                     <Input type="color" value={couleur} onChange={(e) => setCouleur(e.target.value)} className="w-20 h-10 p-1" />
                     <Input value={couleur} onChange={(e) => setCouleur(e.target.value)} />
@@ -328,28 +333,30 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>NIF</Label>
+                    <Label>{t("creer.nif")}</Label>
                     <Input value={nif} onChange={(e) => setNif(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>RCCM</Label>
+                    <Label>{t("creer.rccm")}</Label>
                     <Input value={rccm} onChange={(e) => setRccm(e.target.value)} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Adresse</Label>
+                  <Label>{t("creer.address")}</Label>
                   <Input value={adresse} onChange={(e) => setAdresse(e.target.value)} />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Tous les champs sont facultatifs — l'administrateur de la société pourra les compléter plus tard.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("creer.optional_hint")}</p>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Modules activés par défaut selon le plan <strong>{plan}</strong> — ajustables.
+                  <Trans
+                    i18nKey="creer.modules_default"
+                    values={{ plan }}
+                    components={[<strong key="0" />]}
+                  />
                 </p>
                 <div className="rounded-md border divide-y">
                   {(Object.keys(MODULE_LABELS) as Array<keyof ModuleFlags>).map((k) => (
@@ -363,7 +370,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                   ))}
                 </div>
                 <div className="rounded-md border bg-muted/40 p-3 text-xs">
-                  <p className="font-medium mb-1">Aperçu — Onglets visibles pour l'admin de société :</p>
+                  <p className="font-medium mb-1">{t("creer.preview_tabs")}</p>
                   <p>
                     {[
                       modules.module_stock && "Stock",
@@ -371,7 +378,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                       modules.module_fiscalite && "Fiscalité",
                       modules.module_immobilisations && "Immobilisations",
                       modules.module_ia && "Assistant IA",
-                    ].filter(Boolean).join(" • ") || "Aucun module activé"}
+                    ].filter(Boolean).join(" • ") || t("creer.no_module")}
                   </p>
                 </div>
               </div>
@@ -380,18 +387,18 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             <DialogFooter className="gap-2 sm:gap-2">
               {step > 1 && (
                 <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={busy}>
-                  <ChevronLeft className="size-4 mr-1" /> Précédent
+                  <ChevronLeft className="size-4 mr-1" /> {t("creer.previous")}
                 </Button>
               )}
               {step < 3 && (
                 <Button onClick={() => setStep((s) => s + 1)} disabled={step === 1 && !canNext1}>
-                  Suivant <ChevronRight className="size-4 ml-1" />
+                  {t("creer.next")} <ChevronRight className="size-4 ml-1" />
                 </Button>
               )}
               {step === 3 && (
                 <Button onClick={submit} disabled={busy}>
                   {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Check className="size-4 mr-2" />}
-                  Créer la société
+                  {t("creer.create_btn")}
                 </Button>
               )}
             </DialogFooter>
