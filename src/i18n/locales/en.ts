@@ -221,7 +221,6 @@ const en: Translation = {
   langs: {
     fr: "French",
     en: "English",
-    es: "Spanish",
   },
   params: {
     title: "Company settings",
