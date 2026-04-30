@@ -219,7 +219,6 @@ const fr = {
   langs: {
     fr: "Français",
     en: "Anglais",
-    es: "Espagnol",
   },
   params: {
     title: "Paramètres société",
