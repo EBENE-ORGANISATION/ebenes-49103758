@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   initial?: Employe;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<Omit<Employe, "id">>({
     nom: "",
     poste: "",
@@ -51,94 +53,94 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
   };
 
   const submit = () => {
-    if (!form.nom.trim()) return alert("Nom obligatoire");
-    if (!form.poste.trim()) return alert("Poste obligatoire");
-    if (!form.salaire || form.salaire <= 0) return alert("Salaire invalide");
+    if (!form.nom.trim()) return alert(t("grh_form.err_name"));
+    if (!form.poste.trim()) return alert(t("grh_form.err_job"));
+    if (!form.salaire || form.salaire <= 0) return alert(t("grh_form.err_salary"));
     onSubmit(form);
   };
 
   return (
     <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-      <h3 className="font-bold text-lg">{initial ? "Modifier l'employé" : "Nouvel employé"}</h3>
+      <h3 className="font-bold text-lg">{initial ? t("grh_form.title_edit") : t("grh_form.title_new")}</h3>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Identité</p>
+        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_identity")}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Nom complet *">
+          <Field label={t("grh_form.full_name")}>
             <Input value={form.nom} onChange={(e) => update("nom", e.target.value)} />
           </Field>
-          <Field label="Matricule">
+          <Field label={t("grh_form.matricule")}>
             <Input
               value={form.matricule || ""}
               onChange={(e) => update("matricule", e.target.value)}
-              placeholder={initial ? "" : "Auto (ex: 0001-A)"}
+              placeholder={initial ? "" : t("grh_form.matricule_ph")}
             />
           </Field>
-          <Field label="Sexe">
+          <Field label={t("grh_form.sex")}>
             <Select value={form.sexe || "M"} onValueChange={(v) => update("sexe", v as "M" | "F")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="M">Masculin</SelectItem>
-                <SelectItem value="F">Féminin</SelectItem>
+                <SelectItem value="M">{t("grh_form.male")}</SelectItem>
+                <SelectItem value="F">{t("grh_form.female")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Date de naissance">
+          <Field label={t("grh_form.birth_date")}>
             <Input type="date" value={form.dateNaissance || ""} onChange={(e) => update("dateNaissance", e.target.value)} />
           </Field>
-          <Field label="Lieu de naissance">
+          <Field label={t("grh_form.birth_place")}>
             <Input value={form.lieuNaissance || ""} onChange={(e) => update("lieuNaissance", e.target.value)} />
           </Field>
-          <Field label="Nationalité">
+          <Field label={t("grh_form.nationality")}>
             <Input value={form.nationalite || ""} onChange={(e) => update("nationalite", e.target.value)} />
           </Field>
-          <Field label="N° CNI / Passeport">
+          <Field label={t("grh_form.cni")}>
             <Input value={form.cni || ""} onChange={(e) => update("cni", e.target.value)} />
           </Field>
-          <Field label="N° CNSS">
+          <Field label={t("grh_form.cnss")}>
             <Input value={form.numCnss || ""} onChange={(e) => update("numCnss", e.target.value)} />
           </Field>
-          <Field label="Téléphone">
+          <Field label={t("grh_form.phone")}>
             <Input value={form.telephone || ""} onChange={(e) => update("telephone", e.target.value)} />
           </Field>
-          <Field label="Email">
+          <Field label={t("grh_form.email")}>
             <Input type="email" value={form.email || ""} onChange={(e) => update("email", e.target.value)} />
           </Field>
-          <Field label="Adresse" full>
+          <Field label={t("grh_form.address")} full>
             <Input value={form.adresse || ""} onChange={(e) => update("adresse", e.target.value)} />
           </Field>
-          <Field label="UUID compte utilisateur (portail employé)" full>
+          <Field label={t("grh_form.user_uuid")} full>
             <Input
               value={form.userId || ""}
               onChange={(e) => update("userId", e.target.value || undefined)}
-              placeholder="ex: 123e4567-e89b-12d3-a456-426614174000"
+              placeholder={t("grh_form.user_uuid_ph")}
             />
           </Field>
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Contrat & poste</p>
+        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_contract")}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Poste *">
+          <Field label={t("grh_form.job")}>
             <Input value={form.poste} onChange={(e) => update("poste", e.target.value)} />
           </Field>
-          <Field label="Qualification">
+          <Field label={t("grh_form.qualification")}>
             <Input value={form.qualification || ""} onChange={(e) => update("qualification", e.target.value)} />
           </Field>
-          <Field label="Type de contrat">
+          <Field label={t("grh_form.contract_type")}>
             <Select value={form.typeContrat || "cdi"} onValueChange={(v) => update("typeContrat", v as TypeContrat)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="essai">Période d'essai</SelectItem>
-                <SelectItem value="cdd">CDD</SelectItem>
-                <SelectItem value="cdi">CDI</SelectItem>
-                <SelectItem value="stage">Stage</SelectItem>
-                <SelectItem value="interim">Intérim</SelectItem>
+                <SelectItem value="essai">{t("grh_form.contract_essai")}</SelectItem>
+                <SelectItem value="cdd">{t("grh_form.contract_cdd")}</SelectItem>
+                <SelectItem value="cdi">{t("grh_form.contract_cdi")}</SelectItem>
+                <SelectItem value="stage">{t("grh_form.contract_stage")}</SelectItem>
+                <SelectItem value="interim">{t("grh_form.contract_interim")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Catégorie professionnelle">
+          <Field label={t("grh_form.category")}>
             <Select value={form.categorie || "E1"} onValueChange={(v) => update("categorie", v as CategorieProf)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -148,14 +150,14 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Échelon">
+          <Field label={t("grh_form.echelon")}>
             <Input type="number" min={1} max={10} value={form.echelon || 1} onChange={(e) => update("echelon", parseInt(e.target.value, 10) || 1)} />
           </Field>
-          <Field label="Date d'embauche">
+          <Field label={t("grh_form.hire_date")}>
             <Input type="date" value={form.dateEmbauche || ""} onChange={(e) => update("dateEmbauche", e.target.value)} />
           </Field>
           {form.typeContrat === "cdd" && (
-            <Field label="Date fin de contrat">
+            <Field label={t("grh_form.end_date")}>
               <Input type="date" value={form.dateFinContrat || ""} onChange={(e) => update("dateFinContrat", e.target.value)} />
             </Field>
           )}
@@ -163,39 +165,39 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Rémunération (FCFA)</p>
+        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_pay")}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Salaire de base *">
+          <Field label={t("grh_form.base_salary")}>
             <Input type="number" value={form.salaire || ""} onChange={(e) => update("salaire", parseFloat(e.target.value) || 0)} />
           </Field>
-          <Field label="Sursalaire">
+          <Field label={t("grh_form.sursalaire")}>
             <Input type="number" value={form.sursalaire || 0} onChange={(e) => update("sursalaire", parseFloat(e.target.value) || 0)} />
           </Field>
-          <Field label="Indemnité transport">
+          <Field label={t("grh_form.indem_transport")}>
             <Input type="number" value={form.indemniteTransport || 0} onChange={(e) => update("indemniteTransport", parseFloat(e.target.value) || 0)} />
           </Field>
-          <Field label="Indemnité logement">
+          <Field label={t("grh_form.indem_logement")}>
             <Input type="number" value={form.indemniteLogement || 0} onChange={(e) => update("indemniteLogement", parseFloat(e.target.value) || 0)} />
           </Field>
-          <Field label="Indemnité fonction">
+          <Field label={t("grh_form.indem_fonction")}>
             <Input type="number" value={form.indemniteFonction || 0} onChange={(e) => update("indemniteFonction", parseFloat(e.target.value) || 0)} />
           </Field>
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Situation familiale</p>
+        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_family")}</p>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Situation">
+          <Field label={t("grh_form.situation")}>
             <Select value={form.situation} onValueChange={(v) => update("situation", v as "celibataire" | "marie")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="celibataire">Célibataire</SelectItem>
-                <SelectItem value="marie">Marié(e)</SelectItem>
+                <SelectItem value="celibataire">{t("grh_form.sit_celibataire")}</SelectItem>
+                <SelectItem value="marie">{t("grh_form.sit_marie")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Enfants à charge">
+          <Field label={t("grh_form.children")}>
             <Input type="number" min={0} value={form.enfants} onChange={(e) => update("enfants", parseInt(e.target.value, 10) || 0)} />
           </Field>
         </div>
@@ -203,10 +205,10 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
 
       <div className="flex gap-2 pt-2">
         <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-          ✓ Enregistrer
+          {t("grh_form.save")}
         </Button>
         <Button variant="outline" onClick={onCancel} className="gap-1.5">
-          <X className="size-4" /> Annuler
+          <X className="size-4" /> {t("grh_form.cancel")}
         </Button>
       </div>
     </div>

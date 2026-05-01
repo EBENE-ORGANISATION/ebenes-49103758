@@ -21,6 +21,7 @@ import {
 } from "@/lib/ebene-utils";
 import { Calculator, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
   employes: Employe[];
@@ -28,16 +29,16 @@ interface Props {
 
 type Motif = "licenciement_simple" | "licenciement_grave" | "licenciement_lourde" | "demission" | "retraite" | "fin_cdd";
 
-const MOTIF_LABELS: Record<Motif, string> = {
-  licenciement_simple: "Licenciement pour faute simple / motif économique",
-  licenciement_grave: "Licenciement pour faute grave",
-  licenciement_lourde: "Licenciement pour faute lourde",
-  demission: "Démission",
-  retraite: "Départ à la retraite",
-  fin_cdd: "Fin de CDD",
-};
-
 export const IndemnitesCalculator = ({ employes }: Props) => {
+  const { t } = useTranslation();
+  const MOTIF_LABELS: Record<Motif, string> = {
+    licenciement_simple: t("grh_indemnites.motif_lic_simple"),
+    licenciement_grave: t("grh_indemnites.motif_lic_grave"),
+    licenciement_lourde: t("grh_indemnites.motif_lic_lourde"),
+    demission: t("grh_indemnites.motif_demission"),
+    retraite: t("grh_indemnites.motif_retraite"),
+    fin_cdd: t("grh_indemnites.motif_fin_cdd"),
+  };
   const [employeId, setEmployeId] = useState("");
   const [motif, setMotif] = useState<Motif>("licenciement_simple");
   const [dateRupture, setDateRupture] = useState(new Date().toISOString().split("T")[0]);
@@ -116,10 +117,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
         <p className="text-sm flex items-start gap-2">
           <Calculator className="size-4 text-info shrink-0 mt-0.5" />
           <span>
-            Calcul conforme au <strong>Code du travail togolais</strong> et à la
-            <strong> Convention interprofessionnelle</strong> : préavis selon catégorie/ancienneté,
-            indemnité de licenciement (35% jusqu'à 5 ans, 40% de 6 à 10 ans, 45% au-delà), retraite
-            = 75% de l'indemnité de licenciement.
+            <Trans i18nKey="grh_indemnites.info" components={[<span key="0" />, <strong key="1" />, <span key="2" />, <strong key="3" />]} />
           </span>
         </p>
       </div>
@@ -127,10 +125,10 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
       <div className="card-elevated p-5 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <Label>Employé *</Label>
+            <Label>{t("grh_indemnites.employee")}</Label>
             <Select value={employeId} onValueChange={setEmployeId}>
               <SelectTrigger>
-                <SelectValue placeholder="Choisir un employé" />
+                <SelectValue placeholder={t("grh_indemnites.employee_ph")} />
               </SelectTrigger>
               <SelectContent>
                 {employes.map((e) => (
@@ -142,7 +140,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
             </Select>
           </div>
           <div>
-            <Label>Motif de rupture *</Label>
+            <Label>{t("grh_indemnites.motif")}</Label>
             <Select value={motif} onValueChange={(v) => setMotif(v as Motif)}>
               <SelectTrigger>
                 <SelectValue />
@@ -157,7 +155,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
             </Select>
           </div>
           <div>
-            <Label>Date de rupture *</Label>
+            <Label>{t("grh_indemnites.rupture_date")}</Label>
             <Input
               type="date"
               value={dateRupture}
@@ -165,20 +163,20 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
             />
           </div>
           <div>
-            <Label>Salaire moyen mensuel (FCFA)</Label>
+            <Label>{t("grh_indemnites.avg_salary")}</Label>
             <Input
               type="number"
               placeholder={
                 employe
                   ? String((employe.salaire || 0) + (employe.sursalaire || 0))
-                  : "Auto = base + sursalaire"
+                  : t("grh_indemnites.avg_salary_ph")
               }
               value={salaireMoyenInput}
               onChange={(e) => setSalaireMoyenInput(e.target.value)}
             />
           </div>
           <div>
-            <Label>Solde congés non pris (jours)</Label>
+            <Label>{t("grh_indemnites.leave_balance")}</Label>
             <Input
               type="number"
               step="0.5"
@@ -203,72 +201,72 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
 
           <div id="indemnites-print" className="card-elevated p-6 bg-card">
             <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-              <p className="font-bold text-lg">EBENE SERVICES</p>
+              <p className="font-bold text-lg">{t("grh_indemnites.company")}</p>
               <h3 className="text-base font-bold mt-2">
-                DÉCOMPTE FINAL — {employe.nom}
+                {t("grh_indemnites.title_decompte", { nom: employe.nom })}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Motif : {MOTIF_LABELS[motif]} • Date rupture : {dateRupture}
+                {t("grh_indemnites.sub_decompte", { motif: MOTIF_LABELS[motif], date: dateRupture })}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-              <p><strong>Matricule :</strong> {employe.matricule || "-"}</p>
-              <p><strong>Poste :</strong> {employe.poste}</p>
-              <p><strong>Date embauche :</strong> {employe.dateEmbauche || "-"}</p>
-              <p><strong>Ancienneté :</strong> {calcul.anciennete.toFixed(2)} ans</p>
-              <p><strong>Catégorie :</strong> {employe.categorie || "-"}</p>
-              <p><strong>Salaire moyen :</strong> {formatMontant(calcul.salaireMoyen)}</p>
+              <p><strong>{t("grh_indemnites.matricule")}</strong> {employe.matricule || "-"}</p>
+              <p><strong>{t("grh_indemnites.poste")}</strong> {employe.poste}</p>
+              <p><strong>{t("grh_indemnites.hire_date")}</strong> {employe.dateEmbauche || "-"}</p>
+              <p><strong>{t("grh_indemnites.seniority")}</strong> {t("grh_indemnites.seniority_value", { value: calcul.anciennete.toFixed(2) })}</p>
+              <p><strong>{t("grh_indemnites.category")}</strong> {employe.categorie || "-"}</p>
+              <p><strong>{t("grh_indemnites.avg_salary_label")}</strong> {formatMontant(calcul.salaireMoyen)}</p>
             </div>
 
             <table className="w-full text-sm border-collapse mb-4">
               <thead>
                 <tr className="bg-muted">
-                  <th className="text-left p-2 border border-border">Indemnité</th>
-                  <th className="text-left p-2 border border-border">Détail</th>
-                  <th className="text-right p-2 border border-border w-32">Montant</th>
+                  <th className="text-left p-2 border border-border">{t("grh_indemnites.th_indemnity")}</th>
+                  <th className="text-left p-2 border border-border">{t("grh_indemnites.th_detail")}</th>
+                  <th className="text-right p-2 border border-border w-32">{t("grh_indemnites.th_amount")}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="p-2 border border-border">Préavis</td>
+                  <td className="p-2 border border-border">{t("grh_indemnites.preavis")}</td>
                   <td className="p-2 border border-border text-xs">
                     {calcul.droitPreavis
-                      ? `${calcul.joursPreavis} jours`
+                      ? t("grh_indemnites.preavis_days", { days: calcul.joursPreavis })
                       : calcul.fauteLourde || calcul.fauteGrave
-                      ? "Non dû (faute grave/lourde)"
-                      : "Non applicable"}
+                      ? t("grh_indemnites.preavis_fault")
+                      : t("grh_indemnites.not_applicable")}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.montantPreavis)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2 border border-border">Indemnité de licenciement</td>
+                  <td className="p-2 border border-border">{t("grh_indemnites.ind_lic")}</td>
                   <td className="p-2 border border-border text-xs">
                     {calcul.indLic > 0
-                      ? "35%/40%/45% selon barème conv. interprof."
+                      ? t("grh_indemnites.ind_lic_detail")
                       : calcul.fauteLourde
-                      ? "Non due (faute lourde)"
-                      : "Non applicable"}
+                      ? t("grh_indemnites.ind_lic_lourde")
+                      : t("grh_indemnites.not_applicable")}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.indLic)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2 border border-border">Indemnité de départ retraite</td>
+                  <td className="p-2 border border-border">{t("grh_indemnites.ind_ret")}</td>
                   <td className="p-2 border border-border text-xs">
-                    {motif === "retraite" ? "75% de l'indemnité de licenciement" : "Non applicable"}
+                    {motif === "retraite" ? t("grh_indemnites.ind_ret_detail") : t("grh_indemnites.not_applicable")}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.indRet)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2 border border-border">Indemnité compensatrice de congés payés</td>
+                  <td className="p-2 border border-border">{t("grh_indemnites.ind_conges")}</td>
                   <td className="p-2 border border-border text-xs">
-                    {calcul.solde} jours × salaire journalier
+                    {t("grh_indemnites.ind_conges_detail", { days: calcul.solde })}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.indConges)}
@@ -276,8 +274,8 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
                 </tr>
                 {calcul.gratifCDD > 0 && (
                   <tr>
-                    <td className="p-2 border border-border">Gratification fin CDD</td>
-                    <td className="p-2 border border-border text-xs">5% du brut total</td>
+                    <td className="p-2 border border-border">{t("grh_indemnites.grat_cdd")}</td>
+                    <td className="p-2 border border-border text-xs">{t("grh_indemnites.grat_cdd_detail")}</td>
                     <td className="p-2 border border-border text-right amount">
                       {formatMontant(calcul.gratifCDD)}
                     </td>
@@ -285,7 +283,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
                 )}
                 <tr className="font-bold text-base bg-success/15">
                   <td className="p-2 border border-border" colSpan={2}>
-                    TOTAL DÛ
+                    {t("grh_indemnites.total")}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.total)}
@@ -295,9 +293,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
             </table>
 
             <p className="text-xs italic text-muted-foreground border-t border-border pt-3">
-              Décompte établi conformément au Code du travail togolais et à la Convention
-              collective interprofessionnelle. Document à valeur indicative — à valider par les
-              services compétents.
+              {t("grh_indemnites.footer")}
             </p>
           </div>
         </>

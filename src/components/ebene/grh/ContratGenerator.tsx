@@ -2,6 +2,7 @@ import { Employe, MOIS_NOMS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
 import { formatMontant } from "@/lib/ebene-utils";
+import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
   employe: Employe;
@@ -9,25 +10,32 @@ interface Props {
 }
 
 export const ContratGenerator = ({ employe, onClose }: Props) => {
+  const { t } = useTranslation();
   const today = new Date();
   const dateStr = `${today.getDate()} ${MOIS_NOMS[today.getMonth()]} ${today.getFullYear()}`;
 
   const typeLabel: Record<string, string> = {
-    cdi: "Contrat à durée indéterminée (CDI)",
-    cdd: "Contrat à durée déterminée (CDD)",
-    essai: "Contrat à période d'essai",
-    stage: "Contrat de stage",
-    interim: "Contrat d'intérim",
+    cdi: t("grh_contrat.type_cdi"),
+    cdd: t("grh_contrat.type_cdd"),
+    essai: t("grh_contrat.type_essai"),
+    stage: t("grh_contrat.type_stage"),
+    interim: t("grh_contrat.type_interim"),
   };
+
+  const ct = employe.typeContrat || "cdi";
+  const qualifText = employe.qualification ? ` (${employe.qualification})` : "";
+  const sursalaireText = (employe.sursalaire || 0) > 0
+    ? t("grh_contrat.art3_sursalaire", { val: formatMontant(employe.sursalaire!) })
+    : "";
 
   return (
     <div className="modal-overlay">
       <div className="modal-box w-full max-w-3xl">
         <div className="flex items-center justify-between mb-4 no-print">
-          <h2 className="text-xl font-bold">Contrat de travail</h2>
+          <h2 className="text-xl font-bold">{t("grh_contrat.title")}</h2>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
-              <Printer className="size-4" /> Imprimer
+              <Printer className="size-4" /> {t("grh_contrat.print")}
             </Button>
             <Button size="sm" variant="ghost" onClick={onClose}><X className="size-4" /></Button>
           </div>
@@ -35,99 +43,101 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
 
         <div id="print-area" className="bg-white text-foreground p-8 border-2 border-border rounded-lg space-y-4 text-sm leading-relaxed">
           <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-            <p className="font-bold text-base">RÉPUBLIQUE TOGOLAISE</p>
-            <p className="text-xs">Travail – Liberté – Patrie</p>
+            <p className="font-bold text-base">{t("grh_contrat.republic")}</p>
+            <p className="text-xs">{t("grh_contrat.motto")}</p>
             <h3 className="text-lg font-bold mt-3 uppercase">
-              {typeLabel[employe.typeContrat || "cdi"]}
+              {typeLabel[ct]}
             </h3>
           </div>
 
-          <p><strong>ENTRE LES SOUSSIGNÉS :</strong></p>
+          <p><strong>{t("grh_contrat.parties")}</strong></p>
           <p>
-            <strong>EBENE SERVICES</strong>, NIF 1 002 088 759, représentée par M. BITHO SIMBAYA,
-            ci-après dénommée « <strong>l'Employeur</strong> »,
+            <Trans i18nKey="grh_contrat.employer" components={[<strong key="0" />, <span key="1" />, <strong key="2" />]} />
           </p>
-          <p className="text-center">D'UNE PART,</p>
-          <p><strong>ET</strong></p>
+          <p className="text-center">{t("grh_contrat.one_part")}</p>
+          <p><strong>{t("grh_contrat.and")}</strong></p>
           <p>
             <strong>{employe.nom}</strong>
-            {employe.dateNaissance && `, né(e) le ${employe.dateNaissance}`}
-            {employe.lieuNaissance && ` à ${employe.lieuNaissance}`}
-            {employe.nationalite && `, de nationalité ${employe.nationalite}`}
-            {employe.cni && `, titulaire de la pièce d'identité n° ${employe.cni}`}
-            {employe.adresse && `, demeurant à ${employe.adresse}`}
-            , ci-après dénommé(e) « <strong>le Travailleur</strong> »,
+            {employe.dateNaissance && t("grh_contrat.born_on", { date: employe.dateNaissance })}
+            {employe.lieuNaissance && t("grh_contrat.born_at", { lieu: employe.lieuNaissance })}
+            {employe.nationalite && t("grh_contrat.of_nat", { nat: employe.nationalite })}
+            {employe.cni && t("grh_contrat.holder", { num: employe.cni })}
+            {employe.adresse && t("grh_contrat.living", { adr: employe.adresse })}
+            <Trans i18nKey="grh_contrat.worker_label" components={[<span key="0" />, <strong key="1" />]} />
           </p>
-          <p className="text-center">D'AUTRE PART,</p>
+          <p className="text-center">{t("grh_contrat.other_part")}</p>
 
-          <p className="font-bold mt-4">IL A ÉTÉ CONVENU CE QUI SUIT :</p>
+          <p className="font-bold mt-4">{t("grh_contrat.agreed")}</p>
 
-          <p><strong>Article 1 — Engagement</strong></p>
+          <p><strong>{t("grh_contrat.art1")}</strong></p>
           <p>
-            L'Employeur engage le Travailleur en qualité de <strong>{employe.poste}</strong>
-            {employe.qualification && ` (${employe.qualification})`}, classé(e) en
-            <strong> catégorie {employe.categorie || "E1"}, échelon {employe.echelon || 1}</strong>
-            de la classification professionnelle de la Convention collective interprofessionnelle du Togo.
-          </p>
-
-          <p><strong>Article 2 — Durée</strong></p>
-          <p>
-            Le présent contrat prend effet le <strong>{employe.dateEmbauche || "..."}</strong>
-            {employe.typeContrat === "cdd" && employe.dateFinContrat
-              ? ` et prendra fin le ${employe.dateFinContrat}.`
-              : employe.typeContrat === "essai"
-              ? ", pour une durée d'essai conforme aux dispositions du Code du travail."
-              : " pour une durée indéterminée."}
+            <Trans
+              i18nKey="grh_contrat.art1_body"
+              values={{
+                poste: employe.poste,
+                qualif: qualifText,
+                cat: employe.categorie || "E1",
+                ech: employe.echelon || 1,
+              }}
+              components={[<span key="0" />, <strong key="1" />, <span key="2" />, <strong key="3" />]}
+            />
           </p>
 
-          <p><strong>Article 3 — Rémunération</strong></p>
+          <p><strong>{t("grh_contrat.art2")}</strong></p>
           <p>
-            En contrepartie de son travail, le Travailleur perçoit un salaire mensuel de base de
-            <strong> {formatMontant(employe.salaire)}</strong>
-            {(employe.sursalaire || 0) > 0 && `, augmenté d'un sursalaire de ${formatMontant(employe.sursalaire!)}`}
-            . S'y ajoutent les primes et indemnités légales et conventionnelles, notamment :
+            {ct === "cdd" && employe.dateFinContrat ? (
+              <Trans i18nKey="grh_contrat.art2_body_cdd" values={{ date: employe.dateEmbauche || "...", fin: employe.dateFinContrat }} components={[<span key="0" />, <strong key="1" />]} />
+            ) : ct === "essai" ? (
+              <Trans i18nKey="grh_contrat.art2_body_essai" values={{ date: employe.dateEmbauche || "..." }} components={[<span key="0" />, <strong key="1" />]} />
+            ) : (
+              <Trans i18nKey="grh_contrat.art2_body_cdi" values={{ date: employe.dateEmbauche || "..." }} components={[<span key="0" />, <strong key="1" />]} />
+            )}
+          </p>
+
+          <p><strong>{t("grh_contrat.art3")}</strong></p>
+          <p>
+            <Trans
+              i18nKey="grh_contrat.art3_body"
+              values={{ salaire: formatMontant(employe.salaire), sursalaire: sursalaireText }}
+              components={[<span key="0" />, <strong key="1" />]}
+            />
           </p>
           <ul className="list-disc pl-6">
-            {(employe.indemniteTransport || 0) > 0 && <li>Indemnité de transport : {formatMontant(employe.indemniteTransport!)}</li>}
-            {(employe.indemniteLogement || 0) > 0 && <li>Indemnité de logement : {formatMontant(employe.indemniteLogement!)}</li>}
-            {(employe.indemniteFonction || 0) > 0 && <li>Indemnité de fonction : {formatMontant(employe.indemniteFonction!)}</li>}
-            <li>Prime d'ancienneté conformément à l'article 36 de la Convention</li>
+            {(employe.indemniteTransport || 0) > 0 && <li>{t("grh_contrat.art3_transport", { val: formatMontant(employe.indemniteTransport!) })}</li>}
+            {(employe.indemniteLogement || 0) > 0 && <li>{t("grh_contrat.art3_logement", { val: formatMontant(employe.indemniteLogement!) })}</li>}
+            {(employe.indemniteFonction || 0) > 0 && <li>{t("grh_contrat.art3_fonction", { val: formatMontant(employe.indemniteFonction!) })}</li>}
+            <li>{t("grh_contrat.art3_anc")}</li>
           </ul>
 
-          <p><strong>Article 4 — Durée du travail</strong></p>
+          <p><strong>{t("grh_contrat.art4")}</strong></p>
+          <p>{t("grh_contrat.art4_body")}</p>
+
+          <p><strong>{t("grh_contrat.art5")}</strong></p>
           <p>
-            La durée hebdomadaire de travail est fixée à 40 heures conformément à la législation
-            togolaise. Les heures supplémentaires sont rémunérées selon les majorations prévues
-            (20% de la 41<sup>e</sup> à la 48<sup>e</sup> heure ; 40% au-delà ; 65% les dimanches et jours fériés ; 65% la nuit ; 100% la nuit les dim/fériés).
+            <Trans i18nKey="grh_contrat.art5_body" components={[<span key="0" />, <strong key="1" />]} />
           </p>
 
-          <p><strong>Article 5 — Congés</strong></p>
+          <p><strong>{t("grh_contrat.art6")}</strong></p>
           <p>
-            Le Travailleur bénéficie de congés payés à raison de <strong>2,5 jours ouvrables par mois</strong>
-            de service effectif, ainsi que des permissions exceptionnelles prévues à l'article 45 de la Convention.
+            <Trans
+              i18nKey="grh_contrat.art6_body"
+              values={{ num: employe.numCnss || t("grh_contrat.cnss_to_assign") }}
+              components={[<span key="0" />, <strong key="1" />]}
+            />
           </p>
 
-          <p><strong>Article 6 — Sécurité sociale</strong></p>
-          <p>
-            Le Travailleur est affilié à la CNSS sous le N° <strong>{employe.numCnss || "à attribuer"}</strong>.
-            Les cotisations sont retenues conformément à la loi (CNSS 4% salarié / 17,5% employeur, AMU 5% / 5%).
-          </p>
+          <p><strong>{t("grh_contrat.art7")}</strong></p>
+          <p>{t("grh_contrat.art7_body")}</p>
 
-          <p><strong>Article 7 — Dispositions générales</strong></p>
-          <p>
-            Pour tout ce qui n'est pas prévu au présent contrat, les parties s'en remettent aux dispositions
-            du Code du travail togolais et de la Convention collective interprofessionnelle.
-          </p>
-
-          <p className="mt-6">Fait à Lomé, le {dateStr}, en deux exemplaires originaux.</p>
+          <p className="mt-6">{t("grh_contrat.signed_at", { date: dateStr })}</p>
 
           <div className="grid grid-cols-2 gap-8 mt-12">
             <div className="text-center">
-              <p className="border-t border-foreground pt-2">L'Employeur</p>
+              <p className="border-t border-foreground pt-2">{t("grh_contrat.sign_employer")}</p>
               <p className="text-xs italic">BITHO SIMBAYA</p>
             </div>
             <div className="text-center">
-              <p className="border-t border-foreground pt-2">Le Travailleur</p>
+              <p className="border-t border-foreground pt-2">{t("grh_contrat.sign_worker")}</p>
               <p className="text-xs italic">{employe.nom}</p>
             </div>
           </div>
