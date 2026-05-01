@@ -13,6 +13,7 @@ import {
 import { Plus, Trash2, X, Check, XCircle } from "lucide-react";
 import { formatJours } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
+import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
   employes: Employe[];
@@ -33,6 +34,7 @@ export const AbsencesPanel = ({
   onValider,
   onRejeter,
 }: Props) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
   const [type, setType] = useState<TypeAbsence>("conges_payes");
@@ -48,7 +50,7 @@ export const AbsencesPanel = ({
   };
 
   const submit = () => {
-    if (!employeId) return alert("Sélectionnez un employé");
+    if (!employeId) return alert(t("grh_absences.err_employee"));
     const eid = parseInt(employeId, 10);
     const jours = calcJours(debut, fin);
     onAdd({ employeId: eid, type, dateDebut: debut, dateFin: fin, jours, motif });
@@ -62,16 +64,16 @@ export const AbsencesPanel = ({
     <div className="space-y-4">
       {!open ? (
         <Button onClick={() => setOpen(true)} className="gap-1.5">
-          <Plus className="size-4" /> Saisir une absence
+          <Plus className="size-4" /> {t("grh_absences.new_btn")}
         </Button>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-4 space-y-3">
-          <h4 className="font-bold">Nouvelle absence</h4>
+          <h4 className="font-bold">{t("grh_absences.new_title")}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-bold uppercase">Employé *</Label>
+              <Label className="text-xs font-bold uppercase">{t("grh_absences.employee")}</Label>
               <Select value={employeId} onValueChange={setEmployeId}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                <SelectTrigger className="mt-1"><SelectValue placeholder={t("grh_absences.employee_ph")} /></SelectTrigger>
                 <SelectContent>
                   {employes.map((e) => (
                     <SelectItem key={e.id} value={String(e.id)}>{e.nom}</SelectItem>
@@ -80,37 +82,39 @@ export const AbsencesPanel = ({
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-bold uppercase">Type *</Label>
+              <Label className="text-xs font-bold uppercase">{t("grh_absences.type")}</Label>
               <Select value={type} onValueChange={(v) => setType(v as TypeAbsence)}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(TYPE_ABSENCE_LABELS).map(([k, v]) => (
                     <SelectItem key={k} value={k}>
-                      {v.label}{v.jours !== null ? ` (${v.jours}j)` : ""}
+                      {v.jours !== null
+                        ? t("grh_absences.type_with_days", { label: v.label, j: v.jours })
+                        : v.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-bold uppercase">Date début</Label>
+              <Label className="text-xs font-bold uppercase">{t("grh_absences.date_start")}</Label>
               <Input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} className="mt-1" />
             </div>
             <div>
-              <Label className="text-xs font-bold uppercase">Date fin</Label>
+              <Label className="text-xs font-bold uppercase">{t("grh_absences.date_end")}</Label>
               <Input type="date" value={fin} onChange={(e) => setFin(e.target.value)} className="mt-1" />
             </div>
             <div className="sm:col-span-2">
-              <Label className="text-xs font-bold uppercase">Motif / Justificatif</Label>
+              <Label className="text-xs font-bold uppercase">{t("grh_absences.motif")}</Label>
               <Input value={motif} onChange={(e) => setMotif(e.target.value)} className="mt-1" />
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Durée calculée : <strong>{calcJours(debut, fin)} jour(s)</strong>
+            <Trans i18nKey="grh_absences.duration" values={{ n: calcJours(debut, fin) }} components={[<span key="0" />, <strong key="1" />]} />
           </p>
           <div className="flex gap-2">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-              ✓ Enregistrer
+              {t("grh_absences.save")}
             </Button>
             <Button variant="ghost" onClick={() => setOpen(false)}><X className="size-4" /></Button>
           </div>
@@ -118,7 +122,7 @@ export const AbsencesPanel = ({
       )}
 
       {absences.length === 0 ? (
-        <p className="text-center text-muted-foreground py-6 italic">Aucune absence ce mois</p>
+        <p className="text-center text-muted-foreground py-6 italic">{t("grh_absences.empty")}</p>
       ) : (
         <div className="space-y-2">
           {absences.map((a) => {
@@ -141,7 +145,7 @@ export const AbsencesPanel = ({
                   {a.motif && <p className="text-xs italic mt-0.5">{a.motif}</p>}
                   {statut === "rejete" && a.motifRejet && (
                     <p className="text-xs text-destructive mt-1 italic">
-                      Motif du rejet : {a.motifRejet}
+                      {t("grh_absences.reject_label", { val: a.motifRejet })}
                     </p>
                   )}
                 </div>
@@ -152,7 +156,7 @@ export const AbsencesPanel = ({
                       variant="ghost"
                       className="size-8 text-success hover:text-success hover:bg-success/10"
                       onClick={() => onValider(a.id)}
-                      title="Valider"
+                      title={t("grh_absences.validate")}
                     >
                       <Check className="size-4" />
                     </Button>
@@ -163,10 +167,10 @@ export const AbsencesPanel = ({
                       variant="ghost"
                       className="size-8 text-warning hover:text-warning hover:bg-warning/10"
                       onClick={() => {
-                        const motif = window.prompt("Motif du rejet :", "");
+                        const motif = window.prompt(t("grh_absences.prompt_reject"), "");
                         if (motif && motif.trim()) onRejeter(a.id, motif.trim());
                       }}
-                      title="Rejeter"
+                      title={t("grh_absences.reject")}
                     >
                       <XCircle className="size-4" />
                     </Button>
