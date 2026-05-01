@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
   employe: Employe;
@@ -151,6 +152,7 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 };
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
+  const { t } = useTranslation();
   const c = calculerPaie(employe, data);
   const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
   const exportPDF = async () => {
@@ -166,10 +168,10 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
     <div className="modal-overlay">
       <div className="modal-box w-full max-w-3xl">
         <div className="flex items-center justify-between mb-4 no-print">
-          <h2 className="text-xl font-bold">Bulletin de paie</h2>
+          <h2 className="text-xl font-bold">{t("grh_bulletin.title")}</h2>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
-              <Printer className="size-4" /> Imprimer
+              <Printer className="size-4" /> {t("grh_bulletin.print")}
             </Button>
             <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">
               <FileDown className="size-4" /> PDF
@@ -185,72 +187,72 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
 
         <div id="print-area" className="bg-white text-foreground p-6 border-2 border-border rounded-lg">
           <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-            <p className="font-bold text-lg">EBENE SERVICES</p>
-            <p className="text-xs text-muted-foreground">NIF : 1 002 088 759</p>
+            <p className="font-bold text-lg">{t("grh_bulletin.company")}</p>
+            <p className="text-xs text-muted-foreground">{t("grh_bulletin.nif")}</p>
             <h3 className="text-base font-bold mt-2">
-              BULLETIN DE PAIE — {MOIS_NOMS[mois - 1]} {annee}
+              {t("grh_bulletin.header", { mois: MOIS_NOMS[mois - 1], annee })}
             </h3>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm mb-4">
             <div>
-              <p><strong>Nom :</strong> {employe.nom}</p>
-              <p><strong>Matricule :</strong> {employe.matricule || "-"}</p>
-              <p><strong>Poste :</strong> {employe.poste}</p>
-              <p><strong>Catégorie :</strong> {employe.categorie || "-"} - Échelon {employe.echelon || 1}</p>
+              <p><strong>{t("grh_bulletin.name")}</strong> {employe.nom}</p>
+              <p><strong>{t("grh_bulletin.matricule")}</strong> {employe.matricule || "-"}</p>
+              <p><strong>{t("grh_bulletin.poste")}</strong> {employe.poste}</p>
+              <p><strong>{t("grh_bulletin.category")}</strong> {employe.categorie || "-"} - {t("grh_bulletin.echelon")} {employe.echelon || 1}</p>
             </div>
             <div>
-              <p><strong>N° CNSS :</strong> {employe.numCnss || "-"}</p>
-              <p><strong>Date embauche :</strong> {employe.dateEmbauche || "-"}</p>
-              <p><strong>Ancienneté :</strong> {c.anciennete.toFixed(1)} ans</p>
-              <p><strong>Situation :</strong> {employe.situation === "marie" ? "Marié(e)" : "Célibataire"} - {employe.enfants} enf.</p>
+              <p><strong>{t("grh_bulletin.cnss")}</strong> {employe.numCnss || "-"}</p>
+              <p><strong>{t("grh_bulletin.hire_date")}</strong> {employe.dateEmbauche || "-"}</p>
+              <p><strong>{t("grh_bulletin.seniority")}</strong> {t("grh_bulletin.seniority_years", { val: c.anciennete.toFixed(1) })}</p>
+              <p><strong>{t("grh_bulletin.situation")}</strong> {employe.situation === "marie" ? t("grh_bulletin.married") : t("grh_bulletin.single")} - {t("grh_bulletin.children_short", { n: employe.enfants })}</p>
             </div>
           </div>
 
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-muted">
-                <th className="text-left p-2 border border-border">Désignation</th>
-                <th className="text-right p-2 border border-border w-32">Gain</th>
-                <th className="text-right p-2 border border-border w-32">Retenue</th>
+                <th className="text-left p-2 border border-border">{t("grh_bulletin.designation")}</th>
+                <th className="text-right p-2 border border-border w-32">{t("grh_bulletin.gain")}</th>
+                <th className="text-right p-2 border border-border w-32">{t("grh_bulletin.retenue")}</th>
               </tr>
             </thead>
             <tbody>
-              <Line label="Salaire de base" gain={c.base} />
-              {c.sursalaire > 0 && <Line label="Sursalaire" gain={c.sursalaire} />}
+              <Line label={t("grh_bulletin.base")} gain={c.base} />
+              {c.sursalaire > 0 && <Line label={t("grh_bulletin.sursalaire")} gain={c.sursalaire} />}
               {c.primeAnciennete > 0 && (
-                <Line label={`Prime d'ancienneté (${(c.tauxAnc * 100).toFixed(0)}%)`} gain={c.primeAnciennete} />
+                <Line label={t("grh_bulletin.prime_anc", { pct: (c.tauxAnc * 100).toFixed(0) })} gain={c.primeAnciennete} />
               )}
-              {c.hsMontant > 0 && <Line label="Heures supplémentaires" gain={c.hsMontant} />}
-              {c.primes.map((p) => <Line key={p.id} label={`Prime : ${p.libelle}`} gain={p.montant} />)}
+              {c.hsMontant > 0 && <Line label={t("grh_bulletin.hs")} gain={c.hsMontant} />}
+              {c.primes.map((p) => <Line key={p.id} label={t("grh_bulletin.prime", { libelle: p.libelle })} gain={p.montant} />)}
               {(employe.indemniteTransport || 0) > 0 && (
-                <Line label="Indemnité transport" gain={employe.indemniteTransport!} />
+                <Line label={t("grh_bulletin.indem_transport")} gain={employe.indemniteTransport!} />
               )}
               {(employe.indemniteLogement || 0) > 0 && (
-                <Line label="Indemnité logement" gain={employe.indemniteLogement!} />
+                <Line label={t("grh_bulletin.indem_logement")} gain={employe.indemniteLogement!} />
               )}
               {(employe.indemniteFonction || 0) > 0 && (
-                <Line label="Indemnité fonction" gain={employe.indemniteFonction!} />
+                <Line label={t("grh_bulletin.indem_fonction")} gain={employe.indemniteFonction!} />
               )}
               <tr className="font-bold bg-muted/50">
-                <td className="p-2 border border-border">SALAIRE BRUT</td>
+                <td className="p-2 border border-border">{t("grh_bulletin.brut")}</td>
                 <td className="p-2 border border-border text-right amount">{formatMontant(c.brut)}</td>
                 <td className="p-2 border border-border" />
               </tr>
-              <Line label="CNSS salarié (4%)" retenue={c.cnssSal} />
-              <Line label="AMU salarié (5%)" retenue={c.amuSal} />
-              <Line label="IRPP" retenue={c.irpp} />
+              <Line label={t("grh_bulletin.cnss_sal")} retenue={c.cnssSal} />
+              <Line label={t("grh_bulletin.amu_sal")} retenue={c.amuSal} />
+              <Line label={t("grh_bulletin.irpp")} retenue={c.irpp} />
               {c.deductionSansSolde > 0 && (
-                <Line label={`Congés sans solde (${c.joursSansSolde} j)`} retenue={c.deductionSansSolde} />
+                <Line label={t("grh_bulletin.sans_solde", { j: c.joursSansSolde })} retenue={c.deductionSansSolde} />
               )}
-              {c.retenuesDiverses > 0 && <Line label="Retenues diverses" retenue={c.retenuesDiverses} />}
+              {c.retenuesDiverses > 0 && <Line label={t("grh_bulletin.retenues_div")} retenue={c.retenuesDiverses} />}
               <tr className="font-bold bg-muted/50">
-                <td className="p-2 border border-border">TOTAL RETENUES</td>
+                <td className="p-2 border border-border">{t("grh_bulletin.total_retenues")}</td>
                 <td className="p-2 border border-border" />
                 <td className="p-2 border border-border text-right amount">{formatMontant(c.totalRetenues)}</td>
               </tr>
               <tr className="font-bold text-base bg-success/15">
-                <td className="p-2 border border-border">NET À PAYER</td>
+                <td className="p-2 border border-border">{t("grh_bulletin.net")}</td>
                 <td className="p-2 border border-border text-right amount" colSpan={2}>
                   {formatMontant(c.net)}
                 </td>
@@ -259,8 +261,14 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
           </table>
 
           <div className="mt-4 text-xs text-muted-foreground border-t border-border pt-3">
-            <p><strong>Charges patronales</strong> — CNSS employeur (17,5%) : {formatMontant(c.cnssEmp)} • AMU employeur (5%) : {formatMontant(c.amuEmp)} • <strong>Coût total employeur : {formatMontant(c.coutEmployeur)}</strong></p>
-            <p className="mt-2 italic">Bulletin établi conformément au Code du travail togolais et à la Convention collective interprofessionnelle.</p>
+            <p>
+              <Trans
+                i18nKey="grh_bulletin.charges"
+                values={{ cnss: formatMontant(c.cnssEmp), amu: formatMontant(c.amuEmp), cout: formatMontant(c.coutEmployeur) }}
+                components={[<strong key="0" />, <span key="1" />, <strong key="2" />]}
+              />
+            </p>
+            <p className="mt-2 italic">{t("grh_bulletin.footer")}</p>
           </div>
         </div>
       </div>
