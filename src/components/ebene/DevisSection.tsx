@@ -20,6 +20,7 @@ import {
 import { Plus, Trash2, X, RefreshCw, FileText, Pencil } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { useTenant } from "@/hooks/useTenant";
+import { useTranslation } from "react-i18next";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
@@ -37,12 +38,20 @@ interface Props {
   onUpdate?: (id: number, patch: Partial<Devis>) => void;
 }
 
-const STATUT_BADGES: Record<StatutDevis, { cls: string; label: string }> = {
-  brouillon: { cls: "bg-muted text-muted-foreground", label: "Brouillon" },
-  envoye: { cls: "bg-info/15 text-info", label: "📤 Envoyé" },
-  accepte: { cls: "bg-success/15 text-success", label: "✓ Accepté" },
-  refuse: { cls: "bg-destructive/15 text-destructive", label: "✗ Refusé" },
-  converti: { cls: "bg-primary/15 text-primary", label: "→ Facturé" },
+const STATUT_BADGE_CLS: Record<StatutDevis, string> = {
+  brouillon: "bg-muted text-muted-foreground",
+  envoye: "bg-info/15 text-info",
+  accepte: "bg-success/15 text-success",
+  refuse: "bg-destructive/15 text-destructive",
+  converti: "bg-primary/15 text-primary",
+};
+
+const STATUT_BADGE_KEY: Record<StatutDevis, string> = {
+  brouillon: "devis.s_brouillon",
+  envoye: "devis.s_envoye",
+  accepte: "devis.s_accepte",
+  refuse: "devis.s_refuse",
+  converti: "devis.s_converti",
 };
 
 const prochainNumeroDevisFallback = (annee: number, dm: DonneesMensuelles): string => {
@@ -78,6 +87,7 @@ export const DevisSection = ({
   onConvertir,
   onUpdate,
 }: Props) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");
@@ -119,12 +129,12 @@ export const DevisSection = ({
   };
 
   const submit = () => {
-    if (!client.trim()) return alert("Le nom du client est obligatoire.");
-    if (!date) return alert("Date obligatoire.");
+    if (!client.trim()) return alert(t("devis.err_client"));
+    if (!date) return alert(t("devis.err_date"));
     const lignesNet = lignes
       .map((l) => ({ description: l.description.trim(), montant: parseFloat(l.montant) || 0 }))
       .filter((l) => l.description && l.montant > 0);
-    if (lignesNet.length === 0) return alert("Au moins une prestation valide.");
+    if (lignesNet.length === 0) return alert(t("devis.err_lines"));
     const red = Math.max(0, parseFloat(reduction) || 0);
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
     const totalHT = Math.max(0, sousTotal - red);
@@ -184,23 +194,23 @@ export const DevisSection = ({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <FileText className="size-5 text-primary" />
-        <h3 className="font-bold text-lg">📝 Devis</h3>
+        <h3 className="font-bold text-lg">{t("devis.title")}</h3>
         <span className="text-xs text-muted-foreground">
-          ({sorted.length} ce mois — n'impactent la comptabilité qu'après conversion en facture)
+          {t("devis.count_caption", { count: sorted.length })}
         </span>
       </div>
 
       {!open ? (
         <Button onClick={() => setOpen(true)} variant="outline" className="gap-1.5">
-          <Plus className="size-4" /> Nouveau devis
+          <Plus className="size-4" /> {t("devis.new")}
         </Button>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-          <h4 className="font-bold">{editingId != null ? "Modifier le devis" : "Nouveau devis"}</h4>
+          <h4 className="font-bold">{editingId != null ? t("devis.modify") : t("devis.new_title")}</h4>
           {editingId == null && (
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Numéro
+                {t("devis.f_numero")}
               </Label>
               <div className="flex gap-2 mt-1 items-center">
                 <Input
@@ -217,14 +227,14 @@ export const DevisSection = ({
                     onClick={() => { setNumero(numeroAuto); setNumeroEdited(false); }}
                     className="gap-1"
                   >
-                    <RefreshCw className="size-3.5" /> Auto
+                    <RefreshCw className="size-3.5" /> {t("devis.auto")}
                   </Button>
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
-                Aperçu auto : <span className="font-mono">{numeroAuto}</span>
+                {t("devis.auto_preview")} <span className="font-mono">{numeroAuto}</span>
                 {societeConfig && (
-                  <> &middot; format : <span className="font-mono">{societeConfig.format_devis}</span></>
+                  <> &middot; {t("devis.format")} <span className="font-mono">{societeConfig.format_devis}</span></>
                 )}
               </p>
             </div>
@@ -232,13 +242,13 @@ export const DevisSection = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Client *
+                {t("devis.f_client")}
               </Label>
               <Input value={client} onChange={(e) => setClient(e.target.value)} className="mt-1" />
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Date *
+                {t("devis.f_date")}
               </Label>
               <Input
                 type="date"
@@ -249,7 +259,7 @@ export const DevisSection = ({
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Validité
+                {t("devis.f_validity")}
               </Label>
               <Input
                 type="date"
@@ -262,13 +272,13 @@ export const DevisSection = ({
 
           <div>
             <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1 block">
-              Prestations *
+              {t("devis.f_services")}
             </Label>
             <div className="space-y-2">
               {lignes.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
-                    placeholder="Description"
+                    placeholder={t("devis.f_description")}
                     value={l.description}
                     onChange={(e) => {
                       const next = [...lignes];
@@ -279,7 +289,7 @@ export const DevisSection = ({
                   />
                   <Input
                     type="number"
-                    placeholder="Montant"
+                    placeholder={t("devis.f_amount")}
                     value={l.montant}
                     onChange={(e) => {
                       const next = [...lignes];
@@ -306,28 +316,28 @@ export const DevisSection = ({
               className="mt-2 gap-1.5"
               onClick={() => setLignes([...lignes, { description: "", montant: "" }])}
             >
-              <Plus className="size-3.5" /> Ajouter ligne
+              <Plus className="size-3.5" /> {t("devis.add_line")}
             </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Type d'activité
+                {t("devis.f_activity")}
               </Label>
               <Select value={activite} onValueChange={(v) => setActivite(v as ActiviteType)}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="service">Prestation de service</SelectItem>
-                  <SelectItem value="commerce">Commerce</SelectItem>
+                  <SelectItem value="service">{t("devis.activity_service")}</SelectItem>
+                  <SelectItem value="commerce">{t("devis.activity_commerce")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Réduction (FCFA)
+                {t("devis.f_discount")}
               </Label>
               <Input
                 type="number"
@@ -340,15 +350,15 @@ export const DevisSection = ({
 
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox checked={avecTva} onCheckedChange={(v) => setAvecTva(!!v)} />
-            <span className="text-sm font-medium">TVA 18%</span>
+            <span className="text-sm font-medium">{t("devis.vat_18")}</span>
           </label>
 
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-              {editingId != null ? "✓ Enregistrer" : "✓ Créer"}
+              {editingId != null ? t("devis.save") : t("devis.create")}
             </Button>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} className="gap-1.5">
-              <X className="size-4" /> Annuler
+              <X className="size-4" /> {t("devis.cancel")}
             </Button>
           </div>
         </div>
@@ -357,11 +367,12 @@ export const DevisSection = ({
       <div className="space-y-2">
         {sorted.length === 0 ? (
           <p className="text-center text-muted-foreground py-6 italic text-sm">
-            Aucun devis pour ce mois
+            {t("devis.none")}
           </p>
         ) : (
           sorted.map((d) => {
-            const badge = STATUT_BADGES[d.statut];
+            const badgeCls = STATUT_BADGE_CLS[d.statut];
+            const badgeLabel = t(STATUT_BADGE_KEY[d.statut]);
             const dim = d.statut === "refuse" || d.statut === "converti" ? "opacity-70" : "";
             return (
               <div key={d.id} className={`list-item border-l-4 border-l-primary ${dim}`}>
@@ -369,15 +380,17 @@ export const DevisSection = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-sm font-mono">{d.numero}</p>
-                      <span className={`badge-soft ${badge.cls}`}>{badge.label}</span>
+                      <span className={`badge-soft ${badgeCls}`}>{badgeLabel}</span>
                     </div>
                     <p className="font-semibold mt-0.5 truncate">{d.client}</p>
                     <p className="text-xs text-muted-foreground">
                       {d.date}
-                      {d.dateValidite && ` • valide jusqu'au ${d.dateValidite}`}
+                      {d.dateValidite && ` • ${t("devis.valid_until", { date: d.dateValidite })}`}
                       {" • "}
-                      {d.lignes.length} ligne{d.lignes.length > 1 ? "s" : ""}
-                      {d.avecTva && " • TVA 18%"}
+                      {d.lignes.length > 1
+                        ? t("devis.lines_other", { count: d.lignes.length })
+                        : t("devis.lines_one", { count: d.lignes.length })}
+                      {d.avecTva && ` • ${t("devis.vat_18")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -389,7 +402,7 @@ export const DevisSection = ({
                         size="icon"
                         variant="ghost"
                         className="size-8"
-                        title="Modifier (uniquement si non converti)"
+                        title={t("devis.edit_tooltip")}
                         onClick={() => {
                           setEditingId(d.id);
                           setClient(d.client);
@@ -416,7 +429,7 @@ export const DevisSection = ({
                         variant="outline"
                         className="gap-1 text-success border-success/30 hover:bg-success/10"
                         onClick={() => {
-                          if (confirm("Convertir ce devis en facture définitive ?")) {
+                          if (confirm(t("devis.confirm_convert"))) {
                             const num = societeConfig
                               ? genererNumeroFactureFmt(societeConfig, annee)
                               : prochainNumeroFactureFallback(annee, donneesMensuelles);
@@ -431,7 +444,7 @@ export const DevisSection = ({
                           }
                         }}
                       >
-                        <RefreshCw className="size-3.5" /> Convertir en facture
+                        <RefreshCw className="size-3.5" /> {t("devis.convert")}
                       </Button>
                     )}
                     <Button
@@ -439,7 +452,7 @@ export const DevisSection = ({
                       variant="ghost"
                       className="size-8 text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        if (confirm("Supprimer définitivement ce devis ?")) onRemove(d.id);
+                        if (confirm(t("devis.confirm_delete"))) onRemove(d.id);
                       }}
                     >
                       <Trash2 className="size-4" />
