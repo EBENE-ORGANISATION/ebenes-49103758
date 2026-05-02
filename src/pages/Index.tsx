@@ -89,10 +89,10 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Archive_${new Date().toISOString().split("T")[0]}.json`;
+    a.download = t("index_page.archive_filename", { date: new Date().toISOString().split("T")[0] });
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Archive exportée");
+    toast.success(t("index_page.archive_exported"));
   };
 
   const importJSON = (file: File) => {
@@ -101,11 +101,11 @@ const Index = () => {
       try {
         const data = JSON.parse(String(e.target?.result || ""));
         if (!data || typeof data !== "object") throw new Error("invalide");
-        if (!confirm("⚠️ Cela va écraser toutes les données actuelles. Continuer ?")) return;
+        if (!confirm(t("index_page.confirm_import"))) return;
         store.importerDonnees(data);
-        toast.success("Import réussi");
+        toast.success(t("index_page.import_success"));
       } catch {
-        toast.error("Fichier invalide ou corrompu");
+        toast.error(t("index_page.import_invalid"));
       }
     };
     reader.readAsText(file);
@@ -132,29 +132,27 @@ const Index = () => {
             <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Shield className="size-8 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">Console Appli mère</h2>
+            <h2 className="text-2xl font-bold">{t("index_page.superadmin_console_title")}</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Vous êtes connecté en mode super-admin sur l'application mère.
-              Sélectionnez une société dans le sélecteur en haut à droite pour
-              accéder à ses modules métier, ou ouvrez la console super-admin
-              pour gérer les sociétés, utilisateurs et paramètres globaux.
+              {t("index_page.superadmin_console_desc")}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Button asChild size="lg" className="gap-2">
                 <Link to="/super-admin">
-                  <Shield className="size-4" /> Ouvrir la console super-admin
+                  <Shield className="size-4" /> {t("index_page.open_superadmin")}
                 </Link>
               </Button>
               <Button asChild variant="secondary" size="lg" className="gap-2">
                 <Link to="/admin/societe">
-                  <Settings2 className="size-4" /> Paramètres société
+                  <Settings2 className="size-4" /> {t("index_page.open_societe_params")}
                 </Link>
               </Button>
             </div>
             <div className="pt-6 text-sm text-muted-foreground inline-flex items-center gap-2">
               <Building2 className="size-4" />
-              {societes.length} société{societes.length > 1 ? "s" : ""} disponible
-              {societes.length > 1 ? "s" : ""}
+              {societes.length > 1
+                ? t("index_page.societes_available_other", { count: societes.length })
+                : t("index_page.societes_available_one", { count: societes.length })}
             </div>
           </div>
         </main>
@@ -165,6 +163,7 @@ const Index = () => {
   // Helpers : un no-op + toast pour les actions interdites selon le service
   const blocked = (msg: string) => () => toast.error(msg);
   const blockedId = (msg: string) => (_id: number) => toast.error(msg);
+  const tp = (k: string) => t(`index_page.perms.${k}`);
 
   // Niveaux par module
   const lvlCompta = perms.compta;
@@ -306,10 +305,10 @@ const Index = () => {
                 donneesMensuelles={store.donneesMensuelles}
                 onAdd={comptaWrite
                   ? (t) => store.addTransaction(annee, mois, t)
-                  : blocked("Lecture seule : seul le service Comptabilité peut saisir.")}
+                  : blocked(tp("compta_read_only"))}
                 onRemove={comptaValidate
                   ? (id) => store.removeTransaction(annee, mois, id)
-                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                  : blockedId(tp("compta_delete"))}
                 isChefCompta={comptaValidate}
                 onValider={(id) => store.validerTransaction(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterTransaction(annee, mois, id, motif)}
@@ -327,11 +326,11 @@ const Index = () => {
                 paramsAnnee={store.getParamAnnuel(annee)}
                 onUpdateParams={fiscWrite
                   ? (p) => store.setParamAnnuel(annee, p)
-                  : () => toast.error("Modification des paramètres réservée au chef Comptabilité / admin.")}
+                  : () => toast.error(tp("fisc_params"))}
                 donneesMensuelles={store.donneesMensuelles}
                 tauxHistorique={store.tauxHistorique}
-                onAjouterTaux={fiscWrite ? store.ajouterTaux : () => toast.error("Modification des taux fiscaux réservée au chef Comptabilité / admin.")}
-                onSupprimerTaux={fiscWrite ? store.supprimerTaux : () => toast.error("Suppression des taux réservée au chef Comptabilité / admin.")}
+                onAjouterTaux={fiscWrite ? store.ajouterTaux : () => toast.error(tp("fisc_taux_modify"))}
+                onSupprimerTaux={fiscWrite ? store.supprimerTaux : () => toast.error(tp("fisc_taux_delete"))}
               />
             </TabsContent>
             )}
@@ -344,35 +343,35 @@ const Index = () => {
                 data={data}
                 onAdd={factWrite
                   ? (f) => store.addFacture(annee, mois, f)
-                  : ((_f: Omit<Facture, "id">) => { toast.error("Lecture seule : seul le service Comptabilité peut créer une facture."); return 0; })}
+                  : ((_f: Omit<Facture, "id">) => { toast.error(tp("fact_read_only")); return 0; })}
                 onRemove={factValidate
                   ? (id) => store.removeFacture(annee, mois, id)
-                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                  : blockedId(tp("compta_delete"))}
                 onMarquerPayee={factWrite
                   ? (id) => store.marquerPayee(annee, mois, id)
-                  : blockedId("Action réservée au service Comptabilité.")}
+                  : blockedId(tp("fact_action"))}
                 onConvertir={factWrite
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)
-                  : (() => toast.error("Action réservée au service Comptabilité."))}
+                  : (() => toast.error(tp("fact_action")))}
                 onPreview={setPreviewFacture}
                 isChefCompta={factValidate}
                 onValider={(id) => store.validerFacture(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
                 onUpdateFacture={factWrite
                   ? (id, patch) => store.updateFacture(annee, mois, id, patch)
-                  : (() => toast.error("Modification réservée au service Comptabilité."))}
+                  : (() => toast.error(tp("fact_modify")))}
                 onAddDevis={factWrite
                   ? (d) => store.addDevis(annee, mois, d)
-                  : ((_d) => { toast.error("Lecture seule : seul le service Comptabilité peut créer un devis."); return 0; })}
+                  : ((_d) => { toast.error(tp("fact_devis_read_only")); return 0; })}
                 onRemoveDevis={factValidate
                   ? (id) => store.removeDevis(annee, mois, id)
-                  : blockedId("Suppression réservée au chef de service Comptabilité.")}
+                  : blockedId(tp("compta_delete"))}
                 onConvertirDevis={factWrite
                   ? (id, num) => { store.convertirDevisEnFacture(annee, mois, id, num); }
-                  : (() => toast.error("Action réservée au service Comptabilité."))}
+                  : (() => toast.error(tp("fact_action")))}
                 onUpdateDevis={factWrite
                   ? (id, patch) => store.updateDevis(annee, mois, id, patch)
-                  : (() => toast.error("Modification réservée au service Comptabilité."))}
+                  : (() => toast.error(tp("fact_modify")))}
               />
             </TabsContent>
             )}
@@ -386,15 +385,15 @@ const Index = () => {
                 articles={store.articles}
                 fournisseurs={store.fournisseurs}
                 categories={store.categoriesStock}
-                onAddArticle={stockWrite ? store.addArticle : blocked("Action réservée au service Comptabilité.")}
-                onUpdateArticle={stockWrite ? store.updateArticle : (() => toast.error("Action réservée au service Comptabilité."))}
-                onRemoveArticle={stockValidate ? store.removeArticle : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddFournisseur={stockWrite ? store.addFournisseur : blocked("Action réservée au service Comptabilité.")}
-                onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddCategorie={stockWrite ? store.addCategorieStock : blocked("Action réservée au service Comptabilité.")}
-                onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId("Suppression réservée au chef Comptabilité.")}
-                onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error("Action réservée au service Comptabilité."); return 0; })}
-                onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error("Suppression réservée au chef Comptabilité."))}
+                onAddArticle={stockWrite ? store.addArticle : blocked(tp("stock_action"))}
+                onUpdateArticle={stockWrite ? store.updateArticle : (() => toast.error(tp("stock_action")))}
+                onRemoveArticle={stockValidate ? store.removeArticle : blockedId(tp("stock_delete"))}
+                onAddFournisseur={stockWrite ? store.addFournisseur : blocked(tp("stock_action"))}
+                onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId(tp("stock_delete"))}
+                onAddCategorie={stockWrite ? store.addCategorieStock : blocked(tp("stock_action"))}
+                onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId(tp("stock_delete"))}
+                onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error(tp("stock_action")); return 0; })}
+                onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error(tp("stock_delete")))}
               />
             </TabsContent>
             )}
@@ -408,19 +407,19 @@ const Index = () => {
                 mois={mois}
                 sanctions={store.sanctions}
                 isChefGrh={grhValidate}
-                onAddEmploye={grhWrite ? store.addEmploye : blocked("Lecture seule : seul le service GRH peut saisir.")}
-                onUpdateEmploye={grhWrite ? store.updateEmploye : (() => toast.error("Modification réservée au service GRH."))}
-                onRemoveEmploye={grhValidate ? store.removeEmploye : blockedId("Suppression réservée au chef GRH.")}
-                onValiderEmploye={grhValidate ? store.validerEmploye : blockedId("Validation réservée au chef GRH.")}
-                onRejeterEmploye={grhValidate ? store.rejeterEmploye : ((_id: number, _m: string) => toast.error("Validation réservée au chef GRH."))}
-                onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error("Action réservée au service GRH."))}
-                onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error("Suppression réservée au chef GRH."))}
-                onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error("Action réservée au service GRH."))}
-                onRemoveAbsence={grhValidate ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error("Suppression réservée au chef GRH."))}
-                onSetHeuresSup={grhWrite ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error("Action réservée au service GRH."))}
-                onSetRetenue={grhWrite ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error("Action réservée au service GRH."))}
-                onAddSanction={grhWrite ? store.addSanction : blocked("Action réservée au service GRH.")}
-                onRemoveSanction={grhValidate ? store.removeSanction : blockedId("Suppression réservée au chef GRH.")}
+                onAddEmploye={grhWrite ? store.addEmploye : blocked(tp("grh_read_only"))}
+                onUpdateEmploye={grhWrite ? store.updateEmploye : (() => toast.error(tp("grh_modify")))}
+                onRemoveEmploye={grhValidate ? store.removeEmploye : blockedId(tp("grh_delete"))}
+                onValiderEmploye={grhValidate ? store.validerEmploye : blockedId(tp("grh_validation"))}
+                onRejeterEmploye={grhValidate ? store.rejeterEmploye : ((_id: number, _m: string) => toast.error(tp("grh_validation")))}
+                onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error(tp("grh_action")))}
+                onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error(tp("grh_delete_action")))}
+                onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error(tp("grh_action")))}
+                onRemoveAbsence={grhValidate ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error(tp("grh_delete_action")))}
+                onSetHeuresSup={grhWrite ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error(tp("grh_action")))}
+                onSetRetenue={grhWrite ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error(tp("grh_action")))}
+                onAddSanction={grhWrite ? store.addSanction : blocked(tp("grh_action"))}
+                onRemoveSanction={grhValidate ? store.removeSanction : blockedId(tp("grh_delete_action"))}
                 onValiderPrime={(eid, pid) => store.validerPrime(annee, mois, eid, pid)}
                 onRejeterPrime={(eid, pid, motif) => store.rejeterPrime(annee, mois, eid, pid, motif)}
                 onValiderAbsence={(id) => store.validerAbsence(annee, mois, id)}
@@ -440,10 +439,10 @@ const Index = () => {
                 immobilisations={store.immobilisations}
                 onAdd={immoWrite
                   ? store.addImmobilisation
-                  : ((_i) => { toast.error("Action réservée au chef Comptabilité / admin."); return 0; })}
+                  : ((_i) => { toast.error(tp("immo_action")); return 0; })}
                 onRemove={immoValidate
                   ? store.removeImmobilisation
-                  : blockedId("Suppression réservée au chef Comptabilité / admin.")}
+                  : blockedId(tp("immo_delete"))}
                 onUpdate={immoWrite ? store.updateImmobilisation : undefined}
                 canEdit={immoWrite}
               />
@@ -454,7 +453,7 @@ const Index = () => {
 
         <footer className="text-center text-xs text-muted-foreground py-4 no-print">
           <SupabaseStatus />
-          régulièrement.
+          {t("index_page.footer_regulier")}
         </footer>
       </main>
 
