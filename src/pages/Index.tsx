@@ -150,11 +150,9 @@ const Index = () => {
             </div>
             <div className="pt-6 text-sm text-muted-foreground inline-flex items-center gap-2">
               <Building2 className="size-4" />
-              {t("index_page.societes_available", {
-                count: societes.length,
-                defaultValue_one: t("index_page.societes_available_one", { count: societes.length }),
-                defaultValue_other: t("index_page.societes_available_other", { count: societes.length }),
-              })}
+              {societes.length > 1
+                ? t("index_page.societes_available_other", { count: societes.length })
+                : t("index_page.societes_available_one", { count: societes.length })}
             </div>
           </div>
         </main>
