@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -27,6 +28,7 @@ const Field = ({
 );
 
 export const TauxHistoriqueDialog = ({ open, onOpenChange, historique, onAjouter, onSupprimer }: Props) => {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const last = historique[historique.length - 1] || TAUX_DEFAUT;
   const [t, setT] = useState<TauxFiscaux>({ ...last, dateEffet: new Date().toISOString().split("T")[0] });

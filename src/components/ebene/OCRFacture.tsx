@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Upload, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
 
 export interface OCRDraft {
   fournisseur: string | null;
@@ -29,6 +30,7 @@ const fileToBase64 = (file: File) =>
   });
 
 export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
+  const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,11 +43,11 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Veuillez choisir une image (JPG, PNG, …).");
+      toast.error(t("ocr.err_image_only"));
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      toast.error("Image trop volumineuse (max 8 Mo).");
+      toast.error(t("ocr.err_too_big"));
       return;
     }
     try {
@@ -59,7 +61,7 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
 
       if (error) {
         console.error(error);
-        toast.error("Extraction impossible — formulaire vide.");
+        toast.error(t("ocr.err_extract"));
         onExtracted(null);
         onOpenChange(false);
         reset();
@@ -68,17 +70,17 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
 
       const draft = (data?.data || null) as OCRDraft | null;
       if (!draft) {
-        toast.warning("Aucune donnée extraite — saisie manuelle.");
+        toast.warning(t("ocr.warn_no_data"));
         onExtracted(null);
       } else {
-        toast.success("Données extraites — vérifiez le formulaire.");
+        toast.success(t("ocr.success"));
         onExtracted(draft);
       }
       onOpenChange(false);
       reset();
     } catch (e) {
       console.error(e);
-      toast.error("Erreur lors de l'OCR — formulaire vide.");
+      toast.error(t("ocr.err_generic"));
       onExtracted(null);
       onOpenChange(false);
       reset();
@@ -92,21 +94,16 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ScanLine className="size-5" /> Importer une facture par photo
+            <ScanLine className="size-5" /> {t("ocr.title")}
           </DialogTitle>
-          <DialogDescription>
-            Choisissez une photo lisible de la facture. L'IA extrait fournisseur, date et montants
-            (HT, TVA, TTC), puis pré-remplit le formulaire.
-          </DialogDescription>
+          <DialogDescription>{t("ocr.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center space-y-3">
           {preview ? (
-            <img src={preview} alt="aperçu facture" className="max-h-48 mx-auto rounded" />
+            <img src={preview} alt={t("ocr.preview_alt")} className="max-h-48 mx-auto rounded" />
           ) : (
-            <div className="text-sm text-muted-foreground">
-              JPG / PNG · max 8 Mo
-            </div>
+            <div className="text-sm text-muted-foreground">{t("ocr.constraints")}</div>
           )}
 
           <Button
@@ -116,11 +113,11 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
           >
             {loading ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> Analyse…
+                <Loader2 className="size-4 animate-spin" /> {t("ocr.analyzing")}
               </>
             ) : (
               <>
-                <Upload className="size-4" /> Choisir une image
+                <Upload className="size-4" /> {t("ocr.choose")}
               </>
             )}
           </Button>
