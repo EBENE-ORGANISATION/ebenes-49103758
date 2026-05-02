@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp } from "lucide-react";
 import { DonneesMensuelles, Employe, MoisData } from "@/types/ebene";
 import { formatMontant, moisKey } from "@/lib/ebene-utils";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
@@ -30,6 +31,7 @@ export const TresorerieCard = ({
   annee,
   mois,
 }: Props) => {
+  const { t } = useTranslation();
   const k = moisKey(annee, mois);
   const m = donneesMensuelles[k];
 
@@ -109,30 +111,30 @@ export const TresorerieCard = ({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          💰 Trésorerie & prévisionnel 30 jours
+          {t("tresorerie.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Tile
             icon={<ArrowDownCircle className="size-5 text-success" />}
-            label="Encaissements (mois)"
+            label={t("tresorerie.encaissements_label")}
             value={formatMontant(stats.encaissementsMois)}
-            sub="Recettes encaissées"
+            sub={t("tresorerie.encaissements_sub")}
             tone="success"
           />
           <Tile
             icon={<ArrowUpCircle className="size-5 text-destructive" />}
-            label="Décaissements (mois)"
+            label={t("tresorerie.decaissements_label")}
             value={formatMontant(stats.decaissementsMois)}
-            sub="Dépenses payées"
+            sub={t("tresorerie.decaissements_sub")}
             tone="destructive"
           />
           <Tile
             icon={<TrendingUp className="size-5 text-primary" />}
-            label="Solde net (mois)"
+            label={t("tresorerie.solde_label")}
             value={formatMontant(stats.soldeMois)}
-            sub={`Trésorerie cumulée : ${formatMontant(stats.tresorerie)}`}
+            sub={t("tresorerie.solde_sub", { value: formatMontant(stats.tresorerie) })}
             tone={stats.soldeMois >= 0 ? "success" : "destructive"}
           />
         </div>
@@ -140,7 +142,7 @@ export const TresorerieCard = ({
         <div className="rounded-lg border-2 border-dashed border-border p-4 bg-muted/30">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Prévision à 30 jours
+              {t("tresorerie.forecast_title")}
             </p>
             <span className={`amount text-lg font-bold ${previsionTone}`}>
               {formatMontant(stats.previsionNette)}
@@ -148,33 +150,29 @@ export const TresorerieCard = ({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">+ Factures en attente :</span>
+              <span className="text-muted-foreground">{t("tresorerie.pending_invoices")}</span>
               <span className="amount text-success">
                 {formatMontant(stats.facturesEnAttente)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">− Masse salariale chargée :</span>
+              <span className="text-muted-foreground">{t("tresorerie.payroll_loaded")}</span>
               <span className="amount text-destructive">
                 {formatMontant(stats.chargesSalariales)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">+ Trésorerie de départ :</span>
+              <span className="text-muted-foreground">{t("tresorerie.starting_cash")}</span>
               <span className="amount">{formatMontant(stats.tresorerie)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">− Dépenses récurrentes (moy. 3 mois) :</span>
+              <span className="text-muted-foreground">{t("tresorerie.recurring_expenses")}</span>
               <span className="amount text-destructive">
                 {formatMontant(stats.depensesRecurrentes)}
               </span>
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2 italic">
-            Estimation basée sur les factures en attente, la masse salariale chargée
-            (~22,5% de charges patronales) et la moyenne des dépenses non salariales des
-            3 derniers mois.
-          </p>
+          <p className="text-[11px] text-muted-foreground mt-2 italic">{t("tresorerie.note")}</p>
         </div>
       </CardContent>
     </Card>

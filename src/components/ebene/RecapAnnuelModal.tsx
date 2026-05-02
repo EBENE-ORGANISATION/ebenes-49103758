@@ -10,6 +10,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { exportGrandLivre } from "@/lib/exportSYSCOHADA";
 import { toast } from "sonner";
 import { useTenant } from "@/hooks/useTenant";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [] }: Props) => {
+  const { t } = useTranslation();
   const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
   const { currentSociete, societeConfig } = useTenant();
 
@@ -56,9 +58,9 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
         nif: societeConfig?.nif ?? null,
         rccm: societeConfig?.rccm ?? null,
       });
-      toast.success(`Export SYSCOHADA ${annee} généré`);
+      toast.success(t("recap.export_ok", { annee }));
     } catch (e) {
-      toast.error("Échec de l'export SYSCOHADA");
+      toast.error(t("recap.export_err"));
       console.error(e);
     }
   };
@@ -67,7 +69,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">📊 Récapitulatifs {annee}</DialogTitle>
+          <DialogTitle className="text-2xl">{t("recap.title", { annee })}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-2 -mt-1">
@@ -78,22 +80,22 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
             className="gap-1.5"
           >
             <FileSpreadsheet className="size-4" />
-            Export SYSCOHADA
+            {t("recap.export_btn")}
           </Button>
           <span className="text-xs text-muted-foreground self-center">
-            Grand-livre + Balance générale (.xlsx)
+            {t("recap.export_hint")}
           </span>
         </div>
 
         <Tabs defaultValue="annuel" className="w-full">
           <TabsList className="grid grid-cols-2 w-full mb-4">
-            <TabsTrigger value="mensuel">📅 Récap Mensuel</TabsTrigger>
-            <TabsTrigger value="annuel">📈 Récap Annuel</TabsTrigger>
+            <TabsTrigger value="mensuel">{t("recap.tab_monthly")}</TabsTrigger>
+            <TabsTrigger value="annuel">{t("recap.tab_yearly")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="mensuel" className="space-y-4">
             <div>
-              <label className="text-xs font-bold uppercase text-muted-foreground">Mois</label>
+              <label className="text-xs font-bold uppercase text-muted-foreground">{t("recap.month")}</label>
               <Select value={String(moisSel)} onValueChange={(v) => setMoisSel(Number(v))}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -104,27 +106,27 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
               </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard label="Recettes" value={formatMontant(moisData.rec)} tone="success" />
-              <StatCard label="Dépenses" value={formatMontant(moisData.dep)} tone="destructive" />
+              <StatCard label={t("recap.recettes")} value={formatMontant(moisData.rec)} tone="success" />
+              <StatCard label={t("recap.depenses")} value={formatMontant(moisData.dep)} tone="destructive" />
               <StatCard
-                label="Solde"
+                label={t("recap.solde")}
                 value={formatMontant(moisData.solde)}
                 tone={moisData.solde >= 0 ? "info" : "destructive"}
               />
             </div>
             <div className="text-sm text-muted-foreground">
               {moisData.nbFactures > 0
-                ? `${moisData.nbPayees}/${moisData.nbFactures} facture(s) payée(s) ce mois.`
-                : "Aucune facture émise ce mois."}
+                ? t("recap.invoices_summary", { paid: moisData.nbPayees, total: moisData.nbFactures })
+                : t("recap.no_invoices")}
             </div>
           </TabsContent>
 
           <TabsContent value="annuel">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <StatCard label={`Recettes ${annee}`} value={formatMontant(totals.rec)} tone="success" />
-              <StatCard label={`Dépenses ${annee}`} value={formatMontant(totals.dep)} tone="destructive" />
+              <StatCard label={t("recap.recettes_year", { annee })} value={formatMontant(totals.rec)} tone="success" />
+              <StatCard label={t("recap.depenses_year", { annee })} value={formatMontant(totals.dep)} tone="destructive" />
               <StatCard
-                label={`Solde ${annee}`}
+                label={t("recap.solde_year", { annee })}
                 value={formatMontant(totals.solde)}
                 tone={totals.solde >= 0 ? "info" : "destructive"}
               />
@@ -133,11 +135,11 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-border text-xs uppercase text-muted-foreground">
-                <th className="text-left py-2 px-2">Mois</th>
-                <th className="text-right py-2 px-2">Recettes</th>
-                <th className="text-right py-2 px-2">Dépenses</th>
-                <th className="text-right py-2 px-2">Solde</th>
-                <th className="text-right py-2 px-2">Factures</th>
+                <th className="text-left py-2 px-2">{t("recap.month")}</th>
+                <th className="text-right py-2 px-2">{t("recap.recettes")}</th>
+                <th className="text-right py-2 px-2">{t("recap.depenses")}</th>
+                <th className="text-right py-2 px-2">{t("recap.solde")}</th>
+                <th className="text-right py-2 px-2">{t("recap.factures")}</th>
               </tr>
             </thead>
             <tbody>
@@ -155,7 +157,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
                 </tr>
               ))}
               <tr className="border-t-2 border-foreground font-bold">
-                <td className="py-3 px-2">TOTAL {annee}</td>
+                <td className="py-3 px-2">{t("recap.total_year", { annee })}</td>
                 <td className="py-3 px-2 text-right amount text-success">{formatMontant(totals.rec)}</td>
                 <td className="py-3 px-2 text-right amount text-destructive">{formatMontant(totals.dep)}</td>
                 <td className={`py-3 px-2 text-right amount ${totals.solde >= 0 ? "text-info" : "text-destructive"}`}>

@@ -5,6 +5,7 @@ import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { useTenant } from "@/hooks/useTenant";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   facture: Facture | null;
@@ -12,12 +13,13 @@ interface Props {
 }
 
 export const FacturePreview = ({ facture, onClose }: Props) => {
+  const { t } = useTranslation();
   const { currentSociete, societeConfig } = useTenant();
   if (!facture) return null;
 
   const isProforma = facture.statut === "proforma";
   const sousTotal = facture.lignes.reduce((a, l) => a + l.montant, 0);
-  const nomSociete = currentSociete?.nom || "SOCIÉTÉ";
+  const nomSociete = currentSociete?.nom || t("facture_preview.fallback_company");
   const logoSrc = societeConfig?.logo_url || null;
   const couleurPrimaire = societeConfig?.couleur_primaire || "#3D0000";
   const couleurAccent = societeConfig?.couleur_accent || "#89604A";
@@ -41,16 +43,16 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
     <Dialog open={!!facture} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
         <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-muted/30 no-print">
-          <h2 className="font-bold">Aperçu — {facture.numero}</h2>
+          <h2 className="font-bold">{t("facture_preview.header", { numero: facture.numero })}</h2>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => window.print()} className="gap-1.5">
-              <Printer className="size-4" /> Imprimer
+              <Printer className="size-4" /> {t("facture_preview.print")}
             </Button>
             <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">
-              <FileDown className="size-4" /> PDF
+              <FileDown className="size-4" /> {t("facture_preview.pdf")}
             </Button>
             <Button size="sm" variant="outline" onClick={exportWord} className="gap-1.5">
-              <FileText className="size-4" /> Word
+              <FileText className="size-4" /> {t("facture_preview.word")}
             </Button>
             <Button size="sm" variant="ghost" onClick={onClose}>
               <X className="size-4" />
@@ -131,9 +133,9 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
           >
             <div style={{ fontWeight: 700, marginBottom: "1mm", color: couleurPrimaire }}>{nomSociete}</div>
             {adresse && <>{adresse}<br /></>}
-            {[telephone && `Tél : ${telephone}`, email && `Email : ${email}`].filter(Boolean).join("  •  ")}
+            {[telephone && t("facture_preview.tel", { value: telephone }), email && t("facture_preview.email", { value: email })].filter(Boolean).join("  •  ")}
             {(telephone || email) && <br />}
-            {[rccm && `RCCM : ${rccm}`, nif && `NIF : ${nif}`].filter(Boolean).join("  •  ")}
+            {[rccm && t("facture_preview.rccm", { value: rccm }), nif && t("facture_preview.nif", { value: nif })].filter(Boolean).join("  •  ")}
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}
@@ -161,7 +163,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 }}
               >
                 <p style={{ margin: 0, fontSize: "9pt", letterSpacing: "3px", opacity: 0.85, textTransform: "uppercase" }}>
-                  {isProforma ? "Document commercial" : "Facture officielle"}
+                  {isProforma ? t("facture_preview.commercial_doc") : t("facture_preview.official_invoice")}
                 </p>
                 <h1
                   style={{
@@ -171,7 +173,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                     letterSpacing: "1.5px",
                   }}
                 >
-                  {isProforma ? "PROFORMA" : "FACTURE"}
+                  {isProforma ? t("facture_preview.proforma") : t("facture_preview.facture")}
                 </h1>
               </div>
               <div
@@ -188,7 +190,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2mm" }}>
                   <span style={{ fontSize: "8.5pt", color: "#7a5a45", textTransform: "uppercase", letterSpacing: "1px" }}>
-                    N°
+                    {t("facture_preview.number_short")}
                   </span>
                   <span style={{ fontSize: "11pt", fontWeight: 700, color: "#3D0000", fontFamily: "monospace" }}>
                     {facture.numero}
@@ -197,7 +199,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <div style={{ borderTop: "1px dashed #c9b29a", margin: "1mm 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2mm" }}>
                   <span style={{ fontSize: "8.5pt", color: "#7a5a45", textTransform: "uppercase", letterSpacing: "1px" }}>
-                    Date
+                    {t("facture_preview.date")}
                   </span>
                   <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{facture.date}</span>
                 </div>
@@ -224,7 +226,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                   fontWeight: 600,
                 }}
               >
-                Facturé à
+                {t("facture_preview.billed_to")}
               </p>
               <p style={{ margin: "2mm 0 0", fontSize: "14pt", fontWeight: 700, color: "#1a1a1a" }}>
                 {facture.client}
@@ -255,7 +257,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       letterSpacing: "0.5px",
                     }}
                   >
-                    DÉSIGNATION
+                    {t("facture_preview.designation")}
                   </th>
                   <th
                     style={{
@@ -270,7 +272,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       letterSpacing: "0.5px",
                     }}
                   >
-                    MONTANT (FCFA)
+                    {t("facture_preview.amount_xof")}
                   </th>
                 </tr>
               </thead>
@@ -307,14 +309,14 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10.5pt" }}>
                   <tbody>
                     <tr>
-                      <td style={{ padding: "2mm 4mm", color: "#666" }}>Sous-total</td>
+                      <td style={{ padding: "2mm 4mm", color: "#666" }}>{t("facture_preview.subtotal")}</td>
                       <td style={{ padding: "2mm 4mm", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                         {formatMontant(sousTotal)}
                       </td>
                     </tr>
                     {facture.reduction > 0 && (
                       <tr>
-                        <td style={{ padding: "2mm 4mm", color: "#666" }}>Réduction</td>
+                        <td style={{ padding: "2mm 4mm", color: "#666" }}>{t("facture_preview.discount")}</td>
                         <td
                           style={{
                             padding: "2mm 4mm",
@@ -328,14 +330,14 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                       </tr>
                     )}
                     <tr style={{ borderTop: "1px solid #e5d4c5" }}>
-                      <td style={{ padding: "2mm 4mm", color: "#666" }}>Total HT</td>
+                      <td style={{ padding: "2mm 4mm", color: "#666" }}>{t("facture_preview.total_ht")}</td>
                       <td style={{ padding: "2mm 4mm", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                         {formatMontant(facture.totalHT)}
                       </td>
                     </tr>
                     {facture.avecTva && (
                       <tr>
-                        <td style={{ padding: "2mm 4mm", color: "#666" }}>TVA 18 %</td>
+                        <td style={{ padding: "2mm 4mm", color: "#666" }}>{t("facture_preview.vat_18")}</td>
                         <td
                           style={{
                             padding: "2mm 4mm",
@@ -364,7 +366,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                     boxShadow: "0 2mm 3mm rgba(61,0,0,0.2)",
                   }}
                 >
-                  <span style={{ fontSize: "11pt", fontWeight: 600, letterSpacing: "1.5px" }}>TOTAL TTC</span>
+                  <span style={{ fontSize: "11pt", fontWeight: 600, letterSpacing: "1.5px" }}>{t("facture_preview.total_ttc")}</span>
                   <span style={{ fontSize: "15pt", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
                     {formatMontant(facture.totalTtc)}
                   </span>
@@ -393,15 +395,15 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                 }}
               >
                 <p style={{ margin: 0, fontStyle: "italic", color: "#7a5a45", fontSize: "9.5pt" }}>
-                  Arrêtée la présente facture à la somme de :
+                  {t("facture_preview.final_amount_intro")}
                 </p>
                 <p style={{ margin: "1.5mm 0 0", fontWeight: 700, color: "#3D0000", fontSize: "11pt" }}>
-                  {formatMontant(facture.totalTtc)} FCFA TTC
+                  {t("facture_preview.ttc_xof", { amount: formatMontant(facture.totalTtc) })}
                 </p>
               </div>
               <div style={{ textAlign: "center", minWidth: "55mm" }}>
                 <p style={{ margin: 0, color: "#89604A", fontWeight: 600, letterSpacing: "1px", fontSize: "9.5pt" }}>
-                  LA DIRECTION
+                  {t("facture_preview.direction")}
                 </p>
                 <div style={{ marginTop: "16mm", borderTop: `1.5px solid ${couleurPrimaire}`, width: "100%" }} />
               </div>

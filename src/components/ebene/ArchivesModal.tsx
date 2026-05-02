@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DonneesMensuelles, MOIS_NOMS } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export const ArchivesModal = ({ open, onOpenChange, donneesMensuelles, onJump }: Props) => {
+  const { t } = useTranslation();
   const periodes = useMemo(() => {
     return Object.keys(donneesMensuelles)
       .map((k) => {
@@ -36,10 +38,10 @@ export const ArchivesModal = ({ open, onOpenChange, donneesMensuelles, onJump }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">📚 Archives Annuelles</DialogTitle>
+          <DialogTitle className="text-2xl">{t("archives.title")}</DialogTitle>
         </DialogHeader>
         {periodes.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8 italic">Aucune période archivée</p>
+          <p className="text-center text-muted-foreground py-8 italic">{t("archives.empty")}</p>
         ) : (
           <div className="space-y-2">
             {periodes.map((p) => (
@@ -56,7 +58,7 @@ export const ArchivesModal = ({ open, onOpenChange, donneesMensuelles, onJump }:
                     {MOIS_NOMS[p.mois - 1]} {p.annee}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {p.nbT} transactions • {p.nbF} factures
+                    {t("archives.transactions_count", { nbT: p.nbT, nbF: p.nbF })}
                   </p>
                 </div>
                 <div className="text-right">
