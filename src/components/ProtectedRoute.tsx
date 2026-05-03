@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface Props {
 
 export const ProtectedRoute = ({ children, requireRoles }: Props) => {
   const { user, roles, loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -26,10 +28,8 @@ export const ProtectedRoute = ({ children, requireRoles }: Props) => {
     if (!ok) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-          <h1 className="text-2xl font-bold mb-2">Accès refusé</h1>
-          <p className="text-muted-foreground">
-            Vous n'avez pas les permissions nécessaires pour accéder à cette page.
-          </p>
+          <h1 className="text-2xl font-bold mb-2">{t("protected_route.denied_title")}</h1>
+          <p className="text-muted-foreground">{t("protected_route.denied_msg")}</p>
         </div>
       );
     }
