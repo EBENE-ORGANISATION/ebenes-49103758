@@ -14,10 +14,13 @@ echo      EBENE Business Suite - Mise a jour automatique
 echo ============================================================
 echo.
 
-:: Aller dans le dossier du projet
 cd /d C:\Users\Lenovo\Desktop\ebenes
 
+:: ============================================================
+:: [1/7] Git pull
+:: ============================================================
 echo [1/7] Recuperation des modifications depuis GitHub...
+git config gc.auto 0
 git pull
 if %errorlevel% neq 0 (
     echo ERREUR lors du git pull. Verifiez votre connexion internet.
@@ -27,6 +30,9 @@ if %errorlevel% neq 0 (
 echo OK - Modifications recuperees
 echo.
 
+:: ============================================================
+:: [2/7] npm install
+:: ============================================================
 echo [2/7] Installation des nouvelles dependances...
 call npm install
 if %errorlevel% neq 0 (
@@ -37,7 +43,9 @@ if %errorlevel% neq 0 (
 echo OK - Dependances installes
 echo.
 
-:: ─── Demander la version AVANT le build ──────────────────────────────────
+:: ============================================================
+:: Demander si nouvelle version
+:: ============================================================
 echo ============================================================
 echo   Voulez-vous publier une nouvelle version ?
 echo   (mise a jour automatique pour tous les utilisateurs Windows)
@@ -77,7 +85,9 @@ echo.
 echo Version actuelle : v%VERSION% (pas de changement)
 echo.
 
+:: ============================================================
 :build_start
+:: ============================================================
 
 echo [4/7] Compilation de l'application web...
 call npm run build
@@ -99,38 +109,52 @@ if %errorlevel% neq 0 (
 echo OK - Android synchronise
 echo.
 
-echo [6/7] Generation du fichier .exe Windows avec la version v%VERSION%...
+:: ============================================================
+:: [6/7] Build electron
+:: ============================================================
+echo [6/7] Generation du fichier Setup Windows v%VERSION%...
+
+:: Fermer l'app si elle tourne
 taskkill /f /im "EBENE SERVICES.exe" >nul 2>&1
+
+:: Nettoyer l'ancien build decompresse
 if exist "dist-electron\win-unpacked" rmdir /s /q "dist-electron\win-unpacked"
 
-echo Nettoyage du cache winCodeSign (rcedit)...
+:: Vider le cache rcedit (cause principale de "Unable to commit changes")
 if exist "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign" rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
 
-echo Exclusion des dossiers de build de Windows Defender...
+:: Exclure les dossiers de build de Windows Defender
 powershell -Command "Add-MpPreference -ExclusionPath 'C:\Users\Lenovo\Desktop\ebenes\dist-electron'" >nul 2>&1
 powershell -Command "Add-MpPreference -ExclusionPath '%LOCALAPPDATA%\electron-builder'" >nul 2>&1
+
+:: Desactiver la protection temps reel pendant le build
 echo Desactivation temporaire de Windows Defender...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" >nul 2>&1
 
 call npm run electron:build:win
 set BUILD_ERR=%errorlevel%
 
+:: Reactivation immediate apres le build
 echo Reactivation de Windows Defender...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul 2>&1
 
 if %BUILD_ERR% neq 0 (
-    echo ERREUR lors de la generation du .exe.
+    echo ERREUR lors de la generation du Setup Windows.
     pause
     exit /b 1
 )
-echo OK - Fichier .exe genere : EBENE Business Suite Setup %VERSION%.exe
+echo OK - Setup Windows genere : EBENE SERVICES Setup %VERSION%.exe
 echo.
 
-echo Correction des noms de fichiers dans latest.yml...
+:: Corriger les espaces en points dans latest.yml
+echo Correction de latest.yml...
 powershell -Command "(Get-Content 'dist-electron\latest.yml') -replace ' ', '.' | Set-Content 'dist-electron\latest.yml'"
-echo OK - latest.yml corrige (espaces remplaces par des points)
+echo OK - latest.yml corrige
 echo.
 
+:: ============================================================
+:: Branche publication
+:: ============================================================
 if /i "%PUBLIER%"=="O" goto :publier
 goto :pas_publier
 
@@ -148,12 +172,14 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
 git push origin main
 if %errorlevel% neq 0 (
     echo ERREUR lors du push sur GitHub.
     pause
     exit /b 1
 )
+
 git push origin v%VERSION%
 if %errorlevel% neq 0 (
     echo ERREUR lors du push du tag sur GitHub.
@@ -163,32 +189,37 @@ if %errorlevel% neq 0 (
 echo OK - Code pousse sur GitHub avec le tag v%VERSION%
 echo.
 
+:: Creer la release GitHub
 echo Creation de la release GitHub...
-gh release create v%VERSION% "dist-electron\EBENE Business Suite Setup %VERSION%.exe" --repo Ennod22/ebenes --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
-if %errorlevel% neq 0 (
-    echo Release deja existante - mise a jour du fichier .exe...
-    gh release upload v%VERSION% "dist-electron\EBENE Business Suite Setup %VERSION%.exe" --repo Ennod22/ebenes --clobber
-    if %errorlevel% neq 0 (
-        echo ERREUR lors de la mise a jour de la release GitHub.
-        echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
-        pause
-        exit /b 1
-    )
-    echo OK - Fichier .exe mis a jour dans la release v%VERSION%
-) else (
-    echo OK - Release GitHub v%VERSION% creee
-)
-echo.
+gh release create v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo Ennod22/ebenes --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
+if %errorlevel% equ 0 goto :release_creee
 
+:: Release deja existante : mettre a jour le fichier
+echo Release deja existante - mise a jour du Setup...
+gh release upload v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo Ennod22/ebenes --clobber
+if %errorlevel% neq 0 goto :err_release
+echo OK - Setup mis a jour dans la release v%VERSION%
+goto :release_done
+
+:err_release
+echo ERREUR lors de la creation ou mise a jour de la release GitHub.
+echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
+pause
+exit /b 1
+
+:release_creee
+echo OK - Release GitHub v%VERSION% creee
+
+:release_done
+echo.
 echo ============================================================
 echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
 echo ============================================================
 echo.
-echo  GitHub : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
-echo  Fichier : EBENE Business Suite Setup %VERSION%.exe
+echo  GitHub  : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
+echo  Setup   : EBENE SERVICES Setup %VERSION%.exe
 echo.
-echo  Les utilisateurs Windows recevront une notification
-echo  de mise a jour automatiquement.
+echo  Les utilisateurs Windows recevront la mise a jour automatiquement.
 echo.
 goto :fin_script
 
@@ -210,14 +241,16 @@ echo ============================================================
 echo          MISE A JOUR LOCALE TERMINEE AVEC SUCCES !
 echo ============================================================
 echo.
-echo  Fichier : EBENE Business Suite Setup %VERSION%.exe
+echo  Setup   : EBENE SERVICES Setup %VERSION%.exe
 echo.
 echo  Note : Les utilisateurs Windows ne recevront PAS de
 echo  notification automatique pour cette mise a jour.
 echo  Pour les notifier, relancez le script et choisissez O.
 echo.
 
+:: ============================================================
 :fin_script
+:: ============================================================
 echo Rappel APK : Android Studio - Build - Generate APKs
 echo.
 pause
