@@ -127,95 +127,93 @@ powershell -Command "(Get-Content 'dist-electron\latest.yml') -replace ' ', '.' 
 echo OK - latest.yml corrige (espaces remplaces par des points)
 echo.
 
-if /i "%PUBLIER%"=="O" (
+if /i "%PUBLIER%"=="O" goto :publier
+goto :pas_publier
 
-    echo [7/7] Publication sur GitHub...
-    git add "."
-    git commit -m "Release v%VERSION%"
-    if %errorlevel% neq 0 (
-        echo Pas de nouveaux fichiers - continuation...
-    )
-    git tag v%VERSION%
-    if %errorlevel% neq 0 (
-        echo ERREUR lors de la creation du tag v%VERSION%.
-        pause
-        exit /b 1
-    )
-    git push origin main
-    if %errorlevel% neq 0 (
-        echo ERREUR lors du push sur GitHub.
-        pause
-        exit /b 1
-    )
-    git push origin v%VERSION%
-    if %errorlevel% neq 0 (
-        echo ERREUR lors du push du tag sur GitHub.
-        pause
-        exit /b 1
-    )
-    echo OK - Code pousse sur GitHub avec le tag v%VERSION%
-    echo.
+:: ============================================================
+:publier
+:: ============================================================
+echo [7/7] Publication sur GitHub...
+git add -A
+git commit -m "Release v%VERSION%"
+if %errorlevel% neq 0 echo Pas de nouveaux fichiers - continuation...
 
-    echo Creation de la release GitHub...
-    gh release create v%VERSION% ^
-        "dist-electron\EBENE Business Suite Setup %VERSION%.exe" ^
-        --repo Ennod22/ebenes ^
-        --title "v%VERSION%" ^
-        --notes "Release v%VERSION% - Mise a jour automatique"
-    if %errorlevel% neq 0 (
-        echo Release deja existante - mise a jour du fichier .exe...
-        gh release upload v%VERSION% ^
-            "dist-electron\EBENE Business Suite Setup %VERSION%.exe" ^
-            --repo Ennod22/ebenes ^
-            --clobber
-        if %errorlevel% neq 0 (
-            echo ERREUR lors de la mise a jour de la release GitHub.
-            echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
-            pause
-            exit /b 1
-        )
-        echo OK - Fichier .exe mis a jour dans la release v%VERSION%
-    ) else (
-        echo OK - Release GitHub v%VERSION% creee
-    )
-    echo.
-
-    echo ============================================================
-    echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
-    echo ============================================================
-    echo.
-    echo  GitHub   : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
-    echo  .exe     : dist-electron\EBENE Business Suite Setup %VERSION%.exe
-    echo.
-    echo  Les utilisateurs Windows recevront une notification
-    echo  de mise a jour automatiquement.
-    echo.
-
-) else (
-
-    git add "."
-    git commit -m "Update %date%"
-    git push origin main
-    if %errorlevel% neq 0 (
-        echo ERREUR lors du push GitHub.
-        pause
-        exit /b 1
-    )
-    echo OK - Sauvegarde sur GitHub
-    echo.
-
-    echo ============================================================
-    echo          MISE A JOUR LOCALE TERMINEE AVEC SUCCES !
-    echo ============================================================
-    echo.
-    echo  .exe     : dist-electron\EBENE Business Suite Setup %VERSION%.exe
-    echo.
-    echo  Note : Les utilisateurs Windows ne recevront PAS de
-    echo  notification automatique pour cette mise a jour.
-    echo  Pour les notifier, relancez le script et choisissez O.
-    echo.
+git tag v%VERSION%
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la creation du tag v%VERSION%.
+    pause
+    exit /b 1
 )
+git push origin main
+if %errorlevel% neq 0 (
+    echo ERREUR lors du push sur GitHub.
+    pause
+    exit /b 1
+)
+git push origin v%VERSION%
+if %errorlevel% neq 0 (
+    echo ERREUR lors du push du tag sur GitHub.
+    pause
+    exit /b 1
+)
+echo OK - Code pousse sur GitHub avec le tag v%VERSION%
+echo.
 
+echo Creation de la release GitHub...
+gh release create v%VERSION% "dist-electron\EBENE Business Suite Setup %VERSION%.exe" --repo Ennod22/ebenes --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
+if %errorlevel% neq 0 (
+    echo Release deja existante - mise a jour du fichier .exe...
+    gh release upload v%VERSION% "dist-electron\EBENE Business Suite Setup %VERSION%.exe" --repo Ennod22/ebenes --clobber
+    if %errorlevel% neq 0 (
+        echo ERREUR lors de la mise a jour de la release GitHub.
+        echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
+        pause
+        exit /b 1
+    )
+    echo OK - Fichier .exe mis a jour dans la release v%VERSION%
+) else (
+    echo OK - Release GitHub v%VERSION% creee
+)
+echo.
+
+echo ============================================================
+echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
+echo ============================================================
+echo.
+echo  GitHub : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
+echo  Fichier : EBENE Business Suite Setup %VERSION%.exe
+echo.
+echo  Les utilisateurs Windows recevront une notification
+echo  de mise a jour automatiquement.
+echo.
+goto :fin_script
+
+:: ============================================================
+:pas_publier
+:: ============================================================
+git add -A
+git commit -m "Update %date%"
+git push origin main
+if %errorlevel% neq 0 (
+    echo ERREUR lors du push GitHub.
+    pause
+    exit /b 1
+)
+echo OK - Sauvegarde sur GitHub
+echo.
+
+echo ============================================================
+echo          MISE A JOUR LOCALE TERMINEE AVEC SUCCES !
+echo ============================================================
+echo.
+echo  Fichier : EBENE Business Suite Setup %VERSION%.exe
+echo.
+echo  Note : Les utilisateurs Windows ne recevront PAS de
+echo  notification automatique pour cette mise a jour.
+echo  Pour les notifier, relancez le script et choisissez O.
+echo.
+
+:fin_script
 echo Rappel APK : Android Studio - Build - Generate APKs
 echo.
 pause
