@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation, Trans } from "react-i18next";
 import {
   HEADER_FEATURES,
   HEADER_FEATURE_LABELS,
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export const FeatureAccessPanel = ({ users }: Props) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [draft, setDraft] = useState<Record<HeaderFeature, boolean>>(
@@ -50,7 +52,7 @@ export const FeatureAccessPanel = ({ users }: Props) => {
       });
       setDraft(next);
     } catch (e) {
-      toast.error("Chargement impossible : " + (e as Error).message);
+      toast.error(t("admin_features.err_load", { msg: (e as Error).message }));
     } finally {
       setLoading(false);
     }
@@ -73,10 +75,10 @@ export const FeatureAccessPanel = ({ users }: Props) => {
         .from("user_feature_access")
         .upsert(rows, { onConflict: "user_id,feature" });
       if (error) throw error;
-      toast.success("Accès aux fonctionnalités enregistré");
+      toast.success(t("admin_features.saved"));
       setOpen(false);
     } catch (e) {
-      toast.error("Échec : " + (e as Error).message);
+      toast.error(t("admin_features.err_save", { msg: (e as Error).message }));
     } finally {
       setSaving(false);
     }
@@ -87,29 +89,24 @@ export const FeatureAccessPanel = ({ users }: Props) => {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-bold text-lg flex items-center gap-2">
-            <Sparkles className="size-5 text-primary" /> Accès aux boutons du header
+            <Sparkles className="size-5 text-primary" /> {t("admin_features.title")}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Choisissez, pour chaque utilisateur non-admin, les boutons visibles dans
-            la barre supérieure (alertes, récap, archives, JSON, gestion utilisateurs,
-            audit). Par défaut, tout est masqué tant que vous n'avez rien activé.
-            L'administrateur conserve toujours l'accès complet.
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{t("admin_features.intro")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">Configurer</Button>
+            <Button size="sm">{t("admin_features.configure")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>Boutons accessibles</DialogTitle>
+              <DialogTitle>{t("admin_features.dialog_title")}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Utilisateur</Label>
+                <Label>{t("admin_features.user")}</Label>
                 <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un utilisateur" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("admin_features.pick_user")} /></SelectTrigger>
                   <SelectContent>
                     {users.map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>
@@ -123,7 +120,7 @@ export const FeatureAccessPanel = ({ users }: Props) => {
               {selectedUser && (
                 loading ? (
                   <div className="flex items-center justify-center py-6 text-muted-foreground">
-                    <Loader2 className="size-5 animate-spin mr-2" /> Chargement…
+                    <Loader2 className="size-5 animate-spin mr-2" /> {t("admin_features.loading")}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -141,8 +138,7 @@ export const FeatureAccessPanel = ({ users }: Props) => {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Cible : <strong>{userLabel}</strong>. Effet à la prochaine
-                      connexion ou rechargement.
+                      <Trans i18nKey="admin_features.target_note" values={{ label: userLabel }} components={[<strong />]} />
                     </p>
                   </div>
                 )
@@ -150,9 +146,9 @@ export const FeatureAccessPanel = ({ users }: Props) => {
             </div>
 
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
+              <Button variant="ghost" onClick={() => setOpen(false)}>{t("admin_features.cancel")}</Button>
               <Button onClick={save} disabled={!selectedUser || saving || loading}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : "Enregistrer"}
+                {saving ? <Loader2 className="size-4 animate-spin" /> : t("admin_features.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
