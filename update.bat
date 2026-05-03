@@ -102,8 +102,19 @@ echo.
 echo [6/7] Generation du fichier .exe Windows avec la version v%VERSION%...
 taskkill /f /im "EBENE SERVICES.exe" >nul 2>&1
 if exist "dist-electron\win-unpacked" rmdir /s /q "dist-electron\win-unpacked"
+
+echo Exclusion de dist-electron de Windows Defender...
+powershell -Command "Add-MpPreference -ExclusionPath 'C:\Users\Lenovo\Desktop\ebenes\dist-electron'" >nul 2>&1
+echo Desactivation temporaire de Windows Defender...
+powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" >nul 2>&1
+
 call npm run electron:build:win
-if %errorlevel% neq 0 (
+set BUILD_ERR=%errorlevel%
+
+echo Reactivation de Windows Defender...
+powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul 2>&1
+
+if %BUILD_ERR% neq 0 (
     echo ERREUR lors de la generation du .exe.
     pause
     exit /b 1
