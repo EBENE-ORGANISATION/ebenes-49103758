@@ -11,7 +11,7 @@ echo.
 :: Aller dans le dossier du projet
 cd /d C:\Users\Lenovo\Desktop\ebenes
 
-echo [1/7] Recuperation des modifications depuis Lovable...
+echo [1/7] Recuperation des modifications depuis GitHub...
 git pull
 if %errorlevel% neq 0 (
     echo ERREUR lors du git pull. Verifiez votre connexion internet.
@@ -31,36 +31,7 @@ if %errorlevel% neq 0 (
 echo OK - Dependances installes
 echo.
 
-echo [3/7] Compilation de l'application...
-call npm run build
-if %errorlevel% neq 0 (
-    echo ERREUR lors de la compilation.
-    pause
-    exit /b 1
-)
-echo OK - Application compilee
-echo.
-
-echo [4/7] Synchronisation avec Android...
-call npx cap sync
-if %errorlevel% neq 0 (
-    echo ERREUR lors de la synchronisation Android.
-    pause
-    exit /b 1
-)
-echo OK - Android synchronise
-echo.
-
-echo [5/7] Generation du fichier .exe Windows...
-call npm run electron:build:win
-if %errorlevel% neq 0 (
-    echo ERREUR lors de la generation du .exe.
-    pause
-    exit /b 1
-)
-echo OK - Fichier .exe genere
-echo.
-
+:: ─── Demander la version AVANT le build ──────────────────────────────────
 echo ============================================================
 echo   Voulez-vous publier une nouvelle version ?
 echo   (mise a jour automatique pour tous les utilisateurs Windows)
@@ -76,7 +47,62 @@ if /i "%PUBLIER%"=="O" (
     set /p VERSION="Entrez le numero de version : "
     echo.
 
-    echo [6/7] Creation du tag de version v%VERSION%...
+    if "%VERSION%"=="" (
+        echo ERREUR : Version non saisie.
+        pause
+        exit /b 1
+    )
+
+    echo [3/7] Mise a jour de package.json avec la version %VERSION%...
+    call npm version %VERSION% --no-git-tag-version
+    if %errorlevel% neq 0 (
+        echo ERREUR lors de la mise a jour de la version dans package.json.
+        pause
+        exit /b 1
+    )
+    echo OK - package.json mis a jour : v%VERSION%
+    echo.
+) else (
+    :: Lire la version actuelle depuis package.json pour les messages
+    for /f "tokens=*" %%i in ('powershell -Command "(Get-Content package.json -Raw | ConvertFrom-Json).version"') do set VERSION=%%i
+    echo.
+    echo Version actuelle : v%VERSION% (pas de changement)
+    echo.
+)
+
+echo [4/7] Compilation de l'application web...
+call npm run build
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la compilation.
+    pause
+    exit /b 1
+)
+echo OK - Application compilee
+echo.
+
+echo [5/7] Synchronisation avec Android...
+call npx cap sync
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la synchronisation Android.
+    pause
+    exit /b 1
+)
+echo OK - Android synchronise
+echo.
+
+echo [6/7] Generation du fichier .exe Windows avec la version v%VERSION%...
+call npm run electron:build:win
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la generation du .exe.
+    pause
+    exit /b 1
+)
+echo OK - Fichier .exe genere : EBENE Business Suite Setup %VERSION%.exe
+echo.
+
+if /i "%PUBLIER%"=="O" (
+
+    echo [7/7] Publication sur GitHub...
     git add .
     git commit -m "Release v%VERSION%"
     if %errorlevel% neq 0 (
@@ -84,37 +110,53 @@ if /i "%PUBLIER%"=="O" (
     )
     git tag v%VERSION%
     if %errorlevel% neq 0 (
-        echo ERREUR lors de la creation du tag.
+        echo ERREUR lors de la creation du tag v%VERSION%.
         pause
         exit /b 1
     )
-    echo OK - Tag v%VERSION% cree
-    echo.
-
-    echo [7/7] Publication sur GitHub...
     git push origin main
+    if %errorlevel% neq 0 (
+        echo ERREUR lors du push sur GitHub.
+        pause
+        exit /b 1
+    )
     git push origin v%VERSION%
     if %errorlevel% neq 0 (
-        echo ERREUR lors du push GitHub.
+        echo ERREUR lors du push du tag sur GitHub.
         pause
         exit /b 1
     )
-    echo OK - Version v%VERSION% publiee
+    echo OK - Code pousse sur GitHub avec le tag v%VERSION%
+    echo.
+
+    echo Creation de la release GitHub...
+    gh release create v%VERSION% ^
+        "dist-electron\EBENE Business Suite Setup %VERSION%.exe" ^
+        --repo Ennod22/ebenes ^
+        --title "v%VERSION%" ^
+        --notes "Release v%VERSION% - Mise a jour automatique"
+    if %errorlevel% neq 0 (
+        echo ERREUR lors de la creation de la release GitHub.
+        echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
+        pause
+        exit /b 1
+    )
+    echo OK - Release GitHub v%VERSION% creee
     echo.
 
     echo ============================================================
     echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
     echo ============================================================
     echo.
-    echo  GitHub Actions compile le .exe dans 5-10 minutes.
+    echo  GitHub   : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
+    echo  .exe     : dist-electron\EBENE Business Suite Setup %VERSION%.exe
+    echo.
     echo  Les utilisateurs Windows recevront une notification
     echo  de mise a jour automatiquement.
     echo.
 
 ) else (
 
-    echo.
-    echo [6/7] Sauvegarde sur GitHub sans publication...
     git add .
     git commit -m "Update %date%"
     git push origin main
@@ -130,7 +172,7 @@ if /i "%PUBLIER%"=="O" (
     echo          MISE A JOUR LOCALE TERMINEE AVEC SUCCES !
     echo ============================================================
     echo.
-    echo  .exe   : dist-electron\EBENE Business Suite Setup 0.0.0.exe
+    echo  .exe     : dist-electron\EBENE Business Suite Setup %VERSION%.exe
     echo.
     echo  Note : Les utilisateurs Windows ne recevront PAS de
     echo  notification automatique pour cette mise a jour.
