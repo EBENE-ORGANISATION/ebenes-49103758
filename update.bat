@@ -61,21 +61,13 @@ if "%VERSION%"=="" (
     exit /b 1
 )
 echo [3/7] Mise a jour de package.json avec la version %VERSION%...
-call npm version %VERSION% --no-git-tag-version > "%TEMP%\npm_version_out.txt" 2>&1
-set NPM_VER_ERR=%errorlevel%
-if %NPM_VER_ERR% neq 0 (
-    findstr /i "not changed" "%TEMP%\npm_version_out.txt" >nul 2>&1
-    if %errorlevel% equ 0 (
-        echo INFO - Version deja a %VERSION% dans package.json, continuation...
-    ) else (
-        type "%TEMP%\npm_version_out.txt"
-        echo ERREUR lors de la mise a jour de la version dans package.json.
-        pause
-        exit /b 1
-    )
-) else (
-    echo OK - package.json mis a jour : v%VERSION%
+call npm version %VERSION% --no-git-tag-version --allow-same-version
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la mise a jour de la version dans package.json.
+    pause
+    exit /b 1
 )
+echo OK - package.json mis a jour : v%VERSION%
 echo.
 goto :build_start
 
@@ -118,7 +110,7 @@ echo OK - Fichier .exe genere : EBENE Business Suite Setup %VERSION%.exe
 echo.
 
 echo Correction des noms de fichiers dans latest.yml...
-powershell -Command "$f='dist-electron\latest.yml'; $c=Get-Content $f; ($c | ForEach-Object { if ($_ -match '(path|url):') { $p=$_ -split ': ',2; $p[0]+': '+$p[1].Replace(' ','.') } else { $_ } }) | Set-Content $f -Encoding UTF8"
+powershell -Command "(Get-Content 'dist-electron\latest.yml') -replace ' ', '.' | Set-Content 'dist-electron\latest.yml'"
 echo OK - latest.yml corrige (espaces remplaces par des points)
 echo.
 
@@ -158,12 +150,21 @@ if /i "%PUBLIER%"=="O" (
         --title "v%VERSION%" ^
         --notes "Release v%VERSION% - Mise a jour automatique"
     if %errorlevel% neq 0 (
-        echo ERREUR lors de la creation de la release GitHub.
-        echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
-        pause
-        exit /b 1
+        echo Release deja existante - mise a jour du fichier .exe...
+        gh release upload v%VERSION% ^
+            "dist-electron\EBENE Business Suite Setup %VERSION%.exe" ^
+            --repo Ennod22/ebenes ^
+            --clobber
+        if %errorlevel% neq 0 (
+            echo ERREUR lors de la mise a jour de la release GitHub.
+            echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
+            pause
+            exit /b 1
+        )
+        echo OK - Fichier .exe mis a jour dans la release v%VERSION%
+    ) else (
+        echo OK - Release GitHub v%VERSION% creee
     )
-    echo OK - Release GitHub v%VERSION% creee
     echo.
 
     echo ============================================================
