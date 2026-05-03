@@ -7,6 +7,7 @@ echo ================================================
 echo.
 
 echo [1/3] Recuperation depuis GitHub...
+git config gc.auto 0
 git pull
 if %errorlevel% neq 0 (
     echo ERREUR lors du pull. Verifiez votre connexion.

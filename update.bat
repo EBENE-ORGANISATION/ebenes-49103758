@@ -61,13 +61,21 @@ if "%VERSION%"=="" (
     exit /b 1
 )
 echo [3/7] Mise a jour de package.json avec la version %VERSION%...
-call npm version %VERSION% --no-git-tag-version
-if %errorlevel% neq 0 (
-    echo ERREUR lors de la mise a jour de la version dans package.json.
-    pause
-    exit /b 1
+call npm version %VERSION% --no-git-tag-version > "%TEMP%\npm_version_out.txt" 2>&1
+set NPM_VER_ERR=%errorlevel%
+if %NPM_VER_ERR% neq 0 (
+    findstr /i "not changed" "%TEMP%\npm_version_out.txt" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo INFO - Version deja a %VERSION% dans package.json, continuation...
+    ) else (
+        type "%TEMP%\npm_version_out.txt"
+        echo ERREUR lors de la mise a jour de la version dans package.json.
+        pause
+        exit /b 1
+    )
+) else (
+    echo OK - package.json mis a jour : v%VERSION%
 )
-echo OK - package.json mis a jour : v%VERSION%
 echo.
 goto :build_start
 
