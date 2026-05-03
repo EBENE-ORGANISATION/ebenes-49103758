@@ -100,6 +100,8 @@ echo OK - Android synchronise
 echo.
 
 echo [6/7] Generation du fichier .exe Windows avec la version v%VERSION%...
+taskkill /f /im "EBENE SERVICES.exe" >nul 2>&1
+if exist "dist-electron\win-unpacked" rmdir /s /q "dist-electron\win-unpacked"
 call npm run electron:build:win
 if %errorlevel% neq 0 (
     echo ERREUR lors de la generation du .exe.
