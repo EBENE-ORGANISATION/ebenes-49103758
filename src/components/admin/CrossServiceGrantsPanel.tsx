@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 interface Grant {
   id: string;
@@ -33,6 +34,7 @@ interface UserOption { user_id: string; email: string | null; nom: string | null
 interface Props { users: UserOption[]; }
 
 export const CrossServiceGrantsPanel = ({ users }: Props) => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [grants, setGrants] = useState<Grant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
       .select("*")
       .order("expires_at", { ascending: false });
     if (error) {
-      toast.error("Chargement autorisations : " + error.message);
+      toast.error(t("admin_grants.err_load", { msg: error.message }));
       setLoading(false);
       return;
     }
@@ -70,8 +72,8 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
   useEffect(() => { load(); }, [users]);
 
   const create = async () => {
-    if (!uid) { toast.error("Sélectionnez un utilisateur"); return; }
-    if (days < 1) { toast.error("Durée invalide"); return; }
+    if (!uid) { toast.error(t("admin_grants.err_pick_user")); return; }
+    if (days < 1) { toast.error(t("admin_grants.err_duration")); return; }
     setBusy(true);
     const expires = new Date(Date.now() + days * 86400000).toISOString();
     const { error } = await supabase.from("cross_service_grants").insert({
@@ -79,16 +81,16 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Autorisation accordée");
+    toast.success(t("admin_grants.granted"));
     setOpen(false); setUid(""); setNote(""); setDays(7); setLevel("chef"); setService("compta");
     load();
   };
 
   const revoke = async (id: string) => {
-    if (!confirm("Révoquer cette autorisation ?")) return;
+    if (!confirm(t("admin_grants.confirm_revoke"))) return;
     const { error } = await supabase.from("cross_service_grants").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Révoquée");
+    toast.success(t("admin_grants.revoked"));
     load();
   };
 
@@ -99,19 +101,19 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
       <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b">
         <h2 className="font-semibold flex items-center gap-2">
           <ShieldCheck className="size-5 text-primary" />
-          Autorisations cross-service (temporaires)
+          {t("admin_grants.title")}
         </h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="size-4" /> Accorder</Button>
+            <Button size="sm"><Plus className="size-4" /> {t("admin_grants.grant")}</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nouvelle autorisation</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("admin_grants.new_title")}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label>Utilisateur</Label>
+                <Label>{t("admin_grants.user")}</Label>
                 <Select value={uid} onValueChange={setUid}>
-                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("admin_grants.pick_user")} /></SelectTrigger>
                   <SelectContent>
                     {users.map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>
@@ -123,41 +125,41 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Service cible</Label>
+                  <Label>{t("admin_grants.target_service")}</Label>
                   <Select value={service} onValueChange={(v) => setService(v as "compta" | "grh")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="compta">Comptabilité</SelectItem>
-                      <SelectItem value="grh">GRH</SelectItem>
+                      <SelectItem value="compta">{t("admin_grants.compta")}</SelectItem>
+                      <SelectItem value="grh">{t("admin_grants.grh")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Niveau</Label>
+                  <Label>{t("admin_grants.level")}</Label>
                   <Select value={level} onValueChange={(v) => setLevel(v as "membre" | "chef")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="chef">Chef (lecture + écriture + suppression)</SelectItem>
-                      <SelectItem value="membre">Membre (lecture + écriture)</SelectItem>
+                      <SelectItem value="chef">{t("admin_grants.chef_desc")}</SelectItem>
+                      <SelectItem value="membre">{t("admin_grants.membre_desc")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Durée (jours)</Label>
+                <Label>{t("admin_grants.duration_days")}</Label>
                 <Input type="number" min={1} value={days}
                   onChange={(e) => setDays(parseInt(e.target.value || "0"))} />
               </div>
               <div className="space-y-2">
-                <Label>Note (optionnel)</Label>
+                <Label>{t("admin_grants.note_opt")}</Label>
                 <Input value={note} onChange={(e) => setNote(e.target.value)}
-                  placeholder="Motif de l'autorisation…" />
+                  placeholder={t("admin_grants.note_placeholder")} />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
+              <Button variant="ghost" onClick={() => setOpen(false)}>{t("admin_grants.cancel")}</Button>
               <Button onClick={create} disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : "Accorder"}
+                {busy ? <Loader2 className="size-4 animate-spin" /> : t("admin_grants.grant")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -168,18 +170,18 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
         <div className="p-8 flex justify-center"><Loader2 className="size-5 animate-spin" /></div>
       ) : grants.length === 0 ? (
         <div className="p-8 text-center text-sm text-muted-foreground">
-          Aucune autorisation accordée.
+          {t("admin_grants.none_granted")}
         </div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Utilisateur</TableHead>
-              <TableHead>Service</TableHead>
-              <TableHead>Niveau</TableHead>
-              <TableHead>Expire le</TableHead>
-              <TableHead>Note</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead>{t("admin_grants.th_user")}</TableHead>
+              <TableHead>{t("admin_grants.th_service")}</TableHead>
+              <TableHead>{t("admin_grants.th_level")}</TableHead>
+              <TableHead>{t("admin_grants.th_expires")}</TableHead>
+              <TableHead>{t("admin_grants.th_note")}</TableHead>
+              <TableHead className="text-right">{t("admin_grants.th_action")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -188,18 +190,18 @@ export const CrossServiceGrantsPanel = ({ users }: Props) => {
                 <TableCell>{g.user_nom || g.user_email || g.user_id.slice(0, 8)}</TableCell>
                 <TableCell>
                   <Badge variant="outline">
-                    {g.service === "compta" ? "Comptabilité" : "GRH"}
+                    {g.service === "compta" ? t("admin_grants.compta") : t("admin_grants.grh")}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <Badge variant={g.level === "chef" ? "default" : "secondary"}>
-                    {g.level === "chef" ? "Chef" : "Membre"}
+                    {g.level === "chef" ? t("admin_grants.chef") : t("admin_grants.membre")}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <span className={isExpired(g) ? "text-destructive" : ""}>
-                    {new Date(g.expires_at).toLocaleString("fr-FR")}
-                    {isExpired(g) && " (expirée)"}
+                    {new Date(g.expires_at).toLocaleString(i18n.language === "en" ? "en-GB" : "fr-FR")}
+                    {isExpired(g) && t("admin_grants.expired_suffix")}
                   </span>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
