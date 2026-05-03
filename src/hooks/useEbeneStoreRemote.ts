@@ -65,20 +65,30 @@ const ALL_KEYS = [
 
 // ─── Fallback localStorage ───
 const LS_PREFIX = "ebene-remote:";
-const lsKey = (k: string) => `${LS_PREFIX}${k}`;
 
-const lsRead = (k: string): unknown => {
+// Clé scopée société pour éviter les collisions multi-tenant
+const lsKey = (k: string, sid: string | null) =>
+  sid ? `${LS_PREFIX}s:${sid}:${k}` : `${LS_PREFIX}${k}`;
+
+// Clé scopée pour app_state Supabase
+const tk = (sid: string, k: string) => `s:${sid}:${k}`;
+const untk = (key: string, sid: string): string | null => {
+  const prefix = `s:${sid}:`;
+  return key.startsWith(prefix) ? key.slice(prefix.length) : null;
+};
+
+const lsRead = (k: string, sid: string | null): unknown => {
   try {
-    const raw = localStorage.getItem(lsKey(k));
+    const raw = localStorage.getItem(lsKey(k, sid));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
-const lsWrite = (k: string, value: unknown) => {
+const lsWrite = (k: string, sid: string | null, value: unknown) => {
   try {
-    localStorage.setItem(lsKey(k), JSON.stringify(value));
+    localStorage.setItem(lsKey(k, sid), JSON.stringify(value));
   } catch {
     // ignore quota errors
   }
@@ -104,7 +114,7 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
   devis: Array.isArray(d?.devis) ? d!.devis : [],
 });
 
-export const useEbeneStoreRemote = () => {
+export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
   const [employes, setEmployes] = useState<Employe[]>([]);
   const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>({});
@@ -210,13 +220,30 @@ export const useEbeneStoreRemote = () => {
     }
   }, []);
 
+  // Reset complet du state quand on change de société
+  useEffect(() => {
+    setLoaded(false);
+    setDonneesMensuelles({});
+    setEmployes([]);
+    setParamsAnnuels({});
+    setTauxHistorique([TAUX_DEFAUT]);
+    setArticles([]);
+    setFournisseurs([]);
+    setCategoriesStock([]);
+    setSanctions([]);
+    setImmobilisations([]);
+    localSig.current = {};
+    offlineMode.current = false;
+    offlineToastShown.current = false;
+  }, [societeId]);
+
   // Chargement initial (Supabase puis fallback localStorage) + realtime
   useEffect(() => {
     let cancelled = false;
 
     const loadFromLocal = () => {
       for (const key of ALL_KEYS) {
-        const v = lsRead(key);
+        const v = lsRead(key, societeId);
         if (v !== null) {
           localSig.current[key] = JSON.stringify(v);
           applyValue(key, v);
@@ -226,20 +253,27 @@ export const useEbeneStoreRemote = () => {
 
     (async () => {
       try {
+        // Clés scopées société dans app_state
+        const dbKeys = societeId
+          ? ALL_KEYS.map((k) => tk(societeId, k))
+          : [...ALL_KEYS as unknown as string[]];
+
         const { data, error } = await supabase
           .from("app_state")
           .select("key,value")
-          .in("key", ALL_KEYS as unknown as string[]);
+          .in("key", dbKeys);
 
         if (error) throw error;
 
         if (!cancelled && data) {
           for (const row of data) {
+            const raw = societeId ? untk(row.key, societeId) : row.key;
+            if (!raw) continue;
             const sig = JSON.stringify(row.value);
-            localSig.current[row.key] = sig;
-            applyValue(row.key, row.value);
+            localSig.current[raw] = sig;
+            applyValue(raw, row.value);
             // Met aussi à jour le cache local pour fallback ultérieur
-            lsWrite(row.key, row.value);
+            lsWrite(raw, societeId, row.value);
           }
         }
       } catch (err) {
@@ -256,18 +290,20 @@ export const useEbeneStoreRemote = () => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     try {
       channel = supabase
-        .channel("app_state_sync_remote")
+        .channel(`app_state_sync_remote_${societeId ?? "anon"}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "app_state" },
           (payload) => {
             const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
             if (!row?.key) return;
+            const raw = societeId ? untk(row.key, societeId) : row.key;
+            if (!raw) return; // ignore les lignes des autres sociétés
             const sig = JSON.stringify(row.value);
-            if (localSig.current[row.key] === sig) return;
-            localSig.current[row.key] = sig;
-            applyValue(row.key, row.value);
-            lsWrite(row.key, row.value);
+            if (localSig.current[raw] === sig) return;
+            localSig.current[raw] = sig;
+            applyValue(raw, row.value);
+            lsWrite(raw, societeId, row.value);
           }
         )
         .subscribe();
@@ -285,17 +321,20 @@ export const useEbeneStoreRemote = () => {
         }
       }
     };
-  }, [applyValue, notifyOffline]);
+  }, [applyValue, notifyOffline, societeId]);
 
-  // Persistance vers le cloud avec fallback localStorage
+  // Persistance vers le cloud avec fallback localStorage (clés scopées société)
   const persist = useCallback(
     async (key: string, value: unknown) => {
       const sig = JSON.stringify(value);
       if (localSig.current[key] === sig) return;
       localSig.current[key] = sig;
 
-      // Toujours écrire dans le cache local (sécurité / offline)
-      lsWrite(key, value);
+      // Toujours écrire dans le cache local scopé (sécurité / offline)
+      lsWrite(key, societeId, value);
+
+      // Clé app_state scopée société
+      const dbKey = societeId ? tk(societeId, key) : key;
 
       try {
         const { data: userData } = await supabase.auth.getUser();
@@ -303,7 +342,7 @@ export const useEbeneStoreRemote = () => {
           .from("app_state")
           .upsert(
             {
-              key,
+              key: dbKey,
               value: value as never,
               updated_by: userData.user?.id ?? null,
               updated_at: new Date().toISOString(),
@@ -320,10 +359,10 @@ export const useEbeneStoreRemote = () => {
       } catch (err) {
         offlineMode.current = true;
         notifyOffline();
-        console.error(`[useEbeneStoreRemote] persist(${key}) failed:`, err);
+        console.error(`[useEbeneStoreRemote] persist(${dbKey}) failed:`, err);
       }
     },
-    [notifyOffline]
+    [notifyOffline, societeId]
   );
 
   useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
