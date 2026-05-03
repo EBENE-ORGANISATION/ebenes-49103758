@@ -130,7 +130,7 @@ echo.
 if /i "%PUBLIER%"=="O" (
 
     echo [7/7] Publication sur GitHub...
-    git add .
+    git add "."
     git commit -m "Release v%VERSION%"
     if %errorlevel% neq 0 (
         echo Pas de nouveaux fichiers - continuation...
@@ -193,7 +193,7 @@ if /i "%PUBLIER%"=="O" (
 
 ) else (
 
-    git add .
+    git add "."
     git commit -m "Update %date%"
     git push origin main
     if %errorlevel% neq 0 (
