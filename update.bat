@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     powershell -Command "Start-Process '%~f0' -Verb RunAs"
@@ -52,14 +53,14 @@ if /i "%PUBLIER%"=="O" (
     set /p VERSION="Entrez le numero de version : "
     echo.
 
-    if "%VERSION%"=="" (
+    if "!VERSION!"=="" (
         echo ERREUR : Version non saisie.
         pause
         exit /b 1
     )
 
-    echo [3/7] Mise a jour de package.json avec la version %VERSION%...
-    call npm version %VERSION% --no-git-tag-version
+    echo [3/7] Mise a jour de package.json avec la version !VERSION!...
+    call npm version !VERSION! --no-git-tag-version
     if %errorlevel% neq 0 (
         echo ERREUR lors de la mise a jour de la version dans package.json.
         pause
