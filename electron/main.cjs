@@ -27,6 +27,7 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.setFeedURL("https://github.com/Ennod22/ebenes/releases/latest/download");
 
 function sendToRenderer(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -40,6 +41,13 @@ autoUpdater.on("checking-for-update", () => {
 autoUpdater.on("update-available", (info) => {
   log.info("Update available:", info && info.version);
   sendToRenderer("update-available", { version: info && info.version });
+  dialog.showMessageBox({
+    type: "info",
+    title: "Mise à jour disponible",
+    message: `Une mise à jour (v${info && info.version}) est disponible.`,
+    detail: "Le téléchargement a démarré automatiquement.",
+    buttons: ["OK"],
+  }).catch((err) => log.error("dialog update-available error:", err));
 });
 autoUpdater.on("update-not-available", () => {
   log.info("App is up to date");
@@ -50,10 +58,21 @@ autoUpdater.on("download-progress", (progress) => {
 autoUpdater.on("update-downloaded", (info) => {
   log.info("Update downloaded:", info && info.version);
   sendToRenderer("update-downloaded", { version: info && info.version });
+  dialog.showMessageBox({
+    type: "info",
+    title: "Mise à jour prête",
+    message: `La mise à jour v${info && info.version} est prête à être installée.`,
+    detail: "Redémarrez l'application pour appliquer la mise à jour.",
+    buttons: ["Redémarrer maintenant", "Plus tard"],
+    defaultId: 0,
+  }).then(({ response }) => {
+    if (response === 0) autoUpdater.quitAndInstall();
+  }).catch((err) => log.error("dialog update-downloaded error:", err));
 });
 autoUpdater.on("error", (err) => {
   log.error("Auto-updater error:", err);
   sendToRenderer("update-error", { message: String(err && err.message ? err.message : err) });
+  // Ne pas afficher de dialog pour les erreurs (fréquentes en dev ou hors ligne)
 });
 
 ipcMain.on("install-update", () => {
