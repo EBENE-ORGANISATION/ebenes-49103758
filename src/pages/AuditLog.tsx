@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, History, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface AuditEntry {
   id: string;
@@ -28,6 +29,7 @@ const actionColor = (a: string) =>
   a === "INSERT" ? "default" : a === "UPDATE" ? "secondary" : "destructive";
 
 const AuditLog = () => {
+  const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -63,15 +65,15 @@ const AuditLog = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> Retour</Link>
+              <Link to="/"><ArrowLeft className="size-4" /> {t("audit_log.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <History className="size-6 text-primary" /> Journal d'audit
+              <History className="size-6 text-primary" /> {t("audit_log.title")}
             </h1>
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Filtrer (table, email, action)..."
+              placeholder={t("audit_log.filter_placeholder")}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="w-64"
@@ -87,11 +89,11 @@ const AuditLog = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Utilisateur</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Table</TableHead>
-                  <TableHead>Détails</TableHead>
+                  <TableHead>{t("audit_log.th_date")}</TableHead>
+                  <TableHead>{t("audit_log.th_user")}</TableHead>
+                  <TableHead>{t("audit_log.th_action")}</TableHead>
+                  <TableHead>{t("audit_log.th_table")}</TableHead>
+                  <TableHead>{t("audit_log.th_details")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -99,17 +101,17 @@ const AuditLog = () => {
                   <>
                     <TableRow key={e.id} className="cursor-pointer" onClick={() => setExpanded(expanded === e.id ? null : e.id)}>
                       <TableCell className="text-xs whitespace-nowrap">
-                        {new Date(e.created_at).toLocaleString("fr-FR")}
+                        {new Date(e.created_at).toLocaleString(i18n.language === "en" ? "en-GB" : "fr-FR")}
                       </TableCell>
                       <TableCell className="text-sm">{e.user_email || "—"}</TableCell>
                       <TableCell><Badge variant={actionColor(e.action)}>{e.action}</Badge></TableCell>
                       <TableCell className="font-mono text-xs">{e.table_name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {e.action === "UPDATE" && e.changes
-                          ? `${Object.keys(e.changes).length} champ(s) modifié(s)`
+                          ? t("audit_log.fields_changed", { count: Object.keys(e.changes).length })
                           : e.action === "DELETE"
-                          ? "Voir l'ancien enregistrement"
-                          : "Voir le nouvel enregistrement"}
+                          ? t("audit_log.see_old")
+                          : t("audit_log.see_new")}
                       </TableCell>
                     </TableRow>
                     {expanded === e.id && (
@@ -130,7 +132,7 @@ const AuditLog = () => {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Aucune entrée
+                      {t("audit_log.no_entries")}
                     </TableCell>
                   </TableRow>
                 )}

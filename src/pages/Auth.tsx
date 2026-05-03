@@ -8,9 +8,11 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, LogIn, ShieldPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
 
 const Auth = () => {
   const { signIn, user, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,9 +35,9 @@ const Auth = () => {
     const { error } = await signIn(email.trim(), password);
     setLoading(false);
     if (error) {
-      toast.error("Connexion impossible : " + error);
+      toast.error(t("auth_page.err_signin", { msg: error }));
     } else {
-      toast.success("Bienvenue !");
+      toast.success(t("auth_page.welcome"));
       navigate("/", { replace: true });
     }
   };
@@ -49,7 +51,7 @@ const Auth = () => {
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      toast.success("Compte admin créé. Vous pouvez maintenant vous connecter.");
+      toast.success(t("auth_page.bootstrap_ok"));
       setShowBootstrap(false);
       setEmail(bEmail);
       setBPwd("");
@@ -72,14 +74,14 @@ const Auth = () => {
       if (error) throw error;
       // redirection automatique
     } catch (err) {
-      toast.error("Connexion Google impossible : " + (err as Error).message);
+      toast.error(t("auth_page.err_google", { msg: (err as Error).message }));
       setGoogleBusy(false);
     }
   };
 
   const onResetPassword = async () => {
     if (!email.trim()) {
-      toast.error("Saisissez d'abord votre email pour réinitialiser le mot de passe.");
+      toast.error(t("auth_page.err_reset_email"));
       return;
     }
     setResetBusy(true);
@@ -88,9 +90,9 @@ const Auth = () => {
         redirectTo: `${window.location.origin}/auth`,
       });
       if (error) throw error;
-      toast.success("Email de réinitialisation envoyé. Vérifiez votre boîte.");
+      toast.success(t("auth_page.reset_sent"));
     } catch (err) {
-      toast.error("Envoi impossible : " + (err as Error).message);
+      toast.error(t("auth_page.err_reset", { msg: (err as Error).message }));
     } finally {
       setResetBusy(false);
     }
@@ -100,10 +102,8 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
       <Card className="w-full max-w-md p-8 shadow-2xl border-2">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <h1 className="text-2xl font-bold text-center">APPLI MERE</h1>
-          <p className="text-sm text-muted-foreground text-center">
-            Connectez-vous pour accéder à votre espace
-          </p>
+          <h1 className="text-2xl font-bold text-center">{t("auth_page.app_title")}</h1>
+          <p className="text-sm text-muted-foreground text-center">{t("auth_page.subtitle")}</p>
         </div>
 
         {/* SECTION A — Google */}
@@ -136,7 +136,7 @@ const Auth = () => {
               />
             </svg>
           )}
-          Se connecter avec Google
+          {t("auth_page.google_signin")}
         </Button>
 
         {/* Séparateur */}
@@ -145,14 +145,14 @@ const Auth = () => {
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Ou par email</span>
+            <span className="bg-card px-2 text-muted-foreground">{t("auth_page.or_email")}</span>
           </div>
         </div>
 
         {/* SECTION B — Email / mot de passe */}
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("auth_page.email")}</Label>
             <Input
               id="email"
               type="email"
@@ -165,14 +165,14 @@ const Auth = () => {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Mot de passe</Label>
+              <Label htmlFor="password">{t("auth_page.password")}</Label>
               <button
                 type="button"
                 onClick={onResetPassword}
                 disabled={resetBusy}
                 className="text-xs text-primary hover:underline disabled:opacity-50"
               >
-                {resetBusy ? "Envoi..." : "Mot de passe oublié ?"}
+                {resetBusy ? t("auth_page.sending") : t("auth_page.forgot")}
               </button>
             </div>
             <Input
@@ -188,19 +188,17 @@ const Auth = () => {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> Connexion...
+                <Loader2 className="size-4 animate-spin" /> {t("auth_page.signing_in")}
               </>
             ) : (
               <>
-                <LogIn className="size-4" /> Se connecter
+                <LogIn className="size-4" /> {t("auth_page.signin")}
               </>
             )}
           </Button>
         </form>
 
-        <p className="text-xs text-center text-muted-foreground mt-6">
-          Les comptes sont créés par l'administrateur. Contactez-le pour obtenir un accès.
-        </p>
+        <p className="text-xs text-center text-muted-foreground mt-6">{t("auth_page.accounts_admin_note")}</p>
 
         <div className="mt-4 pt-4 border-t">
           {!showBootstrap ? (
@@ -209,25 +207,23 @@ const Auth = () => {
               onClick={() => setShowBootstrap(true)}
               className="text-xs text-muted-foreground hover:text-primary mx-auto block"
             >
-              Première installation ? Créer le compte administrateur initial
+              {t("auth_page.bootstrap_link")}
             </button>
           ) : (
             <form onSubmit={onBootstrap} className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                <ShieldPlus className="size-4" /> Création du premier administrateur
+                <ShieldPlus className="size-4" /> {t("auth_page.bootstrap_title")}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Cette option n'est disponible qu'une seule fois, tant qu'aucun admin n'existe.
-              </p>
-              <Input placeholder="Nom complet" value={bNom} onChange={(e) => setBNom(e.target.value)} />
-              <Input type="email" placeholder="Email" required value={bEmail} onChange={(e) => setBEmail(e.target.value)} />
-              <Input type="text" placeholder="Mot de passe (≥ 8 car.)" required value={bPwd} onChange={(e) => setBPwd(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{t("auth_page.bootstrap_note")}</p>
+              <Input placeholder={t("auth_page.full_name")} value={bNom} onChange={(e) => setBNom(e.target.value)} />
+              <Input type="email" placeholder={t("auth_page.email")} required value={bEmail} onChange={(e) => setBEmail(e.target.value)} />
+              <Input type="text" placeholder={t("auth_page.password_min")} required value={bPwd} onChange={(e) => setBPwd(e.target.value)} />
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setShowBootstrap(false)} className="flex-1">
-                  Annuler
+                  {t("auth_page.cancel")}
                 </Button>
                 <Button type="submit" size="sm" disabled={bBusy} className="flex-1">
-                  {bBusy ? <Loader2 className="size-4 animate-spin" /> : "Créer l'admin"}
+                  {bBusy ? <Loader2 className="size-4 animate-spin" /> : t("auth_page.create_admin")}
                 </Button>
               </div>
             </form>

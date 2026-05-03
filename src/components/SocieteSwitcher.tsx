@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTenant } from "@/hooks/useTenant";
+import { useTranslation } from "react-i18next";
 
 /**
  * Sélecteur de société, affiché dans le header.
@@ -18,6 +19,7 @@ import { useTenant } from "@/hooks/useTenant";
  */
 export const SocieteSwitcher = () => {
   const { societes, currentSociete, setCurrentSocieteId, isSuperAdmin } = useTenant();
+  const { t } = useTranslation();
 
   // On n'affiche le sélecteur que si l'utilisateur peut réellement choisir.
   if (societes.length < 2 && !isSuperAdmin) return null;
@@ -32,15 +34,15 @@ export const SocieteSwitcher = () => {
           ) : (
             <Home className="size-4 shrink-0" />
           )}
-          <span className="truncate">{currentSociete?.nom ?? "Appli mère"}</span>
+          <span className="truncate">{currentSociete?.nom ?? t("societe_switcher.parent_app")}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 max-h-96 overflow-y-auto">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Sociétés</span>
+          <span>{t("societe_switcher.societes")}</span>
           {isSuperAdmin && (
             <span className="text-[10px] uppercase tracking-wide text-primary font-bold">
-              Super-admin
+              {t("societe_switcher.super_admin")}
             </span>
           )}
         </DropdownMenuLabel>
@@ -53,9 +55,9 @@ export const SocieteSwitcher = () => {
             >
               <Home className="size-4 shrink-0 mr-2 text-primary" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm truncate">🏠 Appli mère</div>
+                <div className="text-sm truncate">{t("societe_switcher.parent_app_emoji")}</div>
                 <div className="text-[10px] text-muted-foreground truncate">
-                  Vue globale super-admin
+                  {t("societe_switcher.super_admin_global_view")}
                 </div>
               </div>
               {!currentSociete && <Check className="size-4 text-primary shrink-0 ml-2" />}

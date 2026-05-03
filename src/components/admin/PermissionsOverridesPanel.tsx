@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, ShieldCheck, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation, Trans } from "react-i18next";
 import {
   MODULES,
   MODULE_LABELS,
@@ -32,6 +33,7 @@ interface Override {
 const LEVELS: AccessLevel[] = ["none", "read", "write", "validate"];
 
 export const PermissionsOverridesPanel = ({ users }: Props) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [overrides, setOverrides] = useState<Override[]>([]);
@@ -61,7 +63,7 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
       });
       setDraft(next);
     } catch (e) {
-      toast.error("Chargement impossible : " + (e as Error).message);
+      toast.error(t("admin_perms.err_load", { msg: (e as Error).message }));
     } finally {
       setLoading(false);
     }
@@ -97,10 +99,10 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
           .upsert(toUpsert, { onConflict: "user_id,module" });
         if (error) throw error;
       }
-      toast.success("Permissions enregistrées");
+      toast.success(t("admin_perms.saved"));
       setOpen(false);
     } catch (e) {
-      toast.error("Échec : " + (e as Error).message);
+      toast.error(t("admin_perms.err_save", { msg: (e as Error).message }));
     } finally {
       setSaving(false);
     }
@@ -115,29 +117,24 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-bold text-lg flex items-center gap-2">
-            <ShieldCheck className="size-5 text-primary" /> Permissions personnalisées par utilisateur
+            <ShieldCheck className="size-5 text-primary" /> {t("admin_perms.title")}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Surchargez les niveaux d'accès par module pour un utilisateur précis.
-            « Défaut du rôle » = on applique automatiquement les droits liés à ses rôles.
-            Les autres niveaux (Aucun / Lecture / Lecture+saisie / Lecture+saisie+validation)
-            remplacent le défaut.
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{t("admin_perms.intro")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">Configurer</Button>
+            <Button size="sm">{t("admin_perms.configure")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Permissions par module</DialogTitle>
+              <DialogTitle>{t("admin_perms.dialog_title")}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Utilisateur</Label>
+                <Label>{t("admin_perms.user")}</Label>
                 <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner un utilisateur" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("admin_perms.pick_user")} /></SelectTrigger>
                   <SelectContent>
                     {users.map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>
@@ -151,18 +148,18 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
               {selectedUser && (
                 loading ? (
                   <div className="flex items-center justify-center py-6 text-muted-foreground">
-                    <Loader2 className="size-5 animate-spin mr-2" /> Chargement…
+                    <Loader2 className="size-5 animate-spin mr-2" /> {t("admin_perms.loading")}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         {overrides.length === 0
-                          ? "Aucune surcharge active — tout est au défaut."
-                          : `${overrides.length} surcharge(s) active(s).`}
+                          ? t("admin_perms.none_active")
+                          : t("admin_perms.n_active", { count: overrides.length })}
                       </p>
                       <Button size="sm" variant="ghost" onClick={resetAll} className="h-7 text-xs">
-                        <RotateCcw className="size-3 mr-1" /> Tout remettre au défaut
+                        <RotateCcw className="size-3 mr-1" /> {t("admin_perms.reset_all")}
                       </Button>
                     </div>
                     <div className="border rounded-md divide-y">
@@ -177,7 +174,7 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
                           >
                             <SelectTrigger className="w-60 h-8 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="default">Défaut du rôle</SelectItem>
+                              <SelectItem value="default">{t("admin_perms.role_default")}</SelectItem>
                               {LEVELS.map((l) => (
                                 <SelectItem key={l} value={l}>{LEVEL_LABELS[l]}</SelectItem>
                               ))}
@@ -187,8 +184,7 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Cible : <strong>{userLabel}</strong>. Les modifications prennent effet
-                      à la prochaine connexion (ou rechargement) de l'utilisateur.
+                      <Trans i18nKey="admin_perms.target_note" values={{ label: userLabel }} components={[<strong />]} />
                     </p>
                   </div>
                 )
@@ -196,9 +192,9 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
             </div>
 
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
+              <Button variant="ghost" onClick={() => setOpen(false)}>{t("admin_perms.cancel")}</Button>
               <Button onClick={save} disabled={!selectedUser || saving || loading}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : "Enregistrer"}
+                {saving ? <Loader2 className="size-4 animate-spin" /> : t("admin_perms.save")}
               </Button>
             </DialogFooter>
           </DialogContent>

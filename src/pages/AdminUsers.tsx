@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, KeyRound, Loader2, Plus, Power, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { CrossServiceGrantsPanel } from "@/components/admin/CrossServiceGrantsPanel";
 import { PermissionsOverridesPanel } from "@/components/admin/PermissionsOverridesPanel";
 import { FeatureAccessPanel } from "@/components/admin/FeatureAccessPanel";
@@ -44,6 +45,7 @@ const callFn = async (body: Record<string, unknown>) => {
 };
 
 const AdminUsers = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +69,7 @@ const AdminUsers = () => {
       const res = await callFn({ action: "list" });
       setUsers(res.users || []);
     } catch (e) {
-      toast.error("Chargement impossible : " + (e as Error).message);
+      toast.error(t("admin_users.err_load", { msg: (e as Error).message }));
     } finally {
       setLoading(false);
     }
@@ -76,12 +78,12 @@ const AdminUsers = () => {
   useEffect(() => { load(); }, []);
 
   const onCreate = async () => {
-    if (!cEmail || !cPwd) { toast.error("Email et mot de passe requis"); return; }
-    if (cPwd.length < 8) { toast.error("Mot de passe : 8 caractères minimum"); return; }
+    if (!cEmail || !cPwd) { toast.error(t("admin_users.err_email_pwd_required")); return; }
+    if (cPwd.length < 8) { toast.error(t("admin_users.err_pwd_min8")); return; }
     setBusy(true);
     try {
       await callFn({ action: "create", email: cEmail.trim(), password: cPwd, nom: cNom.trim(), roles: cRoles });
-      toast.success("Compte créé");
+      toast.success(t("admin_users.created"));
       setOpenCreate(false);
       setCEmail(""); setCNom(""); setCPwd(""); setCRoles(["saisie"]);
       load();
@@ -93,16 +95,16 @@ const AdminUsers = () => {
   const toggleActif = async (u: AdminUser) => {
     try {
       await callFn({ action: "set_active", user_id: u.user_id, actif: !u.actif });
-      toast.success(u.actif ? "Compte désactivé" : "Compte activé");
+      toast.success(u.actif ? t("admin_users.deactivated") : t("admin_users.activated"));
       load();
     } catch (e) { toast.error((e as Error).message); }
   };
 
   const removeUser = async (u: AdminUser) => {
-    if (!confirm(`Supprimer définitivement ${u.email} ?`)) return;
+    if (!confirm(t("admin_users.confirm_delete", { email: u.email }))) return;
     try {
       await callFn({ action: "delete", user_id: u.user_id });
-      toast.success("Compte supprimé");
+      toast.success(t("admin_users.deleted"));
       load();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -111,7 +113,7 @@ const AdminUsers = () => {
     if (!openRoles) return;
     try {
       await callFn({ action: "set_roles", user_id: openRoles.user_id, roles: openRoles.roles });
-      toast.success("Rôles mis à jour");
+      toast.success(t("admin_users.roles_updated"));
       setOpenRoles(null);
       load();
     } catch (e) { toast.error((e as Error).message); }
@@ -119,10 +121,10 @@ const AdminUsers = () => {
 
   const resetPassword = async () => {
     if (!openReset || !newPwd) return;
-    if (newPwd.length < 8) { toast.error("8 caractères minimum"); return; }
+    if (newPwd.length < 8) { toast.error(t("admin_users.err_min8")); return; }
     try {
       await callFn({ action: "reset_password", user_id: openReset.user_id, new_password: newPwd });
-      toast.success("Mot de passe réinitialisé");
+      toast.success(t("admin_users.pwd_reset"));
       setOpenReset(null);
       setNewPwd("");
     } catch (e) { toast.error((e as Error).message); }
@@ -134,37 +136,37 @@ const AdminUsers = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> Retour</Link>
+              <Link to="/"><ArrowLeft className="size-4" /> {t("admin_users.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="size-6 text-primary" /> Gestion des utilisateurs
+              <Users className="size-6 text-primary" /> {t("admin_users.title")}
             </h1>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link to="/admin/audit">Journal d'audit</Link>
+              <Link to="/admin/audit">{t("admin_users.audit_link")}</Link>
             </Button>
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
               <DialogTrigger asChild>
-                <Button><Plus className="size-4" /> Nouvel utilisateur</Button>
+                <Button><Plus className="size-4" /> {t("admin_users.new_user")}</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Créer un utilisateur</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{t("admin_users.create_title")}</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>{t("admin_users.email")}</Label>
                     <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Nom complet</Label>
+                    <Label>{t("admin_users.full_name")}</Label>
                     <Input value={cNom} onChange={(e) => setCNom(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Mot de passe (≥ 8 car.)</Label>
+                    <Label>{t("admin_users.password_min")}</Label>
                     <Input type="text" value={cPwd} onChange={(e) => setCPwd(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Rôles</Label>
+                    <Label>{t("admin_users.roles")}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       {ALL_ROLES.map((r) => (
                         <label key={r} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -181,9 +183,9 @@ const AdminUsers = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="ghost" onClick={() => setOpenCreate(false)}>Annuler</Button>
+                  <Button variant="ghost" onClick={() => setOpenCreate(false)}>{t("admin_users.cancel")}</Button>
                   <Button onClick={onCreate} disabled={busy}>
-                    {busy ? <Loader2 className="size-4 animate-spin" /> : "Créer"}
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : t("admin_users.create")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -198,11 +200,11 @@ const AdminUsers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôles</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("admin_users.th_name")}</TableHead>
+                  <TableHead>{t("admin_users.th_email")}</TableHead>
+                  <TableHead>{t("admin_users.th_roles")}</TableHead>
+                  <TableHead>{t("admin_users.th_status")}</TableHead>
+                  <TableHead className="text-right">{t("admin_users.th_actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,7 +214,7 @@ const AdminUsers = () => {
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {u.roles.length === 0 && <span className="text-xs text-muted-foreground">aucun</span>}
+                        {u.roles.length === 0 && <span className="text-xs text-muted-foreground">{t("admin_users.none")}</span>}
                         {u.roles.map((r) => (
                           <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>
                             {ROLE_LABELS[r]}
@@ -222,12 +224,12 @@ const AdminUsers = () => {
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.actif ? "default" : "destructive"}>
-                        {u.actif ? "Actif" : "Désactivé"}
+                        {u.actif ? t("admin_users.active") : t("admin_users.inactive")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button size="sm" variant="outline" onClick={() => setOpenRoles({ ...u })}>
-                        Rôles
+                        {t("admin_users.btn_roles")}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setOpenReset(u)}>
                         <KeyRound className="size-3.5" />
@@ -266,7 +268,7 @@ const AdminUsers = () => {
         <Dialog open={!!openRoles} onOpenChange={(v) => !v && setOpenRoles(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Rôles — {openRoles?.email}</DialogTitle>
+              <DialogTitle>{t("admin_users.roles_for", { email: openRoles?.email })}</DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
               {ALL_ROLES.map((r) => (
@@ -284,8 +286,8 @@ const AdminUsers = () => {
               ))}
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpenRoles(null)}>Annuler</Button>
-              <Button onClick={saveRoles}>Enregistrer</Button>
+              <Button variant="ghost" onClick={() => setOpenRoles(null)}>{t("admin_users.cancel")}</Button>
+              <Button onClick={saveRoles}>{t("admin_users.save")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -294,15 +296,15 @@ const AdminUsers = () => {
         <Dialog open={!!openReset} onOpenChange={(v) => !v && setOpenReset(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+              <DialogTitle>{t("admin_users.reset_title")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
-              <Label>Nouveau mot de passe ({openReset?.email})</Label>
+              <Label>{t("admin_users.new_pwd_for", { email: openReset?.email })}</Label>
               <Input value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => { setOpenReset(null); setNewPwd(""); }}>Annuler</Button>
-              <Button onClick={resetPassword}>Réinitialiser</Button>
+              <Button variant="ghost" onClick={() => { setOpenReset(null); setNewPwd(""); }}>{t("admin_users.cancel")}</Button>
+              <Button onClick={resetPassword}>{t("admin_users.reset")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
