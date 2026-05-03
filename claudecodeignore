@@ -1,0 +1,39 @@
+# Dépendances
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+build/
+
+# Git
+.git/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+.vite/
+.eslintcache
+
+# Environnement
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fichiers volumineux inutiles pour Claude Code
+public/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
