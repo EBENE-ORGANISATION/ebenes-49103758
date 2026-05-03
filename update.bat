@@ -146,10 +146,23 @@ if %BUILD_ERR% neq 0 (
 echo OK - Setup Windows genere : EBENE SERVICES Setup %VERSION%.exe
 echo.
 
-:: Corriger les espaces en points dans latest.yml
-echo Correction de latest.yml...
-powershell -Command "(Get-Content 'dist-electron\latest.yml') -replace ' ', '.' | Set-Content 'dist-electron\latest.yml'"
-echo OK - latest.yml corrige
+:: Regenerer latest.yml avec les noms de fichiers en points (GitHub remplace les espaces par des points)
+:: Electron-builder genere le yml avec des espaces ; on extrait sha512+size par regex et on recree un YAML propre.
+echo Regeneration de latest.yml...
+powershell -Command ^
+  "$raw = Get-Content 'dist-electron\latest.yml' -Raw;" ^
+  "$sha = if ($raw -match '(?m)^sha512:\s*(\S+)') { $Matches[1] } else { '' };" ^
+  "$sz  = if ($raw -match '(?m)size:\s*(\d+)')    { $Matches[1] } else { '0' };" ^
+  "$fn  = 'EBENE.SERVICES.Setup.%VERSION%.exe';" ^
+  "$dt  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ');" ^
+  "$out = 'version: %VERSION%' + [char]10 + 'files:' + [char]10 + '  - url: ' + $fn + [char]10 + '    sha512: ' + $sha + [char]10 + '    size: ' + $sz + [char]10 + 'path: ' + $fn + [char]10 + 'sha512: ' + $sha + [char]10 + 'releaseDate: ' + [char]39 + $dt + [char]39 + [char]10;" ^
+  "Set-Content 'dist-electron\latest.yml' $out -NoNewline -Encoding utf8"
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la regeneration de latest.yml.
+    pause
+    exit /b 1
+)
+echo OK - latest.yml regenere
 echo.
 
 :: ============================================================
