@@ -435,6 +435,39 @@ export interface Immobilisation {
  * Comptes SYSCOHADA par défaut selon la catégorie. Utilisés lorsqu'aucun
  * compte n'est renseigné par l'utilisateur.
  */
+// ─── Bulletins de paie persistés ─────────────────────────────────────────────
+
+export type StatutBulletin = "brouillon" | "valide" | "paye";
+
+export interface BulletinPaieRecord {
+  id: string;
+  employe_id: number;
+  employe_nom: string;
+  employe_user_id: string | null;
+  societe_id: string;
+  mois: number;
+  annee: number;
+  salaire_base: number;
+  sursalaire: number;
+  prime_anciennete: number;
+  hs_montant: number;
+  primes_diverses: number;
+  indemnites: number;
+  brut: number;
+  cnss_sal: number;
+  amu_sal: number;
+  irpp: number;
+  retenues_diverses: number;
+  total_retenues: number;
+  net_a_payer: number;
+  cnss_pat: number;
+  amu_pat: number;
+  cout_employeur: number;
+  statut: StatutBulletin;
+  created_at: string;
+  paid_at: string | null;
+}
+
 export const COMPTES_IMMO_DEFAUT: Record<CategorieImmo, ComptesSYSCOHADAImmo> = {
   terrain:               { actif: "22",   amortissementCumule: "",     dotation: "" /* non amortissable */ },
   construction:          { actif: "231",  amortissementCumule: "2831", dotation: "6813" },

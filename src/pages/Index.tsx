@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { PortailEmploye } from "@/components/employe/PortailEmploye";
+import { PortailAdminView } from "@/components/employe/PortailAdminView";
 import { useTenant } from "@/hooks/useTenant";
 import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
 import { isElectron } from "@/lib/platform";
@@ -201,9 +202,10 @@ const Index = () => {
   const showImmo = lvlImmo !== "none" && modOk("module_immobilisations");
   const showFisc = (lvlFisc !== "none" || lvlParamSoc !== "none") && modOk("module_fiscalite");
   const showGrh = lvlGrh !== "none" && modOk("module_grh");
+  const showPortail = showGrh;
 
   const visibleTabs = [
-    showDashboard, showCompta, showFisc, showFact, showStock, showImmo, showGrh,
+    showDashboard, showCompta, showFisc, showFact, showStock, showImmo, showGrh, showPortail,
   ].filter(Boolean).length;
   const defaultTab = showDashboard
     ? "dashboard"
@@ -214,7 +216,8 @@ const Index = () => {
     : showGrh ? "grh"
     : showFisc ? "fisc"
     : "compta";
-  const gridCols = visibleTabs >= 7 ? "sm:grid-cols-7"
+  const gridCols = visibleTabs >= 8 ? "sm:grid-cols-8"
+    : visibleTabs === 7 ? "sm:grid-cols-7"
     : visibleTabs === 6 ? "sm:grid-cols-6"
     : visibleTabs === 5 ? "sm:grid-cols-5"
     : visibleTabs === 4 ? "sm:grid-cols-4"
@@ -278,6 +281,11 @@ const Index = () => {
               {showGrh && (
                 <TabsTrigger value="grh" className="py-2.5 text-sm font-semibold">
                   👥 {t("tabs.hr")}
+                </TabsTrigger>
+              )}
+              {showPortail && (
+                <TabsTrigger value="portail" className="py-2.5 text-sm font-semibold">
+                  🏠 Mon Portail
                 </TabsTrigger>
               )}
             </TabsList>
@@ -429,6 +437,12 @@ const Index = () => {
                 onValiderSanction={(id) => store.validerSanction(id)}
                 onRejeterSanction={(id, motif) => store.rejeterSanction(id, motif)}
               />
+            </TabsContent>
+            )}
+
+            {showPortail && (
+            <TabsContent value="portail">
+              <PortailAdminView />
             </TabsContent>
             )}
 

@@ -41,6 +41,7 @@ import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
+import { BulletinsPaie } from "./BulletinsPaie";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -206,8 +207,9 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
+          <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
           <TabsTrigger value="discipline">⚠️ Discipline</TabsTrigger>
           <TabsTrigger value="indemnites">🧮 Fin de contrat</TabsTrigger>
@@ -504,6 +506,16 @@ export const GRH = ({
               })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="bulletins">
+          <BulletinsPaie
+            employes={employes}
+            annee={annee}
+            mois={mois}
+            isChefGrh={isChefGrh}
+            societeInfo={societeInfo}
+          />
         </TabsContent>
 
         <TabsContent value="absences">

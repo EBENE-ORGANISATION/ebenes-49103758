@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
-import { useEbeneStore } from "@/hooks/useEbeneStore";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useAuth } from "@/hooks/useAuth";
+import { usePortailEmploye } from "@/hooks/usePortailEmploye";
+import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle, Award, Gavel } from "lucide-react";
+import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle, Award, Gavel, MessageSquare, User, Phone, Mail, Hash, Briefcase, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation, TYPE_SANCTION_LABELS } from "@/types/ebene";
 /** Base annuelle de congés payés selon le Code du Travail togolais. */
 const BASE_CONGES_ANNUEL = 30;
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
+import { supabase } from "@/lib/supabase";
 
 /** Construit l'objet societeInfo passé aux générateurs PDF / en-têtes. */
 const buildSocieteInfo = (
@@ -67,11 +70,74 @@ const diffJours = (a: string, b: string) => {
   return Math.max(1, Math.round((db - da) / 86_400_000) + 1);
 };
 
+// ─── Empreinte d'appareil légère (navigateur + résolution + fuseau) ────────
+const deviceFingerprint = (): string => {
+  const parts = [
+    navigator.userAgent.slice(0, 80),
+    screen.width,
+    screen.height,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ];
+  return btoa(parts.join("|")).slice(0, 32);
+};
+
+const TRUSTED_PREFIX = "ebene_trusted_device_";
+
 export const PortailEmploye = () => {
   const { user, signOut } = useAuth();
-  const store = useEbeneStore();
-  const annee = new Date().getFullYear();
   const { currentSociete, societeConfig } = useTenant();
+  const store = useEbeneStore(currentSociete?.id ?? null);
+  const annee = new Date().getFullYear();
+
+  // ─── Vérification appareil ─────────────────────────────────────────────
+  const [deviceVerified, setDeviceVerified] = useState<boolean | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    const fp = deviceFingerprint();
+    const trusted = localStorage.getItem(`${TRUSTED_PREFIX}${user.id}`);
+    setDeviceVerified(trusted === fp);
+  }, [user]);
+
+  const sendOtp = async () => {
+    if (!user?.email) return;
+    setOtpSending(true);
+    setOtpError("");
+    const fp = deviceFingerprint();
+    const { error } = await supabase.functions.invoke("admin-users", {
+      body: { action: "send_device_otp", email: user.email, device_fp: fp },
+    });
+    if (error) {
+      setOtpError("Impossible d'envoyer le code. Réessayez.");
+    } else {
+      setOtpSent(true);
+    }
+    setOtpSending(false);
+  };
+
+  const verifyOtp = async () => {
+    if (!user || !otpCode.trim()) return;
+    setOtpVerifying(true);
+    setOtpError("");
+    const { data, error } = await supabase.functions.invoke("admin-users", {
+      body: { action: "verify_device_otp", otp_code: otpCode.trim() },
+    });
+    if (error || !data?.ok) {
+      setOtpError(data?.error ?? "Code incorrect ou expiré.");
+    } else {
+      const fp = deviceFingerprint();
+      localStorage.setItem(`${TRUSTED_PREFIX}${user.id}`, fp);
+      setDeviceVerified(true);
+    }
+    setOtpVerifying(false);
+  };
+  const { messages, loadingMessages, nonLus, envoyerMessage, marquerLus } =
+    usePortailEmploye(currentSociete?.id ?? null);
   const societeInfo = useMemo(
     () => buildSocieteInfo(currentSociete, societeConfig),
     [currentSociete, societeConfig],
@@ -85,22 +151,17 @@ export const PortailEmploye = () => {
     [store.employes, user]
   );
 
-  // ─── Bulletins de l'année (tous les mois où l'employé existe) ──────────
-  const bulletins = useMemo(() => {
-    if (!employe) return [] as Array<{ mois: number }>;
-    const result: Array<{ mois: number }> = [];
-    for (let m = 1; m <= 12; m++) {
-      const data = store.getMois(annee, m);
-      // On considère qu'un bulletin existe dès qu'il y a un employé actif ce mois-là.
-      // (La fiche employé est mensuelle ; on liste tous les mois passés ou en cours.)
-      const moisDate = new Date(annee, m - 1, 1);
-      if (moisDate <= new Date()) {
-        result.push({ mois: m });
-      }
-      void data;
+  // ─── Bulletins depuis Supabase (table bulletins_paie) ─────────────────
+  const { loadBulletinsEmploye } = useBulletinsPaie(currentSociete?.id ?? null);
+  const [bulletinsSupabase, setBulletinsSupabase] = useState<
+    import("@/types/ebene").BulletinPaieRecord[]
+  >([]);
+
+  useEffect(() => {
+    if (user) {
+      loadBulletinsEmploye(user.id).then(setBulletinsSupabase);
     }
-    return result;
-  }, [employe, store, annee]);
+  }, [user, loadBulletinsEmploye]);
 
   // ─── Absences de l'année ───────────────────────────────────────────────
   const absences = useMemo(() => {
@@ -151,6 +212,24 @@ export const PortailEmploye = () => {
     return { primes, sanctions };
   }, [employe, store, annee]);
 
+  // ─── Messagerie ────────────────────────────────────────────────────────
+  const [msgTexte, setMsgTexte] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleEnvoyerMsg = async () => {
+    if (!msgTexte.trim() || envoi) return;
+    setEnvoi(true);
+    const ok = await envoyerMessage(msgTexte);
+    if (ok) {
+      setMsgTexte("");
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      toast.error("Erreur lors de l'envoi du message");
+    }
+    setEnvoi(false);
+  };
+
   // ─── Form demande de congé ─────────────────────────────────────────────
   const [demande, setDemande] = useState({
     type: "conges_payes" as TypeAbsence,
@@ -184,6 +263,82 @@ export const PortailEmploye = () => {
     toast.success("Demande envoyée — en attente de validation par le chef GRH");
     setDemande((d) => ({ ...d, motif: "" }));
   };
+
+  // ─── Vérification appareil (null = chargement) ────────────────────────
+  if (deviceVerified === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertCircle className="size-5 text-warning" /> Nouvel appareil détecté
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {!otpSent ? (
+                <>
+                  <p>
+                    Votre connexion provient d'un appareil non reconnu.
+                    Cliquez sur le bouton ci-dessous pour recevoir un code
+                    de vérification par email.
+                  </p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  {otpError && (
+                    <p className="text-xs text-destructive">{otpError}</p>
+                  )}
+                  <Button
+                    className="w-full"
+                    onClick={sendOtp}
+                    disabled={otpSending}
+                  >
+                    {otpSending ? "Envoi…" : "Envoyer le code par email"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Un code à 6 chiffres a été envoyé à{" "}
+                    <strong>{user?.email}</strong>. Il expire dans 10 minutes.
+                  </p>
+                  <Input
+                    placeholder="Code à 6 chiffres"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void verifyOtp();
+                    }}
+                    className="text-center tracking-widest text-lg font-mono"
+                  />
+                  {otpError && (
+                    <p className="text-xs text-destructive">{otpError}</p>
+                  )}
+                  <Button
+                    className="w-full"
+                    onClick={verifyOtp}
+                    disabled={otpVerifying || otpCode.length !== 6}
+                  >
+                    {otpVerifying ? "Vérification…" : "Confirmer"}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline w-full text-center"
+                    onClick={() => { setOtpSent(false); setOtpCode(""); setOtpError(""); }}
+                  >
+                    Renvoyer le code
+                  </button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => signOut()}>
+            <LogOut className="size-4" /> Déconnexion
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Cas : compte non lié à un employé ─────────────────────────────────
   if (!employe) {
@@ -245,6 +400,89 @@ export const PortailEmploye = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Informations personnelles */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="size-4" /> Mes informations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-start gap-2">
+                <User className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase font-semibold">Nom</p>
+                  <p className="font-medium">{employe.nom}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Briefcase className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase font-semibold">Poste</p>
+                  <p className="font-medium">{employe.poste || "—"}</p>
+                </div>
+              </div>
+              {employe.matricule && (
+                <div className="flex items-start gap-2">
+                  <Hash className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Matricule</p>
+                    <p className="font-medium">{employe.matricule}</p>
+                  </div>
+                </div>
+              )}
+              {employe.email && (
+                <div className="flex items-start gap-2">
+                  <Mail className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Email</p>
+                    <p className="font-medium">{employe.email}</p>
+                  </div>
+                </div>
+              )}
+              {employe.telephone && (
+                <div className="flex items-start gap-2">
+                  <Phone className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Téléphone</p>
+                    <p className="font-medium">{employe.telephone}</p>
+                  </div>
+                </div>
+              )}
+              {employe.salaireBase !== undefined && employe.salaireBase > 0 && (
+                <div className="flex items-start gap-2">
+                  <CreditCard className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Salaire de base</p>
+                    <p className="font-medium">
+                      {employe.salaireBase.toLocaleString("fr-FR")} F CFA
+                    </p>
+                  </div>
+                </div>
+              )}
+              {employe.categorie && (
+                <div className="flex items-start gap-2">
+                  <FileText className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Catégorie</p>
+                    <p className="font-medium">{employe.categorie}</p>
+                  </div>
+                </div>
+              )}
+              {employe.dateEmbauche && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Date d'embauche</p>
+                    <p className="font-medium">{employe.dateEmbauche}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* KPI rapides */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
@@ -295,42 +533,58 @@ export const PortailEmploye = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="size-4" /> Mes bulletins de paie {annee}
+              <FileText className="size-4" /> Mes bulletins de paie
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {bulletins.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun bulletin pour cette année.</p>
+            {bulletinsSupabase.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun bulletin disponible.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Période</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="text-right">Net à payer</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">PDF</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bulletins.map(({ mois }) => (
-                    <TableRow key={mois}>
+                  {bulletinsSupabase.map((b) => (
+                    <TableRow key={b.id}>
                       <TableCell className="font-medium">
-                        {MOIS_NOMS[mois - 1]} {annee}
+                        {MOIS_NOMS[b.mois - 1]} {b.annee}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-success">
+                        {b.net_a_payer.toLocaleString("fr-FR")} F CFA
+                      </TableCell>
+                      <TableCell>
+                        {b.statut === "paye" ? (
+                          <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">Payé</Badge>
+                        ) : b.statut === "valide" ? (
+                          <Badge className="bg-success/15 text-success border-success/30 text-xs">Validé</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Brouillon</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                          onClick={() => {
-                            try {
-                              generateBulletin(employe, store.getMois(annee, mois), annee, mois, societeInfo);
-                            } catch (err) {
-                              console.error(err);
-                              toast.error("Impossible de générer le bulletin");
-                            }
-                          }}
-                        >
-                          <Download className="size-4" /> PDF
-                        </Button>
+                        {b.statut !== "brouillon" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={() => {
+                              try {
+                                generateBulletin(employe, store.getMois(b.annee, b.mois), b.annee, b.mois, societeInfo);
+                              } catch (err) {
+                                console.error(err);
+                                toast.error("Impossible de générer le bulletin");
+                              }
+                            }}
+                          >
+                            <Download className="size-4" /> PDF
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -529,6 +783,93 @@ export const PortailEmploye = () => {
                 </TableBody>
               </Table>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Messagerie avec l'administration */}
+        <Card>
+          <CardHeader>
+            <CardTitle
+              className="text-base flex items-center gap-2"
+              onClick={() => marquerLus()}
+            >
+              <MessageSquare className="size-4" /> Messagerie
+              {nonLus > 0 && (
+                <Badge className="ml-1 bg-destructive text-destructive-foreground">
+                  {nonLus} non lu{nonLus > 1 ? "s" : ""}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Thread */}
+            <div
+              className="rounded border bg-muted/40 p-3 space-y-2 max-h-72 overflow-y-auto"
+              onFocus={() => marquerLus()}
+            >
+              {loadingMessages ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Chargement…</p>
+              ) : messages.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Aucun message — écrivez à votre administration.
+                </p>
+              ) : (
+                messages.map((msg) => {
+                  const isAdmin = msg.auteur === "admin";
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${isAdmin ? "justify-start" : "justify-end"}`}
+                    >
+                      <div
+                        className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                          isAdmin
+                            ? "bg-card border text-foreground"
+                            : "bg-primary text-primary-foreground"
+                        }`}
+                      >
+                        <p>{msg.contenu}</p>
+                        <p className={`text-[10px] mt-1 ${isAdmin ? "text-muted-foreground" : "text-primary-foreground/70"}`}>
+                          {isAdmin ? "Administration" : "Vous"} ·{" "}
+                          {new Date(msg.created_at).toLocaleString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            {/* Input */}
+            <div className="flex gap-2">
+              <Textarea
+                rows={1}
+                placeholder="Votre message…"
+                value={msgTexte}
+                onChange={(e) => setMsgTexte(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleEnvoyerMsg();
+                  }
+                }}
+                className="resize-none"
+              />
+              <Button
+                size="sm"
+                disabled={!msgTexte.trim() || envoi}
+                onClick={handleEnvoyerMsg}
+                className="gap-1.5 self-end"
+              >
+                <Send className="size-4" />
+                {envoi ? "…" : "Envoyer"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

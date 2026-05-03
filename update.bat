@@ -45,36 +45,39 @@ echo ============================================================
 echo.
 set /p PUBLIER="Publier une nouvelle version ? (O/N) : "
 
-if /i "%PUBLIER%"=="O" (
-    echo.
-    echo Quelle est la nouvelle version ?
-    echo Exemple : 1.0.1 ou 1.1.0 ou 2.0.0
-    echo.
-    set /p VERSION="Entrez le numero de version : "
-    echo.
+if /i "%PUBLIER%"=="O" goto :demander_version
+goto :version_actuelle
 
-    if "!VERSION!"=="" (
-        echo ERREUR : Version non saisie.
-        pause
-        exit /b 1
-    )
-
-    echo [3/7] Mise a jour de package.json avec la version !VERSION!...
-    call npm version !VERSION! --no-git-tag-version
-    if %errorlevel% neq 0 (
-        echo ERREUR lors de la mise a jour de la version dans package.json.
-        pause
-        exit /b 1
-    )
-    echo OK - package.json mis a jour : v%VERSION%
-    echo.
-) else (
-    :: Lire la version actuelle depuis package.json pour les messages
-    for /f "tokens=*" %%i in ('powershell -Command "(Get-Content package.json -Raw | ConvertFrom-Json).version"') do set VERSION=%%i
-    echo.
-    echo Version actuelle : v%VERSION% (pas de changement)
-    echo.
+:demander_version
+echo.
+echo Quelle est la nouvelle version ?
+echo Exemple : 1.0.1 ou 1.1.0 ou 2.0.0
+echo.
+set /p VERSION="Entrez le numero de version : "
+echo.
+if "%VERSION%"=="" (
+    echo ERREUR : Version non saisie.
+    pause
+    exit /b 1
 )
+echo [3/7] Mise a jour de package.json avec la version %VERSION%...
+call npm version %VERSION% --no-git-tag-version
+if %errorlevel% neq 0 (
+    echo ERREUR lors de la mise a jour de la version dans package.json.
+    pause
+    exit /b 1
+)
+echo OK - package.json mis a jour : v%VERSION%
+echo.
+goto :build_start
+
+:version_actuelle
+for /f "tokens=*" %%i in ('powershell -Command "(Get-Content package.json -Raw | ConvertFrom-Json).version"') do set VERSION=%%i
+echo.
+echo Version actuelle : v%VERSION% (pas de changement)
+echo.
+
+:build_start
 
 echo [4/7] Compilation de l'application web...
 call npm run build
@@ -104,6 +107,11 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 echo OK - Fichier .exe genere : EBENE Business Suite Setup %VERSION%.exe
+echo.
+
+echo Correction des noms de fichiers dans latest.yml...
+powershell -Command "$f='dist-electron\latest.yml'; $c=Get-Content $f; ($c | ForEach-Object { if ($_ -match '(path|url):') { $p=$_ -split ': ',2; $p[0]+': '+$p[1].Replace(' ','.') } else { $_ } }) | Set-Content $f -Encoding UTF8"
+echo OK - latest.yml corrige (espaces remplaces par des points)
 echo.
 
 if /i "%PUBLIER%"=="O" (

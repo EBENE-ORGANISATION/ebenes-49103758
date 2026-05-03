@@ -553,13 +553,41 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
   // ─── Employés ───
   const addEmploye = useCallback((e: Omit<Employe, "id">) => {
+    const id = newId();
     setEmployes((prev) => {
       const matricule =
         e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
-      return [...prev, { ...e, matricule, id: newId() }];
+      return [...prev, { ...e, matricule, id }];
     });
     markSignificantWrite();
-  }, [markSignificantWrite]);
+
+    // Auto-création du compte portail si l'employé a un email
+    if (e.email && e.email.trim() && societeId) {
+      const email = e.email.trim();
+      const nom = e.nom || "";
+      const sid = societeId;
+      supabase.functions
+        .invoke("admin-users", {
+          body: {
+            action: "create_employe_account",
+            email,
+            employe_nom: nom,
+            societe_id: sid,
+          },
+        })
+        .then(({ data, error }) => {
+          if (!error && data?.ok && data.user_id) {
+            // Mettre à jour la fiche employé avec le user_id retourné
+            setEmployes((prev) =>
+              prev.map((emp) =>
+                emp.id === id ? { ...emp, userId: data.user_id as string } : emp
+              )
+            );
+          }
+        })
+        .catch(() => undefined);
+    }
+  }, [societeId, markSignificantWrite]);
 
   const removeEmploye = useCallback((id: number) => {
     setEmployes((prev) => prev.filter((e) => e.id !== id));

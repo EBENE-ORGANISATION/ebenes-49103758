@@ -31,7 +31,10 @@ interface Body {
     | "set_active"
     | "reset_password"
     | "list"
-    | "create_employe_account";
+    | "create_employe_account"
+    | "send_device_otp"
+    | "verify_device_otp"
+    | "send_bulletin_email";
   email?: string;
   password?: string;
   nom?: string;
@@ -47,6 +50,11 @@ interface Body {
    * - Pour un super-admin : permet de cibler n'importe quelle société (cross-tenant).
    */
   societe_id?: string;
+  /** Pour send_device_otp / verify_device_otp */
+  device_fp?: string;
+  otp_code?: string;
+  /** Pour send_bulletin_email */
+  bulletin_id?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -296,12 +304,207 @@ Deno.serve(async (req: Request) => {
           );
         }
 
+        // Envoyer l'email d'invitation via Resend
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        if (RESEND_API_KEY) {
+          const nomDisplay = body.employe_nom || body.nom || email;
+          const emailBody = {
+            from: "EBENE Services <noreply@ebnservicess.com>",
+            to: [email],
+            subject: "Votre accès au Portail Employé — EBENE Services",
+            html: `
+              <div style="font-family:sans-serif;max-width:520px;margin:auto">
+                <h2 style="color:#1a1a1a">Bienvenue sur votre Portail Employé</h2>
+                <p>Bonjour <strong>${nomDisplay}</strong>,</p>
+                <p>Votre accès au portail self-service EBENE a été créé. Vous pouvez maintenant
+                   consulter vos bulletins de paie, suivre vos congés et échanger avec
+                   l'administration.</p>
+                <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0">
+                  <p style="margin:0 0 6px"><strong>Email :</strong> ${email}</p>
+                  <p style="margin:0"><strong>Mot de passe temporaire :</strong>
+                    <span style="font-family:monospace;font-size:1.1em">${tempPassword}</span>
+                  </p>
+                </div>
+                <p style="color:#e53e3e;font-size:.9em">
+                  Veuillez changer ce mot de passe dès votre première connexion.
+                </p>
+                <p style="color:#666;font-size:.85em;margin-top:24px">
+                  Cet email a été envoyé automatiquement par EBENE Business Suite.
+                  Si vous n'attendiez pas ce message, ignorez-le.
+                </p>
+              </div>
+            `,
+          };
+          try {
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(emailBody),
+            });
+          } catch (_) {
+            // L'envoi email ne doit pas bloquer la création du compte
+          }
+        }
+
         return json({
           ok: true,
           user_id: newUserId,
           temp_password: tempPassword,
           already_existed: false,
         });
+      }
+
+      case "send_device_otp": {
+        // Génère un code à 6 chiffres, le stocke (hash SHA-256) et l'envoie par email.
+        // Accessible à tout utilisateur authentifié (employee inclus).
+        const targetEmail = body.email?.trim().toLowerCase() ?? userData.user.email ?? "";
+        if (!targetEmail) return json({ error: "Email introuvable" }, 400);
+
+        // Nettoyer les OTP expirés ou précédents pour cet utilisateur
+        await admin.from("device_otps")
+          .delete()
+          .eq("user_id", callerId)
+          .lt("expires_at", new Date().toISOString());
+
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const enc = new TextEncoder();
+        const hashBuf = await crypto.subtle.digest("SHA-256", enc.encode(code));
+        const codeHash = Array.from(new Uint8Array(hashBuf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        const { error: insErr } = await admin.from("device_otps").insert({
+          user_id: callerId,
+          code_hash: codeHash,
+          device_fp: body.device_fp ?? null,
+          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        });
+        if (insErr) return json({ error: insErr.message }, 500);
+
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        if (RESEND_API_KEY) {
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "EBENE Services <noreply@ebnservicess.com>",
+              to: [targetEmail],
+              subject: "Code de vérification — Nouvel appareil",
+              html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:auto">
+                  <h2>Connexion depuis un nouvel appareil</h2>
+                  <p>Votre code de vérification à usage unique (valide 10 minutes) :</p>
+                  <div style="font-size:2.5em;font-weight:bold;letter-spacing:.3em;
+                              background:#f5f5f5;border-radius:8px;padding:16px;
+                              text-align:center;margin:16px 0">
+                    ${code}
+                  </div>
+                  <p style="color:#e53e3e;font-size:.9em">
+                    Si vous n'êtes pas à l'origine de cette connexion, changez
+                    immédiatement votre mot de passe.
+                  </p>
+                </div>
+              `,
+            }),
+          }).catch(() => undefined);
+        }
+        return json({ ok: true });
+      }
+
+      case "send_bulletin_email": {
+        // Envoie un email à l'employé quand son bulletin passe au statut PAYÉ.
+        if (!body.bulletin_id) return json({ error: "bulletin_id requis" }, 400);
+        const { data: bul } = await admin
+          .from("bulletins_paie")
+          .select("employe_nom, employe_user_id, mois, annee, net_a_payer, paid_at")
+          .eq("id", body.bulletin_id)
+          .maybeSingle();
+        if (!bul) return json({ error: "Bulletin introuvable" }, 404);
+
+        // Récupère l'email de l'employé depuis auth.users
+        let employeEmail: string | null = null;
+        if (bul.employe_user_id) {
+          const { data: u } = await admin.auth.admin.getUserById(bul.employe_user_id);
+          employeEmail = u?.user?.email ?? null;
+        }
+        if (!employeEmail) return json({ ok: true, skipped: "no_email" });
+
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        if (!RESEND_API_KEY) return json({ ok: true, skipped: "no_resend_key" });
+
+        const moisNoms = ["Janvier","Février","Mars","Avril","Mai","Juin",
+          "Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+        const periode = `${moisNoms[bul.mois - 1]} ${bul.annee}`;
+        const net = Number(bul.net_a_payer).toLocaleString("fr-FR");
+
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "EBENE Services <noreply@ebnservicess.com>",
+            to: [employeEmail],
+            subject: `Votre bulletin de paie — ${periode}`,
+            html: `
+              <div style="font-family:sans-serif;max-width:520px;margin:auto">
+                <h2>Votre bulletin de paie ${periode}</h2>
+                <p>Bonjour <strong>${bul.employe_nom}</strong>,</p>
+                <p>Votre salaire du mois de <strong>${periode}</strong> a été versé.</p>
+                <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;text-align:center">
+                  <p style="margin:0;font-size:.9em;color:#666">Net à payer</p>
+                  <p style="margin:4px 0;font-size:1.8em;font-weight:bold;color:#1a7a4a">
+                    ${net} F CFA
+                  </p>
+                </div>
+                <p style="font-size:.9em;color:#555">
+                  Connectez-vous à votre portail employé pour télécharger votre bulletin en PDF.
+                </p>
+                <p style="font-size:.8em;color:#999;margin-top:24px">
+                  Cet email a été envoyé automatiquement par EBENE Business Suite.
+                </p>
+              </div>
+            `,
+          }),
+        }).catch(() => undefined);
+
+        return json({ ok: true });
+      }
+
+      case "verify_device_otp": {
+        if (!body.otp_code) return json({ error: "Code requis" }, 400);
+        const code = body.otp_code.trim();
+        const enc = new TextEncoder();
+        const hashBuf = await crypto.subtle.digest("SHA-256", enc.encode(code));
+        const codeHash = Array.from(new Uint8Array(hashBuf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        const { data: otp, error: selErr } = await admin
+          .from("device_otps")
+          .select("id, expires_at, used, device_fp")
+          .eq("user_id", callerId)
+          .eq("code_hash", codeHash)
+          .eq("used", false)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (selErr || !otp) {
+          return json({ ok: false, error: "Code invalide ou expiré" }, 400);
+        }
+
+        // Marquer comme utilisé
+        await admin.from("device_otps").update({ used: true }).eq("id", otp.id);
+        return json({ ok: true });
       }
 
       default:
