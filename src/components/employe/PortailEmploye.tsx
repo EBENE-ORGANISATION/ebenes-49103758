@@ -612,7 +612,7 @@ export const PortailEmploye = () => {
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(TYPE_ABSENCE_LABELS).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                      <SelectItem key={k} value={k}>{t(`type_absence.${k}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -686,7 +686,7 @@ export const PortailEmploye = () => {
                     .sort((a, b) => (a.abs.dateDebut < b.abs.dateDebut ? 1 : -1))
                     .map(({ abs }) => (
                       <TableRow key={abs.id}>
-                        <TableCell>{TYPE_ABSENCE_LABELS[abs.type].label}</TableCell>
+                        <TableCell>{t(`type_absence.${abs.type}`)}</TableCell>
                         <TableCell>{abs.dateDebut}</TableCell>
                         <TableCell>{abs.dateFin}</TableCell>
                         <TableCell className="text-right">{abs.jours}</TableCell>
@@ -773,7 +773,7 @@ export const PortailEmploye = () => {
                     .map((s) => (
                       <TableRow key={s.id}>
                         <TableCell>{s.date}</TableCell>
-                        <TableCell>{TYPE_SANCTION_LABELS[s.type]}</TableCell>
+                        <TableCell>{t(`type_sanction.${s.type}`)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {s.motif || "-"}
                         </TableCell>
