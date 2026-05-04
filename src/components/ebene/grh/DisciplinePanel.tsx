@@ -126,7 +126,7 @@ export const DisciplinePanel = ({
                 <SelectContent>
                   {Object.entries(TYPE_SANCTION_LABELS).map(([k, lbl]) => (
                     <SelectItem key={k} value={k}>
-                      {t(`type_sanction.${k}`)}
+                      {t(`type_sanction.${k}`, { defaultValue: lbl })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -209,7 +209,7 @@ export const DisciplinePanel = ({
                       <StatutValidationBadge statut={statut} motifRejet={s.motifRejet} />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {s.date} • <strong>{t(`type_sanction.${s.type}`)}</strong>
+                      {s.date} • <strong>{t(`type_sanction.${s.type}`, { defaultValue: TYPE_SANCTION_LABELS[s.type] ?? s.type })}</strong>
                       {s.joursMiseAPied ? ` (${t("grh_discipline.days_short", { n: s.joursMiseAPied })})` : ""}
                     </p>
                     <p className="text-sm mt-1 whitespace-pre-wrap">{s.motif}</p>
