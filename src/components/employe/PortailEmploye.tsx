@@ -28,6 +28,7 @@ import {
 import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle, Award, Gavel, MessageSquare, User, Phone, Mail, Hash, Briefcase, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation, TYPE_SANCTION_LABELS } from "@/types/ebene";
+import { useTranslation } from "react-i18next";
 /** Base annuelle de congés payés selon le Code du Travail togolais. */
 const BASE_CONGES_ANNUEL = 30;
 import { generateBulletin } from "@/lib/bulletinPDF";
@@ -84,6 +85,7 @@ const deviceFingerprint = (): string => {
 const TRUSTED_PREFIX = "ebene_trusted_device_";
 
 export const PortailEmploye = () => {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
   const store = useEbeneStore(currentSociete?.id ?? null);
