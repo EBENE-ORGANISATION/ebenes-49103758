@@ -111,11 +111,11 @@ export const PortailEmploye = () => {
     setOtpSending(true);
     setOtpError("");
     const fp = deviceFingerprint();
-    const { error } = await supabase.functions.invoke("admin-users", {
+    const { data, error } = await supabase.functions.invoke("admin-users", {
       body: { action: "send_device_otp", email: user.email, device_fp: fp },
     });
-    if (error) {
-      setOtpError("Impossible d'envoyer le code. Réessayez.");
+    if (error || data?.error) {
+      setOtpError(data?.error ?? "Impossible d'envoyer le code. Réessayez.");
     } else {
       setOtpSent(true);
     }

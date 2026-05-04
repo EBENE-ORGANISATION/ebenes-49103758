@@ -150,12 +150,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        fetchRoles(sess.user.id);
-        fetchGrants(sess.user.id);
-        fetchOverrides(sess.user.id);
-        fetchFeatures(sess.user.id);
+        // Fetch roles before marking auth as loaded so that isSuperAdmin is
+        // correctly known when useTenant.loadSocietes first runs.
+        Promise.all([
+          fetchRoles(sess.user.id),
+          fetchGrants(sess.user.id),
+          fetchOverrides(sess.user.id),
+          fetchFeatures(sess.user.id),
+        ]).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => sub.subscription.unsubscribe();
