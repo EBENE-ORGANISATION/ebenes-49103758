@@ -1027,6 +1027,32 @@ const fr = {
     saved: "Permissions enregistrées",
     err_save: "Échec : {{msg}}",
   },
+  type_absence: {
+    conges_payes: "Congés payés",
+    maladie: "Congé maladie",
+    maternite: "Congé maternité (14 sem.)",
+    accident_travail: "Accident du travail",
+    deces_conjoint: "Décès conjoint/ascendant/descendant",
+    deces_frere_soeur: "Décès frère/sœur",
+    deces_beau_parent: "Décès beau-père/belle-mère",
+    mariage: "Mariage du travailleur",
+    mariage_enfant: "Mariage enfant/frère/sœur",
+    naissance: "Naissance au foyer",
+    bapteme: "Baptême",
+    demenagement: "Déménagement",
+    permission_syndicale: "Permission syndicale",
+    sans_solde: "Congé sans solde",
+    autre: "Autre",
+  },
+  type_sanction: {
+    avertissement_oral: "Avertissement oral",
+    avertissement_ecrit: "Avertissement écrit",
+    blame: "Blâme",
+    mise_a_pied: "Mise à pied (sans salaire)",
+    licenciement_faute_simple: "Licenciement pour faute simple",
+    licenciement_faute_grave: "Licenciement pour faute grave",
+    licenciement_faute_lourde: "Licenciement pour faute lourde",
+  },
 };
 
 export default fr;

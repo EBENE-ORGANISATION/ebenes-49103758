@@ -28,6 +28,7 @@ import {
 import { LogOut, Download, Send, Calendar, FileText, Clock, AlertCircle, Award, Gavel, MessageSquare, User, Phone, Mail, Hash, Briefcase, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { MOIS_NOMS, TypeAbsence, TYPE_ABSENCE_LABELS, StatutValidation, TYPE_SANCTION_LABELS } from "@/types/ebene";
+import { useTranslation } from "react-i18next";
 /** Base annuelle de congés payés selon le Code du Travail togolais. */
 const BASE_CONGES_ANNUEL = 30;
 import { generateBulletin } from "@/lib/bulletinPDF";
@@ -84,6 +85,7 @@ const deviceFingerprint = (): string => {
 const TRUSTED_PREFIX = "ebene_trusted_device_";
 
 export const PortailEmploye = () => {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
   const store = useEbeneStore(currentSociete?.id ?? null);
@@ -612,7 +614,7 @@ export const PortailEmploye = () => {
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(TYPE_ABSENCE_LABELS).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                      <SelectItem key={k} value={k}>{t(`type_absence.${k}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -686,7 +688,7 @@ export const PortailEmploye = () => {
                     .sort((a, b) => (a.abs.dateDebut < b.abs.dateDebut ? 1 : -1))
                     .map(({ abs }) => (
                       <TableRow key={abs.id}>
-                        <TableCell>{TYPE_ABSENCE_LABELS[abs.type].label}</TableCell>
+                        <TableCell>{t(`type_absence.${abs.type}`)}</TableCell>
                         <TableCell>{abs.dateDebut}</TableCell>
                         <TableCell>{abs.dateFin}</TableCell>
                         <TableCell className="text-right">{abs.jours}</TableCell>
@@ -773,7 +775,7 @@ export const PortailEmploye = () => {
                     .map((s) => (
                       <TableRow key={s.id}>
                         <TableCell>{s.date}</TableCell>
-                        <TableCell>{TYPE_SANCTION_LABELS[s.type]}</TableCell>
+                        <TableCell>{t(`type_sanction.${s.type}`)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {s.motif || "-"}
                         </TableCell>

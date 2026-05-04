@@ -89,8 +89,8 @@ export const AbsencesPanel = ({
                   {Object.entries(TYPE_ABSENCE_LABELS).map(([k, v]) => (
                     <SelectItem key={k} value={k}>
                       {v.jours !== null
-                        ? t("grh_absences.type_with_days", { label: v.label, j: v.jours })
-                        : v.label}
+                        ? t("grh_absences.type_with_days", { label: t(`type_absence.${k}`), j: v.jours })
+                        : t(`type_absence.${k}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -140,7 +140,7 @@ export const AbsencesPanel = ({
                     <StatutValidationBadge statut={statut} motifRejet={a.motifRejet} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {TYPE_ABSENCE_LABELS[a.type].label} • {a.dateDebut} → {a.dateFin} • {formatJours(a.jours)}
+                    {t(`type_absence.${a.type}`)} • {a.dateDebut} → {a.dateFin} • {formatJours(a.jours)}
                   </p>
                   {a.motif && <p className="text-xs italic mt-0.5">{a.motif}</p>}
                   {statut === "rejete" && a.motifRejet && (

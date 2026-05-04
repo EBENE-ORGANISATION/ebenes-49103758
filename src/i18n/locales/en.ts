@@ -1029,6 +1029,32 @@ const en: Translation = {
     saved: "Permissions saved",
     err_save: "Failed: {{msg}}",
   },
+  type_absence: {
+    conges_payes: "Paid leave",
+    maladie: "Sick leave",
+    maternite: "Maternity leave (14 wks)",
+    accident_travail: "Work accident",
+    deces_conjoint: "Death of spouse/ascendant/descendant",
+    deces_frere_soeur: "Death of sibling",
+    deces_beau_parent: "Death of in-law parent",
+    mariage: "Worker's wedding",
+    mariage_enfant: "Wedding of child/sibling",
+    naissance: "Birth in the household",
+    bapteme: "Baptism",
+    demenagement: "Moving",
+    permission_syndicale: "Union leave",
+    sans_solde: "Unpaid leave",
+    autre: "Other",
+  },
+  type_sanction: {
+    avertissement_oral: "Verbal warning",
+    avertissement_ecrit: "Written warning",
+    blame: "Reprimand",
+    mise_a_pied: "Suspension (unpaid)",
+    licenciement_faute_simple: "Dismissal for simple misconduct",
+    licenciement_faute_grave: "Dismissal for serious misconduct",
+    licenciement_faute_lourde: "Dismissal for gross misconduct",
+  },
 };
 
 export default en;
