@@ -417,9 +417,13 @@ Deno.serve(async (req: Request) => {
           }),
         }).catch((e: unknown) => ({ ok: false, _fetchErr: String(e) }));
 
+        const resendBodyText = resendRes.ok === false && (resendRes as Record<string, unknown>)._fetchErr
+          ? (resendRes as Record<string, unknown>)._fetchErr
+          : await (resendRes as Response).clone().text();
+        console.error("Resend status:", (resendRes as Response).status ?? "fetch_error", "body:", resendBodyText);
+
         if (!resendRes.ok) {
-          console.error("Resend error:", resendRes.status ?? (resendRes as Record<string, unknown>)._fetchErr);
-          return json({ error: "Échec de l'envoi de l'email. Vérifiez la configuration Resend." }, 502);
+          return json({ error: `Échec envoi email (Resend ${(resendRes as Response).status ?? "err"}): ${resendBodyText}` }, 502);
         }
 
         return json({ ok: true });
