@@ -417,13 +417,19 @@ Deno.serve(async (req: Request) => {
           }),
         }).catch((e: unknown) => ({ ok: false, _fetchErr: String(e) }));
 
-        const resendBodyText = resendRes.ok === false && (resendRes as Record<string, unknown>)._fetchErr
-          ? (resendRes as Record<string, unknown>)._fetchErr
-          : await (resendRes as Response).clone().text();
-        console.error("Resend status:", (resendRes as Response).status ?? "fetch_error", "body:", resendBodyText);
+        // Lire le body Resend dans tous les cas pour le diagnostic
+        let resendBodyText = "";
+        if ((resendRes as Record<string, unknown>)._fetchErr) {
+          resendBodyText = String((resendRes as Record<string, unknown>)._fetchErr);
+        } else {
+          try { resendBodyText = await (resendRes as Response).text(); } catch { /* ignore */ }
+        }
+        const resendStatus = (resendRes as Response).status ?? 0;
+        console.log("Resend status:", resendStatus, "body:", resendBodyText);
 
         if (!resendRes.ok) {
-          return json({ error: `Échec envoi email (Resend ${(resendRes as Response).status ?? "err"}): ${resendBodyText}` }, 502);
+          // Retourner 200 + ok:false pour que le client JS puisse lire l'erreur
+          return json({ ok: false, error: `Resend ${resendStatus}: ${resendBodyText}` });
         }
 
         return json({ ok: true });
