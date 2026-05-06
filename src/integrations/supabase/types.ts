@@ -231,6 +231,101 @@ export type Database = {
         }
         Relationships: []
       }
+      bulletins_paie: {
+        Row: {
+          amu_pat: number
+          amu_sal: number
+          annee: number
+          brut: number
+          cnss_pat: number
+          cnss_sal: number
+          cout_employeur: number
+          created_at: string
+          employe_id: number
+          employe_nom: string
+          employe_user_id: string | null
+          hs_montant: number
+          id: string
+          indemnites: number
+          irpp: number
+          mois: number
+          net_a_payer: number
+          paid_at: string | null
+          prime_anciennete: number
+          primes_diverses: number
+          retenues_diverses: number
+          salaire_base: number
+          societe_id: string
+          statut: string
+          sursalaire: number
+          total_retenues: number
+        }
+        Insert: {
+          amu_pat?: number
+          amu_sal?: number
+          annee: number
+          brut?: number
+          cnss_pat?: number
+          cnss_sal?: number
+          cout_employeur?: number
+          created_at?: string
+          employe_id: number
+          employe_nom: string
+          employe_user_id?: string | null
+          hs_montant?: number
+          id?: string
+          indemnites?: number
+          irpp?: number
+          mois: number
+          net_a_payer?: number
+          paid_at?: string | null
+          prime_anciennete?: number
+          primes_diverses?: number
+          retenues_diverses?: number
+          salaire_base?: number
+          societe_id: string
+          statut?: string
+          sursalaire?: number
+          total_retenues?: number
+        }
+        Update: {
+          amu_pat?: number
+          amu_sal?: number
+          annee?: number
+          brut?: number
+          cnss_pat?: number
+          cnss_sal?: number
+          cout_employeur?: number
+          created_at?: string
+          employe_id?: number
+          employe_nom?: string
+          employe_user_id?: string | null
+          hs_montant?: number
+          id?: string
+          indemnites?: number
+          irpp?: number
+          mois?: number
+          net_a_payer?: number
+          paid_at?: string | null
+          prime_anciennete?: number
+          primes_diverses?: number
+          retenues_diverses?: number
+          salaire_base?: number
+          societe_id?: string
+          statut?: string
+          sursalaire?: number
+          total_retenues?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulletins_paie_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories_stock: {
         Row: {
           created_at: string
@@ -373,6 +468,36 @@ export type Database = {
           societe_id?: string
           updated_at?: string
           workflow_validation?: boolean
+        }
+        Relationships: []
+      }
+      device_otps: {
+        Row: {
+          code_hash: string
+          created_at: string
+          device_fp: string | null
+          expires_at: string
+          id: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          device_fp?: string | null
+          expires_at?: string
+          id?: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          device_fp?: string | null
+          expires_at?: string
+          id?: string
+          used?: boolean
+          user_id?: string
         }
         Relationships: []
       }
@@ -1027,6 +1152,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      portail_messages: {
+        Row: {
+          auteur: string
+          contenu: string
+          created_at: string
+          employe_user_id: string
+          id: string
+          lu: boolean
+          societe_id: string
+        }
+        Insert: {
+          auteur: string
+          contenu: string
+          created_at?: string
+          employe_user_id: string
+          id?: string
+          lu?: boolean
+          societe_id: string
+        }
+        Update: {
+          auteur?: string
+          contenu?: string
+          created_at?: string
+          employe_user_id?: string
+          id?: string
+          lu?: boolean
+          societe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portail_messages_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       primes: {
         Row: {
