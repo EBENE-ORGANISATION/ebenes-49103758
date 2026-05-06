@@ -89,23 +89,28 @@ Deno.serve(async (req: Request) => {
     const roleSet = new Set((callerRoles || []).map((r: { role: string }) => r.role));
     const isSuperAdmin = roleSet.has("admin_general") || roleSet.has("super_admin");
     const isAdmin = roleSet.has("admin");
-    if (!isSuperAdmin && !isAdmin) {
-      return json({ error: "Accès réservé aux administrateurs" }, 403);
-    }
 
     const body = (await req.json()) as Body;
+
+    // Les actions OTP sont ouvertes à tout utilisateur authentifié (employés inclus).
+    if (body.action === "send_device_otp" || body.action === "verify_device_otp") {
+      // Traitement immédiat — pas de vérification admin nécessaire
+    } else if (!isSuperAdmin && !isAdmin) {
+      return json({ error: "Accès réservé aux administrateurs" }, 403);
+    }
 
     // ─── Détermine le périmètre de sociétés sur lequel l'appelant peut opérer ───
     // - super-admin : toutes les sociétés (pas de filtre par société)
     // - admin : uniquement les sociétés auxquelles il est rattaché via user_societes
     let allowedSocieteIds: string[] = [];
-    if (!isSuperAdmin) {
+    if (!isSuperAdmin && isAdmin) {
       const { data: mySocs } = await admin
         .from("user_societes")
         .select("societe_id")
         .eq("user_id", callerId);
       allowedSocieteIds = (mySocs || []).map((r: { societe_id: string }) => r.societe_id);
-      if (allowedSocieteIds.length === 0) {
+      if (allowedSocieteIds.length === 0 &&
+          body.action !== "send_device_otp" && body.action !== "verify_device_otp") {
         return json({ error: "Aucune société associée à ce compte admin" }, 403);
       }
     }

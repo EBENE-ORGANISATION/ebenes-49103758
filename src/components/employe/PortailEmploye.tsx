@@ -266,7 +266,11 @@ export const PortailEmploye = () => {
     setDemande((d) => ({ ...d, motif: "" }));
   };
 
-  // ─── Vérification appareil (null = chargement) ────────────────────────
+  // ─── Vérification appareil (null = chargement en cours) ─────────────
+  // null : useEffect pas encore exécuté → on bloque le rendu pour éviter
+  // que le portail s'affiche une fraction de seconde avant la vérification.
+  if (deviceVerified === null) return null;
+
   if (deviceVerified === false) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -514,7 +518,7 @@ export const PortailEmploye = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{bulletins.length}</div>
+              <div className="text-3xl font-bold">{bulletinsSupabase.length}</div>
               <p className="text-xs text-muted-foreground">disponibles</p>
             </CardContent>
           </Card>
