@@ -456,13 +456,13 @@ export const PortailEmploye = () => {
                   </div>
                 </div>
               )}
-              {employe.salaireBase !== undefined && employe.salaireBase > 0 && (
+              {employe.salaire !== undefined && employe.salaire > 0 && (
                 <div className="flex items-start gap-2">
                   <CreditCard className="size-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-semibold">Salaire de base</p>
                     <p className="font-medium">
-                      {employe.salaireBase.toLocaleString("fr-FR")} F CFA
+                      {employe.salaire.toLocaleString("fr-FR")} F CFA
                     </p>
                   </div>
                 </div>
