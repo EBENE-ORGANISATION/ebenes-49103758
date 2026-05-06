@@ -37,10 +37,10 @@ const Index = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [previewFacture, setPreviewFacture] = useState<Facture | null>(null);
-  const { perms, can, isEmployeOnly } = useAuth();
+  const { perms, can, isEmployeOnly, isEmploye } = useAuth();
   const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
-  const store = useEbeneStore();
+  const store = useEbeneStore(currentSociete?.id ?? null);
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
@@ -202,7 +202,7 @@ const Index = () => {
   const showImmo = lvlImmo !== "none" && modOk("module_immobilisations");
   const showFisc = (lvlFisc !== "none" || lvlParamSoc !== "none") && modOk("module_fiscalite");
   const showGrh = lvlGrh !== "none" && modOk("module_grh");
-  const showPortail = showGrh;
+  const showPortail = showGrh || (isEmploye && !isEmployeOnly);
 
   const visibleTabs = [
     showDashboard, showCompta, showFisc, showFact, showStock, showImmo, showGrh, showPortail,

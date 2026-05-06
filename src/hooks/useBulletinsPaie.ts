@@ -111,10 +111,12 @@ export const useBulletinsPaie = (societeId: string | null) => {
   // ─── Workflow ──────────────────────────────────────────────────────────────
   const validerBulletin = useCallback(
     async (id: string): Promise<boolean> => {
+      if (!societeId) return false;
       const { error } = await supabase
         .from("bulletins_paie")
         .update({ statut: "valide" })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("societe_id", societeId);
       if (!error) {
         setBulletins((prev) =>
           prev.map((b) => (b.id === id ? { ...b, statut: "valide" } : b))
@@ -122,7 +124,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
       }
       return !error;
     },
-    []
+    [societeId]
   );
 
   const payerBulletin = useCallback(
@@ -130,6 +132,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
       id: string,
       addTransaction: (annee: number, mois: number, t: Omit<Transaction, "id">) => void
     ): Promise<boolean> => {
+      if (!societeId) return false;
       const bulletin = bulletins.find((b) => b.id === id);
       if (!bulletin) return false;
 
@@ -137,7 +140,8 @@ export const useBulletinsPaie = (societeId: string | null) => {
       const { error } = await supabase
         .from("bulletins_paie")
         .update({ statut: "paye", paid_at: paidAt })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("societe_id", societeId);
       if (error) return false;
 
       // Intégration comptable : écriture en charges salariales
@@ -169,19 +173,21 @@ export const useBulletinsPaie = (societeId: string | null) => {
       );
       return true;
     },
-    [bulletins]
+    [bulletins, societeId]
   );
 
   const supprimerBulletin = useCallback(async (id: string): Promise<boolean> => {
+    if (!societeId) return false;
     const { error } = await supabase
       .from("bulletins_paie")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("societe_id", societeId);
     if (!error) {
       setBulletins((prev) => prev.filter((b) => b.id !== id));
     }
     return !error;
-  }, []);
+  }, [societeId]);
 
   return {
     bulletins,

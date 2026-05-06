@@ -89,23 +89,28 @@ Deno.serve(async (req: Request) => {
     const roleSet = new Set((callerRoles || []).map((r: { role: string }) => r.role));
     const isSuperAdmin = roleSet.has("admin_general") || roleSet.has("super_admin");
     const isAdmin = roleSet.has("admin");
-    if (!isSuperAdmin && !isAdmin) {
-      return json({ error: "Accès réservé aux administrateurs" }, 403);
-    }
 
     const body = (await req.json()) as Body;
+
+    // Les actions OTP sont ouvertes à tout utilisateur authentifié (employés inclus).
+    if (body.action === "send_device_otp" || body.action === "verify_device_otp") {
+      // Traitement immédiat — pas de vérification admin nécessaire
+    } else if (!isSuperAdmin && !isAdmin) {
+      return json({ error: "Accès réservé aux administrateurs" }, 403);
+    }
 
     // ─── Détermine le périmètre de sociétés sur lequel l'appelant peut opérer ───
     // - super-admin : toutes les sociétés (pas de filtre par société)
     // - admin : uniquement les sociétés auxquelles il est rattaché via user_societes
     let allowedSocieteIds: string[] = [];
-    if (!isSuperAdmin) {
+    if (!isSuperAdmin && isAdmin) {
       const { data: mySocs } = await admin
         .from("user_societes")
         .select("societe_id")
         .eq("user_id", callerId);
       allowedSocieteIds = (mySocs || []).map((r: { societe_id: string }) => r.societe_id);
-      if (allowedSocieteIds.length === 0) {
+      if (allowedSocieteIds.length === 0 &&
+          body.action !== "send_device_otp" && body.action !== "verify_device_otp") {
         return json({ error: "Aucune société associée à ce compte admin" }, 403);
       }
     }
@@ -363,11 +368,11 @@ Deno.serve(async (req: Request) => {
         const targetEmail = body.email?.trim().toLowerCase() ?? userData.user.email ?? "";
         if (!targetEmail) return json({ error: "Email introuvable" }, 400);
 
-        // Nettoyer les OTP expirés ou précédents pour cet utilisateur
+        // Supprimer TOUS les OTP précédents (valides ou expirés) pour cet utilisateur
+        // afin de n'avoir qu'un seul code actif à la fois.
         await admin.from("device_otps")
           .delete()
-          .eq("user_id", callerId)
-          .lt("expires_at", new Date().toISOString());
+          .eq("user_id", callerId);
 
         const code = String(Math.floor(100000 + Math.random() * 900000));
         const enc = new TextEncoder();
@@ -385,35 +390,53 @@ Deno.serve(async (req: Request) => {
         if (insErr) return json({ error: insErr.message }, 500);
 
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-        if (RESEND_API_KEY) {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "EBENE Services <noreply@ebnservicess.com>",
-              to: [targetEmail],
-              subject: "Code de vérification — Nouvel appareil",
-              html: `
-                <div style="font-family:sans-serif;max-width:480px;margin:auto">
-                  <h2>Connexion depuis un nouvel appareil</h2>
-                  <p>Votre code de vérification à usage unique (valide 10 minutes) :</p>
-                  <div style="font-size:2.5em;font-weight:bold;letter-spacing:.3em;
-                              background:#f5f5f5;border-radius:8px;padding:16px;
-                              text-align:center;margin:16px 0">
-                    ${code}
-                  </div>
-                  <p style="color:#e53e3e;font-size:.9em">
-                    Si vous n'êtes pas à l'origine de cette connexion, changez
-                    immédiatement votre mot de passe.
-                  </p>
-                </div>
-              `,
-            }),
-          }).catch(() => undefined);
+        if (!RESEND_API_KEY) {
+          return json({ error: "Service d'envoi d'email non configuré (clé RESEND_API_KEY manquante)" }, 500);
         }
+
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "EBENE Services <noreply@ebnservicess.com>",
+            to: [targetEmail],
+            subject: "Code de vérification — Nouvel appareil",
+            html: `
+              <div style="font-family:sans-serif;max-width:480px;margin:auto">
+                <h2>Connexion depuis un nouvel appareil</h2>
+                <p>Votre code de vérification à usage unique (valide 10 minutes) :</p>
+                <div style="font-size:2.5em;font-weight:bold;letter-spacing:.3em;
+                            background:#f5f5f5;border-radius:8px;padding:16px;
+                            text-align:center;margin:16px 0">
+                  ${code}
+                </div>
+                <p style="color:#e53e3e;font-size:.9em">
+                  Si vous n'êtes pas à l'origine de cette connexion, changez
+                  immédiatement votre mot de passe.
+                </p>
+              </div>
+            `,
+          }),
+        }).catch((e: unknown) => ({ ok: false, _fetchErr: String(e) }));
+
+        // Lire le body Resend dans tous les cas pour le diagnostic
+        let resendBodyText = "";
+        if ((resendRes as Record<string, unknown>)._fetchErr) {
+          resendBodyText = String((resendRes as Record<string, unknown>)._fetchErr);
+        } else {
+          try { resendBodyText = await (resendRes as Response).text(); } catch { /* ignore */ }
+        }
+        const resendStatus = (resendRes as Response).status ?? 0;
+        console.log("Resend status:", resendStatus, "body:", resendBodyText);
+
+        if (!resendRes.ok) {
+          // Retourner 200 + ok:false pour que le client JS puisse lire l'erreur
+          return json({ ok: false, error: `Resend ${resendStatus}: ${resendBodyText}` });
+        }
+
         return json({ ok: true });
       }
 

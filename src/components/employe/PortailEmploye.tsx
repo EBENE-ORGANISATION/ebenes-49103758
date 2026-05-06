@@ -111,11 +111,11 @@ export const PortailEmploye = () => {
     setOtpSending(true);
     setOtpError("");
     const fp = deviceFingerprint();
-    const { error } = await supabase.functions.invoke("admin-users", {
+    const { data, error } = await supabase.functions.invoke("admin-users", {
       body: { action: "send_device_otp", email: user.email, device_fp: fp },
     });
-    if (error) {
-      setOtpError("Impossible d'envoyer le code. Réessayez.");
+    if (error || data?.error) {
+      setOtpError(data?.error ?? "Impossible d'envoyer le code. Réessayez.");
     } else {
       setOtpSent(true);
     }
@@ -266,7 +266,11 @@ export const PortailEmploye = () => {
     setDemande((d) => ({ ...d, motif: "" }));
   };
 
-  // ─── Vérification appareil (null = chargement) ────────────────────────
+  // ─── Vérification appareil (null = chargement en cours) ─────────────
+  // null : useEffect pas encore exécuté → on bloque le rendu pour éviter
+  // que le portail s'affiche une fraction de seconde avant la vérification.
+  if (deviceVerified === null) return null;
+
   if (deviceVerified === false) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -514,7 +518,7 @@ export const PortailEmploye = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{bulletins.length}</div>
+              <div className="text-3xl font-bold">{bulletinsSupabase.length}</div>
               <p className="text-xs text-muted-foreground">disponibles</p>
             </CardContent>
           </Card>
