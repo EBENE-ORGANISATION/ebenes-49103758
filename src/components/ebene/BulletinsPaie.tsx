@@ -420,6 +420,12 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
           </CardContent>
         </Card>
       )}
+
+      <BulletinEditDialog
+        bulletin={editing}
+        onClose={() => setEditing(null)}
+        onSave={updateBulletin}
+      />
     </div>
   );
 };
