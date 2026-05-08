@@ -24,12 +24,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { FileText, RefreshCw, CheckCircle, CreditCard, Trash2, Download, Plus, Users } from "lucide-react";
+import { FileText, RefreshCw, CheckCircle, CreditCard, Trash2, Download, Plus, Users, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { generateBulletin, type BulletinSocieteInfo } from "@/lib/bulletinPDF";
 import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
 import { formatMontant } from "@/lib/ebene-utils";
 import { MOIS_NOMS, type Employe, type BulletinPaieRecord } from "@/types/ebene";
+import { BulletinEditDialog } from "./BulletinEditDialog";
 
 interface Props {
   employes: Employe[];
@@ -63,10 +64,12 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
     validerBulletin,
     payerBulletin,
     supprimerBulletin,
+    updateBulletin,
   } = useBulletinsPaie(sid);
 
   const [generating, setGenerating] = useState<number | "all" | null>(null);
   const [actioning, setActioning] = useState<string | null>(null);
+  const [editing, setEditing] = useState<BulletinPaieRecord | null>(null);
 
   useEffect(() => {
     void loadBulletins(annee, mois);
@@ -264,6 +267,19 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                         >
                           <Download className="size-3.5" />
                         </Button>
+
+                        {/* Éditer (brouillon uniquement) */}
+                        {isChefGrh && b.statut === "brouillon" && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7"
+                            title="Modifier"
+                            onClick={() => setEditing(b)}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        )}
 
                         {/* Valider (brouillon → validé) */}
                         {isChefGrh && b.statut === "brouillon" && (
