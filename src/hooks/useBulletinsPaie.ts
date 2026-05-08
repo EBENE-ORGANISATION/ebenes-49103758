@@ -189,6 +189,83 @@ export const useBulletinsPaie = (societeId: string | null) => {
     return !error;
   }, [societeId]);
 
+  // ─── Édition manuelle ──────────────────────────────────────────────────────
+  // Recalcule automatiquement brut, total_retenues, net_a_payer et coût employeur
+  // à partir des champs éditables. Charges patronales recalculées sur les
+  // bases (base + sursalaire + ancienneté + HS).
+  const updateBulletin = useCallback(
+    async (
+      id: string,
+      patch: Partial<
+        Pick<
+          BulletinPaieRecord,
+          | "salaire_base"
+          | "sursalaire"
+          | "prime_anciennete"
+          | "hs_montant"
+          | "primes_diverses"
+          | "indemnites"
+          | "cnss_sal"
+          | "amu_sal"
+          | "irpp"
+          | "retenues_diverses"
+        >
+      >
+    ): Promise<boolean> => {
+      if (!societeId) return false;
+      const current = bulletins.find((b) => b.id === id);
+      if (!current) return false;
+      if (current.statut !== "brouillon") return false;
+
+      const next = { ...current, ...patch };
+      const brut =
+        next.salaire_base +
+        next.sursalaire +
+        next.prime_anciennete +
+        next.hs_montant +
+        next.primes_diverses +
+        next.indemnites;
+      const total_retenues =
+        next.cnss_sal + next.amu_sal + next.irpp + next.retenues_diverses;
+      const net_a_payer = brut - total_retenues;
+      const baseCotisable =
+        next.salaire_base + next.sursalaire + next.prime_anciennete + next.hs_montant;
+      const baseAmu = next.salaire_base + next.sursalaire;
+      const cnss_pat = Math.round(baseCotisable * 0.175);
+      const amu_pat = Math.round(baseAmu * 0.05);
+      const cout_employeur = Math.round(brut + cnss_pat + amu_pat);
+
+      const updated = {
+        salaire_base: Math.round(next.salaire_base),
+        sursalaire: Math.round(next.sursalaire),
+        prime_anciennete: Math.round(next.prime_anciennete),
+        hs_montant: Math.round(next.hs_montant),
+        primes_diverses: Math.round(next.primes_diverses),
+        indemnites: Math.round(next.indemnites),
+        cnss_sal: Math.round(next.cnss_sal),
+        amu_sal: Math.round(next.amu_sal),
+        irpp: Math.round(next.irpp),
+        retenues_diverses: Math.round(next.retenues_diverses),
+        brut: Math.round(brut),
+        total_retenues: Math.round(total_retenues),
+        net_a_payer: Math.round(net_a_payer),
+        cnss_pat,
+        amu_pat,
+        cout_employeur,
+      };
+
+      const { error } = await supabase
+        .from("bulletins_paie")
+        .update(updated)
+        .eq("id", id)
+        .eq("societe_id", societeId);
+      if (error) return false;
+      setBulletins((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
+      return true;
+    },
+    [bulletins, societeId]
+  );
+
   return {
     bulletins,
     loading,
@@ -199,6 +276,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
     validerBulletin,
     payerBulletin,
     supprimerBulletin,
+    updateBulletin,
   };
 };
 
