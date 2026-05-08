@@ -10,6 +10,7 @@ import AdminUsers from "./pages/AdminUsers.tsx";
 import AuditLog from "./pages/AuditLog.tsx";
 import ParametresSociete from "./pages/ParametresSociete.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
+import Bulletins from "./pages/Bulletins.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
@@ -54,6 +55,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireRoles={["admin"]}>
                   <ParametresSociete />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bulletins"
+              element={
+                <ProtectedRoute>
+                  <Bulletins />
                 </ProtectedRoute>
               }
             />
