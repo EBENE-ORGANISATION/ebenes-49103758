@@ -76,15 +76,39 @@ export const useBulletinsPaie = (societeId: string | null) => {
         cout_employeur:   Math.round(c.coutEmployeur),
         statut:           "brouillon",
       };
-      const { error } = await supabase
+      // Vérifie si un bulletin existe déjà pour cet employé/période
+      // (évite de dépendre d'une contrainte UNIQUE côté DB pour le upsert)
+      const { data: existing } = await supabase
         .from("bulletins_paie")
-        .upsert(row, { onConflict: "employe_id,societe_id,mois,annee" });
+        .select("id, statut")
+        .eq("employe_id", employe.id)
+        .eq("societe_id", societeId)
+        .eq("mois", mois)
+        .eq("annee", annee)
+        .maybeSingle();
+
+      let error;
+      if (existing?.id) {
+        // Ne régénère pas un bulletin déjà validé ou payé
+        if (existing.statut !== "brouillon") return true;
+        ({ error } = await supabase
+          .from("bulletins_paie")
+          .update(row)
+          .eq("id", existing.id)
+          .eq("societe_id", societeId));
+      } else {
+        ({ error } = await supabase
+          .from("bulletins_paie")
+          .insert(row));
+      }
+
       if (error) {
         console.error("[genererBulletin] Supabase error:", {
           message: error.message,
           code: error.code,
           details: error.details,
           hint: error.hint,
+          existingId: existing?.id ?? null,
           row,
         });
       }
