@@ -1,0 +1,2 @@
+ALTER TABLE bulletins_paie DROP CONSTRAINT IF EXISTS bulletins_unique_employe_periode;
+ALTER TABLE bulletins_paie ADD CONSTRAINT bulletins_unique_employe_periode UNIQUE (employe_id, societe_id, mois, annee);
