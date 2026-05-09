@@ -102,8 +102,27 @@ export const PortailEmploye = () => {
   useEffect(() => {
     if (!user) return;
     const fp = deviceFingerprint();
-    const trusted = localStorage.getItem(`${TRUSTED_PREFIX}${user.id}`);
-    setDeviceVerified(trusted === fp);
+    const stored = localStorage.getItem(`${TRUSTED_PREFIX}${user.id}`);
+
+    // stored = "{fingerprint}:{sessionId}" ou ancien format "{fingerprint}"
+    // On exige que le fingerprint ET la session courante soient reconnus.
+    const currentSession = user.id; // remplacé par l'access_token hash ci-dessous
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token ?? "";
+      // Clé de session = 8 premiers chars du token (stable pour la session)
+      const sessionKey = token.slice(0, 8);
+      const expectedValue = `${fp}:${sessionKey}`;
+
+      console.log("[OTP] device check", {
+        stored,
+        expectedValue,
+        fp,
+        sessionKey,
+        isTrusted: stored === expectedValue,
+      });
+
+      setDeviceVerified(stored === expectedValue);
+    });
   }, [user]);
 
   const sendOtp = async () => {
@@ -132,8 +151,12 @@ export const PortailEmploye = () => {
     if (error || !data?.ok) {
       setOtpError(data?.error ?? "Code incorrect ou expiré.");
     } else {
+      // Stocke "{fingerprint}:{sessionKey}" pour lier la confiance à la session courante
       const fp = deviceFingerprint();
-      localStorage.setItem(`${TRUSTED_PREFIX}${user.id}`, fp);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token ?? "";
+      const sessionKey = token.slice(0, 8);
+      localStorage.setItem(`${TRUSTED_PREFIX}${user.id}`, `${fp}:${sessionKey}`);
       setDeviceVerified(true);
     }
     setOtpVerifying(false);

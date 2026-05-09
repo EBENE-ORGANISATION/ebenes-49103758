@@ -79,6 +79,15 @@ export const useBulletinsPaie = (societeId: string | null) => {
       const { error } = await supabase
         .from("bulletins_paie")
         .upsert(row, { onConflict: "employe_id,societe_id,mois,annee" });
+      if (error) {
+        console.error("[genererBulletin] Supabase error:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          row,
+        });
+      }
       return !error;
     },
     [societeId]
