@@ -8,7 +8,6 @@ import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye, Check, XCircle, AlertT
 import { StatCard } from "./StatCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
-import { calculerPaie } from "./grh/BulletinPaie";
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 
@@ -35,7 +34,7 @@ const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = 
   rejete: { cls: "bg-destructive/15 text-destructive", label: "✗ Rejeté" },
 };
 
-export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isChefCompta, onValider, onRejeter, donneesMensuelles }: Props) => {
+export const Comptabilite = ({ data, annee, mois, onAdd, onRemove, isChefCompta, onValider, onRejeter, donneesMensuelles }: Props) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
   const [type, setType] = useState<"r" | "d">("r");
@@ -47,39 +46,30 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
   const [previewPiece, setPreviewPiece] = useState<typeof piece>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Calcul auto du total salaires (net + part patronale)
-  const salairesAuto = useMemo(() => {
-    if (employes.length === 0) return null;
-    let net = 0;
-    let patronal = 0;
-    employes.forEach((e) => {
-      const c = calculerPaie(e, data);
-      net += c.net;
-      patronal += c.totalPatronal;
-    });
-    const total = net + patronal;
-    if (total <= 0) return null;
-    return { net, patronal, total };
-  }, [employes, data]);
-
-  // Transactions "vraies" + ligne auto salaires affichée en tête
+  // Les charges salariales n'apparaissent en dépenses que lorsqu'un bulletin
+  // est marqué comme PAYÉ (payerBulletin ajoute alors une transaction
+  // source="salaires"). Aucune ligne auto n'est plus injectée ici.
   const totals = useMemo(() => {
     const rec = data.transactions.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
     const recFact = data.transactions
       .filter((t) => t.type === "r" && t.source === "facture")
       .reduce((a, t) => a + t.m, 0);
-    const depReelles = Math.abs(
+    const dep = Math.abs(
       data.transactions.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0)
     );
-    const depAvecSalaires = depReelles + (salairesAuto?.total || 0);
+    const depSalaires = Math.abs(
+      data.transactions
+        .filter((t) => t.type === "d" && t.source === "salaires")
+        .reduce((a, t) => a + t.m, 0)
+    );
     return {
       rec,
       recFact,
-      dep: depAvecSalaires,
-      depReelles,
-      solde: rec - depAvecSalaires,
+      dep,
+      depSalaires,
+      solde: rec - dep,
     };
-  }, [data.transactions, salairesAuto]);
+  }, [data.transactions]);
 
   const sorted = useMemo(
     () => [...data.transactions].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
@@ -153,7 +143,7 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
           label="Dépenses (Mois)"
           value={formatMontant(totals.dep)}
           tone="destructive"
-          hint={salairesAuto ? `Dont salaires : ${formatMontant(salairesAuto.total)}` : undefined}
+          hint={totals.depSalaires > 0 ? `Dont salaires payés : ${formatMontant(totals.depSalaires)}` : undefined}
         />
         <StatCard
           label="Solde (Mois)"
@@ -269,27 +259,7 @@ export const Comptabilite = ({ data, annee, mois, employes, onAdd, onRemove, isC
       )}
 
       <div className="space-y-2">
-        {/* Ligne auto salaires non éditable */}
-        {salairesAuto && (
-          <div className="list-item flex items-center justify-between gap-3 border-l-4 border-l-purple bg-purple/5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold truncate">Total salaires {moisLabel} (auto)</p>
-                <span className="badge-soft bg-purple/15 text-purple flex items-center gap-1">
-                  <Lock className="size-3" /> Auto
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Net : {formatMontant(salairesAuto.net)} • Part patronale : {formatMontant(salairesAuto.patronal)}
-              </p>
-            </div>
-            <span className="amount text-sm sm:text-base text-destructive">
-              - {salairesAuto.total.toLocaleString("fr-FR")} F
-            </span>
-          </div>
-        )}
-
-        {sorted.length === 0 && !salairesAuto ? (
+        {sorted.length === 0 ? (
           <p className="text-center text-muted-foreground py-8 italic">Aucune transaction pour ce mois</p>
         ) : (
           sorted.map((t) => {
