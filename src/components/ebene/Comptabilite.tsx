@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Paperclip, FileText, Lock, Eye, Check, XCircle, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
@@ -127,8 +127,6 @@ export const Comptabilite = ({ data, annee, mois, onAdd, onRemove, isChefCompta,
     reset();
     setOpen(false);
   };
-
-  const moisLabel = `${String(mois).padStart(2, "0")}/${annee}`;
 
   return (
     <div className="space-y-5">
