@@ -41,6 +41,25 @@ export const AbsencesPanel = ({
   const [debut, setDebut] = useState(new Date().toISOString().split("T")[0]);
   const [fin, setFin] = useState(new Date().toISOString().split("T")[0]);
   const [motif, setMotif] = useState("");
+  const [motifLegal, setMotifLegal] = useState<string>("");
+
+  // Motifs légaux (CCIT Art. 45) avec nombre de jours légaux (null = pas de remplissage auto)
+  const MOTIFS_LEGAUX: { value: string; label: string; jours: number | null }[] = [
+    { value: "conge_paye",          label: "Congé payé (2,5 j/mois — Code Art. 200)",           jours: null },
+    { value: "deces_conjoint",      label: "Décès conjoint / ascendant / descendant direct",     jours: 4 },
+    { value: "deces_beau_parent",   label: "Décès beau-père / belle-mère",                       jours: 3 },
+    { value: "deces_frere_soeur",   label: "Décès frère / sœur",                                 jours: 2 },
+    { value: "mariage_travailleur", label: "Mariage du travailleur",                              jours: 3 },
+    { value: "mariage_enfant",      label: "Mariage enfant / frère / sœur",                      jours: 1 },
+    { value: "naissance",           label: "Naissance au foyer",                                 jours: 2 },
+    { value: "bapteme",             label: "Baptême",                                             jours: 1 },
+    { value: "demenagement",        label: "Déménagement",                                       jours: 1 },
+    { value: "maladie",             label: "Maladie (certificat médical requis)",                 jours: null },
+    { value: "accident_travail",    label: "Accident du travail",                                 jours: null },
+    { value: "maternite",           label: "Maternité (14 semaines — Code Art. 190)",             jours: null },
+    { value: "conge_syndical",      label: "Congé syndical",                                     jours: null },
+    { value: "autre",               label: "Autre",                                               jours: null },
+  ];
 
   const calcJours = (d1: string, d2: string) => {
     const a = new Date(d1);
@@ -49,12 +68,30 @@ export const AbsencesPanel = ({
     return Math.max(1, Math.round((b.getTime() - a.getTime()) / (24 * 3600 * 1000)) + 1);
   };
 
+  const handleMotifLegalChange = (val: string) => {
+    setMotifLegal(val);
+    const found = MOTIFS_LEGAUX.find((m) => m.value === val);
+    if (found && found.jours !== null) {
+      // Remplir automatiquement la date de fin selon le nombre de jours légaux
+      const debutDate = new Date(debut);
+      if (!isNaN(debutDate.getTime())) {
+        const finDate = new Date(debutDate);
+        finDate.setDate(finDate.getDate() + found.jours - 1);
+        setFin(finDate.toISOString().split("T")[0]);
+      }
+    }
+  };
+
   const submit = () => {
     if (!employeId) return alert(t("grh_absences.err_employee"));
     const eid = parseInt(employeId, 10);
     const jours = calcJours(debut, fin);
-    onAdd({ employeId: eid, type, dateDebut: debut, dateFin: fin, jours, motif });
+    const motifFinal = motifLegal
+      ? `[${MOTIFS_LEGAUX.find((m) => m.value === motifLegal)?.label ?? motifLegal}]${motif ? " — " + motif : ""}`
+      : motif;
+    onAdd({ employeId: eid, type, dateDebut: debut, dateFin: fin, jours, motif: motifFinal });
     setMotif("");
+    setMotifLegal("");
     setOpen(false);
   };
 
@@ -103,6 +140,25 @@ export const AbsencesPanel = ({
             <div>
               <Label className="text-xs font-bold uppercase">{t("grh_absences.date_end")}</Label>
               <Input type="date" value={fin} onChange={(e) => setFin(e.target.value)} className="mt-1" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs font-bold uppercase">Motif légal (optionnel)</Label>
+              <Select value={motifLegal} onValueChange={handleMotifLegalChange}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="— Sélectionner un motif légal —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOTIFS_LEGAUX.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}{m.jours !== null ? ` (${m.jours} j)` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1 italic">
+                Permissions exceptionnelles non déductibles du congé annuel et sans réduction de salaire (CCIT Art. 45),
+                sous réserve de 6 mois d'ancienneté.
+              </p>
             </div>
             <div className="sm:col-span-2">
               <Label className="text-xs font-bold uppercase">{t("grh_absences.motif")}</Label>

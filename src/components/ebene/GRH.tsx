@@ -37,6 +37,7 @@ import { AbsencesPanel } from "./grh/AbsencesPanel";
 import { HeuresSupPanel } from "./grh/HeuresSupPanel";
 import { DisciplinePanel } from "./grh/DisciplinePanel";
 import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
+import { SimulateurLegal } from "./grh/SimulateurLegal";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
 import { generateBulletin } from "@/lib/bulletinPDF";
@@ -207,13 +208,14 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full mb-5 h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
           <TabsTrigger value="discipline">⚠️ Discipline</TabsTrigger>
           <TabsTrigger value="indemnites">🧮 Fin de contrat</TabsTrigger>
           <TabsTrigger value="config">⚙️ Référentiel</TabsTrigger>
+          <TabsTrigger value="simulateur">⚖️ Simulateur légal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="effectif" className="space-y-4">
@@ -544,6 +546,10 @@ export const GRH = ({
 
         <TabsContent value="indemnites">
           <IndemnitesCalculator employes={employes} />
+        </TabsContent>
+
+        <TabsContent value="simulateur">
+          <SimulateurLegal />
         </TabsContent>
 
         <TabsContent value="config" className="space-y-4">
