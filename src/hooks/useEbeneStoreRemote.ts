@@ -303,23 +303,26 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
     try {
+      const scopePrefix = societeId ? `s:${societeId}:` : null;
+      const realtimeFilter = scopePrefix ? `key=like.${scopePrefix}%` : undefined;
+      const channelConfig = realtimeFilter
+        ? { event: "*" as const, schema: "public", table: "app_state", filter: realtimeFilter }
+        : { event: "*" as const, schema: "public", table: "app_state" };
       channel = supabase
         .channel(`app_state_sync_remote_${societeId ?? "anon"}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "app_state" },
-          (payload) => {
-            const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
-            if (!row?.key) return;
-            const raw = societeId ? untk(row.key, societeId) : row.key;
-            if (!raw) return; // ignore les lignes des autres sociétés
-            const sig = JSON.stringify(row.value);
-            if (localSig.current[raw] === sig) return;
-            localSig.current[raw] = sig;
-            applyValue(raw, row.value);
-            lsWrite(raw, societeId, row.value);
-          }
-        )
+        .on("postgres_changes", channelConfig, (payload) => {
+          const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
+          if (!row?.key) return;
+          if (scopePrefix && !row.key.startsWith(scopePrefix)) return; // Defense 1
+          const raw = societeId ? untk(row.key, societeId) : row.key;  // Defense 2
+          if (!raw) return;
+          if (!(ALL_KEYS as readonly string[]).includes(raw)) return;   // Defense 3
+          const sig = JSON.stringify(row.value);
+          if (localSig.current[raw] === sig) return;
+          localSig.current[raw] = sig;
+          applyValue(raw, row.value);
+          lsWrite(raw, societeId, row.value);
+        })
         .subscribe();
     } catch (err) {
       console.error("[useEbeneStoreRemote] realtime subscribe failed:", err);
@@ -1325,3 +1328,20 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 };
 
 export default useEbeneStoreRemote;
+
+export function nettoyerAncienCacheLocalStorage(societeId: string) {
+  const OLD_PREFIX = "ebene-remote:";
+  const SCOPED_PREFIX = `ebene-remote:s:${societeId}:`;
+  const keysToDelete: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.startsWith(OLD_PREFIX) && !key.startsWith(SCOPED_PREFIX)) {
+      const isAnotherSociety = key.startsWith(`${OLD_PREFIX}s:`);
+      if (!isAnotherSociety) keysToDelete.push(key);
+    }
+  }
+  if (keysToDelete.length > 0) {
+    keysToDelete.forEach(k => localStorage.removeItem(k));
+  }
+}

@@ -17,7 +17,7 @@ import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
 import { SupabaseStatus } from "@/components/ebene/SupabaseStatus";
-import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
+import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { toast } from "sonner";
@@ -41,6 +41,11 @@ const Index = () => {
   const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
   const store = useEbeneStore(currentSociete?.id ?? null);
+  useEffect(() => {
+    if (currentSociete?.id) {
+      nettoyerAncienCacheLocalStorage(currentSociete.id);
+    }
+  }, [currentSociete?.id]);
   const data = store.getMois(annee, mois);
   const taux = tauxPourMois(store.tauxHistorique, annee, mois);
 
