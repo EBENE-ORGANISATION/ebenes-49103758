@@ -348,16 +348,10 @@ export const SuperAdminPanel = () => {
     } catch (e) { toast.error((e as Error).message); }
   };
 
-  /**
-   * "Impersonate" : le super-admin entre dans le contexte d'une société pour
-   * accéder à TOUTES ses fonctionnalités comme s'il en était l'admin local.
-   * On définit la société courante puis on redirige vers l'app principale.
-   */
-  const enterSociete = (s: SocieteRow) => {
+  // Génère l'URL d'une société pour ouverture dans un nouvel onglet
+  const getSocieteUrl = (s: SocieteRow) => {
     const base = window.location.origin + window.location.pathname;
-    const url = `${base}#/?sid=${encodeURIComponent(s.id)}`;
-    window.open(url, `societe_${s.id}`);
-    toast.success(`${s.nom} ouvert dans un nouvel onglet`);
+    return `${base}#/?sid=${encodeURIComponent(s.id)}`;
   };
 
   const updateModule = async (societeId: string, key: keyof ModuleFlags, value: boolean) => {
@@ -483,14 +477,15 @@ export const SuperAdminPanel = () => {
                             {new Date(s.created_at).toLocaleDateString(i18n.language)}
                           </TableCell>
                           <TableCell className="text-right space-x-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => enterSociete(s)}
+                            <a
+                              href={getSocieteUrl(s)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 h-8 px-3 text-xs font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
                               title={`Ouvrir ${s.nom} dans un nouvel onglet`}
                             >
-                              <ExternalLink className="size-4 mr-1" /> Ouvrir
-                            </Button>
+                              <ExternalLink className="size-4" /> Ouvrir
+                            </a>
                             <Button size="sm" variant="ghost" onClick={() => toggleSuspend(s)} title={s.statut === "active" ? t("superadmin.suspend") : t("superadmin.reactivate")}>
                               {s.statut === "active" ? <Pause className="size-4" /> : <Play className="size-4" />}
                             </Button>
@@ -521,14 +516,14 @@ export const SuperAdminPanel = () => {
                           <CardTitle className="text-base">{s.nom}</CardTitle>
                           <p className="text-xs text-muted-foreground font-mono">{s.slug}</p>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => enterSociete(s)}
-                          className="gap-1.5"
+                        <a
+                          href={getSocieteUrl(s)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
                         >
                           <ExternalLink className="size-4" /> Ouvrir
-                        </Button>
+                        </a>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
