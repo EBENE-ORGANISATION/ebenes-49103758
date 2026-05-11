@@ -266,14 +266,28 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         if (error) throw error;
 
         if (!cancelled && data) {
+          const seenKeys = new Set<string>();
           for (const row of data) {
             const raw = societeId ? untk(row.key, societeId) : row.key;
             if (!raw) continue;
+            seenKeys.add(raw);
             const sig = JSON.stringify(row.value);
             localSig.current[raw] = sig;
             applyValue(raw, row.value);
             // Met aussi à jour le cache local pour fallback ultérieur
             lsWrite(raw, societeId, row.value);
+          }
+
+          // Si une clé n'existe pas encore côté cloud (ex. première sauvegarde
+          // refusée ou interrompue), restaurer le cache local au lieu d'écraser
+          // l'écran avec un état vide après actualisation.
+          for (const key of ALL_KEYS) {
+            if (seenKeys.has(key)) continue;
+            const localValue = lsRead(key, societeId);
+            if (localValue !== null) {
+              localSig.current[key] = JSON.stringify(localValue);
+              applyValue(key, localValue);
+            }
           }
         }
       } catch (err) {
