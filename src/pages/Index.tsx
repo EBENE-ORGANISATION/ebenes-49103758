@@ -1,9 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield, Building2, Settings2 } from "lucide-react";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
 import { Dashboard } from "@/components/ebene/Dashboard";
@@ -40,7 +38,8 @@ const Index = () => {
   const { perms, can, isEmployeOnly, isEmploye } = useAuth();
   const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
-  const store = useEbeneStore(currentSociete?.id ?? null);
+  const effectiveSocieteId = currentSociete?.id ?? (isSuperAdmin && societes.length > 0 ? societes[0].id : null);
+  const store = useEbeneStore(effectiveSocieteId);
   useEffect(() => {
     if (currentSociete?.id) {
       nettoyerAncienCacheLocalStorage(currentSociete.id);
@@ -116,55 +115,6 @@ const Index = () => {
     };
     reader.readAsText(file);
   };
-
-  // Mode "Appli mère" pour le super-admin : aucune société sélectionnée.
-  // On évite d'afficher les onglets métier (Compta/Factures/GRH/…) qui
-  // chargeraient les données globales du store local et provoqueraient le
-  // chevauchement avec EBENE SERVICES. ⚠️ doit être après tous les hooks
-  // (useMemo alertes, etc.) pour respecter les règles des hooks React.
-  if (isSuperAdmin && !currentSociete) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header
-          onExport={exportJSON}
-          onImport={importJSON}
-          onShowRecap={() => setShowRecap(true)}
-          onShowArchives={() => setShowArchives(true)}
-          lastSaved={store.lastSaved}
-          alertes={[]}
-        />
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-6">
-          <div className="card-elevated p-6 sm:p-10 text-center space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Shield className="size-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold">{t("index_page.superadmin_console_title")}</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              {t("index_page.superadmin_console_desc")}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <Button asChild size="lg" className="gap-2">
-                <Link to="/super-admin">
-                  <Shield className="size-4" /> {t("index_page.open_superadmin")}
-                </Link>
-              </Button>
-              <Button asChild variant="secondary" size="lg" className="gap-2">
-                <Link to="/admin/societe">
-                  <Settings2 className="size-4" /> {t("index_page.open_societe_params")}
-                </Link>
-              </Button>
-            </div>
-            <div className="pt-6 text-sm text-muted-foreground inline-flex items-center gap-2">
-              <Building2 className="size-4" />
-              {societes.length > 1
-                ? t("index_page.societes_available_other", { count: societes.length })
-                : t("index_page.societes_available_one", { count: societes.length })}
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   // Helpers : un no-op + toast pour les actions interdites selon le service
   const blocked = (msg: string) => () => toast.error(msg);
