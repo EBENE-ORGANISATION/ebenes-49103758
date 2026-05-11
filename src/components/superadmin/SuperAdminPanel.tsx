@@ -354,10 +354,8 @@ export const SuperAdminPanel = () => {
    * On définit la société courante puis on redirige vers l'app principale.
    */
   const enterSociete = (s: SocieteRow) => {
-    // Ouvrir la société dans un nouvel onglet complètement isolé
-    // On passe l'ID via un paramètre URL hashé pour que le nouvel onglet
-    // charge directement la bonne société sans partager le state React
-    const url = `${window.location.origin}${window.location.pathname}#/?sid=${s.id}`;
+    const base = window.location.origin + window.location.pathname;
+    const url = `${base}#/?sid=${encodeURIComponent(s.id)}`;
     window.open(url, `societe_${s.id}`);
     toast.success(`${s.nom} ouvert dans un nouvel onglet`);
   };

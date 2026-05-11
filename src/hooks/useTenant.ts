@@ -81,6 +81,33 @@ export const useTenant = (): TenantState => {
   // contexte à zéro AVANT toute nouvelle requête, pour qu'aucun header ou
   // thème de l'utilisateur précédent ne reste affiché.
   const currentUid = user?.id ?? null;
+  // ── Effet 1 : lecture immédiate du ?sid= dans l'URL au premier montage ──
+  // Doit s'exécuter AVANT que loadSocietes ne soit appelé, pour que
+  // currentId soit déjà le bon quand la liste des sociétés arrive.
+  // On ne peut pas mettre ça dans l'effet currentUid car dans un nouvel onglet
+  // l'utilisateur est déjà authentifié → currentUid ne change pas → effet ignoré.
+  const sidReadRef = useRef(false);
+  useEffect(() => {
+    if (sidReadRef.current) return;
+    sidReadRef.current = true;
+    try {
+      const hash = window.location.hash; // ex: "#/?sid=abc-123"
+      const sidMatch = hash.match(/[?&]sid=([^&]+)/);
+      const sidFromUrl = sidMatch ? decodeURIComponent(sidMatch[1]) : null;
+      if (sidFromUrl) {
+        // Persister immédiatement en localStorage (avant que currentUid soit connu)
+        // On utilise la clé non-scopée en fallback, elle sera migrée à la clé scopée
+        // dès que currentUid sera disponible dans l'effet suivant
+        localStorage.setItem(LS_KEY_PREFIX, sidFromUrl);
+        try { localStorage.removeItem(LEGACY_LS_HOME_KEY); } catch { /* ignore */ }
+        setCurrentIdState(sidFromUrl);
+        // Nettoyer l'URL sans recharger la page
+        window.history.replaceState(null, "", window.location.pathname + "#/");
+      }
+    } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Effet 2 : reset du contexte au changement d'utilisateur ──
   useEffect(() => {
     if (lastUserIdRef.current === currentUid) return;
     lastUserIdRef.current = currentUid;
@@ -92,18 +119,19 @@ export const useTenant = (): TenantState => {
     } catch { /* ignore */ }
     if (currentUid) {
       try {
-        // Priorité 1 : paramètre ?sid= dans l'URL (ouverture depuis Application Mère)
-        const hash = window.location.hash; // ex: "#/?sid=abc-123"
-        const sidMatch = hash.match(/[?&]sid=([^&]+)/);
-        const sidFromUrl = sidMatch ? sidMatch[1] : null;
-
-        if (sidFromUrl) {
-          // Persister ce choix en localStorage et nettoyer l'URL
-          localStorage.setItem(lsKey(currentUid), sidFromUrl);
+        // Si un sid a déjà été lu depuis l'URL (Effet 1), il est dans currentId
+        // et dans la clé non-scopée. On le migre vers la clé scopée.
+        const nonScopedSid = localStorage.getItem(LS_KEY_PREFIX);
+        const scopedSid = localStorage.getItem(lsKey(currentUid));
+        const sidToUse = nonScopedSid || scopedSid;
+        if (nonScopedSid && currentUid) {
+          // Migrer vers la clé scopée et effacer la non-scopée
+          localStorage.setItem(lsKey(currentUid), nonScopedSid);
+          localStorage.removeItem(LS_KEY_PREFIX);
           localStorage.removeItem(lsHomeKey(currentUid));
-          setCurrentIdState(sidFromUrl);
-          // Nettoyer le paramètre sid de l'URL sans recharger
-          window.history.replaceState(null, "", window.location.pathname + "#/");
+        }
+        if (sidToUse) {
+          setCurrentIdState(sidToUse);
         } else {
           setCurrentIdState(localStorage.getItem(lsKey(currentUid)));
         }

@@ -39,7 +39,7 @@ const Index = () => {
   const { perms, can, isEmployeOnly, isEmploye } = useAuth();
   const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
-  const effectiveSocieteId = currentSociete?.id ?? (isSuperAdmin && societes.length > 0 ? societes[0].id : null);
+  const effectiveSocieteId = currentSociete?.id ?? null;
   const store = useEbeneStore(effectiveSocieteId);
   useEffect(() => {
     if (currentSociete?.id) {
