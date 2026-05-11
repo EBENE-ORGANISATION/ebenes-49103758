@@ -45,8 +45,11 @@ import {
   KeyRound,
   UserX,
   UserCog,
-  LogIn,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
@@ -74,6 +77,11 @@ interface SocieteRow {
 
 interface SocieteConfigRow extends ModuleFlags {
   societe_id: string;
+  nif?: string | null;
+  rccm?: string | null;
+  adresse?: string | null;
+  logo_url?: string | null;
+  couleur_primaire?: string | null;
 }
 
 interface UserRow {
@@ -104,6 +112,176 @@ const ROLE_OPTIONS = [
   "dashboard_viewer",
   "employe",
 ] as const;
+
+// ─── Composant MiseAJourPanel ────────────────────────────────────────────────
+
+const MiseAJourPanel = ({ stats }: { stats: Stats | null }) => {
+  const [version, setVersion] = useState("1.1.3");
+  const [message, setMessage] = useState("");
+  const [delai, setDelai] = useState(30);
+  const [sending, setSending] = useState(false);
+  const [historique, setHistorique] = useState<Array<{ts: number; version: string; message: string; by: string}>>([]);
+
+  useEffect(() => {
+    // Charger l'historique des MAJ depuis app_state
+    supabase
+      .from("app_state")
+      .select("value")
+      .eq("key", "global:update_history")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && Array.isArray(data.value)) {
+          setHistorique(data.value as Array<{ts: number; version: string; message: string; by: string}>);
+        }
+      });
+  }, []);
+
+  const lancerMAJ = async () => {
+    if (!version.trim()) {
+      toast.error("Renseigne un numéro de version");
+      return;
+    }
+    if (!confirm(`Envoyer le signal de mise à jour v${version} à TOUS les utilisateurs connectés ?\n\nIls verront une bannière et l'app se rechargera automatiquement dans ${delai} secondes.`)) return;
+
+    setSending(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const payload = {
+        version,
+        message: message.trim() || `Mise à jour v${version} disponible`,
+        delai_secondes: delai,
+        ts: Date.now(),
+        by: userData.user?.email ?? "superadmin",
+      };
+
+      // Écrire le signal dans app_state (les clients écoutent via Realtime)
+      await supabase
+        .from("app_state")
+        .upsert({
+          key: "global:update_signal",
+          value: payload as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+
+      // Sauvegarder dans l'historique
+      const newHistorique = [payload, ...historique].slice(0, 20);
+      await supabase
+        .from("app_state")
+        .upsert({
+          key: "global:update_history",
+          value: newHistorique as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+
+      setHistorique(newHistorique);
+      toast.success(`Signal de mise à jour v${version} envoyé à ${stats?.utilisateurs_actifs ?? 0} utilisateurs`);
+      setMessage("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="size-5 text-primary" />
+            Publier une mise à jour
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Envoie un signal à tous les utilisateurs connectés. Ils verront une bannière
+            de notification et l'application se rechargera automatiquement.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Numéro de version</Label>
+              <Input
+                value={version}
+                onChange={e => setVersion(e.target.value)}
+                placeholder="ex: 1.2.0"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Délai avant rechargement automatique (secondes)</Label>
+              <Select value={String(delai)} onValueChange={v => setDelai(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 secondes</SelectItem>
+                  <SelectItem value="30">30 secondes</SelectItem>
+                  <SelectItem value="60">1 minute</SelectItem>
+                  <SelectItem value="120">2 minutes</SelectItem>
+                  <SelectItem value="300">5 minutes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Message pour les utilisateurs (optionnel)</Label>
+            <Input
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="ex: Nouvelles fonctionnalités GRH disponibles"
+            />
+          </div>
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+            <strong>Aperçu de la bannière :</strong><br />
+            🔄 {message.trim() || `Mise à jour v${version} disponible`} — Rechargement automatique dans {delai}s
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={lancerMAJ} disabled={sending} className="gap-2">
+              {sending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              Envoyer le signal de mise à jour
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              {stats?.utilisateurs_actifs ?? 0} utilisateur(s) actif(s) seront notifiés
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Historique des mises à jour</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {historique.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune mise à jour publiée</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Par</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {historique.map((h, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(h.ts).toLocaleString("fr-FR")}
+                    </TableCell>
+                    <TableCell><Badge variant="outline">v{h.version}</Badge></TableCell>
+                    <TableCell className="text-xs">{h.message}</TableCell>
+                    <TableCell className="text-xs">{h.by}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// ─── Composant principal ─────────────────────────────────────────────────────
 
 export const SuperAdminPanel = () => {
   const { t, i18n } = useTranslation();
@@ -176,9 +354,12 @@ export const SuperAdminPanel = () => {
    * On définit la société courante puis on redirige vers l'app principale.
    */
   const enterSociete = (s: SocieteRow) => {
-    setCurrentSocieteId(s.id);
-    toast.success(t("superadmin.you_are_in", { nom: s.nom }));
-    navigate("/");
+    // Ouvrir la société dans un nouvel onglet complètement isolé
+    // On passe l'ID via un paramètre URL hashé pour que le nouvel onglet
+    // charge directement la bonne société sans partager le state React
+    const url = `${window.location.origin}${window.location.pathname}#/?sid=${s.id}`;
+    window.open(url, `societe_${s.id}`);
+    toast.success(`${s.nom} ouvert dans un nouvel onglet`);
   };
 
   const updateModule = async (societeId: string, key: keyof ModuleFlags, value: boolean) => {
@@ -252,11 +433,17 @@ export const SuperAdminPanel = () => {
           </div>
         ) : (
           <Tabs defaultValue="societes" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full mb-5 h-auto">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-5 h-auto">
               <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> {t("superadmin.tab_societies")}</TabsTrigger>
+              <TabsTrigger value="parametres" className="py-2.5">
+                <Settings2 className="size-4 mr-1.5" /> Paramètres
+              </TabsTrigger>
               <TabsTrigger value="modules" className="py-2.5"><Settings2 className="size-4 mr-1.5" /> {t("superadmin.tab_modules")}</TabsTrigger>
               <TabsTrigger value="users" className="py-2.5"><Users className="size-4 mr-1.5" /> {t("superadmin.tab_users")}</TabsTrigger>
               <TabsTrigger value="stats" className="py-2.5"><Activity className="size-4 mr-1.5" /> {t("superadmin.tab_activity")}</TabsTrigger>
+              <TabsTrigger value="miseajour" className="py-2.5">
+                <RefreshCw className="size-4 mr-1.5" /> Mise à jour
+              </TabsTrigger>
               <TabsTrigger value="account" className="py-2.5"><UserCog className="size-4 mr-1.5" /> {t("superadmin.tab_account")}</TabsTrigger>
             </TabsList>
 
@@ -302,9 +489,9 @@ export const SuperAdminPanel = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => enterSociete(s)}
-                              title={t("superadmin.enter_title")}
+                              title={`Ouvrir ${s.nom} dans un nouvel onglet`}
                             >
-                              <LogIn className="size-4 mr-1" /> {t("superadmin.enter")}
+                              <ExternalLink className="size-4 mr-1" /> Ouvrir
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => toggleSuspend(s)} title={s.statut === "active" ? t("superadmin.suspend") : t("superadmin.reactivate")}>
                               {s.statut === "active" ? <Pause className="size-4" /> : <Play className="size-4" />}
@@ -322,6 +509,163 @@ export const SuperAdminPanel = () => {
                   </Table>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* TAB — PARAMÈTRES PAR SOCIÉTÉ */}
+            <TabsContent value="parametres">
+              <div className="space-y-4">
+                {societes.map((s) => {
+                  const cfg = configs[s.id];
+                  return (
+                    <Card key={s.id}>
+                      <CardHeader className="flex-row items-center justify-between pb-3">
+                        <div>
+                          <CardTitle className="text-base">{s.nom}</CardTitle>
+                          <p className="text-xs text-muted-foreground font-mono">{s.slug}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => enterSociete(s)}
+                          className="gap-1.5"
+                        >
+                          <ExternalLink className="size-4" /> Ouvrir
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label>Nom de la société</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                defaultValue={s.nom}
+                                onBlur={async (e) => {
+                                  const newNom = e.target.value.trim();
+                                  if (!newNom || newNom === s.nom) return;
+                                  try {
+                                    await callSuperAdmin("update_societe", { id: s.id, patch: { nom: newNom } });
+                                    toast.success("Nom mis à jour");
+                                    loadAll();
+                                  } catch (err) { toast.error((err as Error).message); }
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Couleur principale</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="color"
+                                defaultValue={cfg?.couleur_primaire ?? "#1F3864"}
+                                className="w-16 h-9 p-1"
+                                onBlur={async (e) => {
+                                  try {
+                                    await callSuperAdmin("update_societe_config", {
+                                      societe_id: s.id,
+                                      patch: { couleur_primaire: e.target.value },
+                                    });
+                                    toast.success("Couleur mise à jour");
+                                  } catch (err) { toast.error((err as Error).message); }
+                                }}
+                              />
+                              <Input
+                                defaultValue={cfg?.couleur_primaire ?? "#1F3864"}
+                                className="font-mono text-sm"
+                                onBlur={async (e) => {
+                                  try {
+                                    await callSuperAdmin("update_societe_config", {
+                                      societe_id: s.id,
+                                      patch: { couleur_primaire: e.target.value },
+                                    });
+                                    toast.success("Couleur mise à jour");
+                                  } catch (err) { toast.error((err as Error).message); }
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>NIF</Label>
+                            <Input
+                              defaultValue={cfg?.nif ?? ""}
+                              placeholder="Numéro d'identification fiscale"
+                              onBlur={async (e) => {
+                                try {
+                                  await callSuperAdmin("update_societe_config", {
+                                    societe_id: s.id,
+                                    patch: { nif: e.target.value.trim() || null },
+                                  });
+                                } catch (err) { toast.error((err as Error).message); }
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>RCCM</Label>
+                            <Input
+                              defaultValue={cfg?.rccm ?? ""}
+                              placeholder="Registre du commerce"
+                              onBlur={async (e) => {
+                                try {
+                                  await callSuperAdmin("update_societe_config", {
+                                    societe_id: s.id,
+                                    patch: { rccm: e.target.value.trim() || null },
+                                  });
+                                } catch (err) { toast.error((err as Error).message); }
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <Label>Adresse</Label>
+                            <Input
+                              defaultValue={cfg?.adresse ?? ""}
+                              placeholder="Adresse complète"
+                              onBlur={async (e) => {
+                                try {
+                                  await callSuperAdmin("update_societe_config", {
+                                    societe_id: s.id,
+                                    patch: { adresse: e.target.value.trim() || null },
+                                  });
+                                } catch (err) { toast.error((err as Error).message); }
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Logo</Label>
+                          <div className="flex items-center gap-3">
+                            {cfg?.logo_url && (
+                              <img src={cfg.logo_url} alt="Logo" className="h-12 w-auto object-contain border rounded p-1" />
+                            )}
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  const ext = file.name.split(".").pop() || "png";
+                                  const path = `${s.id}/logo.${ext}`;
+                                  const { error: upErr } = await supabase.storage
+                                    .from("logos-societes")
+                                    .upload(path, file, { upsert: true });
+                                  if (upErr) throw upErr;
+                                  const { data: pub } = supabase.storage.from("logos-societes").getPublicUrl(path);
+                                  await callSuperAdmin("update_societe_config", {
+                                    societe_id: s.id,
+                                    patch: { logo_url: pub.publicUrl },
+                                  });
+                                  toast.success("Logo mis à jour");
+                                  loadAll();
+                                } catch (err) { toast.error((err as Error).message); }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </TabsContent>
 
             {/* TAB 2 — MODULES */}
@@ -490,6 +834,11 @@ export const SuperAdminPanel = () => {
                   </Table>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* TAB — MISE À JOUR APPLICATION */}
+            <TabsContent value="miseajour">
+              <MiseAJourPanel stats={stats} />
             </TabsContent>
 
             {/* TAB 5 — MON COMPTE */}

@@ -15,6 +15,7 @@ import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
 import { SupabaseStatus } from "@/components/ebene/SupabaseStatus";
+import { UpdateBanner } from "@/components/ebene/UpdateBanner";
 import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
 import { tauxPourMois } from "@/lib/ebene-utils";
@@ -444,6 +445,7 @@ const Index = () => {
       />
       <FacturePreview facture={previewFacture} onClose={() => setPreviewFacture(null)} />
       {isElectron() && <UpdateNotifier />}
+      <UpdateBanner />
     </div>
   );
 };

@@ -92,7 +92,21 @@ export const useTenant = (): TenantState => {
     } catch { /* ignore */ }
     if (currentUid) {
       try {
-        setCurrentIdState(localStorage.getItem(lsKey(currentUid)));
+        // Priorité 1 : paramètre ?sid= dans l'URL (ouverture depuis Application Mère)
+        const hash = window.location.hash; // ex: "#/?sid=abc-123"
+        const sidMatch = hash.match(/[?&]sid=([^&]+)/);
+        const sidFromUrl = sidMatch ? sidMatch[1] : null;
+
+        if (sidFromUrl) {
+          // Persister ce choix en localStorage et nettoyer l'URL
+          localStorage.setItem(lsKey(currentUid), sidFromUrl);
+          localStorage.removeItem(lsHomeKey(currentUid));
+          setCurrentIdState(sidFromUrl);
+          // Nettoyer le paramètre sid de l'URL sans recharger
+          window.history.replaceState(null, "", window.location.pathname + "#/");
+        } else {
+          setCurrentIdState(localStorage.getItem(lsKey(currentUid)));
+        }
       } catch {
         setCurrentIdState(null);
       }
