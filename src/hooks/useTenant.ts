@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -7,14 +7,65 @@ import { applyTheme, resetTheme } from "@/lib/theme";
 export type Societe = Tables<"societes">;
 export type SocieteConfig = Tables<"societe_config">;
 
+// ─── URL helpers (purs, sans effets de bord) ────────────────────────────────
+
+/** Lit le ?sid= dans le hash courant de l'URL. */
+const getSidFromHash = (): string | null => {
+  try {
+    const m = window.location.hash.match(/[?&]sid=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Abonnement aux événements de changement d'URL (sans rechargement). */
+const subscribeToHash = (cb: () => void): (() => void) => {
+  window.addEventListener("hashchange", cb);
+  window.addEventListener("popstate", cb);
+  return () => {
+    window.removeEventListener("hashchange", cb);
+    window.removeEventListener("popstate", cb);
+  };
+};
+
+/**
+ * Navigue vers une société (ou l'Appli mère si `null`) sans recharger la page.
+ * Pousse un nouvel état dans l'historique du navigateur → retour arrière fonctionnel.
+ */
+export const navigateToSociete = (societeId: string | null): void => {
+  const base = window.location.pathname;
+  const url = societeId
+    ? `${base}#/?sid=${encodeURIComponent(societeId)}`
+    : `${base}#/`;
+  window.history.pushState(null, "", url);
+  // popstate n'est pas déclenché par pushState — on le dispatch manuellement
+  // pour que useSyncExternalStore (et tout abonné) reçoive la mise à jour.
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
+
+/**
+ * Hook utilitaire — retourne une fonction de navigation tenant stable.
+ * Remplace l'ancien `setCurrentSocieteId` de `useTenant` dans les composants
+ * qui n'ont pas besoin du reste du contexte tenant.
+ */
+export const useTenantNavigate = (): ((societeId: string | null) => void) =>
+  useCallback((societeId: string | null) => navigateToSociete(societeId), []);
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 interface TenantState {
-  /** Société active (slug d'URL ou première société liée à l'utilisateur). */
+  /** Société active selon le ?sid= dans l'URL. */
   currentSociete: Societe | null;
   /** Config de la société active (modules actifs, branding…). */
   societeConfig: SocieteConfig | null;
   /** Toutes les sociétés accessibles à l'utilisateur courant. */
   societes: Societe[];
-  /** Change manuellement la société active. */
+  /**
+   * Change la société active.
+   * @deprecated Préférer `useTenantNavigate()` ou `navigateToSociete()` directement.
+   * Conservé pour la rétrocompatibilité des composants existants.
+   */
   setCurrentSocieteId: (id: string | null) => void;
   isLoading: boolean;
   /** L'utilisateur est-il super-admin (= bypass multi-société). */
@@ -23,126 +74,77 @@ interface TenantState {
   refresh: () => Promise<void>;
 }
 
-// Les clés sont scopées par utilisateur pour éviter toute fuite de contexte
-// d'un compte à l'autre sur le même navigateur (ex. EBENE qui s'affiche pour
-// un nouveau compte connecté). Format : `ebene:current_societe_id:<userId>`.
-const LS_KEY_PREFIX = "ebene:current_societe_id";
-const LS_HOME_PREFIX = "ebene:appli_mere";
-const lsKey = (userId: string | null | undefined) =>
-  userId ? `${LS_KEY_PREFIX}:${userId}` : LS_KEY_PREFIX;
-const lsHomeKey = (userId: string | null | undefined) =>
-  userId ? `${LS_HOME_PREFIX}:${userId}` : LS_HOME_PREFIX;
-
-// Anciennes clés non scopées : on les purge au montage pour ne pas hériter
-// d'un contexte d'un autre utilisateur.
-const LEGACY_LS_KEY = "ebene:current_societe_id";
-const LEGACY_LS_HOME_KEY = "ebene:appli_mere";
+// ─── Hook principal ──────────────────────────────────────────────────────────
 
 /**
- * Hook de contexte tenant.
+ * Hook de contexte tenant — Version 2 (URL comme source de vérité).
  *
- * Stratégie minimaliste, compatible avec l'architecture existante :
- *  - On charge toutes les sociétés accessibles via les RLS de `societes`
- *    (super-admin voit tout, les autres voient leurs sociétés liées).
- *  - On expose la société "courante" choisie par l'utilisateur (persistée
- *    en localStorage) ou la première de la liste par défaut.
- *  - On expose la `societe_config` correspondante (modules actifs, branding).
- *
- * NB : Le store métier (useEbeneStoreRemote) reste pour l'instant indépendant
- * de ce hook — la sélection de société sert au branding et au contrôle des
- * modules visibles. Pour scoper réellement les données par société, il faudra
- * faire évoluer le store dans une étape ultérieure.
+ * Stratégie :
+ *  - Le `?sid=<uuid>` dans le hash est la **seule** source de vérité pour la
+ *    société courante. Chaque onglet a sa propre URL → isolation native.
+ *  - `useSyncExternalStore` rend le hook réactif aux changements d'URL sans
+ *    aucun état React intermédiaire ni localStorage.
+ *  - `setCurrentSocieteId` est conservé comme wrapper de `navigateToSociete`
+ *    pour la rétrocompatibilité (aucun refactoring forcé des composants existants).
+ *  - Au premier montage, les anciennes clés localStorage de sélection de société
+ *    (`ebene:current_societe_id*`, `ebene:appli_mere*`) sont purgées.
  */
 export const useTenant = (): TenantState => {
   const { user, isSuperAdmin, loading: authLoading } = useAuth();
+
+  // ── Source de vérité : URL ───────────────────────────────────────────────
+  // Synchrone, réactif, partagé par aucun onglet.
+  const sidFromUrl = useSyncExternalStore(
+    subscribeToHash,
+    getSidFromHash,
+    () => null, // snapshot SSR (jamais déclenché ici, mais requis par l'API)
+  );
+
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [config, setConfig] = useState<SocieteConfig | null>(null);
-  const [currentId, setCurrentIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastUserIdRef = useRef<string | null>(null);
 
-  const setCurrentSocieteId = useCallback((id: string | null) => {
-    setCurrentIdState(id);
-    const uid = user?.id ?? null;
+  // setCurrentSocieteId — rétrocompatibilité : délègue à navigateToSociete.
+  const setCurrentSocieteId = useCallback(
+    (id: string | null) => navigateToSociete(id),
+    [],
+  );
+
+  // ── Purge one-shot des anciennes clés localStorage ──────────────────────
+  // À supprimer dans ~6 mois une fois tous les navigateurs migrés.
+  const purgeDoneRef = useRef(false);
+  useEffect(() => {
+    if (purgeDoneRef.current) return;
+    purgeDoneRef.current = true;
     try {
-      if (id) {
-        localStorage.setItem(lsKey(uid), id);
-        localStorage.removeItem(lsHomeKey(uid));
-      } else {
-        localStorage.removeItem(lsKey(uid));
-        // Marque explicitement le choix "Appli mère" pour ne pas auto-sélectionner
-        // une société au prochain chargement.
-        localStorage.setItem(lsHomeKey(uid), "1");
+      const toDelete: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (
+          k &&
+          (k.startsWith("ebene:current_societe_id") ||
+            k.startsWith("ebene:appli_mere"))
+        ) {
+          toDelete.push(k);
+        }
       }
-    } catch { /* ignore */ }
-  }, [user?.id]);
+      toDelete.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
-  // Au changement d'utilisateur (login/logout/switch), on remet tout le
-  // contexte à zéro AVANT toute nouvelle requête, pour qu'aucun header ou
-  // thème de l'utilisateur précédent ne reste affiché.
+  // ── Reset du contexte au changement d'utilisateur ───────────────────────
+  const lastUidRef = useRef<string | null>(null);
   const currentUid = user?.id ?? null;
-  // ── Effet 1 : lecture immédiate du ?sid= dans l'URL au premier montage ──
-  // Doit s'exécuter AVANT que loadSocietes ne soit appelé, pour que
-  // currentId soit déjà le bon quand la liste des sociétés arrive.
-  // On ne peut pas mettre ça dans l'effet currentUid car dans un nouvel onglet
-  // l'utilisateur est déjà authentifié → currentUid ne change pas → effet ignoré.
-  const sidReadRef = useRef(false);
   useEffect(() => {
-    if (sidReadRef.current) return;
-    sidReadRef.current = true;
-    try {
-      const hash = window.location.hash; // ex: "#/?sid=abc-123"
-      const sidMatch = hash.match(/[?&]sid=([^&]+)/);
-      const sidFromUrl = sidMatch ? decodeURIComponent(sidMatch[1]) : null;
-      if (sidFromUrl) {
-        // Persister immédiatement en localStorage (avant que currentUid soit connu)
-        // On utilise la clé non-scopée en fallback, elle sera migrée à la clé scopée
-        // dès que currentUid sera disponible dans l'effet suivant
-        localStorage.setItem(LS_KEY_PREFIX, sidFromUrl);
-        try { localStorage.removeItem(LEGACY_LS_HOME_KEY); } catch { /* ignore */ }
-        setCurrentIdState(sidFromUrl);
-        // Nettoyer l'URL sans recharger la page
-        window.history.replaceState(null, "", window.location.pathname + "#/");
-      }
-    } catch { /* ignore */ }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Effet 2 : reset du contexte au changement d'utilisateur ──
-  useEffect(() => {
-    if (lastUserIdRef.current === currentUid) return;
-    lastUserIdRef.current = currentUid;
+    if (lastUidRef.current === currentUid) return;
+    lastUidRef.current = currentUid;
     setSocietes([]);
     setConfig(null);
-    try {
-      localStorage.removeItem(LEGACY_LS_KEY);
-      localStorage.removeItem(LEGACY_LS_HOME_KEY);
-    } catch { /* ignore */ }
-    if (currentUid) {
-      try {
-        // Si un sid a déjà été lu depuis l'URL (Effet 1), il est dans currentId
-        // et dans la clé non-scopée. On le migre vers la clé scopée.
-        const nonScopedSid = localStorage.getItem(LS_KEY_PREFIX);
-        const scopedSid = localStorage.getItem(lsKey(currentUid));
-        const sidToUse = nonScopedSid || scopedSid;
-        if (nonScopedSid && currentUid) {
-          // Migrer vers la clé scopée et effacer la non-scopée
-          localStorage.setItem(lsKey(currentUid), nonScopedSid);
-          localStorage.removeItem(LS_KEY_PREFIX);
-          localStorage.removeItem(lsHomeKey(currentUid));
-        }
-        if (sidToUse) {
-          setCurrentIdState(sidToUse);
-        } else {
-          setCurrentIdState(localStorage.getItem(lsKey(currentUid)));
-        }
-      } catch {
-        setCurrentIdState(null);
-      }
-    } else {
-      setCurrentIdState(null);
-    }
   }, [currentUid]);
 
+  // ── Chargement de la liste des sociétés accessibles ─────────────────────
   const loadSocietes = useCallback(async () => {
     if (!user) {
       setSocietes([]);
@@ -157,97 +159,81 @@ export const useTenant = (): TenantState => {
         .select("*")
         .order("nom", { ascending: true });
       if (error) throw error;
-      // La société technique "_modele" sert uniquement de modèle de défauts globaux
-      // (paramétrée par le super-admin). Elle ne doit jamais être proposée comme tenant.
-      const list = ((data || []) as Societe[]).filter((s) => s.slug !== "_modele");
+
+      // Exclure la société technique "_modele" (modèle de défauts globaux).
+      const list = ((data || []) as Societe[]).filter(
+        (s) => s.slug !== "_modele",
+      );
       setSocietes(list);
 
-      // Sélection de la société courante :
-      // 1) si l'utilisateur a explicitement choisi "Appli mère" (super-admin), on respecte
-      // 2) celle persistée en LS si elle est dans la liste
-      // 3) pour un super-admin sans préférence : rester en "Appli mère" (aucune société)
-      //    afin de ne JAMAIS exposer accidentellement les données / le branding
-      //    d'une société particulière.
-      // 4) sinon (utilisateur normal) : la première société accessible
-      let homeChosen = false;
-      try { homeChosen = localStorage.getItem(lsHomeKey(user.id)) === "1"; } catch { /* ignore */ }
-      if (homeChosen && isSuperAdmin) {
-        setCurrentIdState(null);
-      } else {
-        let nextId = currentId;
-        if (!nextId || !list.some((s) => s.id === nextId)) {
-          if (isSuperAdmin) {
-            // Super-admin : pas d'auto-sélection, on reste sur l'Appli mère.
-            setCurrentSocieteId(null);
-          } else {
-            nextId = list[0]?.id ?? null;
-            if (nextId) setCurrentSocieteId(nextId);
-            else setCurrentSocieteId(null);
-          }
-        }
+      // Auto-sélection pour les utilisateurs normaux (non super-admin) :
+      // si l'URL ne contient pas encore de ?sid=, on navigue vers la première
+      // société accessible. Le super-admin commence toujours sur l'Appli mère.
+      if (!isSuperAdmin && !getSidFromHash() && list.length > 0) {
+        navigateToSociete(list[0].id);
       }
     } catch {
       setSocietes([]);
       setConfig(null);
-      setCurrentIdState(null);
     } finally {
       setLoading(false);
     }
-  // currentId est lu via la fonction; ne pas l'inclure pour éviter les recharges en boucle
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, setCurrentSocieteId, isSuperAdmin]);
+  }, [user, isSuperAdmin]);
 
+  // ── Chargement de la config de la société courante ───────────────────────
   const loadConfig = useCallback(async (societeId: string | null) => {
-    if (!societeId) { setConfig(null); return; }
+    if (!societeId) {
+      setConfig(null);
+      return;
+    }
     const { data, error } = await supabase
       .from("societe_config")
       .select("*")
       .eq("societe_id", societeId)
       .maybeSingle();
-    if (error) { setConfig(null); return; }
+    if (error) {
+      setConfig(null);
+      return;
+    }
     setConfig((data || null) as SocieteConfig | null);
   }, []);
 
+  // Déclenche loadSocietes dès que l'auth est résolue.
   useEffect(() => {
     if (authLoading) return;
     void loadSocietes();
   }, [authLoading, loadSocietes]);
 
-  useEffect(() => {
-    // Sécurité : on ne charge la config d'une société QUE si l'ID est dans
-    // la liste des sociétés accessibles à l'utilisateur. Sinon on reset.
-    // Cela empêche d'afficher l'en-tête d'EBENE pour un user qui n'y a
-    // pas accès, juste parce qu'un ID périmé traîne dans le state.
-    if (!currentId) {
-      setConfig(null);
-      return;
-    }
-    if (societes.length === 0) {
-      // Liste pas encore chargée : on attend `loadSocietes` pour valider l'ID
-      return;
-    }
-    if (!societes.some((s) => s.id === currentId)) {
-      setConfig(null);
-      return;
-    }
-    void loadConfig(currentId);
-  }, [currentId, societes, loadConfig]);
+  // ── ID courant validé ────────────────────────────────────────────────────
+  // On ne retient le sid que s'il correspond à une société de la liste
+  // accessible à l'utilisateur. Toute valeur périmée ou falsifiée est ignorée.
+  const currentId = useMemo((): string | null => {
+    if (!sidFromUrl) return null;
+    if (societes.length === 0) return null; // liste pas encore chargée
+    return societes.some((s) => s.id === sidFromUrl) ? sidFromUrl : null;
+  }, [sidFromUrl, societes]);
 
-  // Applique le thème dynamique dès qu'une nouvelle config est chargée
+  // Charge la config dès que currentId ou la liste de sociétés change.
+  useEffect(() => {
+    if (loading) return; // attendre la fin du chargement initial
+    void loadConfig(currentId);
+  }, [currentId, loading, loadConfig]);
+
+  // ── Thème dynamique ──────────────────────────────────────────────────────
   useEffect(() => {
     if (config) {
-      // On enrichit la config avec le nom de la société (table societes)
-      // pour que le moteur de thème puisse mettre à jour <title> et favicon.
-      const currentNom =
+      const nom =
         societes.find((s) => s.id === config.societe_id)?.nom ?? null;
-      applyTheme({ ...config, nom: currentNom });
+      applyTheme({ ...config, nom });
+    } else {
+      resetTheme();
     }
-    else resetTheme();
   }, [config, societes]);
 
+  // ── Valeurs dérivées ─────────────────────────────────────────────────────
   const currentSociete = useMemo(
-    () => (Array.isArray(societes) ? societes.find((s) => s.id === currentId) ?? null : null),
-    [societes, currentId]
+    () => societes.find((s) => s.id === currentId) ?? null,
+    [societes, currentId],
   );
 
   const refresh = useCallback(async () => {

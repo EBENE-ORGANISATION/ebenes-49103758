@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTenant } from "@/hooks/useTenant";
+import { useTenant, useTenantNavigate } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -18,7 +18,8 @@ import { useTranslation } from "react-i18next";
  * contexte courant.
  */
 export const SocieteSwitcher = () => {
-  const { societes, currentSociete, setCurrentSocieteId, isSuperAdmin } = useTenant();
+  const { societes, currentSociete, isSuperAdmin } = useTenant();
+  const navigate = useTenantNavigate();
   const { t } = useTranslation();
 
   // On n'affiche le sélecteur que si l'utilisateur peut réellement choisir.
@@ -50,7 +51,7 @@ export const SocieteSwitcher = () => {
         {isSuperAdmin && (
           <>
             <DropdownMenuItem
-              onClick={() => setCurrentSocieteId(null)}
+              onClick={() => navigate(null)}
               className={!currentSociete ? "bg-accent/40 font-medium" : ""}
             >
               <Home className="size-4 shrink-0 mr-2 text-primary" />
@@ -70,7 +71,7 @@ export const SocieteSwitcher = () => {
           return (
             <DropdownMenuItem
               key={s.id}
-              onClick={() => setCurrentSocieteId(s.id)}
+              onClick={() => navigate(s.id)}
               className={active ? "bg-accent/40 font-medium" : ""}
             >
               <div className="min-w-0 flex-1">

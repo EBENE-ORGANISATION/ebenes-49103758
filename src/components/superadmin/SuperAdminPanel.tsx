@@ -55,7 +55,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
 import { CreerSocieteModal } from "./CreerSocieteModal";
 import { MonCompteSection } from "./MonCompteSection";
-import { useTenant } from "@/hooks/useTenant";
 import {
   ResponsiveContainer,
   BarChart,
@@ -286,7 +285,6 @@ const MiseAJourPanel = ({ stats }: { stats: Stats | null }) => {
 export const SuperAdminPanel = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { setCurrentSocieteId } = useTenant();
   const [societes, setSocietes] = useState<SocieteRow[]>([]);
   const [configs, setConfigs] = useState<Record<string, SocieteConfigRow>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
