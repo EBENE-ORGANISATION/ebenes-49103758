@@ -214,6 +214,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
   const markSignificantWrite = useCallback(() => {
     significantWritesRef.current += 1;
+    setLastSaved(new Date());
     if (driveDebounceRef.current) clearTimeout(driveDebounceRef.current);
     driveDebounceRef.current = setTimeout(() => { void flushDriveBackup(); }, 30_000);
   }, [flushDriveBackup]);
@@ -882,10 +883,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
   const updateFournisseur = useCallback(
     (id: number, patch: Partial<Fournisseur>) => {
-      // Non exposé dans useFournisseurs pour l'instant — no-op silencieux
-      console.warn("[store] updateFournisseur non encore migré", id, patch);
+      void tqFournisseurs.updateFournisseur(id, patch)
+        .catch(() => toast.error("Erreur lors de la mise à jour du fournisseur"));
     },
-    [],
+    [tqFournisseurs],
   );
 
   const removeFournisseur = useCallback(

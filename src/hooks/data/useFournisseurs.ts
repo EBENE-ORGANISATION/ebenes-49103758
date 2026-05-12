@@ -25,6 +25,12 @@ export const useFournisseurs = (societeId: string | null) => {
     onSuccess: invalidate,
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: number; patch: Partial<Omit<Fournisseur, "id">> }) =>
+      repo.update(id, patch, societeId!),
+    onSuccess: invalidate,
+  });
+
   const removeMutation = useMutation({
     mutationFn: (id: number) => repo.remove(id, societeId!),
     onSuccess: invalidate,
@@ -36,7 +42,9 @@ export const useFournisseurs = (societeId: string | null) => {
     isError: query.isError,
     error: query.error,
     addFournisseur: (f: Omit<Fournisseur, "id">) => addMutation.mutateAsync(f),
+    updateFournisseur: (id: number, patch: Partial<Omit<Fournisseur, "id">>) =>
+      updateMutation.mutateAsync({ id, patch }),
     removeFournisseur: (id: number) => removeMutation.mutateAsync(id),
-    mutations: { add: addMutation, remove: removeMutation },
+    mutations: { add: addMutation, update: updateMutation, remove: removeMutation },
   };
 };
