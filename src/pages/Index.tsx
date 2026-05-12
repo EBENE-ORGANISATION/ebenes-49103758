@@ -376,6 +376,7 @@ const Index = () => {
                 onUpdateArticle={stockWrite ? store.updateArticle : (() => toast.error(tp("stock_action")))}
                 onRemoveArticle={stockValidate ? store.removeArticle : blockedId(tp("stock_delete"))}
                 onAddFournisseur={stockWrite ? store.addFournisseur : blocked(tp("stock_action"))}
+                onUpdateFournisseur={stockWrite ? store.updateFournisseur : (() => toast.error(tp("stock_action")))}
                 onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId(tp("stock_delete"))}
                 onAddCategorie={stockWrite ? store.addCategorieStock : blocked(tp("stock_action"))}
                 onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId(tp("stock_delete"))}

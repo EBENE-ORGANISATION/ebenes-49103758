@@ -25,6 +25,7 @@ interface Props {
   onUpdateArticle: (id: number, patch: Partial<Article>) => void;
   onRemoveArticle: (id: number) => void;
   onAddFournisseur: (f: Omit<Fournisseur, "id">) => void;
+  onUpdateFournisseur: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
   onRemoveFournisseur: (id: number) => void;
   onAddCategorie: (nom: string) => void;
   onRemoveCategorie: (id: number) => void;
@@ -42,7 +43,7 @@ export const Stock = (props: Props) => {
   const {
     data, annee, mois, articles, fournisseurs, categories,
     onAddArticle, onUpdateArticle, onRemoveArticle,
-    onAddFournisseur, onRemoveFournisseur,
+    onAddFournisseur, onUpdateFournisseur, onRemoveFournisseur,
     onAddCategorie, onRemoveCategorie,
     onAddMouvement, onRemoveMouvement,
   } = props;
@@ -98,7 +99,12 @@ export const Stock = (props: Props) => {
         </TabsContent>
 
         <TabsContent value="fournisseurs">
-          <FournisseursPanel fournisseurs={fournisseurs} onAdd={onAddFournisseur} onRemove={onRemoveFournisseur} />
+          <FournisseursPanel
+            fournisseurs={fournisseurs}
+            onAdd={onAddFournisseur}
+            onUpdate={onUpdateFournisseur}
+            onRemove={onRemoveFournisseur}
+          />
         </TabsContent>
 
         <TabsContent value="categories">
@@ -354,47 +360,129 @@ const MouvementsPanel = ({
 };
 
 // ─── Fournisseurs ──────────────────────────────────────────────────────────
-const FournisseursPanel = ({ fournisseurs, onAdd, onRemove }: {
-  fournisseurs: Fournisseur[]; onAdd: (f: Omit<Fournisseur, "id">) => void; onRemove: (id: number) => void;
+const FournisseursPanel = ({
+  fournisseurs, onAdd, onUpdate, onRemove,
+}: {
+  fournisseurs: Fournisseur[];
+  onAdd: (f: Omit<Fournisseur, "id">) => void;
+  onUpdate: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
+  onRemove: (id: number) => void;
 }) => {
-  const [open, setOpen] = useState(false);
   const empty: Omit<Fournisseur, "id"> = { nom: "", contact: "", telephone: "", email: "", adresse: "" };
+  const [openAdd, setOpenAdd] = useState(false);
   const [form, setForm] = useState(empty);
-  const submit = () => {
+  /** ID du fournisseur en cours d'édition, null = aucun */
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Omit<Fournisseur, "id">>(empty);
+
+  const submitAdd = () => {
     if (!form.nom.trim()) return toast.error("Nom obligatoire");
-    onAdd(form); setForm(empty); setOpen(false); toast.success("Fournisseur créé");
+    onAdd(form);
+    setForm(empty);
+    setOpenAdd(false);
+    toast.success("Fournisseur créé");
   };
+
+  const startEdit = (f: Fournisseur) => {
+    setEditId(f.id);
+    setEditForm({ nom: f.nom, contact: f.contact ?? "", telephone: f.telephone ?? "", email: f.email ?? "", adresse: f.adresse ?? "" });
+    setOpenAdd(false); // ferme le formulaire d'ajout si ouvert
+  };
+
+  const submitEdit = () => {
+    if (!editForm.nom.trim()) return toast.error("Nom obligatoire");
+    if (editId === null) return;
+    onUpdate(editId, editForm);
+    setEditId(null);
+    toast.success("Fournisseur mis à jour");
+  };
+
+  const cancelEdit = () => setEditId(null);
+
   return (
     <div className="space-y-3">
-      {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5"><Plus className="size-4" /> Nouveau fournisseur</Button>
+      {/* ── Formulaire d'ajout ─────────────────────────────────────────── */}
+      {!openAdd ? (
+        <Button onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5">
+          <Plus className="size-4" /> Nouveau fournisseur
+        </Button>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-3">
           <h3 className="font-bold">Nouveau fournisseur</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Lab label="Nom *"><Input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} /></Lab>
+            <Lab label="Nom *"><Input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} autoFocus /></Lab>
             <Lab label="Contact"><Input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></Lab>
             <Lab label="Téléphone"><Input value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} /></Lab>
             <Lab label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Lab>
             <Lab label="Adresse" full><Input value={form.adresse} onChange={(e) => setForm({ ...form, adresse: e.target.value })} /></Lab>
           </div>
           <div className="flex gap-2">
-            <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">✓ Enregistrer</Button>
-            <Button variant="outline" onClick={() => setOpen(false)} className="gap-1.5"><X className="size-4" /> Annuler</Button>
+            <Button onClick={submitAdd} className="bg-success text-success-foreground hover:bg-success/90 gap-1.5">
+              <Save className="size-4" /> Enregistrer
+            </Button>
+            <Button variant="outline" onClick={() => { setOpenAdd(false); setForm(empty); }} className="gap-1.5">
+              <X className="size-4" /> Annuler
+            </Button>
           </div>
         </div>
       )}
+
+      {/* ── Liste ─────────────────────────────────────────────────────── */}
       {fournisseurs.length === 0 ? (
         <p className="text-center text-muted-foreground py-8 italic">Aucun fournisseur</p>
       ) : (
         <div className="space-y-2">
           {fournisseurs.map((f) => (
-            <div key={f.id} className="list-item flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-bold">{f.nom}</p>
-                <p className="text-xs text-muted-foreground">{[f.contact, f.telephone, f.email, f.adresse].filter(Boolean).join(" • ")}</p>
-              </div>
-              <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove(f.id); }}><Trash2 className="size-4" /></Button>
+            <div key={f.id} className="list-item space-y-0">
+              {editId === f.id ? (
+                /* ── Formulaire d'édition inline ─────────────────────── */
+                <div className="p-3 space-y-3">
+                  <h4 className="font-semibold text-sm">Modifier — {f.nom}</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Lab label="Nom *"><Input value={editForm.nom} onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })} autoFocus /></Lab>
+                    <Lab label="Contact"><Input value={editForm.contact} onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })} /></Lab>
+                    <Lab label="Téléphone"><Input value={editForm.telephone} onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })} /></Lab>
+                    <Lab label="Email"><Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} /></Lab>
+                    <Lab label="Adresse" full><Input value={editForm.adresse} onChange={(e) => setEditForm({ ...editForm, adresse: e.target.value })} /></Lab>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={submitEdit} className="bg-success text-success-foreground hover:bg-success/90 gap-1.5">
+                      <Save className="size-4" /> Sauvegarder
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={cancelEdit} className="gap-1.5">
+                      <X className="size-4" /> Annuler
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Ligne de lecture ────────────────────────────────── */
+                <div className="flex items-center justify-between gap-2 p-2">
+                  <div className="min-w-0">
+                    <p className="font-bold">{f.nom}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[f.contact, f.telephone, f.email, f.adresse].filter(Boolean).join(" • ")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon" variant="ghost"
+                      className="size-8 text-muted-foreground hover:text-foreground"
+                      title="Modifier"
+                      onClick={() => startEdit(f)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost"
+                      className="size-8 text-destructive hover:bg-destructive/10"
+                      title="Supprimer"
+                      onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove(f.id); }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
