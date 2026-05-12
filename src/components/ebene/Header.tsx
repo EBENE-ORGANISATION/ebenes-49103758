@@ -316,7 +316,9 @@ export const Header = ({
             )}
             {showParamSociete && (
               <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                <Link to="/admin/societe"><Settings2 className="size-4" /> Paramètres société</Link>
+                <Link to={`/admin/societe${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
+                  <Settings2 className="size-4" /> Paramètres société
+                </Link>
               </Button>
             )}
             {isSuperAdmin && (

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ const PortalFallback = () => (
 
 const Index = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const now = new Date();
   const [annee, setAnnee] = useState(now.getFullYear());
   const [mois, setMois] = useState(now.getMonth() + 1);
@@ -204,6 +207,19 @@ const Index = () => {
     : visibleTabs === 2 ? "sm:grid-cols-2"
     : "sm:grid-cols-1";
 
+  // ── Onglet actif piloté par les search params React Router ──────────────
+  // useLocation() est réactif : se met à jour automatiquement sur Back/Forward.
+  // useNavigate() pousse une vraie entrée dans la pile React Router (= Back fonctionne).
+  const searchParams = new URLSearchParams(location.search);
+  const tabFromUrl = searchParams.get("tab");
+  const effectiveTab = tabFromUrl || defaultTab;
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", value);
+    navigate({ search: params.toString() });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -225,7 +241,7 @@ const Index = () => {
         />
 
         <div className="card-elevated p-4 sm:p-6 no-print">
-          <Tabs defaultValue={defaultTab} className="w-full">
+          <Tabs value={effectiveTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className={`grid grid-cols-2 ${gridCols} w-full mb-5 h-auto`}>
               {showDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">

@@ -198,7 +198,9 @@ const ParametresSociete = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> {t("params.back")}</Link>
+              <Link to={currentSociete ? `/?sid=${currentSociete.id}` : "/"}>
+                <ArrowLeft className="size-4" /> {t("params.back")}
+              </Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Settings2 className="size-6 text-primary" /> {t("params.title")}

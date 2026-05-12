@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -9,7 +10,7 @@ export type SocieteConfig = Tables<"societe_config">;
 
 // ─── URL helpers (purs, sans effets de bord) ────────────────────────────────
 
-/** Lit le ?sid= dans le hash courant de l'URL. */
+/** Lit le ?sid= dans le hash courant de l'URL (lecture directe window.location). */
 const getSidFromHash = (): string | null => {
   try {
     const m = window.location.hash.match(/[?&]sid=([^&]+)/);
@@ -19,19 +20,14 @@ const getSidFromHash = (): string | null => {
   }
 };
 
-/** Abonnement aux événements de changement d'URL (sans rechargement). */
-const subscribeToHash = (cb: () => void): (() => void) => {
-  window.addEventListener("hashchange", cb);
-  window.addEventListener("popstate", cb);
-  return () => {
-    window.removeEventListener("hashchange", cb);
-    window.removeEventListener("popstate", cb);
-  };
-};
-
 /**
  * Navigue vers une société (ou l'Appli mère si `null`) sans recharger la page.
- * Pousse un nouvel état dans l'historique du navigateur → retour arrière fonctionnel.
+ *
+ * ⚠️ Cette fonction contourne React Router (pushState direct).
+ * À utiliser UNIQUEMENT dans des contextes hors-composant ou pour
+ * l'auto-sélection initiale. Dans les composants React, préférer
+ * `useTenantNavigate()` qui passe par React Router et génère des
+ * entrées d'historique correctement identifiées (Back/Forward).
  */
 export const navigateToSociete = (societeId: string | null): void => {
   const base = window.location.pathname;
@@ -39,18 +35,25 @@ export const navigateToSociete = (societeId: string | null): void => {
     ? `${base}#/?sid=${encodeURIComponent(societeId)}`
     : `${base}#/`;
   window.history.pushState(null, "", url);
-  // popstate n'est pas déclenché par pushState — on le dispatch manuellement
-  // pour que tous les abonnés reçoivent la mise à jour.
+  // pushState ne déclenche pas popstate — dispatch manuel pour React Router.
   window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
 /**
- * Hook utilitaire — retourne une fonction de navigation tenant stable.
- * Remplace l'ancien `setCurrentSocieteId` de `useTenant` dans les composants
- * qui n'ont pas besoin du reste du contexte tenant.
+ * Hook utilitaire — retourne une fonction de navigation vers une société.
+ * ✅ Passe par React Router → entries correctement keyed → Back/Forward fonctionnel.
  */
-export const useTenantNavigate = (): ((societeId: string | null) => void) =>
-  useCallback((societeId: string | null) => navigateToSociete(societeId), []);
+export const useTenantNavigate = (): ((societeId: string | null) => void) => {
+  const navigate = useNavigate();
+  return useCallback(
+    (societeId: string | null) =>
+      navigate({
+        pathname: "/",
+        search: societeId ? `sid=${encodeURIComponent(societeId)}` : "",
+      }),
+    [navigate],
+  );
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,9 +65,8 @@ interface TenantState {
   /** Toutes les sociétés accessibles à l'utilisateur courant. */
   societes: Societe[];
   /**
-   * Change la société active.
-   * @deprecated Préférer `useTenantNavigate()` ou `navigateToSociete()` directement.
-   * Conservé pour la rétrocompatibilité des composants existants.
+   * Change la société active via React Router.
+   * @deprecated Préférer `useTenantNavigate()` dans les nouveaux composants.
    */
   setCurrentSocieteId: (id: string | null) => void;
   isLoading: boolean;
@@ -77,43 +79,49 @@ interface TenantState {
 // ─── Hook principal ──────────────────────────────────────────────────────────
 
 /**
- * Hook de contexte tenant — Version 2 (URL comme source de vérité).
+ * Hook de contexte tenant — Version 3 (React Router comme source de vérité).
  *
  * Stratégie :
- *  - Le `?sid=<uuid>` dans le hash est la **seule** source de vérité pour la
- *    société courante. Chaque onglet a sa propre URL → isolation native.
- *  - Un listener `hashchange/popstate` rend le hook réactif aux changements
- *    d'URL sans localStorage et sans dépendre d'un état partagé entre onglets.
- *  - `setCurrentSocieteId` est conservé comme wrapper de `navigateToSociete`
- *    pour la rétrocompatibilité (aucun refactoring forcé des composants existants).
- *  - Au premier montage, les anciennes clés localStorage de sélection de société
- *    (`ebene:current_societe_id*`, `ebene:appli_mere*`) sont purgées.
+ *  - `useLocation()` de React Router est la source de vérité pour le `?sid=`.
+ *    Il est réactif à toutes les navigations React Router (Links, navigate,
+ *    boutons Back/Forward) et aux pushState externes (via popstate dispatch).
+ *  - `useTenantNavigate()` et `setCurrentSocieteId` passent par `useNavigate()`
+ *    → les entrées d'historique sont correctement identifiées par React Router
+ *    → le bouton Back fonctionne correctement depuis n'importe quel onglet.
+ *  - `navigateToSociete` (fonction standalone) est conservée pour l'auto-sélection
+ *    initiale uniquement (hors composant). Elle dispatch popstate pour que
+ *    React Router mette à jour useLocation().
  */
 export const useTenant = (): TenantState => {
   const { user, isSuperAdmin, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
-  // ── Source de vérité : URL ───────────────────────────────────────────────
-  // Réactif, propre à chaque onglet, et compatible avec React Refresh.
-  const [sidFromUrl, setSidFromUrl] = useState<string | null>(() => getSidFromHash());
-
-  useEffect(() => {
-    const updateSidFromUrl = () => setSidFromUrl(getSidFromHash());
-    updateSidFromUrl();
-    return subscribeToHash(updateSidFromUrl);
-  }, []);
+  // ── Source de vérité : React Router location ─────────────────────────────
+  // useLocation() se met à jour automatiquement sur :
+  //  - navigate() / <Link> (React Router)
+  //  - Back / Forward navigateur
+  //  - pushState externe + popstate dispatch (navigateToSociete)
+  const location = useLocation();
+  const sidFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("sid");
+  }, [location.search]);
 
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [config, setConfig] = useState<SocieteConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // setCurrentSocieteId — rétrocompatibilité : délègue à navigateToSociete.
+  // setCurrentSocieteId — passe par React Router pour un historique correct.
   const setCurrentSocieteId = useCallback(
-    (id: string | null) => navigateToSociete(id),
-    [],
+    (id: string | null) =>
+      navigate({
+        pathname: "/",
+        search: id ? `sid=${encodeURIComponent(id)}` : "",
+      }),
+    [navigate],
   );
 
   // ── Purge one-shot des anciennes clés localStorage ──────────────────────
-  // À supprimer dans ~6 mois une fois tous les navigateurs migrés.
   const purgeDoneRef = useRef(false);
   useEffect(() => {
     if (purgeDoneRef.current) return;
@@ -162,7 +170,6 @@ export const useTenant = (): TenantState => {
         .order("nom", { ascending: true });
       if (error) throw error;
 
-      // Exclure la société technique "_modele" (modèle de défauts globaux).
       const list = ((data || []) as Societe[]).filter(
         (s) => s.slug !== "_modele",
       );
@@ -170,7 +177,8 @@ export const useTenant = (): TenantState => {
 
       // Auto-sélection pour les utilisateurs normaux (non super-admin) :
       // si l'URL ne contient pas encore de ?sid=, on navigue vers la première
-      // société accessible. Le super-admin commence toujours sur l'Appli mère.
+      // société accessible. On utilise navigateToSociete (pushState + popstate)
+      // car ce useCallback ne peut pas utiliser navigate (dépendance instable).
       if (!isSuperAdmin && !getSidFromHash() && list.length > 0) {
         navigateToSociete(list[0].id);
       }
@@ -200,24 +208,20 @@ export const useTenant = (): TenantState => {
     setConfig((data || null) as SocieteConfig | null);
   }, []);
 
-  // Déclenche loadSocietes dès que l'auth est résolue.
   useEffect(() => {
     if (authLoading) return;
     void loadSocietes();
   }, [authLoading, loadSocietes]);
 
   // ── ID courant validé ────────────────────────────────────────────────────
-  // On ne retient le sid que s'il correspond à une société de la liste
-  // accessible à l'utilisateur. Toute valeur périmée ou falsifiée est ignorée.
   const currentId = useMemo((): string | null => {
     if (!sidFromUrl) return null;
-    if (societes.length === 0) return null; // liste pas encore chargée
+    if (societes.length === 0) return null;
     return societes.some((s) => s.id === sidFromUrl) ? sidFromUrl : null;
   }, [sidFromUrl, societes]);
 
-  // Charge la config dès que currentId ou la liste de sociétés change.
   useEffect(() => {
-    if (loading) return; // attendre la fin du chargement initial
+    if (loading) return;
     void loadConfig(currentId);
   }, [currentId, loading, loadConfig]);
 
