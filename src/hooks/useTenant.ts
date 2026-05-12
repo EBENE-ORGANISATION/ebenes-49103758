@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -82,8 +82,8 @@ interface TenantState {
  * Stratégie :
  *  - Le `?sid=<uuid>` dans le hash est la **seule** source de vérité pour la
  *    société courante. Chaque onglet a sa propre URL → isolation native.
- *  - `useSyncExternalStore` rend le hook réactif aux changements d'URL sans
- *    aucun état React intermédiaire ni localStorage.
+ *  - Un listener `hashchange/popstate` rend le hook réactif aux changements
+ *    d'URL sans localStorage et sans dépendre d'un état partagé entre onglets.
  *  - `setCurrentSocieteId` est conservé comme wrapper de `navigateToSociete`
  *    pour la rétrocompatibilité (aucun refactoring forcé des composants existants).
  *  - Au premier montage, les anciennes clés localStorage de sélection de société
@@ -93,12 +93,14 @@ export const useTenant = (): TenantState => {
   const { user, isSuperAdmin, loading: authLoading } = useAuth();
 
   // ── Source de vérité : URL ───────────────────────────────────────────────
-  // Synchrone, réactif, partagé par aucun onglet.
-  const sidFromUrl = useSyncExternalStore(
-    subscribeToHash,
-    getSidFromHash,
-    () => null, // snapshot SSR (jamais déclenché ici, mais requis par l'API)
-  );
+  // Réactif, propre à chaque onglet, et compatible avec React Refresh.
+  const [sidFromUrl, setSidFromUrl] = useState<string | null>(() => getSidFromHash());
+
+  useEffect(() => {
+    const updateSidFromUrl = () => setSidFromUrl(getSidFromHash());
+    updateSidFromUrl();
+    return subscribeToHash(updateSidFromUrl);
+  }, []);
 
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [config, setConfig] = useState<SocieteConfig | null>(null);
