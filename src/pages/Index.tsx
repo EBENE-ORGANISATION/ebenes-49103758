@@ -10,6 +10,7 @@ import { Comptabilite } from "@/components/ebene/Comptabilite";
 import { Fiscalite } from "@/components/ebene/Fiscalite";
 import { Factures } from "@/components/ebene/Factures";
 import { GRH } from "@/components/ebene/GRH";
+import { MonPortail } from "@/components/ebene/MonPortail";
 import { Stock } from "@/components/ebene/Stock";
 import { Immobilisations } from "@/components/ebene/Immobilisations";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
@@ -28,14 +29,9 @@ import { useTenant } from "@/hooks/useTenant";
 import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
 import { isElectron } from "@/lib/platform";
 
-// ── Lazy-loaded : chargés uniquement quand l'utilisateur y accède ────────────
-// PortailEmploye (>1 000 lignes) et PortailAdminView ne sont pas nécessaires
-// au premier rendu — le lazy-loading réduit le bundle initial de ~30%.
+// ── Lazy-loaded : chargé uniquement pour les comptes "employé pur" ───────────
 const PortailEmploye = lazy(() =>
   import("@/components/employe/PortailEmploye").then((m) => ({ default: m.PortailEmploye }))
-);
-const PortailAdminView = lazy(() =>
-  import("@/components/employe/PortailAdminView").then((m) => ({ default: m.PortailAdminView }))
 );
 
 const PortalFallback = () => (
@@ -438,9 +434,7 @@ const Index = () => {
 
             {showPortail && (
             <TabsContent value="portail">
-              <Suspense fallback={<PortalFallback />}>
-                <PortailAdminView />
-              </Suspense>
+              <MonPortail />
             </TabsContent>
             )}
 
