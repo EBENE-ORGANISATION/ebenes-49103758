@@ -13,6 +13,8 @@ const n = <T>(v: T | null | undefined): T | undefined =>
 export const toAbsence = (row: AbsenceRow): Absence => ({
   id: row.id,
   employeId: row.employe_id,
+  annee: row.annee,
+  mois: row.mois,
   type: row.type as TypeAbsence,
   dateDebut: row.date_debut,
   dateFin: row.date_fin,
@@ -42,6 +44,26 @@ export const fromAbsence = (
 });
 
 export const absences = {
+  /**
+   * Charge TOUTES les absences d'une société, groupées par moisKey ("YYYY-M").
+   * Utilisé par le hook TQ pour couvrir la navigation multi-mois.
+   */
+  async listAll(societeId: string): Promise<Record<string, Absence[]>> {
+    const { data, error } = await supabase
+      .from("absences")
+      .select("*")
+      .eq("societe_id", societeId)
+      .order("date_debut", { ascending: true });
+    if (error) throw error;
+    const result: Record<string, Absence[]> = {};
+    for (const row of (data ?? []) as AbsenceRow[]) {
+      const key = `${row.annee}-${row.mois}`;
+      if (!result[key]) result[key] = [];
+      result[key].push(toAbsence(row));
+    }
+    return result;
+  },
+
   /** Charge toutes les absences d'une société pour un mois donné. */
   async listByMois(
     societeId: string,

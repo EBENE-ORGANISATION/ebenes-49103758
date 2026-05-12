@@ -14,3 +14,4 @@ export { useAbsences, QK_ABSENCES } from "./useAbsences";
 export { useHeuresSup, QK_HEURES_SUP } from "./useHeuresSup";
 export { usePrimes, QK_PRIMES } from "./usePrimes";
 export { useSanctions, QK_SANCTIONS } from "./useSanctions";
+export { useRetenues, QK_RETENUES } from "./useRetenues";

@@ -16,6 +16,9 @@ export const toPrime = (row: PrimeRow): Prime => ({
   montant: row.montant,
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  employeId: row.employe_id,
+  annee: row.annee,
+  mois: row.mois,
 });
 
 export const fromPrime = (
@@ -36,6 +39,29 @@ export const fromPrime = (
 });
 
 export const primes = {
+  /**
+   * Charge TOUTES les primes d'une société, groupées par moisKey puis employeId.
+   * Utilisé par le hook TQ pour couvrir la navigation multi-mois.
+   */
+  async listAll(
+    societeId: string,
+  ): Promise<Record<string, Record<number, Prime[]>>> {
+    const { data, error } = await supabase
+      .from("primes")
+      .select("*")
+      .eq("societe_id", societeId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const result: Record<string, Record<number, Prime[]>> = {};
+    for (const row of (data ?? []) as PrimeRow[]) {
+      const key = `${row.annee}-${row.mois}`;
+      if (!result[key]) result[key] = {};
+      if (!result[key][row.employe_id]) result[key][row.employe_id] = [];
+      result[key][row.employe_id].push(toPrime(row));
+    }
+    return result;
+  },
+
   /**
    * Charge les primes d'une société pour un mois, indexées par employeId.
    * Correspond à la structure `Record<number, Prime[]>` de MoisData.

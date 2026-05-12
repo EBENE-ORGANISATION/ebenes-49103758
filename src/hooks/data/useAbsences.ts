@@ -1,36 +1,40 @@
 /**
- * useAbsences — Hook TanStack Query pour les absences d'un mois donné.
+ * useAbsences — Hook TanStack Query pour les absences.
+ *
+ * Charge TOUTES les absences de la société en une seule requête,
+ * groupées par moisKey ("YYYY-M"). Le store utilise cette map pour
+ * injecter les données dans getMois(annee, mois), ce qui permet la
+ * navigation multi-mois (bulletins historiques, récap annuel…).
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { absences as repo } from "@/data/absences.repo";
 import type { Absence, StatutValidation } from "@/types/ebene";
 
-export const QK_ABSENCES = (
-  societeId: string | null,
-  annee: number,
-  mois: number,
-) => ["absences", societeId, annee, mois] as const;
+export const QK_ABSENCES = (societeId: string | null) =>
+  ["absences", societeId] as const;
 
-export const useAbsences = (
-  societeId: string | null,
-  annee: number,
-  mois: number,
-) => {
+export const useAbsences = (societeId: string | null) => {
   const qc = useQueryClient();
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: QK_ABSENCES(societeId, annee, mois) });
+    qc.invalidateQueries({ queryKey: QK_ABSENCES(societeId) });
 
   const query = useQuery({
-    queryKey: QK_ABSENCES(societeId, annee, mois),
-    queryFn: () =>
-      societeId ? repo.listByMois(societeId, annee, mois) : [],
+    queryKey: QK_ABSENCES(societeId),
+    queryFn: () => (societeId ? repo.listAll(societeId) : {}),
     enabled: !!societeId,
     staleTime: 30_000,
   });
 
   const addMutation = useMutation({
-    mutationFn: (a: Omit<Absence, "id">) =>
-      repo.create(a, annee, mois, societeId!),
+    mutationFn: ({
+      a,
+      annee,
+      mois,
+    }: {
+      a: Omit<Absence, "id">;
+      annee: number;
+      mois: number;
+    }) => repo.create(a, annee, mois, societeId!),
     onSuccess: invalidate,
   });
 
@@ -53,21 +57,20 @@ export const useAbsences = (
     mutationFn: ({ id, motif }: { id: number; motif: string }) =>
       repo.update(
         id,
-        {
-          statutValidation: "rejete" as StatutValidation,
-          motifRejet: motif,
-        },
+        { statutValidation: "rejete" as StatutValidation, motifRejet: motif },
         societeId!,
       ),
     onSuccess: invalidate,
   });
 
   return {
-    absences: query.data ?? [],
+    /** Record<moisKey, Absence[]> pour toute la société. */
+    absences: query.data ?? ({} as Record<string, Absence[]>),
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
-    addAbsence: (a: Omit<Absence, "id">) => addMutation.mutateAsync(a),
+    addAbsence: (annee: number, mois: number, a: Omit<Absence, "id">) =>
+      addMutation.mutateAsync({ a, annee, mois }),
     removeAbsence: (id: number) => removeMutation.mutateAsync(id),
     validerAbsence: (id: number) => validerMutation.mutateAsync(id),
     rejeterAbsence: (id: number, motif: string) =>

@@ -14,3 +14,4 @@ export { absences, toAbsence } from "./absences.repo";
 export { heuresSup, toHeuresSup } from "./heuresSup.repo";
 export { primes, toPrime } from "./primes.repo";
 export { sanctions, toSanction } from "./sanctions.repo";
+export { retenues } from "./retenues.repo";

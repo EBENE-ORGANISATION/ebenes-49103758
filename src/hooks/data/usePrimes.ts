@@ -1,28 +1,25 @@
 /**
- * usePrimes — Hook TanStack Query pour les primes d'un mois donné.
+ * usePrimes — Hook TanStack Query pour les primes.
+ *
+ * Charge TOUTES les primes de la société en une seule requête,
+ * groupées par moisKey ("YYYY-M") puis par employeId.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { primes as repo } from "@/data/primes.repo";
 import type { Prime, StatutValidation } from "@/types/ebene";
 
-export const QK_PRIMES = (
-  societeId: string | null,
-  annee: number,
-  mois: number,
-) => ["primes", societeId, annee, mois] as const;
+export const QK_PRIMES = (societeId: string | null) =>
+  ["primes", societeId] as const;
 
-export const usePrimes = (
-  societeId: string | null,
-  annee: number,
-  mois: number,
-) => {
+export const usePrimes = (societeId: string | null) => {
   const qc = useQueryClient();
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: QK_PRIMES(societeId, annee, mois) });
+    qc.invalidateQueries({ queryKey: QK_PRIMES(societeId) });
 
   const query = useQuery({
-    queryKey: QK_PRIMES(societeId, annee, mois),
-    queryFn: () => (societeId ? repo.listByMois(societeId, annee, mois) : {}),
+    queryKey: QK_PRIMES(societeId),
+    queryFn: () =>
+      societeId ? repo.listAll(societeId) : {},
     enabled: !!societeId,
     staleTime: 30_000,
   });
@@ -31,9 +28,13 @@ export const usePrimes = (
     mutationFn: ({
       prime,
       employeId,
+      annee,
+      mois,
     }: {
       prime: Omit<Prime, "id">;
       employeId: number;
+      annee: number;
+      mois: number;
     }) => repo.create(prime, employeId, annee, mois, societeId!),
     onSuccess: invalidate,
   });
@@ -57,23 +58,24 @@ export const usePrimes = (
     mutationFn: ({ id, motif }: { id: number; motif: string }) =>
       repo.update(
         id,
-        {
-          statutValidation: "rejete" as StatutValidation,
-          motifRejet: motif,
-        },
+        { statutValidation: "rejete" as StatutValidation, motifRejet: motif },
         societeId!,
       ),
     onSuccess: invalidate,
   });
 
   return {
-    /** Record<employeId, Prime[]> pour le mois courant. */
-    primes: query.data ?? {},
+    /** Record<moisKey, Record<employeId, Prime[]>> pour toute la société. */
+    primes: query.data ?? ({} as Record<string, Record<number, Prime[]>>),
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
-    addPrime: (employeId: number, prime: Omit<Prime, "id">) =>
-      addMutation.mutateAsync({ prime, employeId }),
+    addPrime: (
+      annee: number,
+      mois: number,
+      employeId: number,
+      prime: Omit<Prime, "id">,
+    ) => addMutation.mutateAsync({ prime, employeId, annee, mois }),
     removePrime: (id: number) => removeMutation.mutateAsync(id),
     validerPrime: (id: number) => validerMutation.mutateAsync(id),
     rejeterPrime: (id: number, motif: string) =>

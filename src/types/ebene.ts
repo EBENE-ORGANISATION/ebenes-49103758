@@ -71,6 +71,10 @@ export interface Prime {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  employeId?: number;
+  annee?: number;
+  mois?: number;
 }
 
 // ─── Devis (proche d'une Facture mais sans impact comptable) ───────────────
@@ -181,6 +185,9 @@ export interface Absence {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  annee?: number;
+  mois?: number;
 }
 
 export interface HeuresSup {
@@ -193,6 +200,11 @@ export interface HeuresSup {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  _dbId?: number;
+  employeId?: number;
+  annee?: number;
+  mois?: number;
 }
 
 export interface MoisData {

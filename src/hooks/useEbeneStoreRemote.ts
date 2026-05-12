@@ -35,6 +35,10 @@ import { useCategoriesStock } from "@/hooks/data/useCategoriesStock";
 import { useImmobilisations } from "@/hooks/data/useImmobilisations";
 import { useParamsAnnuels } from "@/hooks/data/useParamsAnnuels";
 import { useSanctions } from "@/hooks/data/useSanctions";
+import { useAbsences } from "@/hooks/data/useAbsences";
+import { useHeuresSup } from "@/hooks/data/useHeuresSup";
+import { usePrimes } from "@/hooks/data/usePrimes";
+import { useRetenues } from "@/hooks/data/useRetenues";
 
 /**
  * useEbeneStoreRemote — v2 (Phase B.4 proxy de dépréciation)
@@ -128,6 +132,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqImmobilisations = useImmobilisations(societeId);
   const tqParams = useParamsAnnuels(societeId);
   const tqSanctions = useSanctions(societeId);
+  const tqAbsences = useAbsences(societeId);
+  const tqHeuresSup = useHeuresSup(societeId);
+  const tqPrimes = usePrimes(societeId);
+  const tqRetenues = useRetenues(societeId);
 
   // Raccourcis lisibles (même noms que l'ancien useState)
   const employes = tqEmployes.employes;
@@ -380,9 +388,26 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── API publique ─────────────────────────────────────────────────────────
 
   const getMois = useCallback(
-    (annee: number, mois: number): MoisData =>
-      ensureMois(donneesMensuelles[moisKey(annee, mois)]),
-    [donneesMensuelles],
+    (annee: number, mois: number): MoisData => {
+      const key = moisKey(annee, mois);
+      // Base : transactions / factures / devis / mouvementsStock (app_state)
+      const base = ensureMois(donneesMensuelles[key]);
+      // Surcharge par les données relationnelles Supabase (couvre tout mois)
+      return {
+        ...base,
+        absences: tqAbsences.absences[key] ?? [],
+        primes: tqPrimes.primes[key] ?? {},
+        heuresSup: tqHeuresSup.heuresSup[key] ?? {},
+        retenues: tqRetenues.retenues[key] ?? {},
+      };
+    },
+    [
+      donneesMensuelles,
+      tqAbsences.absences,
+      tqPrimes.primes,
+      tqHeuresSup.heuresSup,
+      tqRetenues.retenues,
+    ],
   );
 
   const updateMois = useCallback(
@@ -668,184 +693,114 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     [addFacture, donneesMensuelles, updateMois],
   );
 
-  // ─── GRH : Primes (dans donneesMensuelles — app_state) ───────────────────
+  // ─── GRH : Primes → table relationnelle ──────────────────────────────────
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
-      updateMois(annee, mois, (m) => {
-        const list = m.primes[employeId] || [];
-        return {
-          ...m,
-          primes: { ...m.primes, [employeId]: [...list, { ...prime, id: newId() }] },
-        };
-      });
+      void tqPrimes.addPrime(annee, mois, employeId, prime)
+        .then((saved) => void logAction("INSERT", "primes", saved.id, null, saved))
+        .catch(() => toast.error("Erreur lors de l'ajout de la prime"));
     },
-    [updateMois],
+    [tqPrimes],
   );
 
   const removePrime = useCallback(
-    (annee: number, mois: number, employeId: number, primeId: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        primes: {
-          ...m.primes,
-          [employeId]: (m.primes[employeId] || []).filter((p) => p.id !== primeId),
-        },
-      }));
+    (_annee: number, _mois: number, _employeId: number, primeId: number) => {
+      void tqPrimes.removePrime(primeId)
+        .then(() => void logAction("DELETE", "primes", primeId, null, null))
+        .catch(() => toast.error("Erreur lors de la suppression de la prime"));
     },
-    [updateMois],
+    [tqPrimes],
   );
 
   const validerPrime = useCallback(
-    (annee: number, mois: number, employeId: number, primeId: number) => {
-      let before: Prime | undefined;
-      let after: Prime | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        primes: {
-          ...m.primes,
-          [employeId]: (m.primes[employeId] || []).map((p) => {
-            if (p.id !== primeId) return p;
-            before = p;
-            after = { ...p, statutValidation: "valide", motifRejet: undefined };
-            return after;
-          }),
-        },
-      }));
-      void logAction("VALIDER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    (_annee: number, _mois: number, _employeId: number, primeId: number) => {
+      void tqPrimes.validerPrime(primeId)
+        .then(() => void logAction("VALIDER_PRIME", "primes", primeId, null, { id: primeId }))
+        .catch(() => toast.error("Erreur lors de la validation de la prime"));
     },
-    [updateMois],
+    [tqPrimes],
   );
 
   const rejeterPrime = useCallback(
-    (annee: number, mois: number, employeId: number, primeId: number, motif: string) => {
-      let before: Prime | undefined;
-      let after: Prime | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        primes: {
-          ...m.primes,
-          [employeId]: (m.primes[employeId] || []).map((p) => {
-            if (p.id !== primeId) return p;
-            before = p;
-            after = { ...p, statutValidation: "rejete", motifRejet: motif };
-            return after;
-          }),
-        },
-      }));
-      void logAction("REJETER_PRIME", "primes", primeId, before ?? null, after ?? null);
+    (_annee: number, _mois: number, _employeId: number, primeId: number, motif: string) => {
+      void tqPrimes.rejeterPrime(primeId, motif)
+        .then(() => void logAction("REJETER_PRIME", "primes", primeId, null, { id: primeId, motif }))
+        .catch(() => toast.error("Erreur lors du rejet de la prime"));
     },
-    [updateMois],
+    [tqPrimes],
   );
 
-  // ─── GRH : Absences (dans donneesMensuelles — app_state) ─────────────────
+  // ─── GRH : Absences → table relationnelle ────────────────────────────────
   const addAbsence = useCallback(
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: [...(m.absences || []), { ...a, id: newId() }],
-      }));
+      void tqAbsences.addAbsence(annee, mois, a)
+        .then((saved) => void logAction("INSERT", "absences", saved.id, null, saved))
+        .catch(() => toast.error("Erreur lors de l'ajout de l'absence"));
     },
-    [updateMois],
+    [tqAbsences],
   );
 
   const removeAbsence = useCallback(
-    (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: (m.absences || []).filter((a) => a.id !== id),
-      }));
+    (_annee: number, _mois: number, id: number) => {
+      void tqAbsences.removeAbsence(id)
+        .then(() => void logAction("DELETE", "absences", id, null, null))
+        .catch(() => toast.error("Erreur lors de la suppression de l'absence"));
     },
-    [updateMois],
+    [tqAbsences],
   );
 
   const validerAbsence = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let before: Absence | undefined;
-      let after: Absence | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: (m.absences || []).map((a) => {
-          if (a.id !== id) return a;
-          before = a;
-          after = { ...a, statutValidation: "valide", motifRejet: undefined };
-          return after;
-        }),
-      }));
-      void logAction("VALIDER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number) => {
+      void tqAbsences.validerAbsence(id)
+        .then(() => void logAction("VALIDER_ABSENCE", "absences", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation de l'absence"));
     },
-    [updateMois],
+    [tqAbsences],
   );
 
   const rejeterAbsence = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      let before: Absence | undefined;
-      let after: Absence | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: (m.absences || []).map((a) => {
-          if (a.id !== id) return a;
-          before = a;
-          after = { ...a, statutValidation: "rejete", motifRejet: motif };
-          return after;
-        }),
-      }));
-      void logAction("REJETER_ABSENCE", "absences", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number, motif: string) => {
+      void tqAbsences.rejeterAbsence(id, motif)
+        .then(() => void logAction("REJETER_ABSENCE", "absences", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet de l'absence"));
     },
-    [updateMois],
+    [tqAbsences],
   );
 
-  // ─── GRH : Heures supplémentaires (dans donneesMensuelles — app_state) ────
+  // ─── GRH : Heures supplémentaires → table relationnelle ──────────────────
   const setHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
-      }));
+      void tqHeuresSup.setHeuresSup(annee, mois, employeId, hs)
+        .catch(() => toast.error("Erreur lors de la mise à jour des heures sup"));
     },
-    [updateMois],
+    [tqHeuresSup],
   );
 
   const validerHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number) => {
-      let before: HeuresSup | undefined;
-      let after: HeuresSup | undefined;
-      updateMois(annee, mois, (m) => {
-        const cur = (m.heuresSup || {})[employeId];
-        if (!cur) return m;
-        before = cur;
-        after = { ...cur, statutValidation: "valide", motifRejet: undefined };
-        return { ...m, heuresSup: { ...(m.heuresSup || {}), [employeId]: after } };
-      });
-      void logAction("VALIDER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+      void tqHeuresSup.validerHeuresSup(annee, mois, employeId)
+        .then(() => void logAction("VALIDER_HEURES_SUP", "heures_sup", employeId, null, { employeId }))
+        .catch(() => toast.error("Erreur lors de la validation des heures sup"));
     },
-    [updateMois],
+    [tqHeuresSup],
   );
 
   const rejeterHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, motif: string) => {
-      let before: HeuresSup | undefined;
-      let after: HeuresSup | undefined;
-      updateMois(annee, mois, (m) => {
-        const cur = (m.heuresSup || {})[employeId];
-        if (!cur) return m;
-        before = cur;
-        after = { ...cur, statutValidation: "rejete", motifRejet: motif };
-        return { ...m, heuresSup: { ...(m.heuresSup || {}), [employeId]: after } };
-      });
-      void logAction("REJETER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
+      void tqHeuresSup.rejeterHeuresSup(annee, mois, employeId, motif)
+        .then(() => void logAction("REJETER_HEURES_SUP", "heures_sup", employeId, null, { employeId, motif }))
+        .catch(() => toast.error("Erreur lors du rejet des heures sup"));
     },
-    [updateMois],
+    [tqHeuresSup],
   );
 
-  // ─── GRH : Retenues (dans donneesMensuelles — app_state) ─────────────────
+  // ─── GRH : Retenues → table relationnelle ────────────────────────────────
   const setRetenue = useCallback(
     (annee: number, mois: number, employeId: number, montant: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        retenues: { ...(m.retenues || {}), [employeId]: montant },
-      }));
+      void tqRetenues.setRetenue(annee, mois, employeId, montant)
+        .catch(() => toast.error("Erreur lors de la mise à jour de la retenue"));
     },
-    [updateMois],
+    [tqRetenues],
   );
 
   // ─── Taux fiscaux (app_state) ─────────────────────────────────────────────
