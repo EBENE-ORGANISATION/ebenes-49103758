@@ -2,7 +2,7 @@
  * fournisseurs.repo.ts — Couche d'accès Supabase pour la table `fournisseurs`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Fournisseur } from "@/types/ebene";
 
 type FournisseurRow = Tables<"fournisseurs">;
@@ -22,7 +22,7 @@ export const toFournisseur = (row: FournisseurRow): Fournisseur => ({
 export const fromFournisseur = (
   f: Omit<Fournisseur, "id">,
   societeId: string,
-): Tables<"fournisseurs">["Insert"] => ({
+): TablesInsert<"fournisseurs"> => ({
   societe_id: societeId,
   nom: f.nom,
   contact: f.contact ?? null,
@@ -60,7 +60,7 @@ export const fournisseurs = {
     patch: Partial<Omit<Fournisseur, "id">>,
     societeId: string,
   ): Promise<Fournisseur> {
-    const dbPatch: Partial<Tables<"fournisseurs">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"fournisseurs">> = {
       ...(patch.nom !== undefined && { nom: patch.nom }),
       ...(patch.contact !== undefined && { contact: patch.contact ?? null }),
       ...(patch.telephone !== undefined && { telephone: patch.telephone ?? null }),

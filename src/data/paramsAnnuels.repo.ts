@@ -2,7 +2,7 @@
  * paramsAnnuels.repo.ts — Couche d'accès Supabase pour `params_annuels`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { ParamsAnnuels } from "@/types/ebene";
 
 type ParamsRow = Tables<"params_annuels">;
@@ -21,7 +21,7 @@ export const fromParamsAnnuels = (
   p: ParamsAnnuels,
   annee: number,
   societeId: string,
-): Tables<"params_annuels">["Insert"] => ({
+): TablesInsert<"params_annuels"> => ({
   societe_id: societeId,
   annee,
   th: p.th ?? null,

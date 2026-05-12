@@ -2,7 +2,7 @@
  * absences.repo.ts — Couche d'accès Supabase pour la table `absences`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Absence, TypeAbsence, StatutValidation } from "@/types/ebene";
 
 type AbsenceRow = Tables<"absences">;
@@ -27,7 +27,7 @@ export const fromAbsence = (
   annee: number,
   mois: number,
   societeId: string,
-): Tables<"absences">["Insert"] => ({
+): TablesInsert<"absences"> => ({
   societe_id: societeId,
   employe_id: a.employeId,
   annee,
@@ -79,7 +79,7 @@ export const absences = {
     patch: Partial<Pick<Absence, "statutValidation" | "motifRejet" | "motif" | "jours">>,
     societeId: string,
   ): Promise<Absence> {
-    const dbPatch: Partial<Tables<"absences">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"absences">> = {
       ...(patch.statutValidation !== undefined && {
         statut_validation: patch.statutValidation ?? null,
       }),

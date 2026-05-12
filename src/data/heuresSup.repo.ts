@@ -2,7 +2,7 @@
  * heuresSup.repo.ts — Couche d'accès Supabase pour la table `heures_sup`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { HeuresSup, StatutValidation } from "@/types/ebene";
 
 type HeuresSupRow = Tables<"heures_sup">;
@@ -26,7 +26,7 @@ export const fromHeuresSup = (
   annee: number,
   mois: number,
   societeId: string,
-): Tables<"heures_sup">["Insert"] => ({
+): TablesInsert<"heures_sup"> => ({
   societe_id: societeId,
   employe_id: employeId,
   annee,
