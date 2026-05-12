@@ -25,7 +25,7 @@ export const toImmobilisation = (row: ImmoRow): Immobilisation => ({
   dureeAmortissement: row.duree_amortissement,
   methode: (row.methode as MethodeAmortissement) ?? "lineaire",
   comptesSYSCOHADA:
-    (row.comptes_syscohada as ComptesSYSCOHADAImmo) ??
+    (row.comptes_syscohada as unknown as ComptesSYSCOHADAImmo) ??
     (row.categorie ? COMPTES_IMMO_DEFAUT[row.categorie as CategorieImmo] : {
       actif: "21",
       amortissementCumule: "281",
