@@ -30,6 +30,9 @@ export interface Transaction {
   statut?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  annee?: number;
+  mois?: number;
 }
 
 export interface LignePrestation {
@@ -61,6 +64,9 @@ export interface Facture {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  annee?: number;
+  mois?: number;
 }
 
 export interface Prime {
@@ -98,6 +104,9 @@ export interface Devis {
   /** Renseigné lorsque le devis est converti en facture. */
   factureId?: number | null;
   notes?: string;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  annee?: number;
+  mois?: number;
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
@@ -306,6 +315,9 @@ export interface MouvementStock {
   reference?: string; // n° BL, n° facture liée, etc.
   factureId?: number | null;
   transactionId?: number | null;
+  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
+  annee?: number;
+  mois?: number;
 }
 
 // ─── Taux versionnés (par date d'entrée en vigueur) ──────────────────────────

@@ -15,3 +15,7 @@ export { useHeuresSup, QK_HEURES_SUP } from "./useHeuresSup";
 export { usePrimes, QK_PRIMES } from "./usePrimes";
 export { useSanctions, QK_SANCTIONS } from "./useSanctions";
 export { useRetenues, QK_RETENUES } from "./useRetenues";
+export { useTransactions, QK_TRANSACTIONS } from "./useTransactions";
+export { useFactures, QK_FACTURES } from "./useFactures";
+export { useDevis, QK_DEVIS } from "./useDevis";
+export { useMouvementsStock, QK_MOUVEMENTS_STOCK } from "./useMouvementsStock";

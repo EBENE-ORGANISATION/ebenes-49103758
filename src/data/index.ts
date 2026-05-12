@@ -15,3 +15,7 @@ export { heuresSup, toHeuresSup } from "./heuresSup.repo";
 export { primes, toPrime } from "./primes.repo";
 export { sanctions, toSanction } from "./sanctions.repo";
 export { retenues } from "./retenues.repo";
+export { transactions, toTransaction } from "./transactions.repo";
+export { factures, toFacture } from "./factures.repo";
+export { devis, toDevis } from "./devis.repo";
+export { mouvementsStock, toMouvement } from "./mouvementsStock.repo";

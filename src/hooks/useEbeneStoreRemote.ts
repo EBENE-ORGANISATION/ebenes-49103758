@@ -21,13 +21,14 @@ import {
   Devis,
   Immobilisation,
   COMPTES_IMMO_DEFAUT,
+  StatutValidation,
 } from "@/types/ebene";
-import { moisKey, newId, genererMatricule } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
 import { logAction } from "@/lib/audit";
 
-// ─── Hooks data relationnels (Phase B.4) ────────────────────────────────────
+// ─── Hooks data relationnels ─────────────────────────────────────────────────
 import { useEmployes } from "@/hooks/data/useEmployes";
 import { useArticles } from "@/hooks/data/useArticles";
 import { useFournisseurs } from "@/hooks/data/useFournisseurs";
@@ -39,27 +40,30 @@ import { useAbsences } from "@/hooks/data/useAbsences";
 import { useHeuresSup } from "@/hooks/data/useHeuresSup";
 import { usePrimes } from "@/hooks/data/usePrimes";
 import { useRetenues } from "@/hooks/data/useRetenues";
+import { useTransactions } from "@/hooks/data/useTransactions";
+import { useFactures } from "@/hooks/data/useFactures";
+import { useDevis } from "@/hooks/data/useDevis";
+import { useMouvementsStock } from "@/hooks/data/useMouvementsStock";
 
 /**
- * useEbeneStoreRemote — v2 (Phase B.4 proxy de dépréciation)
+ * useEbeneStoreRemote — v3 (migration complète vers Supabase)
  *
- * Les entités simples (employes, articles, fournisseurs, categoriesStock,
- * immobilisations, paramsAnnuels, sanctions) sont désormais lues et écrites
- * via les tables relationnelles Supabase (hooks TanStack Query).
+ * TOUTES les entités métier sont lues et écrites via les tables relationnelles
+ * Supabase (hooks TanStack Query). Seul `tauxHistorique` reste en app_state
+ * (configuration fiscale versionnée, non-entité business).
  *
- * `donneesMensuelles` (transactions, factures, primes, absences, heuresSup,
- * retenues, mouvementsStock, devis) et `tauxHistorique` restent dans app_state
- * le temps de la migration complète (Phase B.5 future).
+ * `donneesMensuelles` est un useMemo calculé depuis les hooks TQ — il reste
+ * disponible dans l'interface publique pour Dashboard, RecapAnnuelModal, etc.
  *
  * L'interface publique exposée aux composants est IDENTIQUE à l'ancienne —
  * aucun composant n'a besoin d'être modifié.
  */
 
-// ─── Clés app_state restantes ────────────────────────────────────────────────
-const K_DONNEES = "donneesMensuelles";
+// ─── Seule clé app_state restante ────────────────────────────────────────────
 const K_TAUX = "tauxHistorique";
+const ALL_KEYS = [K_TAUX] as const;
 
-// Clés conservées uniquement pour la purge du cache localStorage au démarrage
+// Clés conservées pour la purge localStorage au changement de société
 const LEGACY_KEYS = [
   "employes",
   "paramsAnnuels",
@@ -68,9 +72,8 @@ const LEGACY_KEYS = [
   "categoriesStock",
   "sanctions",
   "immobilisations",
+  "donneesMensuelles",
 ] as const;
-
-const ALL_KEYS = [K_DONNEES, K_TAUX] as const;
 
 // ─── Fallback localStorage ───────────────────────────────────────────────────
 const LS_PREFIX = "ebene-remote:";
@@ -99,27 +102,11 @@ const lsWrite = (k: string, sid: string | null, value: unknown) => {
   } catch { /* ignore quota errors */ }
 };
 
-const ensureMois = (d: MoisData | undefined): MoisData => ({
-  transactions: Array.isArray(d?.transactions) ? d!.transactions : [],
-  factures: Array.isArray(d?.factures) ? d!.factures : [],
-  primes:
-    d && typeof d.primes === "object" && !Array.isArray(d.primes) ? d.primes : {},
-  absences: Array.isArray(d?.absences) ? d!.absences : [],
-  heuresSup:
-    d && typeof d.heuresSup === "object" && !Array.isArray(d.heuresSup)
-      ? d.heuresSup
-      : {},
-  retenues:
-    d && typeof d.retenues === "object" && !Array.isArray(d.retenues)
-      ? d.retenues
-      : {},
-  mouvementsStock: Array.isArray(d?.mouvementsStock) ? d!.mouvementsStock : [],
-  devis: Array.isArray(d?.devis) ? d!.devis : [],
-});
 
 export const useEbeneStoreRemote = (societeId: string | null = null) => {
-  // ─── État app_state (donneesMensuelles + tauxHistorique uniquement) ────────
-  const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
+  // ─── État app_state (tauxHistorique uniquement) ───────────────────────────
+  // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
+  // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.
   const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
@@ -136,6 +123,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqHeuresSup = useHeuresSup(societeId);
   const tqPrimes = usePrimes(societeId);
   const tqRetenues = useRetenues(societeId);
+  const tqTransactions = useTransactions(societeId);
+  const tqFactures = useFactures(societeId);
+  const tqDevis = useDevis(societeId);
+  const tqMouvements = useMouvementsStock(societeId);
 
   // Raccourcis lisibles (même noms que l'ancien useState)
   const employes = tqEmployes.employes;
@@ -145,6 +136,45 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const immobilisations = tqImmobilisations.immobilisations;
   const paramsAnnuels = tqParams.paramsAnnuels;
   const sanctions = tqSanctions.sanctions;
+
+  // ─── donneesMensuelles : calculé depuis tous les hooks TQ ─────────────────
+  // Remplace complètement l'ancien useState. Toutes les entités mensuelles
+  // proviennent des tables relationnelles Supabase via TanStack Query.
+  const donneesMensuelles = useMemo<DonneesMensuelles>(() => {
+    const allKeys = new Set<string>([
+      ...Object.keys(tqTransactions.transactions),
+      ...Object.keys(tqFactures.factures),
+      ...Object.keys(tqAbsences.absences),
+      ...Object.keys(tqPrimes.primes),
+      ...Object.keys(tqHeuresSup.heuresSup),
+      ...Object.keys(tqRetenues.retenues),
+      ...Object.keys(tqMouvements.mouvementsStock),
+      ...Object.keys(tqDevis.devis),
+    ]);
+    const result: DonneesMensuelles = {};
+    for (const key of allKeys) {
+      result[key] = {
+        transactions: tqTransactions.transactions[key] ?? [],
+        factures: tqFactures.factures[key] ?? [],
+        absences: tqAbsences.absences[key] ?? [],
+        primes: tqPrimes.primes[key] ?? {},
+        heuresSup: tqHeuresSup.heuresSup[key] ?? {},
+        retenues: tqRetenues.retenues[key] ?? {},
+        mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
+        devis: tqDevis.devis[key] ?? [],
+      };
+    }
+    return result;
+  }, [
+    tqTransactions.transactions,
+    tqFactures.factures,
+    tqAbsences.absences,
+    tqPrimes.primes,
+    tqHeuresSup.heuresSup,
+    tqRetenues.retenues,
+    tqMouvements.mouvementsStock,
+    tqDevis.devis,
+  ]);
 
   // ─── Statut Google Drive ───────────────────────────────────────────────────
   const [driveStatus, setDriveStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
@@ -196,26 +226,19 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     await flushDriveBackup();
   }, [flushDriveBackup]);
 
-  // ─── applyValue : seulement pour les 2 clés app_state restantes ───────────
+  // ─── applyValue : uniquement pour K_TAUX ─────────────────────────────────
   const applyValue = useCallback((key: string, value: unknown) => {
-    switch (key) {
-      case K_DONNEES:
-        setDonneesMensuelles((value as DonneesMensuelles) || {});
-        break;
-      case K_TAUX: {
-        const arr = Array.isArray(value) ? (value as TauxFiscaux[]) : [];
-        setTauxHistorique(arr.length ? arr : [TAUX_DEFAUT]);
-        break;
-      }
+    if (key === K_TAUX) {
+      const arr = Array.isArray(value) ? (value as TauxFiscaux[]) : [];
+      setTauxHistorique(arr.length ? arr : [TAUX_DEFAUT]);
     }
   }, []);
 
   // ─── Reset au changement de société ───────────────────────────────────────
-  // Seuls donneesMensuelles et tauxHistorique sont à reseter manuellement ;
-  // les hooks TQ se réinitialisent automatiquement quand societeId change.
+  // tauxHistorique est le seul état manuel — les hooks TQ se réinitialisent
+  // automatiquement quand societeId change.
   useEffect(() => {
     setLoaded(false);
-    setDonneesMensuelles({});
     setTauxHistorique([TAUX_DEFAUT]);
     localSig.current = {};
     offlineMode.current = false;
@@ -232,7 +255,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     }
   }, [societeId]);
 
-  // ─── Chargement initial + Realtime (app_state : K_DONNEES + K_TAUX) ───────
+  // ─── Chargement initial + Realtime (app_state : K_TAUX uniquement) ─────────
   useEffect(() => {
     let cancelled = false;
 
@@ -322,7 +345,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     };
   }, [applyValue, notifyOffline, societeId]);
 
-  // ─── Persistance app_state (K_DONNEES + K_TAUX uniquement) ───────────────
+  // ─── Persistance app_state (K_TAUX uniquement) ───────────────────────────
   const persist = useCallback(
     async (key: string, value: unknown) => {
       const sig = JSON.stringify(value);
@@ -358,7 +381,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     [notifyOffline, societeId],
   );
 
-  useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_TAUX, tauxHistorique); }, [tauxHistorique, loaded, persist]);
 
   // ─── Snapshot Drive (lit les données TQ + app_state) ─────────────────────
@@ -390,279 +412,207 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const getMois = useCallback(
     (annee: number, mois: number): MoisData => {
       const key = moisKey(annee, mois);
-      // Base : transactions / factures / devis / mouvementsStock (app_state)
-      const base = ensureMois(donneesMensuelles[key]);
-      // Surcharge par les données relationnelles Supabase (couvre tout mois)
       return {
-        ...base,
+        transactions: tqTransactions.transactions[key] ?? [],
+        factures: tqFactures.factures[key] ?? [],
         absences: tqAbsences.absences[key] ?? [],
         primes: tqPrimes.primes[key] ?? {},
         heuresSup: tqHeuresSup.heuresSup[key] ?? {},
         retenues: tqRetenues.retenues[key] ?? {},
+        mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
+        devis: tqDevis.devis[key] ?? [],
       };
     },
     [
-      donneesMensuelles,
+      tqTransactions.transactions,
+      tqFactures.factures,
       tqAbsences.absences,
       tqPrimes.primes,
       tqHeuresSup.heuresSup,
       tqRetenues.retenues,
+      tqMouvements.mouvementsStock,
+      tqDevis.devis,
     ],
   );
 
-  const updateMois = useCallback(
-    (annee: number, mois: number, fn: (m: MoisData) => MoisData) => {
-      setDonneesMensuelles((prev) => {
-        const k = moisKey(annee, mois);
-        const current = ensureMois(prev[k]);
-        return { ...prev, [k]: fn(current) };
-      });
-    },
-    [],
-  );
-
-  // ─── Transactions (dans donneesMensuelles — app_state) ────────────────────
+  // ─── Transactions → table relationnelle ──────────────────────────────────
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        transactions: [...m.transactions, { ...t, id: newId() }],
-      }));
-      markSignificantWrite();
+      void tqTransactions.addTransaction(annee, mois, t)
+        .then((saved) => {
+          void logAction("INSERT", "transactions", saved.id, null, saved);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [updateMois, markSignificantWrite],
+    [tqTransactions, markSignificantWrite],
   );
 
   const removeTransaction = useCallback(
     (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => {
-        const trans = m.transactions.find((t) => t.id === id);
-        let factures = m.factures;
-        if (trans?.source === "facture" && trans.factureId) {
-          factures = factures.map((f) =>
-            f.id === trans.factureId
-              ? { ...f, statut: "en_attente", transactionId: null }
-              : f,
-          );
-        }
-        return {
-          ...m,
-          transactions: m.transactions.filter((t) => t.id !== id),
-          factures,
-        };
-      });
-      markSignificantWrite();
+      const key = moisKey(annee, mois);
+      const trans = (tqTransactions.transactions[key] ?? []).find((t) => t.id === id);
+      void tqTransactions.removeTransaction(id)
+        .then(async () => {
+          if (trans?.source === "facture" && trans.factureId) {
+            await tqFactures.updateFacture(trans.factureId, {
+              statut: "en_attente",
+              transactionId: null,
+            }).catch(() => undefined);
+          }
+          void logAction("DELETE", "transactions", id, trans ?? null, null);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de la suppression de la transaction"));
     },
-    [updateMois, markSignificantWrite],
+    [tqTransactions, tqFactures, markSignificantWrite],
   );
 
   const validerTransaction = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let before: Transaction | undefined;
-      let after: Transaction | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        transactions: m.transactions.map((t) => {
-          if (t.id !== id) return t;
-          before = t;
-          after = { ...t, statut: "valide", motifRejet: undefined };
-          return after;
-        }),
-      }));
-      void logAction("VALIDER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number) => {
+      void tqTransactions.validerTransaction(id)
+        .then(() => void logAction("VALIDER_TRANSACTION", "transactions", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation de la transaction"));
     },
-    [updateMois],
+    [tqTransactions],
   );
 
   const rejeterTransaction = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      let before: Transaction | undefined;
-      let after: Transaction | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        transactions: m.transactions.map((t) => {
-          if (t.id !== id) return t;
-          before = t;
-          after = { ...t, statut: "rejete", motifRejet: motif };
-          return after;
-        }),
-      }));
-      void logAction("REJETER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number, motif: string) => {
+      void tqTransactions.rejeterTransaction(id, motif)
+        .then(() => void logAction("REJETER_TRANSACTION", "transactions", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet de la transaction"));
     },
-    [updateMois],
+    [tqTransactions],
   );
 
-  // ─── Factures (dans donneesMensuelles — app_state) ────────────────────────
+  // ─── Factures → table relationnelle ──────────────────────────────────────
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
-      const id = newId();
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: [...m.factures, { ...f, id }],
-      }));
-      markSignificantWrite();
-      return id;
+      void tqFactures.createFacture(annee, mois, f)
+        .then((saved) => {
+          void logAction("INSERT", "factures", saved.id, null, saved);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de la création de la facture"));
+      return 0; // ID définitif disponible après invalidation TQ
     },
-    [updateMois, markSignificantWrite],
+    [tqFactures, markSignificantWrite],
   );
 
   const updateFacture = useCallback(
-    (annee: number, mois: number, id: number, patch: Partial<Facture>) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-      }));
+    (_annee: number, _mois: number, id: number, patch: Partial<Facture>) => {
+      void tqFactures.updateFacture(id, patch as Parameters<typeof tqFactures.updateFacture>[1])
+        .catch(() => toast.error("Erreur lors de la mise à jour de la facture"));
     },
-    [updateMois],
+    [tqFactures],
   );
 
   const removeFacture = useCallback(
     (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => {
-        const f = m.factures.find((x) => x.id === id);
-        let transactions = m.transactions;
-        if (f?.transactionId) {
-          transactions = transactions.filter((t) => t.id !== f.transactionId);
-        }
-        return {
-          ...m,
-          factures: m.factures.filter((x) => x.id !== id),
-          transactions,
-        };
-      });
-      markSignificantWrite();
+      const key = moisKey(annee, mois);
+      const f = (tqFactures.factures[key] ?? []).find((x) => x.id === id);
+      void tqFactures.removeFacture(id)
+        .then(async () => {
+          if (f?.transactionId) {
+            await tqTransactions.removeTransaction(f.transactionId).catch(() => undefined);
+          }
+          void logAction("DELETE", "factures", id, f ?? null, null);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de la suppression de la facture"));
     },
-    [updateMois, markSignificantWrite],
+    [tqFactures, tqTransactions, markSignificantWrite],
   );
 
   const marquerPayee = useCallback(
     (annee: number, mois: number, factureId: number) => {
-      updateMois(annee, mois, (m) => {
-        const f = m.factures.find((x) => x.id === factureId);
-        if (!f || f.statut === "payee" || f.statut === "proforma") return m;
-        const transId = newId();
-        const trans: Transaction = {
-          id: transId,
-          date: f.date,
-          desc: `Facture ${f.numero} — ${f.client}`,
-          type: "r",
-          m: f.totalTtc,
-          source: "facture",
-          factureId: f.id,
-          activite: f.activite,
-        };
-        return {
-          ...m,
-          transactions: [...m.transactions, trans],
-          factures: m.factures.map((x) =>
-            x.id === factureId ? { ...x, statut: "payee", transactionId: transId } : x,
-          ),
-        };
-      });
+      const key = moisKey(annee, mois);
+      const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
+      if (!f || f.statut === "payee" || f.statut === "proforma") return;
+      void tqTransactions.addTransaction(annee, mois, {
+        date: f.date,
+        desc: `Facture ${f.numero} — ${f.client}`,
+        type: "r",
+        m: f.totalTtc,
+        source: "facture",
+        factureId: f.id,
+        activite: f.activite,
+      })
+        .then((trans) =>
+          tqFactures.updateFacture(factureId, {
+            statut: "payee",
+            transactionId: trans.id,
+          })
+        )
+        .catch(() => toast.error("Erreur lors du marquage comme payée"));
     },
-    [updateMois],
+    [tqFactures, tqTransactions],
   );
 
   const convertirProforma = useCallback(
-    (annee: number, mois: number, factureId: number, nouveauNumero: string) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((x) =>
-          x.id === factureId ? { ...x, statut: "en_attente", numero: nouveauNumero } : x,
-        ),
-      }));
+    (_annee: number, _mois: number, factureId: number, nouveauNumero: string) => {
+      void tqFactures.updateFacture(factureId, {
+        statut: "en_attente",
+        numero: nouveauNumero,
+      }).catch(() => toast.error("Erreur lors de la conversion du proforma"));
     },
-    [updateMois],
+    [tqFactures],
   );
 
   const validerFacture = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let before: Facture | undefined;
-      let after: Facture | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((f) => {
-          if (f.id !== id) return f;
-          before = f;
-          after = { ...f, statutValidation: "valide", motifRejet: undefined };
-          return after;
-        }),
-      }));
-      void logAction("VALIDER_FACTURE", "factures", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number) => {
+      void tqFactures.validerFacture(id)
+        .then(() => void logAction("VALIDER_FACTURE", "factures", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation de la facture"));
     },
-    [updateMois],
+    [tqFactures],
   );
 
   const rejeterFacture = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      let before: Facture | undefined;
-      let after: Facture | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((f) => {
-          if (f.id !== id) return f;
-          before = f;
-          after = { ...f, statutValidation: "rejete", motifRejet: motif };
-          return after;
-        }),
-      }));
-      void logAction("REJETER_FACTURE", "factures", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number, motif: string) => {
+      void tqFactures.rejeterFacture(id, motif)
+        .then(() => void logAction("REJETER_FACTURE", "factures", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet de la facture"));
     },
-    [updateMois],
+    [tqFactures],
   );
 
-  // ─── Devis (dans donneesMensuelles — app_state) ───────────────────────────
+  // ─── Devis → table relationnelle ─────────────────────────────────────────
   const addDevis = useCallback(
     (annee: number, mois: number, d: Omit<Devis, "id">) => {
-      const id = newId();
-      const newD: Devis = { ...d, id, statut: d.statut || "envoye" };
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        devis: [...(m.devis || []), newD],
-      }));
-      void logAction("INSERT", "devis", id, null, newD);
-      return id;
+      void tqDevis.createDevis(annee, mois, { ...d, statut: d.statut || "envoye" })
+        .then((saved) => void logAction("INSERT", "devis", saved.id, null, saved))
+        .catch(() => toast.error("Erreur lors de la création du devis"));
+      return 0; // ID définitif disponible après invalidation TQ
     },
-    [updateMois],
+    [tqDevis],
   );
 
   const removeDevis = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let removed: Devis | undefined;
-      updateMois(annee, mois, (m) => {
-        const list = m.devis || [];
-        removed = list.find((x) => x.id === id);
-        return { ...m, devis: list.filter((x) => x.id !== id) };
-      });
-      void logAction("DELETE", "devis", id, removed ?? null, null);
+    (_annee: number, _mois: number, id: number) => {
+      void tqDevis.removeDevis(id)
+        .then(() => void logAction("DELETE", "devis", id, null, null))
+        .catch(() => toast.error("Erreur lors de la suppression du devis"));
     },
-    [updateMois],
+    [tqDevis],
   );
 
   const updateDevis = useCallback(
-    (annee: number, mois: number, id: number, patch: Partial<Devis>) => {
-      let before: Devis | undefined;
-      let after: Devis | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        devis: (m.devis || []).map((d) => {
-          if (d.id !== id) return d;
-          before = d;
-          after = { ...d, ...patch };
-          return after;
-        }),
-      }));
-      void logAction("UPDATE", "devis", id, before ?? null, after ?? null);
+    (_annee: number, _mois: number, id: number, patch: Partial<Devis>) => {
+      void tqDevis.updateDevis(id, patch as Parameters<typeof tqDevis.updateDevis>[1])
+        .then(() => void logAction("UPDATE", "devis", id, null, patch))
+        .catch(() => toast.error("Erreur lors de la mise à jour du devis"));
     },
-    [updateMois],
+    [tqDevis],
   );
 
   const convertirDevisEnFacture = useCallback(
     (annee: number, mois: number, devisId: number, numeroFacture: string): number | null => {
-      const m = ensureMois(donneesMensuelles[moisKey(annee, mois)]);
-      const d = (m.devis || []).find((x) => x.id === devisId);
+      const key = moisKey(annee, mois);
+      const d = (tqDevis.devis[key] ?? []).find((x) => x.id === devisId);
       if (!d) return null;
-      const factureId = addFacture(annee, mois, {
+      void tqFactures.createFacture(annee, mois, {
         numero: numeroFacture,
         client: d.client,
         date: d.date,
@@ -675,22 +625,21 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         totalTva: d.totalTva,
         totalTtc: d.totalTtc,
         activite: d.activite,
-      });
-      let before: Devis | undefined;
-      let after: Devis | undefined;
-      updateMois(annee, mois, (mm) => ({
-        ...mm,
-        devis: (mm.devis || []).map((x) => {
-          if (x.id !== devisId) return x;
-          before = x;
-          after = { ...x, statut: "converti", factureId };
-          return after;
-        }),
-      }));
-      void logAction("CONVERTIR_DEVIS", "devis", devisId, before ?? null, after ?? null);
-      return factureId;
+      })
+        .then((facture) =>
+          tqDevis.updateDevis(devisId, { statut: "converti", factureId: facture.id })
+            .then(() =>
+              void logAction("CONVERTIR_DEVIS", "devis", devisId, d, {
+                ...d,
+                statut: "converti",
+                factureId: facture.id,
+              })
+            )
+        )
+        .catch(() => toast.error("Erreur lors de la conversion du devis en facture"));
+      return null; // ID disponible après invalidation TQ
     },
-    [addFacture, donneesMensuelles, updateMois],
+    [tqDevis, tqFactures],
   );
 
   // ─── GRH : Primes → table relationnelle ──────────────────────────────────
@@ -972,62 +921,59 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     [tqArticles],
   );
 
-  // ─── Stock : mouvements (dans donneesMensuelles + article mis à jour) ─────
+  // ─── Stock : mouvements → table relationnelle ────────────────────────────
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
-      const id = newId();
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
-      }));
-      // Mise à jour du stock + PMP dans la table relationnelle
-      const article = articles.find((a) => a.id === mvt.articleId);
-      if (article && societeId) {
-        let nouveauStock = article.stock;
-        let nouveauPMP = article.prixAchat;
-        if (mvt.type === "entree") {
-          const valAvant = article.stock * article.prixAchat;
-          const valEntree = mvt.quantite * (mvt.prixUnitaire ?? article.prixAchat);
-          nouveauStock = article.stock + mvt.quantite;
-          nouveauPMP =
-            nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : article.prixAchat;
-        } else if (mvt.type === "sortie") {
-          nouveauStock = Math.max(0, article.stock - mvt.quantite);
-        } else if (mvt.type === "ajustement") {
-          nouveauStock = mvt.quantite;
-        }
-        void tqArticles.updateArticle(article.id, {
-          stock: nouveauStock,
-          prixAchat: nouveauPMP,
-        }).catch(() => toast.error("Erreur lors de la mise à jour du stock"));
-      }
-      return id;
+      void tqMouvements.createMouvement(annee, mois, mvt)
+        .then(() => {
+          const article = articles.find((a) => a.id === mvt.articleId);
+          if (article && societeId) {
+            let nouveauStock = article.stock;
+            let nouveauPMP = article.prixAchat;
+            if (mvt.type === "entree") {
+              const valAvant = article.stock * article.prixAchat;
+              const valEntree = mvt.quantite * (mvt.prixUnitaire ?? article.prixAchat);
+              nouveauStock = article.stock + mvt.quantite;
+              nouveauPMP =
+                nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : article.prixAchat;
+            } else if (mvt.type === "sortie") {
+              nouveauStock = Math.max(0, article.stock - mvt.quantite);
+            } else if (mvt.type === "ajustement") {
+              nouveauStock = mvt.quantite;
+            }
+            void tqArticles.updateArticle(article.id, {
+              stock: nouveauStock,
+              prixAchat: nouveauPMP,
+            }).catch(() => toast.error("Erreur lors de la mise à jour du stock"));
+          }
+        })
+        .catch(() => toast.error("Erreur lors de l'ajout du mouvement de stock"));
+      return 0; // ID définitif disponible après invalidation TQ
     },
-    [updateMois, articles, societeId, tqArticles],
+    [tqMouvements, articles, societeId, tqArticles],
   );
 
   const removeMouvementStock = useCallback(
     (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => {
-        const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
-        if (mvt) {
-          const article = articles.find((a) => a.id === mvt.articleId);
-          if (article && societeId) {
-            let nouveauStock = article.stock;
-            if (mvt.type === "entree")
-              nouveauStock = Math.max(0, article.stock - mvt.quantite);
-            if (mvt.type === "sortie") nouveauStock = article.stock + mvt.quantite;
-            void tqArticles.updateArticle(article.id, { stock: nouveauStock })
-              .catch(() => toast.error("Erreur lors de la mise à jour du stock"));
+      const key = moisKey(annee, mois);
+      const mvt = (tqMouvements.mouvementsStock[key] ?? []).find((x) => x.id === id);
+      void tqMouvements.removeMouvement(id)
+        .then(() => {
+          if (mvt) {
+            const article = articles.find((a) => a.id === mvt.articleId);
+            if (article && societeId) {
+              let nouveauStock = article.stock;
+              if (mvt.type === "entree")
+                nouveauStock = Math.max(0, article.stock - mvt.quantite);
+              if (mvt.type === "sortie") nouveauStock = article.stock + mvt.quantite;
+              void tqArticles.updateArticle(article.id, { stock: nouveauStock })
+                .catch(() => toast.error("Erreur lors de la mise à jour du stock"));
+            }
           }
-        }
-        return {
-          ...m,
-          mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id),
-        };
-      });
+        })
+        .catch(() => toast.error("Erreur lors de la suppression du mouvement de stock"));
     },
-    [updateMois, articles, societeId, tqArticles],
+    [tqMouvements, articles, societeId, tqArticles],
   );
 
   // ─── Sanctions → table relationnelle ─────────────────────────────────────
@@ -1110,25 +1056,20 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     [immobilisations],
   );
 
-  // ─── Import JSON (partiel — entités relationnelles exclues) ──────────────
+  // ─── Import JSON (tauxHistorique uniquement — toutes entités en Supabase) ─
   const importerDonnees = useCallback(
     (data: {
       donneesMensuelles?: DonneesMensuelles;
       tauxHistorique?: TauxFiscaux[];
     }) => {
-      if (
-        data.donneesMensuelles &&
-        typeof data.donneesMensuelles === "object"
-      ) {
-        setDonneesMensuelles(data.donneesMensuelles);
-      }
       const dataAny = data as { tauxHistorique?: TauxFiscaux[] };
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
         setTauxHistorique(dataAny.tauxHistorique);
 
       toast.info(
-        "Import partiel : employés, articles, immobilisations et sanctions " +
-        "doivent être importés via leur module respectif.",
+        "Import partiel : seul tauxHistorique est importé. " +
+        "Toutes les entités métier (factures, devis, stock, employés…) " +
+        "sont stockées dans Supabase et doivent être importées via leur module respectif.",
       );
     },
     [],
