@@ -2,7 +2,7 @@
  * categoriesStock.repo.ts — Couche d'accès Supabase pour `categories_stock`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { CategorieArticle } from "@/types/ebene";
 
 type CategorieRow = Tables<"categories_stock">;
@@ -15,7 +15,7 @@ export const toCategorieArticle = (row: CategorieRow): CategorieArticle => ({
 export const fromCategorieArticle = (
   c: Omit<CategorieArticle, "id">,
   societeId: string,
-): Tables<"categories_stock">["Insert"] => ({
+): TablesInsert<"categories_stock"> => ({
   societe_id: societeId,
   nom: c.nom,
 });

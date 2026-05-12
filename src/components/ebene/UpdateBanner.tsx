@@ -29,7 +29,7 @@ export const UpdateBanner = () => {
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value) {
-          const s = data.value as UpdateSignal;
+          const s = data.value as unknown as UpdateSignal;
           // Ignorer les signaux déjà vus (plus vieux de 10 minutes)
           if (s.ts > lastSeenTs && Date.now() - s.ts < 10 * 60 * 1000) {
             setSignal(s);
@@ -50,10 +50,11 @@ export const UpdateBanner = () => {
           filter: "key=eq.global:update_signal",
         },
         (payload) => {
-          const row = payload.new as { value?: UpdateSignal };
-          if (row?.value && row.value.ts > lastSeenTs) {
-            setSignal(row.value);
-            setCountdown(row.value.delai_secondes);
+          const row = payload.new as { value?: unknown };
+          const value = row?.value as UpdateSignal | undefined;
+          if (value && value.ts > lastSeenTs) {
+            setSignal(value);
+            setCountdown(value.delai_secondes);
             setDismissed(false);
           }
         }

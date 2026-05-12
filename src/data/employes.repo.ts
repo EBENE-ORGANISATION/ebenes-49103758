@@ -3,7 +3,7 @@
  * Gère le mapping bidirectionnel snake_case ↔ camelCase.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type {
   Employe,
   TypeContrat,
@@ -55,7 +55,7 @@ export const toEmploye = (row: EmployeRow): Employe => ({
 export const fromEmploye = (
   e: Omit<Employe, "id">,
   societeId: string,
-): Tables<"employes">["Insert"] => ({
+): TablesInsert<"employes"> => ({
   societe_id: societeId,
   nom: e.nom,
   poste: e.poste,
@@ -120,7 +120,7 @@ export const employes = {
     societeId: string,
   ): Promise<Employe> {
     // On ne met à jour que les champs fournis (partial update).
-    const dbPatch: Partial<Tables<"employes">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"employes">> = {
       ...(patch.nom !== undefined && { nom: patch.nom }),
       ...(patch.poste !== undefined && { poste: patch.poste }),
       ...(patch.salaire !== undefined && { salaire: patch.salaire }),

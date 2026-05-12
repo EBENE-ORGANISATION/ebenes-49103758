@@ -2,7 +2,7 @@
  * immobilisations.repo.ts — Couche d'accès Supabase pour `immobilisations`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type {
   Immobilisation,
   CategorieImmo,
@@ -25,7 +25,7 @@ export const toImmobilisation = (row: ImmoRow): Immobilisation => ({
   dureeAmortissement: row.duree_amortissement,
   methode: (row.methode as MethodeAmortissement) ?? "lineaire",
   comptesSYSCOHADA:
-    (row.comptes_syscohada as ComptesSYSCOHADAImmo) ??
+    (row.comptes_syscohada as unknown as ComptesSYSCOHADAImmo) ??
     (row.categorie ? COMPTES_IMMO_DEFAUT[row.categorie as CategorieImmo] : {
       actif: "21",
       amortissementCumule: "281",
@@ -39,7 +39,7 @@ export const toImmobilisation = (row: ImmoRow): Immobilisation => ({
 export const fromImmobilisation = (
   immo: Omit<Immobilisation, "id">,
   societeId: string,
-): Tables<"immobilisations">["Insert"] => ({
+): TablesInsert<"immobilisations"> => ({
   societe_id: societeId,
   libelle: immo.libelle,
   categorie: immo.categorie ?? null,
@@ -48,7 +48,7 @@ export const fromImmobilisation = (
   duree_amortissement: immo.dureeAmortissement,
   methode: immo.methode,
   comptes_syscohada: immo.comptesSYSCOHADA as unknown as
-    Tables<"immobilisations">["Insert"]["comptes_syscohada"],
+    TablesInsert<"immobilisations">["comptes_syscohada"],
   valeur_residuelle: immo.valeurResiduelle ?? null,
   notes: immo.notes ?? null,
   date_cession: immo.dateCession ?? null,
@@ -83,7 +83,7 @@ export const immobilisations = {
     patch: Partial<Omit<Immobilisation, "id">>,
     societeId: string,
   ): Promise<Immobilisation> {
-    const dbPatch: Partial<Tables<"immobilisations">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"immobilisations">> = {
       ...(patch.libelle !== undefined && { libelle: patch.libelle }),
       ...(patch.categorie !== undefined && { categorie: patch.categorie ?? null }),
       ...(patch.dateAcquisition !== undefined && {
@@ -98,7 +98,7 @@ export const immobilisations = {
       ...(patch.methode !== undefined && { methode: patch.methode }),
       ...(patch.comptesSYSCOHADA !== undefined && {
         comptes_syscohada:
-          patch.comptesSYSCOHADA as unknown as Tables<"immobilisations">["Update"]["comptes_syscohada"],
+          patch.comptesSYSCOHADA as unknown as TablesUpdate<"immobilisations">["comptes_syscohada"],
       }),
       ...(patch.valeurResiduelle !== undefined && {
         valeur_residuelle: patch.valeurResiduelle ?? null,

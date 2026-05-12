@@ -2,7 +2,7 @@
  * primes.repo.ts — Couche d'accès Supabase pour la table `primes`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Prime, StatutValidation } from "@/types/ebene";
 
 type PrimeRow = Tables<"primes">;
@@ -24,7 +24,7 @@ export const fromPrime = (
   annee: number,
   mois: number,
   societeId: string,
-): Tables<"primes">["Insert"] => ({
+): TablesInsert<"primes"> => ({
   societe_id: societeId,
   employe_id: employeId,
   annee,
@@ -82,7 +82,7 @@ export const primes = {
     patch: Partial<Pick<Prime, "statutValidation" | "motifRejet" | "montant" | "libelle">>,
     societeId: string,
   ): Promise<Prime> {
-    const dbPatch: Partial<Tables<"primes">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"primes">> = {
       ...(patch.statutValidation !== undefined && {
         statut_validation: patch.statutValidation ?? null,
       }),

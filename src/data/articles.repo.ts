@@ -2,7 +2,7 @@
  * articles.repo.ts — Couche d'accès Supabase pour la table `articles`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Article } from "@/types/ebene";
 
 type ArticleRow = Tables<"articles">;
@@ -28,7 +28,7 @@ export const toArticle = (row: ArticleRow): Article => ({
 export const fromArticle = (
   a: Omit<Article, "id">,
   societeId: string,
-): Tables<"articles">["Insert"] => ({
+): TablesInsert<"articles"> => ({
   societe_id: societeId,
   reference: a.reference,
   designation: a.designation,
@@ -69,7 +69,7 @@ export const articles = {
     patch: Partial<Omit<Article, "id">>,
     societeId: string,
   ): Promise<Article> {
-    const dbPatch: Partial<Tables<"articles">["Update"]> = {
+    const dbPatch: Partial<TablesUpdate<"articles">> = {
       ...(patch.reference !== undefined && { reference: patch.reference }),
       ...(patch.designation !== undefined && { designation: patch.designation }),
       ...(patch.categorieId !== undefined && {

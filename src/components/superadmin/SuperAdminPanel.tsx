@@ -52,6 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
 import { CreerSocieteModal } from "./CreerSocieteModal";
 import { MonCompteSection } from "./MonCompteSection";
@@ -154,23 +155,25 @@ const MiseAJourPanel = ({ stats }: { stats: Stats | null }) => {
       };
 
       // Écrire le signal dans app_state (les clients écoutent via Realtime)
+      const signalRow: TablesInsert<"app_state"> = {
+        key: "global:update_signal",
+        value: payload as unknown as Json,
+        updated_at: new Date().toISOString(),
+      };
       await supabase
         .from("app_state")
-        .upsert({
-          key: "global:update_signal",
-          value: payload as unknown as Record<string, unknown>,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "key" });
+        .upsert(signalRow, { onConflict: "key" });
 
       // Sauvegarder dans l'historique
       const newHistorique = [payload, ...historique].slice(0, 20);
+      const historyRow: TablesInsert<"app_state"> = {
+        key: "global:update_history",
+        value: newHistorique as unknown as Json,
+        updated_at: new Date().toISOString(),
+      };
       await supabase
         .from("app_state")
-        .upsert({
-          key: "global:update_history",
-          value: newHistorique as unknown as Record<string, unknown>,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "key" });
+        .upsert(historyRow, { onConflict: "key" });
 
       setHistorique(newHistorique);
       toast.success(`Signal de mise à jour v${version} envoyé à ${stats?.utilisateurs_actifs ?? 0} utilisateurs`);
