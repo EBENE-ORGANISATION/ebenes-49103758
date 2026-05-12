@@ -1,0 +1,112 @@
+/**
+ * primes.repo.ts — Couche d'accès Supabase pour la table `primes`.
+ */
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import type { Prime, StatutValidation } from "@/types/ebene";
+
+type PrimeRow = Tables<"primes">;
+
+const n = <T>(v: T | null | undefined): T | undefined =>
+  v == null ? undefined : v;
+
+export const toPrime = (row: PrimeRow): Prime => ({
+  id: row.id,
+  libelle: row.libelle,
+  montant: row.montant,
+  statutValidation: n(row.statut_validation) as StatutValidation | undefined,
+  motifRejet: n(row.motif_rejet),
+});
+
+export const fromPrime = (
+  p: Omit<Prime, "id">,
+  employeId: number,
+  annee: number,
+  mois: number,
+  societeId: string,
+): Tables<"primes">["Insert"] => ({
+  societe_id: societeId,
+  employe_id: employeId,
+  annee,
+  mois,
+  libelle: p.libelle,
+  montant: p.montant,
+  statut_validation: p.statutValidation ?? "en_validation",
+  motif_rejet: p.motifRejet ?? null,
+});
+
+export const primes = {
+  /**
+   * Charge les primes d'une société pour un mois, indexées par employeId.
+   * Correspond à la structure `Record<number, Prime[]>` de MoisData.
+   */
+  async listByMois(
+    societeId: string,
+    annee: number,
+    mois: number,
+  ): Promise<Record<number, Prime[]>> {
+    const { data, error } = await supabase
+      .from("primes")
+      .select("*")
+      .eq("societe_id", societeId)
+      .eq("annee", annee)
+      .eq("mois", mois)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const result: Record<number, Prime[]> = {};
+    for (const row of data ?? []) {
+      if (!result[row.employe_id]) result[row.employe_id] = [];
+      result[row.employe_id].push(toPrime(row));
+    }
+    return result;
+  },
+
+  async create(
+    p: Omit<Prime, "id">,
+    employeId: number,
+    annee: number,
+    mois: number,
+    societeId: string,
+  ): Promise<Prime> {
+    const { data, error } = await supabase
+      .from("primes")
+      .insert(fromPrime(p, employeId, annee, mois, societeId))
+      .select()
+      .single();
+    if (error) throw error;
+    return toPrime(data);
+  },
+
+  async update(
+    id: number,
+    patch: Partial<Pick<Prime, "statutValidation" | "motifRejet" | "montant" | "libelle">>,
+    societeId: string,
+  ): Promise<Prime> {
+    const dbPatch: Partial<Tables<"primes">["Update"]> = {
+      ...(patch.statutValidation !== undefined && {
+        statut_validation: patch.statutValidation ?? null,
+      }),
+      ...(patch.motifRejet !== undefined && { motif_rejet: patch.motifRejet ?? null }),
+      ...(patch.montant !== undefined && { montant: patch.montant }),
+      ...(patch.libelle !== undefined && { libelle: patch.libelle }),
+    };
+    const { data, error } = await supabase
+      .from("primes")
+      .update(dbPatch)
+      .eq("id", id)
+      .eq("societe_id", societeId)
+      .select()
+      .single();
+    if (error) throw error;
+    return toPrime(data);
+  },
+
+  async remove(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("primes")
+      .delete()
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+};
