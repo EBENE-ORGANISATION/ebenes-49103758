@@ -40,7 +40,7 @@ export const navigateToSociete = (societeId: string | null): void => {
     : `${base}#/`;
   window.history.pushState(null, "", url);
   // popstate n'est pas déclenché par pushState — on le dispatch manuellement
-  // pour que useSyncExternalStore (et tout abonné) reçoive la mise à jour.
+  // pour que tous les abonnés reçoivent la mise à jour.
   window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
