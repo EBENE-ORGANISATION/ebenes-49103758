@@ -27,50 +27,53 @@ import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
 import { logAction } from "@/lib/audit";
 
+// ─── Hooks data relationnels (Phase B.4) ────────────────────────────────────
+import { useEmployes } from "@/hooks/data/useEmployes";
+import { useArticles } from "@/hooks/data/useArticles";
+import { useFournisseurs } from "@/hooks/data/useFournisseurs";
+import { useCategoriesStock } from "@/hooks/data/useCategoriesStock";
+import { useImmobilisations } from "@/hooks/data/useImmobilisations";
+import { useParamsAnnuels } from "@/hooks/data/useParamsAnnuels";
+import { useSanctions } from "@/hooks/data/useSanctions";
+
 /**
- * useEbeneStoreRemote
+ * useEbeneStoreRemote — v2 (Phase B.4 proxy de dépréciation)
  *
- * Réplique exactement l'interface publique de useEbeneStore mais persiste
- * sur Supabase (table `app_state`, JSONB par clé) au lieu du localStorage.
- * Conserve un fallback localStorage en cas d'indisponibilité de Supabase
- * (lecture initiale et écritures), pour ne pas bloquer l'utilisateur.
+ * Les entités simples (employes, articles, fournisseurs, categoriesStock,
+ * immobilisations, paramsAnnuels, sanctions) sont désormais lues et écrites
+ * via les tables relationnelles Supabase (hooks TanStack Query).
  *
- * Toutes les opérations Supabase sont enveloppées dans try/catch et signalent
- * les échecs via toast.error(). Les changements sont également diffusés en
- * temps réel via postgres_changes (canal `app_state_sync_remote`).
+ * `donneesMensuelles` (transactions, factures, primes, absences, heuresSup,
+ * retenues, mouvementsStock, devis) et `tauxHistorique` restent dans app_state
+ * le temps de la migration complète (Phase B.5 future).
+ *
+ * L'interface publique exposée aux composants est IDENTIQUE à l'ancienne —
+ * aucun composant n'a besoin d'être modifié.
  */
 
-// ─── Clés cloud (table app_state) ───
+// ─── Clés app_state restantes ────────────────────────────────────────────────
 const K_DONNEES = "donneesMensuelles";
-const K_EMPLOYES = "employes";
-const K_PARAMS_ANNUELS = "paramsAnnuels";
 const K_TAUX = "tauxHistorique";
-const K_ARTICLES = "articles";
-const K_FOURNISSEURS = "fournisseurs";
-const K_CATEGORIES_STOCK = "categoriesStock";
-const K_SANCTIONS = "sanctions";
-const K_IMMOBILISATIONS = "immobilisations";
 
-const ALL_KEYS = [
-  K_DONNEES,
-  K_EMPLOYES,
-  K_PARAMS_ANNUELS,
-  K_TAUX,
-  K_ARTICLES,
-  K_FOURNISSEURS,
-  K_CATEGORIES_STOCK,
-  K_SANCTIONS,
-  K_IMMOBILISATIONS,
+// Clés conservées uniquement pour la purge du cache localStorage au démarrage
+const LEGACY_KEYS = [
+  "employes",
+  "paramsAnnuels",
+  "articles",
+  "fournisseurs",
+  "categoriesStock",
+  "sanctions",
+  "immobilisations",
 ] as const;
 
-// ─── Fallback localStorage ───
+const ALL_KEYS = [K_DONNEES, K_TAUX] as const;
+
+// ─── Fallback localStorage ───────────────────────────────────────────────────
 const LS_PREFIX = "ebene-remote:";
 
-// Clé scopée société pour éviter les collisions multi-tenant
 const lsKey = (k: string, sid: string | null) =>
   sid ? `${LS_PREFIX}s:${sid}:${k}` : `${LS_PREFIX}${k}`;
 
-// Clé scopée pour app_state Supabase
 const tk = (sid: string, k: string) => `s:${sid}:${k}`;
 const untk = (key: string, sid: string): string | null => {
   const prefix = `s:${sid}:`;
@@ -89,18 +92,14 @@ const lsRead = (k: string, sid: string | null): unknown => {
 const lsWrite = (k: string, sid: string | null, value: unknown) => {
   try {
     localStorage.setItem(lsKey(k, sid), JSON.stringify(value));
-  } catch {
-    // ignore quota errors
-  }
+  } catch { /* ignore quota errors */ }
 };
 
 const ensureMois = (d: MoisData | undefined): MoisData => ({
   transactions: Array.isArray(d?.transactions) ? d!.transactions : [],
   factures: Array.isArray(d?.factures) ? d!.factures : [],
   primes:
-    d && typeof d.primes === "object" && !Array.isArray(d.primes)
-      ? d.primes
-      : {},
+    d && typeof d.primes === "object" && !Array.isArray(d.primes) ? d.primes : {},
   absences: Array.isArray(d?.absences) ? d!.absences : [],
   heuresSup:
     d && typeof d.heuresSup === "object" && !Array.isArray(d.heuresSup)
@@ -115,43 +114,50 @@ const ensureMois = (d: MoisData | undefined): MoisData => ({
 });
 
 export const useEbeneStoreRemote = (societeId: string | null = null) => {
+  // ─── État app_state (donneesMensuelles + tauxHistorique uniquement) ────────
   const [donneesMensuelles, setDonneesMensuelles] = useState<DonneesMensuelles>({});
-  const [employes, setEmployes] = useState<Employe[]>([]);
-  const [paramsAnnuels, setParamsAnnuels] = useState<Record<number, ParamsAnnuels>>({});
   const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
-  const [categoriesStock, setCategoriesStock] = useState<CategorieArticle[]>([]);
-  const [sanctions, setSanctions] = useState<Sanction[]>([]);
-  const [immobilisations, setImmobilisations] = useState<Immobilisation[]>([]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
-  // ─── Statut de sauvegarde Google Drive ───
+  // ─── Entités relationnelles (hooks TanStack Query) ─────────────────────────
+  const tqEmployes = useEmployes(societeId);
+  const tqArticles = useArticles(societeId);
+  const tqFournisseurs = useFournisseurs(societeId);
+  const tqCategories = useCategoriesStock(societeId);
+  const tqImmobilisations = useImmobilisations(societeId);
+  const tqParams = useParamsAnnuels(societeId);
+  const tqSanctions = useSanctions(societeId);
+
+  // Raccourcis lisibles (même noms que l'ancien useState)
+  const employes = tqEmployes.employes;
+  const articles = tqArticles.articles;
+  const fournisseurs = tqFournisseurs.fournisseurs;
+  const categoriesStock = tqCategories.categoriesStock;
+  const immobilisations = tqImmobilisations.immobilisations;
+  const paramsAnnuels = tqParams.paramsAnnuels;
+  const sanctions = tqSanctions.sanctions;
+
+  // ─── Statut Google Drive ───────────────────────────────────────────────────
   const [driveStatus, setDriveStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [driveLastBackup, setDriveLastBackup] = useState<Date | null>(null);
   const [driveLastError, setDriveLastError] = useState<string | null>(null);
   const driveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const significantWritesRef = useRef<number>(0);
 
-  // Anti-boucle : signature locale des dernières valeurs envoyées
   const localSig = useRef<Record<string, string>>({});
-  // Mode dégradé : true si Supabase est injoignable
   const offlineMode = useRef<boolean>(false);
-  // Évite de spammer le toast d'erreur réseau
   const offlineToastShown = useRef<boolean>(false);
 
   const notifyOffline = useCallback(() => {
     if (!offlineToastShown.current) {
       offlineToastShown.current = true;
       toast.error(
-        "Connexion au serveur indisponible — les modifications sont enregistrées localement."
+        "Connexion au serveur indisponible — les modifications sont enregistrées localement.",
       );
     }
   }, []);
 
-  // ─── Backup Google Drive (debounced 30s) ───
-  // On garde une ref vers le snapshot courant pour pouvoir le lire au flush.
   const snapshotRef = useRef<EbeneStoreLike | null>(null);
 
   const flushDriveBackup = useCallback(async () => {
@@ -168,16 +174,12 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     }
   }, []);
 
-  /** Marque une écriture significative et programme un backup Drive dans 30s. */
   const markSignificantWrite = useCallback(() => {
     significantWritesRef.current += 1;
     if (driveDebounceRef.current) clearTimeout(driveDebounceRef.current);
-    driveDebounceRef.current = setTimeout(() => {
-      void flushDriveBackup();
-    }, 30_000);
+    driveDebounceRef.current = setTimeout(() => { void flushDriveBackup(); }, 30_000);
   }, [flushDriveBackup]);
 
-  /** Force un backup immédiat (appelé par le bouton "Sauvegarder sur Drive"). */
   const triggerDriveBackup = useCallback(async () => {
     if (driveDebounceRef.current) {
       clearTimeout(driveDebounceRef.current);
@@ -186,58 +188,43 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     await flushDriveBackup();
   }, [flushDriveBackup]);
 
+  // ─── applyValue : seulement pour les 2 clés app_state restantes ───────────
   const applyValue = useCallback((key: string, value: unknown) => {
     switch (key) {
       case K_DONNEES:
         setDonneesMensuelles((value as DonneesMensuelles) || {});
-        break;
-      case K_EMPLOYES:
-        setEmployes(Array.isArray(value) ? (value as Employe[]) : []);
-        break;
-      case K_PARAMS_ANNUELS:
-        setParamsAnnuels((value as Record<number, ParamsAnnuels>) || {});
         break;
       case K_TAUX: {
         const arr = Array.isArray(value) ? (value as TauxFiscaux[]) : [];
         setTauxHistorique(arr.length ? arr : [TAUX_DEFAUT]);
         break;
       }
-      case K_ARTICLES:
-        setArticles(Array.isArray(value) ? (value as Article[]) : []);
-        break;
-      case K_FOURNISSEURS:
-        setFournisseurs(Array.isArray(value) ? (value as Fournisseur[]) : []);
-        break;
-      case K_CATEGORIES_STOCK:
-        setCategoriesStock(Array.isArray(value) ? (value as CategorieArticle[]) : []);
-        break;
-      case K_SANCTIONS:
-        setSanctions(Array.isArray(value) ? (value as Sanction[]) : []);
-        break;
-      case K_IMMOBILISATIONS:
-        setImmobilisations(Array.isArray(value) ? (value as Immobilisation[]) : []);
-        break;
     }
   }, []);
 
-  // Reset complet du state quand on change de société
+  // ─── Reset au changement de société ───────────────────────────────────────
+  // Seuls donneesMensuelles et tauxHistorique sont à reseter manuellement ;
+  // les hooks TQ se réinitialisent automatiquement quand societeId change.
   useEffect(() => {
     setLoaded(false);
     setDonneesMensuelles({});
-    setEmployes([]);
-    setParamsAnnuels({});
     setTauxHistorique([TAUX_DEFAUT]);
-    setArticles([]);
-    setFournisseurs([]);
-    setCategoriesStock([]);
-    setSanctions([]);
-    setImmobilisations([]);
     localSig.current = {};
     offlineMode.current = false;
     offlineToastShown.current = false;
+
+    // Purge des clés localStorage des entités migrées (one-shot par société)
+    if (societeId) {
+      try {
+        LEGACY_KEYS.forEach((k) => {
+          localStorage.removeItem(lsKey(k, societeId));
+          localStorage.removeItem(lsKey(k, null));
+        });
+      } catch { /* ignore */ }
+    }
   }, [societeId]);
 
-  // Chargement initial (Supabase puis fallback localStorage) + realtime
+  // ─── Chargement initial + Realtime (app_state : K_DONNEES + K_TAUX) ───────
   useEffect(() => {
     let cancelled = false;
 
@@ -253,7 +240,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
     (async () => {
       try {
-        // Clés scopées société dans app_state
         const dbKeys = societeId
           ? ALL_KEYS.map((k) => tk(societeId, k))
           : [...ALL_KEYS as unknown as string[]];
@@ -274,13 +260,8 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
             const sig = JSON.stringify(row.value);
             localSig.current[raw] = sig;
             applyValue(raw, row.value);
-            // Met aussi à jour le cache local pour fallback ultérieur
             lsWrite(raw, societeId, row.value);
           }
-
-          // Si une clé n'existe pas encore côté cloud (ex. première sauvegarde
-          // refusée ou interrompue), restaurer le cache local au lieu d'écraser
-          // l'écran avec un état vide après actualisation.
           for (const key of ALL_KEYS) {
             if (seenKeys.has(key)) continue;
             const localValue = lsRead(key, societeId);
@@ -293,7 +274,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       } catch (err) {
         offlineMode.current = true;
         notifyOffline();
-        // Charger le cache local
         if (!cancelled) loadFromLocal();
         console.error("[useEbeneStoreRemote] load failed:", err);
       } finally {
@@ -313,10 +293,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .on("postgres_changes", channelConfig, (payload) => {
           const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
           if (!row?.key) return;
-          if (scopePrefix && !row.key.startsWith(scopePrefix)) return; // Defense 1
-          const raw = societeId ? untk(row.key, societeId) : row.key;  // Defense 2
+          if (scopePrefix && !row.key.startsWith(scopePrefix)) return;
+          const raw = societeId ? untk(row.key, societeId) : row.key;
           if (!raw) return;
-          if (!(ALL_KEYS as readonly string[]).includes(raw)) return;   // Defense 3
+          if (!(ALL_KEYS as readonly string[]).includes(raw)) return;
           const sig = JSON.stringify(row.value);
           if (localSig.current[raw] === sig) return;
           localSig.current[raw] = sig;
@@ -330,29 +310,18 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
     return () => {
       cancelled = true;
-      if (channel) {
-        try {
-          supabase.removeChannel(channel);
-        } catch {
-          // ignore
-        }
-      }
+      if (channel) { try { supabase.removeChannel(channel); } catch { /* ignore */ } }
     };
   }, [applyValue, notifyOffline, societeId]);
 
-  // Persistance vers le cloud avec fallback localStorage (clés scopées société)
+  // ─── Persistance app_state (K_DONNEES + K_TAUX uniquement) ───────────────
   const persist = useCallback(
     async (key: string, value: unknown) => {
       const sig = JSON.stringify(value);
       if (localSig.current[key] === sig) return;
       localSig.current[key] = sig;
-
-      // Toujours écrire dans le cache local scopé (sécurité / offline)
       lsWrite(key, societeId, value);
-
-      // Clé app_state scopée société
       const dbKey = societeId ? tk(societeId, key) : key;
-
       try {
         const { data: userData } = await supabase.auth.getUser();
         const { error } = await supabase
@@ -364,11 +333,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
               updated_by: userData.user?.id ?? null,
               updated_at: new Date().toISOString(),
             },
-            { onConflict: "key" }
+            { onConflict: "key" },
           );
         if (error) throw error;
         setLastSaved(new Date());
-        // Si on était offline et que ça repasse, on reset le flag
         if (offlineMode.current) {
           offlineMode.current = false;
           offlineToastShown.current = false;
@@ -379,20 +347,13 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         console.error(`[useEbeneStoreRemote] persist(${dbKey}) failed:`, err);
       }
     },
-    [notifyOffline, societeId]
+    [notifyOffline, societeId],
   );
 
   useEffect(() => { if (loaded) persist(K_DONNEES, donneesMensuelles); }, [donneesMensuelles, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_EMPLOYES, employes); }, [employes, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_PARAMS_ANNUELS, paramsAnnuels); }, [paramsAnnuels, loaded, persist]);
   useEffect(() => { if (loaded) persist(K_TAUX, tauxHistorique); }, [tauxHistorique, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_ARTICLES, articles); }, [articles, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_FOURNISSEURS, fournisseurs); }, [fournisseurs, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_CATEGORIES_STOCK, categoriesStock); }, [categoriesStock, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_SANCTIONS, sanctions); }, [sanctions, loaded, persist]);
-  useEffect(() => { if (loaded) persist(K_IMMOBILISATIONS, immobilisations); }, [immobilisations, loaded, persist]);
 
-  // Garde une vue à jour du store pour le flush Drive (lit la dernière valeur au moment du timeout)
+  // ─── Snapshot Drive (lit les données TQ + app_state) ─────────────────────
   useEffect(() => {
     snapshotRef.current = {
       donneesMensuelles,
@@ -403,22 +364,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       fournisseurs,
       categoriesStock,
       sanctions,
-      importerDonnees: () => {
-        /* placeholder, restauration via store complet */
-      },
+      importerDonnees: () => { /* placeholder */ },
     };
-  }, [
-    donneesMensuelles,
-    employes,
-    paramsAnnuels,
-    tauxHistorique,
-    articles,
-    fournisseurs,
-    categoriesStock,
-    sanctions,
-  ]);
+  }, [donneesMensuelles, employes, paramsAnnuels, tauxHistorique, articles, fournisseurs, categoriesStock, sanctions]);
 
-  // Cleanup du timer de backup au unmount
   useEffect(() => {
     return () => {
       if (driveDebounceRef.current) {
@@ -428,13 +377,12 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     };
   }, []);
 
-  // ─── API publique : identique à useEbeneStore ───
+  // ─── API publique ─────────────────────────────────────────────────────────
 
   const getMois = useCallback(
-    (annee: number, mois: number): MoisData => {
-      return ensureMois(donneesMensuelles[moisKey(annee, mois)]);
-    },
-    [donneesMensuelles]
+    (annee: number, mois: number): MoisData =>
+      ensureMois(donneesMensuelles[moisKey(annee, mois)]),
+    [donneesMensuelles],
   );
 
   const updateMois = useCallback(
@@ -445,9 +393,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         return { ...prev, [k]: fn(current) };
       });
     },
-    []
+    [],
   );
 
+  // ─── Transactions (dans donneesMensuelles — app_state) ────────────────────
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
       updateMois(annee, mois, (m) => ({
@@ -456,7 +405,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       }));
       markSignificantWrite();
     },
-    [updateMois, markSignificantWrite]
+    [updateMois, markSignificantWrite],
   );
 
   const removeTransaction = useCallback(
@@ -468,7 +417,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
           factures = factures.map((f) =>
             f.id === trans.factureId
               ? { ...f, statut: "en_attente", transactionId: null }
-              : f
+              : f,
           );
         }
         return {
@@ -479,9 +428,46 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       });
       markSignificantWrite();
     },
-    [updateMois, markSignificantWrite]
+    [updateMois, markSignificantWrite],
   );
 
+  const validerTransaction = useCallback(
+    (annee: number, mois: number, id: number) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "valide", motifRejet: undefined };
+          return after;
+        }),
+      }));
+      void logAction("VALIDER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois],
+  );
+
+  const rejeterTransaction = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Transaction | undefined;
+      let after: Transaction | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        transactions: m.transactions.map((t) => {
+          if (t.id !== id) return t;
+          before = t;
+          after = { ...t, statut: "rejete", motifRejet: motif };
+          return after;
+        }),
+      }));
+      void logAction("REJETER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
+    },
+    [updateMois],
+  );
+
+  // ─── Factures (dans donneesMensuelles — app_state) ────────────────────────
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
       const id = newId();
@@ -492,7 +478,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       markSignificantWrite();
       return id;
     },
-    [updateMois, markSignificantWrite]
+    [updateMois, markSignificantWrite],
   );
 
   const updateFacture = useCallback(
@@ -502,7 +488,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         factures: m.factures.map((f) => (f.id === id ? { ...f, ...patch } : f)),
       }));
     },
-    [updateMois]
+    [updateMois],
   );
 
   const removeFacture = useCallback(
@@ -521,7 +507,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       });
       markSignificantWrite();
     },
-    [updateMois, markSignificantWrite]
+    [updateMois, markSignificantWrite],
   );
 
   const marquerPayee = useCallback(
@@ -544,14 +530,12 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
           ...m,
           transactions: [...m.transactions, trans],
           factures: m.factures.map((x) =>
-            x.id === factureId
-              ? { ...x, statut: "payee", transactionId: transId }
-              : x
+            x.id === factureId ? { ...x, statut: "payee", transactionId: transId } : x,
           ),
         };
       });
     },
-    [updateMois]
+    [updateMois],
   );
 
   const convertirProforma = useCallback(
@@ -559,272 +543,50 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       updateMois(annee, mois, (m) => ({
         ...m,
         factures: m.factures.map((x) =>
-          x.id === factureId
-            ? { ...x, statut: "en_attente", numero: nouveauNumero }
-            : x
+          x.id === factureId ? { ...x, statut: "en_attente", numero: nouveauNumero } : x,
         ),
       }));
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Employés ───
-  const addEmploye = useCallback((e: Omit<Employe, "id">) => {
-    const id = newId();
-    setEmployes((prev) => {
-      const matricule =
-        e.matricule && e.matricule.trim() ? e.matricule : genererMatricule(prev);
-      return [...prev, { ...e, matricule, id }];
-    });
-    markSignificantWrite();
-
-    // Auto-création du compte portail si l'employé a un email
-    if (e.email && e.email.trim() && societeId) {
-      const email = e.email.trim();
-      const nom = e.nom || "";
-      const sid = societeId;
-      supabase.functions
-        .invoke("admin-users", {
-          body: {
-            action: "create_employe_account",
-            email,
-            employe_nom: nom,
-            societe_id: sid,
-          },
-        })
-        .then(({ data, error }) => {
-          if (!error && data?.ok && data.user_id) {
-            // Mettre à jour la fiche employé avec le user_id retourné
-            setEmployes((prev) =>
-              prev.map((emp) =>
-                emp.id === id ? { ...emp, userId: data.user_id as string } : emp
-              )
-            );
-          }
-        })
-        .catch(() => undefined);
-    }
-  }, [societeId, markSignificantWrite]);
-
-  const removeEmploye = useCallback((id: number) => {
-    setEmployes((prev) => prev.filter((e) => e.id !== id));
-    markSignificantWrite();
-  }, [markSignificantWrite]);
-
-  const updateEmploye = useCallback((id: number, patch: Partial<Employe>) => {
-    setEmployes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
-  }, []);
-
-  const addPrime = useCallback(
-    (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
-      updateMois(annee, mois, (m) => {
-        const list = m.primes[employeId] || [];
-        return {
-          ...m,
-          primes: { ...m.primes, [employeId]: [...list, { ...prime, id: newId() }] },
-        };
-      });
-    },
-    [updateMois]
-  );
-
-  const removePrime = useCallback(
-    (annee: number, mois: number, employeId: number, primeId: number) => {
-      updateMois(annee, mois, (m) => {
-        const list = m.primes[employeId] || [];
-        return {
-          ...m,
-          primes: {
-            ...m.primes,
-            [employeId]: list.filter((p) => p.id !== primeId),
-          },
-        };
-      });
-    },
-    [updateMois]
-  );
-
-  // ─── Absences ───
-  const addAbsence = useCallback(
-    (annee: number, mois: number, a: Omit<Absence, "id">) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        absences: [...(m.absences || []), { ...a, id: newId() }],
-      }));
-    },
-    [updateMois]
-  );
-
-  const removeAbsence = useCallback(
+  const validerFacture = useCallback(
     (annee: number, mois: number, id: number) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
       updateMois(annee, mois, (m) => ({
         ...m,
-        absences: (m.absences || []).filter((a) => a.id !== id),
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "valide", motifRejet: undefined };
+          return after;
+        }),
       }));
+      void logAction("VALIDER_FACTURE", "factures", id, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Heures supplémentaires ───
-  const setHeuresSup = useCallback(
-    (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
+  const rejeterFacture = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      let before: Facture | undefined;
+      let after: Facture | undefined;
       updateMois(annee, mois, (m) => ({
         ...m,
-        heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+        factures: m.factures.map((f) => {
+          if (f.id !== id) return f;
+          before = f;
+          after = { ...f, statutValidation: "rejete", motifRejet: motif };
+          return after;
+        }),
       }));
+      void logAction("REJETER_FACTURE", "factures", id, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Retenues ───
-  const setRetenue = useCallback(
-    (annee: number, mois: number, employeId: number, montant: number) => {
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        retenues: { ...(m.retenues || {}), [employeId]: montant },
-      }));
-    },
-    [updateMois]
-  );
-
-  // ─── Paramètres annuels ───
-  const setParamAnnuel = useCallback(
-    (annee: number, patch: Partial<ParamsAnnuels>) => {
-      setParamsAnnuels((prev) => ({
-        ...prev,
-        [annee]: { ...(prev[annee] || {}), ...patch },
-      }));
-    },
-    []
-  );
-
-  const getParamAnnuel = useCallback(
-    (annee: number): ParamsAnnuels => paramsAnnuels[annee] || {},
-    [paramsAnnuels]
-  );
-
-  // ─── Taux fiscaux versionnés ───
-  const ajouterTaux = useCallback((t: TauxFiscaux) => {
-    setTauxHistorique((prev) =>
-      [...prev.filter((x) => x.dateEffet !== t.dateEffet), t].sort(
-        (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime()
-      )
-    );
-  }, []);
-
-  const supprimerTaux = useCallback((dateEffet: string) => {
-    setTauxHistorique((prev) => {
-      const next = prev.filter((x) => x.dateEffet !== dateEffet);
-      return next.length === 0 ? [TAUX_DEFAUT] : next;
-    });
-  }, []);
-
-  // ─── Stock : catégories ───
-  const addCategorieStock = useCallback((nom: string) => {
-    setCategoriesStock((prev) => [...prev, { id: newId(), nom }]);
-  }, []);
-  const removeCategorieStock = useCallback((id: number) => {
-    setCategoriesStock((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  // ─── Stock : fournisseurs ───
-  const addFournisseur = useCallback((f: Omit<Fournisseur, "id">) => {
-    setFournisseurs((prev) => [...prev, { ...f, id: newId() }]);
-  }, []);
-  const updateFournisseur = useCallback((id: number, patch: Partial<Fournisseur>) => {
-    setFournisseurs((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  }, []);
-  const removeFournisseur = useCallback((id: number) => {
-    setFournisseurs((prev) => prev.filter((f) => f.id !== id));
-  }, []);
-
-  // ─── Stock : articles ───
-  const addArticle = useCallback((a: Omit<Article, "id">) => {
-    setArticles((prev) => [...prev, { ...a, id: newId() }]);
-  }, []);
-  const updateArticle = useCallback((id: number, patch: Partial<Article>) => {
-    setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-  }, []);
-  const removeArticle = useCallback((id: number) => {
-    setArticles((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  // ─── Stock : mouvements (impactent stock + PMP pour entrées) ───
-  const addMouvementStock = useCallback(
-    (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
-      const id = newId();
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
-      }));
-      setArticles((prev) =>
-        prev.map((a) => {
-          if (a.id !== mvt.articleId) return a;
-          let nouveauStock = a.stock;
-          let nouveauPMP = a.prixAchat;
-          if (mvt.type === "entree") {
-            const valAvant = a.stock * a.prixAchat;
-            const valEntree = mvt.quantite * (mvt.prixUnitaire ?? a.prixAchat);
-            nouveauStock = a.stock + mvt.quantite;
-            nouveauPMP =
-              nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : a.prixAchat;
-          } else if (mvt.type === "sortie") {
-            nouveauStock = Math.max(0, a.stock - mvt.quantite);
-          } else if (mvt.type === "ajustement") {
-            nouveauStock = mvt.quantite;
-          }
-          return { ...a, stock: nouveauStock, prixAchat: nouveauPMP };
-        })
-      );
-      return id;
-    },
-    [updateMois]
-  );
-
-  const removeMouvementStock = useCallback(
-    (annee: number, mois: number, id: number) => {
-      updateMois(annee, mois, (m) => {
-        const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
-        if (mvt) {
-          setArticles((prev) =>
-            prev.map((a) => {
-              if (a.id !== mvt.articleId) return a;
-              if (mvt.type === "entree")
-                return { ...a, stock: Math.max(0, a.stock - mvt.quantite) };
-              if (mvt.type === "sortie")
-                return { ...a, stock: a.stock + mvt.quantite };
-              return a;
-            })
-          );
-        }
-        return {
-          ...m,
-          mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id),
-        };
-      });
-    },
-    [updateMois]
-  );
-
-  // ─── Sanctions disciplinaires ───
-  const addSanction = useCallback((s: Omit<Sanction, "id">) => {
-    let added: Sanction | undefined;
-    setSanctions((prev) => {
-      added = { ...s, id: newId() };
-      return [...prev, added];
-    });
-    if (added) void logAction("INSERT", "sanctions", added.id, null, added);
-  }, []);
-  const removeSanction = useCallback((id: number) => {
-    let removed: Sanction | undefined;
-    setSanctions((prev) => {
-      removed = prev.find((s) => s.id === id);
-      return prev.filter((s) => s.id !== id);
-    });
-    void logAction("DELETE", "sanctions", id, removed ?? null, null);
-  }, []);
-
-  // ─── Devis ───
+  // ─── Devis (dans donneesMensuelles — app_state) ───────────────────────────
   const addDevis = useCallback(
     (annee: number, mois: number, d: Omit<Devis, "id">) => {
       const id = newId();
@@ -836,7 +598,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       void logAction("INSERT", "devis", id, null, newD);
       return id;
     },
-    [updateMois]
+    [updateMois],
   );
 
   const removeDevis = useCallback(
@@ -849,7 +611,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       });
       void logAction("DELETE", "devis", id, removed ?? null, null);
     },
-    [updateMois]
+    [updateMois],
   );
 
   const updateDevis = useCallback(
@@ -867,7 +629,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       }));
       void logAction("UPDATE", "devis", id, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
   const convertirDevisEnFacture = useCallback(
@@ -903,132 +665,99 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       void logAction("CONVERTIR_DEVIS", "devis", devisId, before ?? null, after ?? null);
       return factureId;
     },
-    [addFacture, donneesMensuelles, updateMois]
+    [addFacture, donneesMensuelles, updateMois],
   );
 
-  // ─── Workflow de validation : transactions / factures ───
-  const validerTransaction = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let before: Transaction | undefined;
-      let after: Transaction | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        transactions: m.transactions.map((t) => {
-          if (t.id !== id) return t;
-          before = t;
-          after = { ...t, statut: "valide", motifRejet: undefined };
-          return after;
-        }),
-      }));
-      void logAction("VALIDER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
-    },
-    [updateMois]
-  );
-
-  const rejeterTransaction = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      let before: Transaction | undefined;
-      let after: Transaction | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        transactions: m.transactions.map((t) => {
-          if (t.id !== id) return t;
-          before = t;
-          after = { ...t, statut: "rejete", motifRejet: motif };
-          return after;
-        }),
-      }));
-      void logAction("REJETER_TRANSACTION", "transactions", id, before ?? null, after ?? null);
-    },
-    [updateMois]
-  );
-
-  const validerFacture = useCallback(
-    (annee: number, mois: number, id: number) => {
-      let before: Facture | undefined;
-      let after: Facture | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((f) => {
-          if (f.id !== id) return f;
-          before = f;
-          after = { ...f, statutValidation: "valide", motifRejet: undefined };
-          return after;
-        }),
-      }));
-      void logAction("VALIDER_FACTURE", "factures", id, before ?? null, after ?? null);
-    },
-    [updateMois]
-  );
-
-  const rejeterFacture = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      let before: Facture | undefined;
-      let after: Facture | undefined;
-      updateMois(annee, mois, (m) => ({
-        ...m,
-        factures: m.factures.map((f) => {
-          if (f.id !== id) return f;
-          before = f;
-          after = { ...f, statutValidation: "rejete", motifRejet: motif };
-          return after;
-        }),
-      }));
-      void logAction("REJETER_FACTURE", "factures", id, before ?? null, after ?? null);
-    },
-    [updateMois]
-  );
-
-  // ─── Workflow GRH : primes ───
-  const validerPrime = useCallback(
-    (annee: number, mois: number, employeId: number, primeId: number) => {
-      let before: Prime | undefined;
-      let after: Prime | undefined;
+  // ─── GRH : Primes (dans donneesMensuelles — app_state) ───────────────────
+  const addPrime = useCallback(
+    (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       updateMois(annee, mois, (m) => {
         const list = m.primes[employeId] || [];
         return {
           ...m,
-          primes: {
-            ...m.primes,
-            [employeId]: list.map((p) => {
-              if (p.id !== primeId) return p;
-              before = p;
-              after = { ...p, statutValidation: "valide", motifRejet: undefined };
-              return after;
-            }),
-          },
+          primes: { ...m.primes, [employeId]: [...list, { ...prime, id: newId() }] },
         };
       });
+    },
+    [updateMois],
+  );
+
+  const removePrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        primes: {
+          ...m.primes,
+          [employeId]: (m.primes[employeId] || []).filter((p) => p.id !== primeId),
+        },
+      }));
+    },
+    [updateMois],
+  );
+
+  const validerPrime = useCallback(
+    (annee: number, mois: number, employeId: number, primeId: number) => {
+      let before: Prime | undefined;
+      let after: Prime | undefined;
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        primes: {
+          ...m.primes,
+          [employeId]: (m.primes[employeId] || []).map((p) => {
+            if (p.id !== primeId) return p;
+            before = p;
+            after = { ...p, statutValidation: "valide", motifRejet: undefined };
+            return after;
+          }),
+        },
+      }));
       void logAction("VALIDER_PRIME", "primes", primeId, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
   const rejeterPrime = useCallback(
     (annee: number, mois: number, employeId: number, primeId: number, motif: string) => {
       let before: Prime | undefined;
       let after: Prime | undefined;
-      updateMois(annee, mois, (m) => {
-        const list = m.primes[employeId] || [];
-        return {
-          ...m,
-          primes: {
-            ...m.primes,
-            [employeId]: list.map((p) => {
-              if (p.id !== primeId) return p;
-              before = p;
-              after = { ...p, statutValidation: "rejete", motifRejet: motif };
-              return after;
-            }),
-          },
-        };
-      });
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        primes: {
+          ...m.primes,
+          [employeId]: (m.primes[employeId] || []).map((p) => {
+            if (p.id !== primeId) return p;
+            before = p;
+            after = { ...p, statutValidation: "rejete", motifRejet: motif };
+            return after;
+          }),
+        },
+      }));
       void logAction("REJETER_PRIME", "primes", primeId, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Workflow GRH : absences ───
+  // ─── GRH : Absences (dans donneesMensuelles — app_state) ─────────────────
+  const addAbsence = useCallback(
+    (annee: number, mois: number, a: Omit<Absence, "id">) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: [...(m.absences || []), { ...a, id: newId() }],
+      }));
+    },
+    [updateMois],
+  );
+
+  const removeAbsence = useCallback(
+    (annee: number, mois: number, id: number) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        absences: (m.absences || []).filter((a) => a.id !== id),
+      }));
+    },
+    [updateMois],
+  );
+
   const validerAbsence = useCallback(
     (annee: number, mois: number, id: number) => {
       let before: Absence | undefined;
@@ -1044,7 +773,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       }));
       void logAction("VALIDER_ABSENCE", "absences", id, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
   const rejeterAbsence = useCallback(
@@ -1062,10 +791,20 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       }));
       void logAction("REJETER_ABSENCE", "absences", id, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Workflow GRH : heures supplémentaires ───
+  // ─── GRH : Heures supplémentaires (dans donneesMensuelles — app_state) ────
+  const setHeuresSup = useCallback(
+    (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        heuresSup: { ...(m.heuresSup || {}), [employeId]: hs },
+      }));
+    },
+    [updateMois],
+  );
+
   const validerHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number) => {
       let before: HeuresSup | undefined;
@@ -1075,14 +814,11 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         if (!cur) return m;
         before = cur;
         after = { ...cur, statutValidation: "valide", motifRejet: undefined };
-        return {
-          ...m,
-          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
-        };
+        return { ...m, heuresSup: { ...(m.heuresSup || {}), [employeId]: after } };
       });
       void logAction("VALIDER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
   const rejeterHeuresSup = useCallback(
@@ -1094,149 +830,356 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         if (!cur) return m;
         before = cur;
         after = { ...cur, statutValidation: "rejete", motifRejet: motif };
-        return {
-          ...m,
-          heuresSup: { ...(m.heuresSup || {}), [employeId]: after },
-        };
+        return { ...m, heuresSup: { ...(m.heuresSup || {}), [employeId]: after } };
       });
       void logAction("REJETER_HEURES_SUP", "heuresSup", employeId, before ?? null, after ?? null);
     },
-    [updateMois]
+    [updateMois],
   );
 
-  // ─── Workflow GRH : sanctions ───
-  const validerSanction = useCallback((id: number) => {
-    let before: Sanction | undefined;
-    let after: Sanction | undefined;
-    setSanctions((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        before = s;
-        after = { ...s, statutValidation: "valide", motifRejet: undefined };
-        return after;
-      })
+  // ─── GRH : Retenues (dans donneesMensuelles — app_state) ─────────────────
+  const setRetenue = useCallback(
+    (annee: number, mois: number, employeId: number, montant: number) => {
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        retenues: { ...(m.retenues || {}), [employeId]: montant },
+      }));
+    },
+    [updateMois],
+  );
+
+  // ─── Taux fiscaux (app_state) ─────────────────────────────────────────────
+  const ajouterTaux = useCallback((t: TauxFiscaux) => {
+    setTauxHistorique((prev) =>
+      [...prev.filter((x) => x.dateEffet !== t.dateEffet), t].sort(
+        (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime(),
+      ),
     );
-    void logAction("VALIDER_SANCTION", "sanctions", id, before ?? null, after ?? null);
   }, []);
 
-  const rejeterSanction = useCallback((id: number, motif: string) => {
-    let before: Sanction | undefined;
-    let after: Sanction | undefined;
-    setSanctions((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        before = s;
-        after = { ...s, statutValidation: "rejete", motifRejet: motif };
-        return after;
-      })
-    );
-    void logAction("REJETER_SANCTION", "sanctions", id, before ?? null, after ?? null);
-  }, []);
-
-  // ─── Workflow GRH : employés ───
-  const validerEmploye = useCallback((id: number) => {
-    let before: Employe | undefined;
-    let after: Employe | undefined;
-    setEmployes((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e;
-        before = e;
-        after = { ...e, statutValidation: "valide", motifRejet: undefined };
-        return after;
-      })
-    );
-    void logAction("VALIDER_EMPLOYE", "employes", id, before ?? null, after ?? null);
-  }, []);
-
-  const rejeterEmploye = useCallback((id: number, motif: string) => {
-    let before: Employe | undefined;
-    let after: Employe | undefined;
-    setEmployes((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e;
-        before = e;
-        after = { ...e, statutValidation: "rejete", motifRejet: motif };
-        return after;
-      })
-    );
-    void logAction("REJETER_EMPLOYE", "employes", id, before ?? null, after ?? null);
-  }, []);
-
-  // ─── Immobilisations ───
-  const addImmobilisation = useCallback((i: Omit<Immobilisation, "id">) => {
-    const id = newId();
-    const comptes =
-      i.comptesSYSCOHADA && i.comptesSYSCOHADA.actif
-        ? i.comptesSYSCOHADA
-        : i.categorie
-          ? COMPTES_IMMO_DEFAUT[i.categorie]
-          : { actif: "24", amortissementCumule: "284", dotation: "6813" };
-    const newI: Immobilisation = { ...i, id, comptesSYSCOHADA: comptes };
-    setImmobilisations((prev) => [...prev, newI]);
-    void logAction("INSERT", "immobilisations", id, null, newI);
-    return id;
-  }, []);
-
-  const removeImmobilisation = useCallback((id: number) => {
-    let removed: Immobilisation | undefined;
-    setImmobilisations((prev) => {
-      removed = prev.find((i) => i.id === id);
-      return prev.filter((i) => i.id !== id);
+  const supprimerTaux = useCallback((dateEffet: string) => {
+    setTauxHistorique((prev) => {
+      const next = prev.filter((x) => x.dateEffet !== dateEffet);
+      return next.length === 0 ? [TAUX_DEFAUT] : next;
     });
-    void logAction("DELETE", "immobilisations", id, removed ?? null, null);
   }, []);
+
+  // ─── Paramètres annuels → table relationnelle ─────────────────────────────
+  const setParamAnnuel = useCallback(
+    (annee: number, patch: Partial<ParamsAnnuels>) => {
+      const current = tqParams.getParamAnnuel(annee);
+      void tqParams.setParamAnnuel(annee, { ...current, ...patch });
+    },
+    [tqParams],
+  );
+
+  const getParamAnnuel = useCallback(
+    (annee: number): ParamsAnnuels => tqParams.getParamAnnuel(annee),
+    [tqParams],
+  );
+
+  // ─── Employés → table relationnelle ──────────────────────────────────────
+  const addEmploye = useCallback(
+    (e: Omit<Employe, "id">) => {
+      if (!societeId) return;
+      const matricule =
+        e.matricule?.trim() ? e.matricule : genererMatricule(employes);
+      void tqEmployes.addEmploye({ ...e, matricule })
+        .then((saved) => {
+          // Auto-création du compte portail si l'employé a un email
+          if (e.email?.trim()) {
+            supabase.functions
+              .invoke("admin-users", {
+                body: {
+                  action: "create_employe_account",
+                  email: e.email.trim(),
+                  employe_nom: e.nom,
+                  societe_id: societeId,
+                },
+              })
+              .then(({ data, error }) => {
+                if (!error && data?.ok && data.user_id) {
+                  void tqEmployes.updateEmploye(saved.id, {
+                    userId: data.user_id as string,
+                  });
+                }
+              })
+              .catch(() => undefined);
+          }
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de la création de l'employé"));
+    },
+    [societeId, employes, tqEmployes, markSignificantWrite],
+  );
+
+  const removeEmploye = useCallback(
+    (id: number) => {
+      if (!societeId) return;
+      void tqEmployes.removeEmploye(id)
+        .then(() => markSignificantWrite())
+        .catch(() => toast.error("Erreur lors de la suppression de l'employé"));
+    },
+    [societeId, tqEmployes, markSignificantWrite],
+  );
+
+  const updateEmploye = useCallback(
+    (id: number, patch: Partial<Employe>) => {
+      if (!societeId) return;
+      void tqEmployes.updateEmploye(id, patch)
+        .catch(() => toast.error("Erreur lors de la mise à jour de l'employé"));
+    },
+    [societeId, tqEmployes],
+  );
+
+  const validerEmploye = useCallback(
+    (id: number) => {
+      void tqEmployes.validerEmploye(id)
+        .then(() => void logAction("VALIDER_EMPLOYE", "employes", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation"));
+    },
+    [tqEmployes],
+  );
+
+  const rejeterEmploye = useCallback(
+    (id: number, motif: string) => {
+      void tqEmployes.rejeterEmploye(id, motif)
+        .then(() => void logAction("REJETER_EMPLOYE", "employes", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet"));
+    },
+    [tqEmployes],
+  );
+
+  // ─── Stock : catégories → table relationnelle ─────────────────────────────
+  const addCategorieStock = useCallback(
+    (nom: string) => {
+      void tqCategories.addCategorieStock({ nom })
+        .catch(() => toast.error("Erreur lors de l'ajout de la catégorie"));
+    },
+    [tqCategories],
+  );
+
+  const removeCategorieStock = useCallback(
+    (id: number) => {
+      void tqCategories.removeCategorieStock(id)
+        .catch(() => toast.error("Erreur lors de la suppression de la catégorie"));
+    },
+    [tqCategories],
+  );
+
+  // ─── Stock : fournisseurs → table relationnelle ───────────────────────────
+  const addFournisseur = useCallback(
+    (f: Omit<Fournisseur, "id">) => {
+      void tqFournisseurs.addFournisseur(f)
+        .catch(() => toast.error("Erreur lors de l'ajout du fournisseur"));
+    },
+    [tqFournisseurs],
+  );
+
+  const updateFournisseur = useCallback(
+    (id: number, patch: Partial<Fournisseur>) => {
+      // Non exposé dans useFournisseurs pour l'instant — no-op silencieux
+      console.warn("[store] updateFournisseur non encore migré", id, patch);
+    },
+    [],
+  );
+
+  const removeFournisseur = useCallback(
+    (id: number) => {
+      void tqFournisseurs.removeFournisseur(id)
+        .catch(() => toast.error("Erreur lors de la suppression du fournisseur"));
+    },
+    [tqFournisseurs],
+  );
+
+  // ─── Stock : articles → table relationnelle ───────────────────────────────
+  const addArticle = useCallback(
+    (a: Omit<Article, "id">) => {
+      void tqArticles.addArticle(a)
+        .catch(() => toast.error("Erreur lors de l'ajout de l'article"));
+    },
+    [tqArticles],
+  );
+
+  const updateArticle = useCallback(
+    (id: number, patch: Partial<Article>) => {
+      void tqArticles.updateArticle(id, patch)
+        .catch(() => toast.error("Erreur lors de la mise à jour de l'article"));
+    },
+    [tqArticles],
+  );
+
+  const removeArticle = useCallback(
+    (id: number) => {
+      void tqArticles.removeArticle(id)
+        .catch(() => toast.error("Erreur lors de la suppression de l'article"));
+    },
+    [tqArticles],
+  );
+
+  // ─── Stock : mouvements (dans donneesMensuelles + article mis à jour) ─────
+  const addMouvementStock = useCallback(
+    (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      const id = newId();
+      updateMois(annee, mois, (m) => ({
+        ...m,
+        mouvementsStock: [...(m.mouvementsStock || []), { ...mvt, id }],
+      }));
+      // Mise à jour du stock + PMP dans la table relationnelle
+      const article = articles.find((a) => a.id === mvt.articleId);
+      if (article && societeId) {
+        let nouveauStock = article.stock;
+        let nouveauPMP = article.prixAchat;
+        if (mvt.type === "entree") {
+          const valAvant = article.stock * article.prixAchat;
+          const valEntree = mvt.quantite * (mvt.prixUnitaire ?? article.prixAchat);
+          nouveauStock = article.stock + mvt.quantite;
+          nouveauPMP =
+            nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : article.prixAchat;
+        } else if (mvt.type === "sortie") {
+          nouveauStock = Math.max(0, article.stock - mvt.quantite);
+        } else if (mvt.type === "ajustement") {
+          nouveauStock = mvt.quantite;
+        }
+        void tqArticles.updateArticle(article.id, {
+          stock: nouveauStock,
+          prixAchat: nouveauPMP,
+        }).catch(() => toast.error("Erreur lors de la mise à jour du stock"));
+      }
+      return id;
+    },
+    [updateMois, articles, societeId, tqArticles],
+  );
+
+  const removeMouvementStock = useCallback(
+    (annee: number, mois: number, id: number) => {
+      updateMois(annee, mois, (m) => {
+        const mvt = (m.mouvementsStock || []).find((x) => x.id === id);
+        if (mvt) {
+          const article = articles.find((a) => a.id === mvt.articleId);
+          if (article && societeId) {
+            let nouveauStock = article.stock;
+            if (mvt.type === "entree")
+              nouveauStock = Math.max(0, article.stock - mvt.quantite);
+            if (mvt.type === "sortie") nouveauStock = article.stock + mvt.quantite;
+            void tqArticles.updateArticle(article.id, { stock: nouveauStock })
+              .catch(() => toast.error("Erreur lors de la mise à jour du stock"));
+          }
+        }
+        return {
+          ...m,
+          mouvementsStock: (m.mouvementsStock || []).filter((x) => x.id !== id),
+        };
+      });
+    },
+    [updateMois, articles, societeId, tqArticles],
+  );
+
+  // ─── Sanctions → table relationnelle ─────────────────────────────────────
+  const addSanction = useCallback(
+    (s: Omit<Sanction, "id">) => {
+      void tqSanctions.addSanction(s)
+        .then((saved) => void logAction("INSERT", "sanctions", saved.id, null, saved))
+        .catch(() => toast.error("Erreur lors de l'ajout de la sanction"));
+    },
+    [tqSanctions],
+  );
+
+  const removeSanction = useCallback(
+    (id: number) => {
+      void tqSanctions.removeSanction(id)
+        .then(() => void logAction("DELETE", "sanctions", id, null, null))
+        .catch(() => toast.error("Erreur lors de la suppression de la sanction"));
+    },
+    [tqSanctions],
+  );
+
+  const validerSanction = useCallback(
+    (id: number) => {
+      void tqSanctions.validerSanction(id)
+        .then(() => void logAction("VALIDER_SANCTION", "sanctions", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation"));
+    },
+    [tqSanctions],
+  );
+
+  const rejeterSanction = useCallback(
+    (id: number, motif: string) => {
+      void tqSanctions.rejeterSanction(id, motif)
+        .then(() => void logAction("REJETER_SANCTION", "sanctions", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet"));
+    },
+    [tqSanctions],
+  );
+
+  // ─── Immobilisations → table relationnelle ────────────────────────────────
+  const addImmobilisation = useCallback(
+    (i: Omit<Immobilisation, "id">) => {
+      const comptes =
+        i.comptesSYSCOHADA?.actif
+          ? i.comptesSYSCOHADA
+          : i.categorie
+            ? COMPTES_IMMO_DEFAUT[i.categorie]
+            : { actif: "24", amortissementCumule: "284", dotation: "6813" };
+      void tqImmobilisations.addImmobilisation({ ...i, comptesSYSCOHADA: comptes })
+        .then((saved) => {
+          void logAction("INSERT", "immobilisations", saved.id, null, saved);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
+      return 0; // ID définitif disponible après invalidation TQ
+    },
+    [tqImmobilisations, markSignificantWrite],
+  );
+
+  const removeImmobilisation = useCallback(
+    (id: number) => {
+      void tqImmobilisations.removeImmobilisation(id)
+        .then(() => void logAction("DELETE", "immobilisations", id, null, null))
+        .catch(() => toast.error("Erreur lors de la suppression de l'immobilisation"));
+    },
+    [tqImmobilisations],
+  );
 
   const updateImmobilisation = useCallback(
     (id: number, patch: Partial<Immobilisation>) => {
-      let before: Immobilisation | undefined;
-      let after: Immobilisation | undefined;
-      setImmobilisations((prev) =>
-        prev.map((i) => {
-          if (i.id !== id) return i;
-          before = i;
-          after = { ...i, ...patch };
-          return after;
-        })
-      );
-      void logAction("UPDATE", "immobilisations", id, before ?? null, after ?? null);
+      void tqImmobilisations.updateImmobilisation(id, patch)
+        .then(() => void logAction("UPDATE", "immobilisations", id, null, patch))
+        .catch(() => toast.error("Erreur lors de la mise à jour de l'immobilisation"));
     },
-    []
+    [tqImmobilisations],
   );
 
   const getAmortissements = useCallback(
     (annee: number) => amortissementsAnnee(immobilisations, annee),
-    [immobilisations]
+    [immobilisations],
   );
 
+  // ─── Import JSON (partiel — entités relationnelles exclues) ──────────────
   const importerDonnees = useCallback(
-    (data: { donneesMensuelles?: DonneesMensuelles; employes?: Employe[] }) => {
-      setDonneesMensuelles(
-        data.donneesMensuelles && typeof data.donneesMensuelles === "object"
-          ? data.donneesMensuelles
-          : {}
-      );
-      setEmployes(Array.isArray(data.employes) ? data.employes : []);
-      const dataAny = data as {
-        paramsAnnuels?: Record<number, ParamsAnnuels>;
-        tauxHistorique?: TauxFiscaux[];
-        articles?: Article[];
-        fournisseurs?: Fournisseur[];
-        categoriesStock?: CategorieArticle[];
-        sanctions?: Sanction[];
-        immobilisations?: Immobilisation[];
-      };
-      if (dataAny.paramsAnnuels) setParamsAnnuels(dataAny.paramsAnnuels);
+    (data: {
+      donneesMensuelles?: DonneesMensuelles;
+      tauxHistorique?: TauxFiscaux[];
+    }) => {
+      if (
+        data.donneesMensuelles &&
+        typeof data.donneesMensuelles === "object"
+      ) {
+        setDonneesMensuelles(data.donneesMensuelles);
+      }
+      const dataAny = data as { tauxHistorique?: TauxFiscaux[] };
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
         setTauxHistorique(dataAny.tauxHistorique);
-      if (Array.isArray(dataAny.articles)) setArticles(dataAny.articles);
-      if (Array.isArray(dataAny.fournisseurs)) setFournisseurs(dataAny.fournisseurs);
-      if (Array.isArray(dataAny.categoriesStock)) setCategoriesStock(dataAny.categoriesStock);
-      if (Array.isArray(dataAny.sanctions)) setSanctions(dataAny.sanctions);
-      if (Array.isArray(dataAny.immobilisations)) setImmobilisations(dataAny.immobilisations);
+
+      toast.info(
+        "Import partiel : employés, articles, immobilisations et sanctions " +
+        "doivent être importés via leur module respectif.",
+      );
     },
-    []
+    [],
   );
 
+  // ─── Années disponibles ───────────────────────────────────────────────────
   const anneesDisponibles = useMemo(() => {
     const s = new Set<number>();
     Object.keys(donneesMensuelles).forEach((k) => {
@@ -1251,6 +1194,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     return out;
   }, [donneesMensuelles]);
 
+  // ─── Interface publique (identique à l'ancienne version) ─────────────────
   return {
     donneesMensuelles,
     employes,
@@ -1341,7 +1285,5 @@ export function nettoyerAncienCacheLocalStorage(societeId: string) {
       if (!isAnotherSociety) keysToDelete.push(key);
     }
   }
-  if (keysToDelete.length > 0) {
-    keysToDelete.forEach(k => localStorage.removeItem(k));
-  }
+  if (keysToDelete.length > 0) keysToDelete.forEach((k) => localStorage.removeItem(k));
 }
