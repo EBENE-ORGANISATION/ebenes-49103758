@@ -686,22 +686,11 @@ const InfoCell = ({
 
 // ─── Composant principal exporté ──────────────────────────────────────────────
 export const MonPortail = () => {
-  const { user, can, isEmploye } = useAuth();
+  const { can } = useAuth();
   const { currentSociete } = useTenant();
   const sid = currentSociete?.id ?? null;
-  const store = useEbeneStore(sid);
 
   const showGrh = can("grh", "read");
-
-  // Vérifie si le compte connecté est lié à une fiche employé dans cette société
-  const isLinkedEmployee = useMemo(
-    () => !!store.employes.find((e) => e.userId && user && e.userId === user.id),
-    [store.employes, user],
-  );
-
-  // L'onglet "Mon espace" est visible si l'utilisateur a le rôle employé
-  // OU s'il est lié à une fiche (admin qui se retrouve aussi dans la paie)
-  const showMonEspace = isEmploye || isLinkedEmployee;
 
   if (!sid) {
     return (
@@ -713,13 +702,9 @@ export const MonPortail = () => {
     );
   }
 
-  // Seule la gestion GRH sans espace personnel
-  if (!showMonEspace && showGrh) {
-    return <PortailAdminView />;
-  }
-
-  // Seul l'espace personnel sans gestion GRH
-  if (showMonEspace && !showGrh) {
+  // Tous les utilisateurs ont accès à "Mon espace" personnel.
+  // Les utilisateurs avec droits GRH voient en plus l'onglet "Gestion portail".
+  if (!showGrh) {
     return <MonEspace societeId={sid} />;
   }
 
