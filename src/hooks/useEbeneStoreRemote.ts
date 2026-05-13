@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
@@ -104,6 +105,26 @@ const lsWrite = (k: string, sid: string | null, value: unknown) => {
 
 
 export const useEbeneStoreRemote = (societeId: string | null = null) => {
+  const qc = useQueryClient();
+
+  // ─── Purge du cache React Query lors d'un changement de société ────────────
+  // Évite que les données d'une société précédente restent visibles pendant
+  // le chargement des données de la nouvelle société.
+  const prevSocieteIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevSocieteIdRef.current;
+    if (prev !== null && prev !== societeId) {
+      // Supprime toutes les entrées de cache qui appartiennent à l'ancienne société
+      qc.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[1] === prev;
+        },
+      });
+    }
+    prevSocieteIdRef.current = societeId;
+  }, [societeId, qc]);
+
   // ─── État app_state (tauxHistorique uniquement) ───────────────────────────
   // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
   // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.

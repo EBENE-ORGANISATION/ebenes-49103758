@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
@@ -57,6 +58,41 @@ const Index = () => {
   const { societeConfig, currentSociete, isSuperAdmin, societes } = useTenant();
 
   const effectiveSocieteId = currentSociete?.id ?? null;
+  const qc = useQueryClient();
+
+  // ─── Purge globale du cache React Query au changement de société ──────────
+  // • Quand l'ID change (null → A, A → B, B → A) : supprime le cache de
+  //   l'ancienne société pour éviter tout affichage de données croisées.
+  // • Premier montage avec un ID valide : invalide tout le cache de cette
+  //   société pour forcer un rechargement propre depuis Supabase.
+  const prevSidRef = useRef<string | null | undefined>(undefined); // undefined = pas encore initialisé
+  useEffect(() => {
+    const prev = prevSidRef.current;
+    const current = effectiveSocieteId;
+
+    if (prev === undefined) {
+      // Premier rendu avec une société : invalide pour forcer un fetch frais
+      if (current) {
+        qc.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && key[1] === current;
+          },
+        });
+      }
+    } else if (prev !== null && prev !== current) {
+      // Changement de société : efface entièrement le cache de l'ancienne
+      qc.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[1] === prev;
+        },
+      });
+    }
+
+    prevSidRef.current = current;
+  }, [effectiveSocieteId, qc]);
+
   const store = useEbeneStore(effectiveSocieteId);
   useEffect(() => {
     if (currentSociete?.id) {
