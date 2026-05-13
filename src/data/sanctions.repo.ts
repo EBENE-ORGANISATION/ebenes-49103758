@@ -3,6 +3,7 @@
  * Table créée par la migration 20260512_relational_migration.sql.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Sanction, TypeSanction, StatutValidation } from "@/types/ebene";
 
 // Type interne (la table n'est pas encore dans les types auto-générés)
@@ -57,8 +58,17 @@ export const sanctions = {
       .from("sanctions")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("date", { ascending: false });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("sanctions").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false });
+        if (fb.error) throw fb.error;
+        return ((fb.data ?? []) as SanctionRow[]).map(toSanction);
+      }
+      throw error;
+    }
     return ((data ?? []) as SanctionRow[]).map(toSanction);
   },
 
@@ -93,6 +103,19 @@ export const sanctions = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("sanctions", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("sanctions")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("sanctions")
       .delete()

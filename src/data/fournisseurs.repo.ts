@@ -2,6 +2,7 @@
  * fournisseurs.repo.ts — Couche d'accès Supabase pour la table `fournisseurs`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Fournisseur } from "@/types/ebene";
 
@@ -37,8 +38,17 @@ export const fournisseurs = {
       .from("fournisseurs")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("nom", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("fournisseurs").select("*")
+          .eq("societe_id", societeId).order("nom");
+        if (fb.error) throw fb.error;
+        return (fb.data ?? []).map(toFournisseur);
+      }
+      throw error;
+    }
     return (data ?? []).map(toFournisseur);
   },
 
@@ -79,6 +89,19 @@ export const fournisseurs = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("fournisseurs", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("fournisseurs")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("fournisseurs")
       .delete()

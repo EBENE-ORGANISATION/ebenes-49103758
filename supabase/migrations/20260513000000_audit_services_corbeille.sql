@@ -159,10 +159,41 @@ CREATE INDEX IF NOT EXISTS idx_devis_deleted_at ON devis (deleted_at)
 -- Articles stock
 ALTER TABLE articles
   ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_articles_deleted_at ON articles (deleted_at) WHERE deleted_at IS NULL;
+
+-- Fournisseurs
+ALTER TABLE fournisseurs
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_fournisseurs_deleted_at ON fournisseurs (deleted_at) WHERE deleted_at IS NULL;
+
+-- Absences
+ALTER TABLE absences
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_absences_deleted_at ON absences (deleted_at) WHERE deleted_at IS NULL;
+
+-- Sanctions
+ALTER TABLE sanctions
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_sanctions_deleted_at ON sanctions (deleted_at) WHERE deleted_at IS NULL;
+
+-- Primes
+ALTER TABLE primes
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_primes_deleted_at ON primes (deleted_at) WHERE deleted_at IS NULL;
+
+-- Immobilisations
+ALTER TABLE immobilisations
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_immobilisations_deleted_at ON immobilisations (deleted_at) WHERE deleted_at IS NULL;
 
 -- Commentaire de documentation
-COMMENT ON COLUMN employes.deleted_at     IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
-COMMENT ON COLUMN transactions.deleted_at IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
-COMMENT ON COLUMN factures.deleted_at     IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
-COMMENT ON COLUMN devis.deleted_at        IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
-COMMENT ON COLUMN articles.deleted_at     IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN employes.deleted_at       IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN transactions.deleted_at   IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN factures.deleted_at       IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN devis.deleted_at          IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN articles.deleted_at       IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN fournisseurs.deleted_at   IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN absences.deleted_at       IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN sanctions.deleted_at      IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN primes.deleted_at         IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';
+COMMENT ON COLUMN immobilisations.deleted_at IS 'NULL = actif ; non-NULL = dans la corbeille (soft delete)';

@@ -2,6 +2,7 @@
  * immobilisations.repo.ts — Couche d'accès Supabase pour `immobilisations`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type {
   Immobilisation,
@@ -60,8 +61,17 @@ export const immobilisations = {
       .from("immobilisations")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("libelle", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("immobilisations").select("*")
+          .eq("societe_id", societeId).order("libelle");
+        if (fb.error) throw fb.error;
+        return (fb.data ?? []).map(toImmobilisation);
+      }
+      throw error;
+    }
     return (data ?? []).map(toImmobilisation);
   },
 
@@ -120,6 +130,19 @@ export const immobilisations = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("immobilisations", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("immobilisations")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("immobilisations")
       .delete()

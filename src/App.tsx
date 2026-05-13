@@ -11,6 +11,7 @@ import AuditLog from "./pages/AuditLog.tsx";
 import ParametresSociete from "./pages/ParametresSociete.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
 import Bulletins from "./pages/Bulletins.tsx";
+import Corbeille from "./pages/Corbeille.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
@@ -72,6 +73,14 @@ const App = () => (
                 <SuperAdminRoute>
                   <SuperAdmin />
                 </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="/corbeille"
+              element={
+                <ProtectedRoute>
+                  <Corbeille />
+                </ProtectedRoute>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

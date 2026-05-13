@@ -2,6 +2,7 @@
  * primes.repo.ts — Couche d'accès Supabase pour la table `primes`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Prime, StatutValidation } from "@/types/ebene";
 
@@ -50,8 +51,24 @@ export const primes = {
       .from("primes")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("created_at", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("primes").select("*")
+          .eq("societe_id", societeId).order("created_at", { ascending: true });
+        if (fb.error) throw fb.error;
+        const result2: Record<string, Record<number, Prime[]>> = {};
+        for (const row of (fb.data ?? []) as PrimeRow[]) {
+          const key = `${row.annee}-${row.mois}`;
+          if (!result2[key]) result2[key] = {};
+          if (!result2[key][row.employe_id]) result2[key][row.employe_id] = [];
+          result2[key][row.employe_id].push(toPrime(row));
+        }
+        return result2;
+      }
+      throw error;
+    }
     const result: Record<string, Record<number, Prime[]>> = {};
     for (const row of (data ?? []) as PrimeRow[]) {
       const key = `${row.annee}-${row.mois}`;
@@ -77,8 +94,23 @@ export const primes = {
       .eq("societe_id", societeId)
       .eq("annee", annee)
       .eq("mois", mois)
+      .is("deleted_at" as never, null)
       .order("created_at", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("primes").select("*")
+          .eq("societe_id", societeId).eq("annee", annee).eq("mois", mois)
+          .order("created_at", { ascending: true });
+        if (fb.error) throw fb.error;
+        const r2: Record<number, Prime[]> = {};
+        for (const row of fb.data ?? []) {
+          if (!r2[row.employe_id]) r2[row.employe_id] = [];
+          r2[row.employe_id].push(toPrime(row));
+        }
+        return r2;
+      }
+      throw error;
+    }
     const result: Record<number, Prime[]> = {};
     for (const row of data ?? []) {
       if (!result[row.employe_id]) result[row.employe_id] = [];
@@ -128,6 +160,19 @@ export const primes = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("primes", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("primes")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("primes")
       .delete()

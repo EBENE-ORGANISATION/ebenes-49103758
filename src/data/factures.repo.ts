@@ -4,6 +4,7 @@
  * `lignes` est stocké en Json en DB → sérialisé/désérialisé dans les mappers.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type {
   Facture,
@@ -69,14 +70,29 @@ export const fromFacture = (
 });
 
 export const factures = {
-  /** Charge TOUTES les factures, groupées par moisKey ("YYYY-M"). */
+  /** Charge TOUTES les factures actives, groupées par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, Facture[]>> {
     const { data, error } = await supabase
       .from("factures")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("date", { ascending: false });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("factures").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false });
+        if (fb.error) throw fb.error;
+        const result2: Record<string, Facture[]> = {};
+        for (const row of (fb.data ?? []) as FactureRow[]) {
+          const key = `${row.annee}-${row.mois}`;
+          if (!result2[key]) result2[key] = [];
+          result2[key].push(toFacture(row));
+        }
+        return result2;
+      }
+      throw error;
+    }
     const result: Record<string, Facture[]> = {};
     for (const row of (data ?? []) as FactureRow[]) {
       const key = `${row.annee}-${row.mois}`;
@@ -150,6 +166,19 @@ export const factures = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("factures", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("factures")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("factures")
       .delete()

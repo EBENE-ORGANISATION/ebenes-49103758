@@ -4,6 +4,7 @@
  * `lignes` est stocké en Json en DB → sérialisé/désérialisé dans les mappers.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type {
   Devis,
@@ -68,14 +69,29 @@ export const fromDevis = (
 });
 
 export const devis = {
-  /** Charge TOUS les devis, groupés par moisKey ("YYYY-M"). */
+  /** Charge TOUS les devis actifs, groupés par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, Devis[]>> {
     const { data, error } = await supabase
       .from("devis")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("date", { ascending: false });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("devis").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false });
+        if (fb.error) throw fb.error;
+        const result2: Record<string, Devis[]> = {};
+        for (const row of (fb.data ?? []) as DevisRow[]) {
+          const key = `${row.annee}-${row.mois}`;
+          if (!result2[key]) result2[key] = [];
+          result2[key].push(toDevis(row));
+        }
+        return result2;
+      }
+      throw error;
+    }
     const result: Record<string, Devis[]> = {};
     for (const row of (data ?? []) as DevisRow[]) {
       const key = `${row.annee}-${row.mois}`;
@@ -127,6 +143,19 @@ export const devis = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("devis", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("devis")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("devis")
       .delete()

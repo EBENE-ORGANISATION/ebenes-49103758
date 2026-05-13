@@ -2,6 +2,7 @@
  * absences.repo.ts — Couche d'accès Supabase pour la table `absences`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Absence, TypeAbsence, StatutValidation } from "@/types/ebene";
 
@@ -53,8 +54,23 @@ export const absences = {
       .from("absences")
       .select("*")
       .eq("societe_id", societeId)
+      .is("deleted_at" as never, null)
       .order("date_debut", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("absences").select("*")
+          .eq("societe_id", societeId).order("date_debut", { ascending: true });
+        if (fb.error) throw fb.error;
+        const result2: Record<string, Absence[]> = {};
+        for (const row of (fb.data ?? []) as AbsenceRow[]) {
+          const key = `${row.annee}-${row.mois}`;
+          if (!result2[key]) result2[key] = [];
+          result2[key].push(toAbsence(row));
+        }
+        return result2;
+      }
+      throw error;
+    }
     const result: Record<string, Absence[]> = {};
     for (const row of (data ?? []) as AbsenceRow[]) {
       const key = `${row.annee}-${row.mois}`;
@@ -64,7 +80,7 @@ export const absences = {
     return result;
   },
 
-  /** Charge toutes les absences d'une société pour un mois donné. */
+  /** Charge toutes les absences d'une société pour un mois donné (actives uniquement). */
   async listByMois(
     societeId: string,
     annee: number,
@@ -76,8 +92,18 @@ export const absences = {
       .eq("societe_id", societeId)
       .eq("annee", annee)
       .eq("mois", mois)
+      .is("deleted_at" as never, null)
       .order("date_debut", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42703") {
+        const fb = await supabase.from("absences").select("*")
+          .eq("societe_id", societeId).eq("annee", annee).eq("mois", mois)
+          .order("date_debut", { ascending: true });
+        if (fb.error) throw fb.error;
+        return (fb.data ?? []).map(toAbsence);
+      }
+      throw error;
+    }
     return (data ?? []).map(toAbsence);
   },
 
@@ -121,6 +147,19 @@ export const absences = {
   },
 
   async remove(id: number, societeId: string): Promise<void> {
+    await softRemove("absences", id, societeId);
+  },
+
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("absences")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("absences")
       .delete()

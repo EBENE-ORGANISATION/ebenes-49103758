@@ -21,6 +21,7 @@ import {
   Info,
   Smartphone,
   Settings2,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -82,7 +83,7 @@ export const Header = ({
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
-  const { user, roles, isAdmin, isSuperAdmin, signOut } = useAuth();
+  const { user, roles, isAdmin, isSuperAdmin, isChefCompta, isChefGrh, signOut } = useAuth();
   const { canFeature } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
   // Mode "Appli mère" : aucune société sélectionnée. On NE doit JAMAIS
@@ -99,6 +100,7 @@ export const Header = ({
   const showJsonIO = canFeature("json_io");
   const showUsersAdmin = isAdmin && canFeature("users_admin");
   const showAuditLog = isAdmin && canFeature("audit_log");
+  const showCorbeille = isAdmin || isChefCompta || isChefGrh;
   const showParamSociete = isAdmin;
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -299,6 +301,11 @@ export const Header = ({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+            {showCorbeille && (
+              <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                <Link to="/corbeille"><Trash2 className="size-4" /> Corbeille</Link>
+              </Button>
             )}
             {(showUsersAdmin || showAuditLog) && (
               <>
