@@ -88,6 +88,7 @@ export const Stock = (props: Props) => {
           <ArticlesPanel
             articles={articles} fournisseurs={fournisseurs} categories={categories}
             onAdd={onAddArticle} onUpdate={onUpdateArticle} onRemove={onRemoveArticle}
+            isChefCompta={isChefCompta}
           />
         </TabsContent>
 
@@ -98,6 +99,7 @@ export const Stock = (props: Props) => {
             articles={articles}
             onAdd={onAddMouvement}
             onRemove={onRemoveMouvement}
+            isChefCompta={isChefCompta}
           />
         </TabsContent>
 
@@ -107,6 +109,7 @@ export const Stock = (props: Props) => {
             onAdd={onAddFournisseur}
             onUpdate={onUpdateFournisseur}
             onRemove={onRemoveFournisseur}
+            isChefCompta={isChefCompta}
           />
         </TabsContent>
 
@@ -129,10 +132,11 @@ export const Stock = (props: Props) => {
 
 // ─── Articles ──────────────────────────────────────────────────────────────
 const ArticlesPanel = ({
-  articles, fournisseurs, categories, onAdd, onUpdate, onRemove,
+  articles, fournisseurs, categories, onAdd, onUpdate, onRemove, isChefCompta,
 }: {
   articles: Article[]; fournisseurs: Fournisseur[]; categories: CategorieArticle[];
   onAdd: (a: Omit<Article, "id">) => void; onUpdate: (id: number, p: Partial<Article>) => void; onRemove: (id: number) => void;
+  isChefCompta?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Article | null>(null);
@@ -251,11 +255,12 @@ const ArticlesPanel = ({
 
 // ─── Mouvements ────────────────────────────────────────────────────────────
 const MouvementsPanel = ({
-  annee, mois, mouvements, articles, onAdd, onRemove,
+  annee, mois, mouvements, articles, onAdd, onRemove, isChefCompta,
 }: {
   annee: number; mois: number; mouvements: MouvementStock[]; articles: Article[];
   onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
   onRemove: (annee: number, mois: number, id: number) => void;
+  isChefCompta?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
@@ -368,12 +373,13 @@ const MouvementsPanel = ({
 
 // ─── Fournisseurs ──────────────────────────────────────────────────────────
 const FournisseursPanel = ({
-  fournisseurs, onAdd, onUpdate, onRemove,
+  fournisseurs, onAdd, onUpdate, onRemove, isChefCompta,
 }: {
   fournisseurs: Fournisseur[];
   onAdd: (f: Omit<Fournisseur, "id">) => void;
   onUpdate: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
   onRemove: (id: number) => void;
+  isChefCompta?: boolean;
 }) => {
   const empty: Omit<Fournisseur, "id"> = { nom: "", contact: "", telephone: "", email: "", adresse: "" };
   const [openAdd, setOpenAdd] = useState(false);
