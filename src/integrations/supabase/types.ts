@@ -128,6 +128,7 @@ export type Database = {
         Row: {
           categorie_id: number | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           designation: string
           emplacement: string | null
@@ -145,6 +146,7 @@ export type Database = {
         Insert: {
           categorie_id?: number | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           designation: string
           emplacement?: string | null
@@ -162,6 +164,7 @@ export type Database = {
         Update: {
           categorie_id?: number | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           designation?: string
           emplacement?: string | null
@@ -191,10 +194,12 @@ export type Database = {
           action: string
           changes: Json | null
           created_at: string
+          description: string | null
           id: string
           new_data: Json | null
           old_data: Json | null
           record_id: string | null
+          societe_id: string | null
           table_name: string
           user_email: string | null
           user_id: string | null
@@ -205,10 +210,12 @@ export type Database = {
           action: string
           changes?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          societe_id?: string | null
           table_name: string
           user_email?: string | null
           user_id?: string | null
@@ -219,17 +226,27 @@ export type Database = {
           action?: string
           changes?: Json | null
           created_at?: string
+          description?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          societe_id?: string | null
           table_name?: string
           user_email?: string | null
           user_id?: string | null
           value_after?: Json | null
           value_before?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bulletins_paie: {
         Row: {
@@ -510,6 +527,7 @@ export type Database = {
           created_at: string
           date: string
           date_validite: string | null
+          deleted_at: string | null
           facture_id: number | null
           id: number
           lignes: Json
@@ -532,6 +550,7 @@ export type Database = {
           created_at?: string
           date: string
           date_validite?: string | null
+          deleted_at?: string | null
           facture_id?: number | null
           id?: number
           lignes?: Json
@@ -554,6 +573,7 @@ export type Database = {
           created_at?: string
           date?: string
           date_validite?: string | null
+          deleted_at?: string | null
           facture_id?: number | null
           id?: number
           lignes?: Json
@@ -668,12 +688,14 @@ export type Database = {
       employes: {
         Row: {
           adresse: string | null
+          assurance_vie: number | null
           categorie: string | null
           cni: string | null
           created_at: string
           date_embauche: string | null
           date_fin_contrat: string | null
           date_naissance: string | null
+          deleted_at: string | null
           echelon: number | null
           email: string | null
           enfants: number
@@ -681,6 +703,7 @@ export type Database = {
           indemnite_fonction: number | null
           indemnite_logement: number | null
           indemnite_transport: number | null
+          interet_pret_immobilier: number | null
           lieu_naissance: string | null
           matricule: string | null
           motif_rejet: string | null
@@ -689,6 +712,7 @@ export type Database = {
           num_cnss: string | null
           poste: string
           qualification: string | null
+          retraite_complementaire: number | null
           salaire: number
           sexe: string | null
           situation: string
@@ -703,12 +727,14 @@ export type Database = {
         }
         Insert: {
           adresse?: string | null
+          assurance_vie?: number | null
           categorie?: string | null
           cni?: string | null
           created_at?: string
           date_embauche?: string | null
           date_fin_contrat?: string | null
           date_naissance?: string | null
+          deleted_at?: string | null
           echelon?: number | null
           email?: string | null
           enfants?: number
@@ -716,6 +742,7 @@ export type Database = {
           indemnite_fonction?: number | null
           indemnite_logement?: number | null
           indemnite_transport?: number | null
+          interet_pret_immobilier?: number | null
           lieu_naissance?: string | null
           matricule?: string | null
           motif_rejet?: string | null
@@ -724,6 +751,7 @@ export type Database = {
           num_cnss?: string | null
           poste?: string
           qualification?: string | null
+          retraite_complementaire?: number | null
           salaire?: number
           sexe?: string | null
           situation?: string
@@ -738,12 +766,14 @@ export type Database = {
         }
         Update: {
           adresse?: string | null
+          assurance_vie?: number | null
           categorie?: string | null
           cni?: string | null
           created_at?: string
           date_embauche?: string | null
           date_fin_contrat?: string | null
           date_naissance?: string | null
+          deleted_at?: string | null
           echelon?: number | null
           email?: string | null
           enfants?: number
@@ -751,6 +781,7 @@ export type Database = {
           indemnite_fonction?: number | null
           indemnite_logement?: number | null
           indemnite_transport?: number | null
+          interet_pret_immobilier?: number | null
           lieu_naissance?: string | null
           matricule?: string | null
           motif_rejet?: string | null
@@ -759,6 +790,7 @@ export type Database = {
           num_cnss?: string | null
           poste?: string
           qualification?: string | null
+          retraite_complementaire?: number | null
           salaire?: number
           sexe?: string | null
           situation?: string
@@ -789,6 +821,7 @@ export type Database = {
           client: string
           created_at: string
           date: string
+          deleted_at: string | null
           id: number
           lignes: Json
           mois: number
@@ -811,6 +844,7 @@ export type Database = {
           client: string
           created_at?: string
           date: string
+          deleted_at?: string | null
           id?: number
           lignes?: Json
           mois: number
@@ -833,6 +867,7 @@ export type Database = {
           client?: string
           created_at?: string
           date?: string
+          deleted_at?: string | null
           id?: number
           lignes?: Json
           mois?: number
@@ -1365,6 +1400,82 @@ export type Database = {
           },
         ]
       }
+      service_membres: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          role: string
+          service_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role: string
+          service_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role?: string
+          service_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_membres_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          couleur: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          nom: string
+          societe_id: string
+          updated_at: string
+        }
+        Insert: {
+          couleur?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          nom: string
+          societe_id: string
+          updated_at?: string
+        }
+        Update: {
+          couleur?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          nom?: string
+          societe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       societe_config: {
         Row: {
           adresse: string | null
@@ -1628,6 +1739,7 @@ export type Database = {
           auto: boolean | null
           created_at: string
           date: string
+          deleted_at: string | null
           description: string
           facture_id: number | null
           fournisseur: string | null
@@ -1650,6 +1762,7 @@ export type Database = {
           auto?: boolean | null
           created_at?: string
           date: string
+          deleted_at?: string | null
           description?: string
           facture_id?: number | null
           fournisseur?: string | null
@@ -1672,6 +1785,7 @@ export type Database = {
           auto?: boolean | null
           created_at?: string
           date?: string
+          deleted_at?: string | null
           description?: string
           facture_id?: number | null
           fournisseur?: string | null
