@@ -231,14 +231,16 @@ export const AbsencesPanel = ({
                       <XCircle className="size-4" />
                     </Button>
                   )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => onRemove(a.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {isChefGrh && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => onRemove(a.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             );

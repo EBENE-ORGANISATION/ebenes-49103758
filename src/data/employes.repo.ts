@@ -46,6 +46,9 @@ export const toEmploye = (row: EmployeRow): Employe => ({
   indemniteFonction: n(row.indemnite_fonction),
   sursalaire: n(row.sursalaire),
   soldeConges: n(row.solde_conges),
+  interetPretImmobilier: n((row as never as Record<string, number | null>)["interet_pret_immobilier"]),
+  assuranceVie: n((row as never as Record<string, number | null>)["assurance_vie"]),
+  retraiteComplementaire: n((row as never as Record<string, number | null>)["retraite_complementaire"]),
   userId: n(row.user_id),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
@@ -83,6 +86,9 @@ export const fromEmploye = (
   indemnite_fonction: e.indemniteFonction ?? null,
   sursalaire: e.sursalaire ?? null,
   solde_conges: e.soldeConges ?? null,
+  interet_pret_immobilier: e.interetPretImmobilier ?? null,
+  assurance_vie: e.assuranceVie ?? null,
+  retraite_complementaire: e.retraiteComplementaire ?? null,
   user_id: e.userId ?? null,
   statut_validation: e.statutValidation ?? null,
   motif_rejet: e.motifRejet ?? null,
@@ -91,14 +97,38 @@ export const fromEmploye = (
 // ─── CRUD ────────────────────────────────────────────────────────────────────
 
 export const employes = {
-  /** Charge tous les employés d'une société. */
+  /** Charge tous les employés actifs d'une société (exclut la corbeille). */
   async list(societeId: string): Promise<Employe[]> {
     const { data, error } = await supabase
       .from("employes")
       .select("*")
       .eq("societe_id", societeId)
+      // Filtre soft-delete : si la colonne n'existe pas encore (pré-migration)
+      // Supabase retourne une erreur 400 — on ignore silencieusement.
+      .is("deleted_at" as never, null)
       .order("nom", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      // Colonne absente (pré-migration) → charger sans filtre
+      if (error.code === "42703") {
+        const fb = await supabase.from("employes").select("*")
+          .eq("societe_id", societeId).order("nom");
+        if (fb.error) throw fb.error;
+        return (fb.data ?? []).map(toEmploye);
+      }
+      throw error;
+    }
+    return (data ?? []).map(toEmploye);
+  },
+
+  /** Charge les employés dans la corbeille (deleted_at IS NOT NULL). */
+  async listDeleted(societeId: string): Promise<Employe[]> {
+    const { data, error } = await supabase
+      .from("employes")
+      .select("*")
+      .eq("societe_id", societeId)
+      .not("deleted_at" as never, "is", null)
+      .order("nom", { ascending: true });
+    if (error) return []; // colonne absente → corbeille vide
     return (data ?? []).map(toEmploye);
   },
 
@@ -178,8 +208,43 @@ export const employes = {
     return toEmploye(data);
   },
 
-  /** Supprime un employé (RLS garantit l'accès société). */
+  /**
+   * Soft-delete : déplace un employé dans la corbeille (deleted_at = now()).
+   * Si la colonne n'existe pas encore (pré-migration), effectue un hard-delete
+   * pour maintenir la fonctionnalité.
+   */
   async remove(id: number, societeId: string): Promise<void> {
+    // Tentative soft-delete
+    const { error } = await supabase
+      .from("employes")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+
+    if (error) {
+      // Colonne deleted_at absente → fallback hard-delete
+      if (error.code === "42703" || error.code === "PGRST204") {
+        const hd = await supabase.from("employes").delete()
+          .eq("id", id).eq("societe_id", societeId);
+        if (hd.error) throw hd.error;
+        return;
+      }
+      throw error;
+    }
+  },
+
+  /** Restaure un employé depuis la corbeille. */
+  async restore(id: number, societeId: string): Promise<void> {
+    const { error } = await supabase
+      .from("employes")
+      .update({ deleted_at: null } as never)
+      .eq("id", id)
+      .eq("societe_id", societeId);
+    if (error) throw error;
+  },
+
+  /** Suppression définitive depuis la corbeille. */
+  async purge(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("employes")
       .delete()

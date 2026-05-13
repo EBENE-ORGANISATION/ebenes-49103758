@@ -250,16 +250,18 @@ export const DisciplinePanel = ({
                         <XCircle className="size-4" />
                       </Button>
                     )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm(t("grh_discipline.confirm_delete"))) onRemove(s.id);
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {isChefGrh && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          if (confirm(t("grh_discipline.confirm_delete"))) onRemove(s.id);
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

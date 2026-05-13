@@ -203,6 +203,42 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
         </div>
       </div>
 
+      {/* ── Déductions fiscales IRPP (optionnel) ─────────────────────── */}
+      <div>
+        <p className="text-xs font-bold uppercase text-muted-foreground mb-1">
+          Déductions fiscales IRPP (optionnel)
+        </p>
+        <p className="text-xs text-muted-foreground mb-2">
+          À renseigner si l'employé bénéficie de ces déductions selon le CGI togolais.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Field label="VI — Intérêt prêt immobilier (F/mois)">
+            <Input
+              type="number" min={0}
+              value={form.interetPretImmobilier ?? 0}
+              onChange={(e) => update("interetPretImmobilier", parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="VII — Assurance-vie (F/mois)">
+            <Input
+              type="number" min={0}
+              value={form.assuranceVie ?? 0}
+              onChange={(e) => update("assuranceVie", parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="VIII — Retraite complémentaire (F/mois)">
+            <Input
+              type="number" min={0}
+              value={form.retraiteComplementaire ?? 0}
+              onChange={(e) => update("retraiteComplementaire", parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </Field>
+        </div>
+      </div>
+
       <div className="flex gap-2 pt-2">
         <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
           {t("grh_form.save")}

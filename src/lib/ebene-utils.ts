@@ -48,38 +48,124 @@ export const calculerAnciennete = (dateEmbauche?: string, refDate = new Date()):
   return Math.max(0, diff / (365.25 * 24 * 3600 * 1000));
 };
 
-/** IRPP Togo - barème simplifié par tranches mensuelles (FCFA) */
-const TRANCHES_IRPP = [
-  { jusqua: 60_000, taux: 0.005 },
-  { jusqua: 150_000, taux: 0.07 },
-  { jusqua: 300_000, taux: 0.15 },
-  { jusqua: 500_000, taux: 0.25 },
-  { jusqua: 800_000, taux: 0.3 },
-  { jusqua: Infinity, taux: 0.35 },
+/**
+ * IRPP Togo — Barème officiel CGI, tranches annuelles ÷ 12 = mensuel (FCFA)
+ *
+ *  Annuel          →  Mensuel          Taux
+ *  0 – 900 000     →  0 – 75 000        0 %
+ *  900 001 – 3 M   →  75 001 – 250 000  3 %
+ *  3 M   – 6 M     →  250 001 – 500 000 10 %
+ *  6 M   – 9 M     →  500 001 – 750 000 15 %
+ *  9 M   – 12 M    →  750 001 – 1 000 000 20 %
+ *  12 M  – 15 M    →  1 000 001 – 1 250 000 25 %
+ *  15 M  – 20 M    →  1 250 001 – 1 666 667 30 %
+ *  > 20 M          →  > 1 666 667       35 %
+ */
+const TRANCHES_IRPP_MENSUEL = [
+  { jusqua:     75_000, taux: 0.00 },
+  { jusqua:    250_000, taux: 0.03 },
+  { jusqua:    500_000, taux: 0.10 },
+  { jusqua:    750_000, taux: 0.15 },
+  { jusqua:  1_000_000, taux: 0.20 },
+  { jusqua:  1_250_000, taux: 0.25 },
+  { jusqua:  1_666_667, taux: 0.30 },
+  { jusqua:   Infinity, taux: 0.35 },
 ];
 
+/**
+ * Calcule l'IRPP mensuel selon la méthode officielle du CGI togolais.
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │  RB  = Revenu Brut COMPLET (base + sursalaire + ancienneté + HS +      │
+ * │        primes + indemnité transport + logement + fonction…)             │
+ * │                                                                         │
+ * │  CNSS = RB × 9 %  (CNSS 4 % + AMU 5 %)                                │
+ * │  NDCS = RB − CNSS                                                       │
+ * │                                                                         │
+ * │  Déduction forfaitaire :                                                │
+ * │    Si NDCS ≤ 833 333 F/mois (= 10 000 000 annuel) →  DF = NDCS × 28 % │
+ * │    Sinon                                           →  DF = 233 333      │
+ * │    Soit : DF = min(NDCS × 28 %, 233 333 F/mois)                        │
+ * │                                                                         │
+ * │  CF  = 10 000 F/mois × personnes à charge                              │
+ * │        (conjoint si marié + enfants, max 6 enfants)                    │
+ * │  RNT = max(0, NDCS − DF − CF)                                          │
+ * │                                                                         │
+ * │  Déductions facultatives :                                              │
+ * │   VI.  Intérêt prêt immobilier (montant mensuel réel)                  │
+ * │  VII.  Assurance-vie ≤ (200 000 + 30 000 × enfants≤6) / 12 /mois      │
+ * │ VIII.  Retraite complémentaire ≤ 6 % du RNT mensuel                    │
+ * │                                                                         │
+ * │  RNI = max(0, RNT − VI − VII − VIII)                                   │
+ * │  IRPP = barème progressif mensuel sur RNI                               │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * @param revenuBrut             RB mensuel COMPLET (transport inclus)
+ * @param situation              Situation familiale
+ * @param enfants                Nombre d'enfants à charge (max 6)
+ * @param interetPretImmobilier  VI  — intérêt mensuel prêt immo (défaut 0)
+ * @param assuranceVie           VII — prime mensuelle assurance-vie (défaut 0)
+ * @param retraiteComplementaire VIII— cotisation mensuelle retraite (défaut 0)
+ */
 export const calculerIRPP = (
-  salaireImposable: number,
+  revenuBrut: number,
   situation: "celibataire" | "marie",
-  enfants: number
+  enfants: number,
+  interetPretImmobilier = 0,
+  assuranceVie = 0,
+  retraiteComplementaire = 0,
 ): number => {
-  if (salaireImposable <= 0) return 0;
+  if (revenuBrut <= 0) return 0;
+
+  // ── 1. Cotisations sociales ──────────────────────────────────────────────
+  // CNSS salarié 4 % + AMU salarié 5 % = 9 % du RB (selon CGI Togo)
+  const cotisationsSociales = revenuBrut * 0.09;
+
+  // ── 2. NDCS ─────────────────────────────────────────────────────────────
+  const ndcs = revenuBrut - cotisationsSociales; // = RB × 0,91
+
+  // ── 3. Déduction forfaitaire ─────────────────────────────────────────────
+  // Plafond mensuel = 2 800 000 ÷ 12 = 233 333 F/mois
+  // (équivalent : si NDCS ≤ 833 333/mois → DF = NDCS×28 %, sinon DF = 233 333)
+  const deductionForfaitaire = Math.min(ndcs * 0.28, 233_333);
+
+  // ── 4. Charges de famille (CF) ───────────────────────────────────────────
+  // 120 000 F annuel par personne à charge ÷ 12 = 10 000 F/mois
+  const personnesACharge = (situation === "marie" ? 1 : 0) + Math.min(enfants, 6);
+  const chargeFamille = personnesACharge * 10_000;
+
+  // ── 5. Revenu Net Taxable (RNT) ──────────────────────────────────────────
+  const rnt = Math.max(0, ndcs - deductionForfaitaire - chargeFamille);
+
+  // ── 6. Déductions VI, VII, VIII ──────────────────────────────────────────
+
+  // VI — Intérêt prêt immobilier (montant réel, pas de plafond fixé par le CGI)
+  const dedVI = Math.max(0, interetPretImmobilier);
+
+  // VII — Assurance-vie : plafond = (200 000 + 30 000 × enfants ≤ 6) ÷ 12 /mois
+  const plafondAssuranceVieAnnuel = 200_000 + 30_000 * Math.min(enfants, 6);
+  const dedVII = Math.min(Math.max(0, assuranceVie), plafondAssuranceVieAnnuel / 12);
+
+  // VIII — Retraite complémentaire : plafond = 6 % du RNT mensuel
+  const dedVIII = Math.min(Math.max(0, retraiteComplementaire), rnt * 0.06);
+
+  // ── 7. Revenu Net Imposable (RNI) ────────────────────────────────────────
+  const rni = Math.max(0, rnt - dedVI - dedVII - dedVIII);
+
+  // ── 8. Barème progressif mensuel ─────────────────────────────────────────
   let impot = 0;
   let prec = 0;
-  for (const tr of TRANCHES_IRPP) {
-    if (salaireImposable > tr.jusqua) {
+  for (const tr of TRANCHES_IRPP_MENSUEL) {
+    if (rni > tr.jusqua) {
       impot += (tr.jusqua - prec) * tr.taux;
       prec = tr.jusqua;
     } else {
-      impot += (salaireImposable - prec) * tr.taux;
+      impot += (rni - prec) * tr.taux;
       break;
     }
   }
-  // Réduction pour charges de famille (parts fiscales)
-  let parts = situation === "marie" ? 2 : 1;
-  parts += Math.min(enfants, 6) * 0.5;
-  const reduction = Math.min(0.45, (parts - 1) * 0.08);
-  return Math.max(0, impot * (1 - reduction));
+
+  return Math.round(Math.max(0, impot));
 };
 
 /** Majoration des heures supplémentaires (Art. 32 convention) */

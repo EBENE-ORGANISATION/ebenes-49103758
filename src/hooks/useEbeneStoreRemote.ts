@@ -128,6 +128,19 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqDevis = useDevis(societeId);
   const tqMouvements = useMouvementsStock(societeId);
 
+  // ─── Audit avec societe_id automatique ──────────────────────────────────────
+  // Wrapper sur logAction qui injecte le societeId courant comme dernier argument.
+  const log = useCallback(
+    (
+      action: string,
+      table: string,
+      id: number | string | null,
+      before: unknown = null,
+      after: unknown = null,
+    ) => log(action, table, id, before, after, societeId),
+    [societeId],
+  );
+
   // Raccourcis lisibles (même noms que l'ancien useState)
   const employes = tqEmployes.employes;
   const articles = tqArticles.articles;
@@ -441,7 +454,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
       void tqTransactions.addTransaction(annee, mois, t)
         .then((saved) => {
-          void logAction("INSERT", "transactions", saved.id, null, saved);
+          log("INSERT", "transactions", saved.id, null, saved);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
@@ -461,7 +474,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
               transactionId: null,
             }).catch(() => undefined);
           }
-          void logAction("DELETE", "transactions", id, trans ?? null, null);
+          log("DELETE", "transactions", id, trans ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la transaction"));
@@ -472,7 +485,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerTransaction = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqTransactions.validerTransaction(id)
-        .then(() => void logAction("VALIDER_TRANSACTION", "transactions", id, null, { id }))
+        .then(() => log("VALIDER_TRANSACTION", "transactions", id, null, { id }))
         .catch(() => toast.error("Erreur lors de la validation de la transaction"));
     },
     [tqTransactions],
@@ -481,7 +494,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterTransaction = useCallback(
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqTransactions.rejeterTransaction(id, motif)
-        .then(() => void logAction("REJETER_TRANSACTION", "transactions", id, null, { id, motif }))
+        .then(() => log("REJETER_TRANSACTION", "transactions", id, null, { id, motif }))
         .catch(() => toast.error("Erreur lors du rejet de la transaction"));
     },
     [tqTransactions],
@@ -492,7 +505,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
       void tqFactures.createFacture(annee, mois, f)
         .then((saved) => {
-          void logAction("INSERT", "factures", saved.id, null, saved);
+          log("INSERT", "factures", saved.id, null, saved);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la création de la facture"));
@@ -518,7 +531,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
           if (f?.transactionId) {
             await tqTransactions.removeTransaction(f.transactionId).catch(() => undefined);
           }
-          void logAction("DELETE", "factures", id, f ?? null, null);
+          log("DELETE", "factures", id, f ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la facture"));
@@ -564,7 +577,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerFacture = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqFactures.validerFacture(id)
-        .then(() => void logAction("VALIDER_FACTURE", "factures", id, null, { id }))
+        .then(() => log("VALIDER_FACTURE", "factures", id, null, { id }))
         .catch(() => toast.error("Erreur lors de la validation de la facture"));
     },
     [tqFactures],
@@ -573,7 +586,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterFacture = useCallback(
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqFactures.rejeterFacture(id, motif)
-        .then(() => void logAction("REJETER_FACTURE", "factures", id, null, { id, motif }))
+        .then(() => log("REJETER_FACTURE", "factures", id, null, { id, motif }))
         .catch(() => toast.error("Erreur lors du rejet de la facture"));
     },
     [tqFactures],
@@ -583,7 +596,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const addDevis = useCallback(
     (annee: number, mois: number, d: Omit<Devis, "id">) => {
       void tqDevis.createDevis(annee, mois, { ...d, statut: d.statut || "envoye" })
-        .then((saved) => void logAction("INSERT", "devis", saved.id, null, saved))
+        .then((saved) => log("INSERT", "devis", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de la création du devis"));
       return 0; // ID définitif disponible après invalidation TQ
     },
@@ -593,7 +606,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const removeDevis = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqDevis.removeDevis(id)
-        .then(() => void logAction("DELETE", "devis", id, null, null))
+        .then(() => log("DELETE", "devis", id, null, null))
         .catch(() => toast.error("Erreur lors de la suppression du devis"));
     },
     [tqDevis],
@@ -602,7 +615,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const updateDevis = useCallback(
     (_annee: number, _mois: number, id: number, patch: Partial<Devis>) => {
       void tqDevis.updateDevis(id, patch as Parameters<typeof tqDevis.updateDevis>[1])
-        .then(() => void logAction("UPDATE", "devis", id, null, patch))
+        .then(() => log("UPDATE", "devis", id, null, patch))
         .catch(() => toast.error("Erreur lors de la mise à jour du devis"));
     },
     [tqDevis],
@@ -630,7 +643,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .then((facture) =>
           tqDevis.updateDevis(devisId, { statut: "converti", factureId: facture.id })
             .then(() =>
-              void logAction("CONVERTIR_DEVIS", "devis", devisId, d, {
+              log("CONVERTIR_DEVIS", "devis", devisId, d, {
                 ...d,
                 statut: "converti",
                 factureId: facture.id,
@@ -647,7 +660,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const addPrime = useCallback(
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       void tqPrimes.addPrime(annee, mois, employeId, prime)
-        .then((saved) => void logAction("INSERT", "primes", saved.id, null, saved))
+        .then((saved) => log("INSERT", "primes", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de l'ajout de la prime"));
     },
     [tqPrimes],
@@ -656,7 +669,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const removePrime = useCallback(
     (_annee: number, _mois: number, _employeId: number, primeId: number) => {
       void tqPrimes.removePrime(primeId)
-        .then(() => void logAction("DELETE", "primes", primeId, null, null))
+        .then(() => log("DELETE", "primes", primeId, null, null))
         .catch(() => toast.error("Erreur lors de la suppression de la prime"));
     },
     [tqPrimes],
@@ -665,7 +678,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerPrime = useCallback(
     (_annee: number, _mois: number, _employeId: number, primeId: number) => {
       void tqPrimes.validerPrime(primeId)
-        .then(() => void logAction("VALIDER_PRIME", "primes", primeId, null, { id: primeId }))
+        .then(() => log("VALIDER_PRIME", "primes", primeId, null, { id: primeId }))
         .catch(() => toast.error("Erreur lors de la validation de la prime"));
     },
     [tqPrimes],
@@ -674,7 +687,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterPrime = useCallback(
     (_annee: number, _mois: number, _employeId: number, primeId: number, motif: string) => {
       void tqPrimes.rejeterPrime(primeId, motif)
-        .then(() => void logAction("REJETER_PRIME", "primes", primeId, null, { id: primeId, motif }))
+        .then(() => log("REJETER_PRIME", "primes", primeId, null, { id: primeId, motif }))
         .catch(() => toast.error("Erreur lors du rejet de la prime"));
     },
     [tqPrimes],
@@ -684,7 +697,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const addAbsence = useCallback(
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
       void tqAbsences.addAbsence(annee, mois, a)
-        .then((saved) => void logAction("INSERT", "absences", saved.id, null, saved))
+        .then((saved) => log("INSERT", "absences", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de l'ajout de l'absence"));
     },
     [tqAbsences],
@@ -693,7 +706,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const removeAbsence = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqAbsences.removeAbsence(id)
-        .then(() => void logAction("DELETE", "absences", id, null, null))
+        .then(() => log("DELETE", "absences", id, null, null))
         .catch(() => toast.error("Erreur lors de la suppression de l'absence"));
     },
     [tqAbsences],
@@ -702,7 +715,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerAbsence = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqAbsences.validerAbsence(id)
-        .then(() => void logAction("VALIDER_ABSENCE", "absences", id, null, { id }))
+        .then(() => log("VALIDER_ABSENCE", "absences", id, null, { id }))
         .catch(() => toast.error("Erreur lors de la validation de l'absence"));
     },
     [tqAbsences],
@@ -711,7 +724,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterAbsence = useCallback(
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqAbsences.rejeterAbsence(id, motif)
-        .then(() => void logAction("REJETER_ABSENCE", "absences", id, null, { id, motif }))
+        .then(() => log("REJETER_ABSENCE", "absences", id, null, { id, motif }))
         .catch(() => toast.error("Erreur lors du rejet de l'absence"));
     },
     [tqAbsences],
@@ -729,7 +742,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number) => {
       void tqHeuresSup.validerHeuresSup(annee, mois, employeId)
-        .then(() => void logAction("VALIDER_HEURES_SUP", "heures_sup", employeId, null, { employeId }))
+        .then(() => log("VALIDER_HEURES_SUP", "heures_sup", employeId, null, { employeId }))
         .catch(() => toast.error("Erreur lors de la validation des heures sup"));
     },
     [tqHeuresSup],
@@ -738,7 +751,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, motif: string) => {
       void tqHeuresSup.rejeterHeuresSup(annee, mois, employeId, motif)
-        .then(() => void logAction("REJETER_HEURES_SUP", "heures_sup", employeId, null, { employeId, motif }))
+        .then(() => log("REJETER_HEURES_SUP", "heures_sup", employeId, null, { employeId, motif }))
         .catch(() => toast.error("Erreur lors du rejet des heures sup"));
     },
     [tqHeuresSup],
@@ -822,10 +835,33 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     (id: number) => {
       if (!societeId) return;
       void tqEmployes.removeEmploye(id)
-        .then(() => markSignificantWrite())
+        .then(() => {
+          log("DELETE", "employes", id, null, null);
+          markSignificantWrite();
+        })
         .catch(() => toast.error("Erreur lors de la suppression de l'employé"));
     },
     [societeId, tqEmployes, markSignificantWrite],
+  );
+
+  const restoreEmploye = useCallback(
+    (id: number) => {
+      if (!societeId) return;
+      void tqEmployes.restoreEmploye(id)
+        .then(() => toast.success("Employé restauré"))
+        .catch(() => toast.error("Erreur lors de la restauration"));
+    },
+    [societeId, tqEmployes],
+  );
+
+  const purgeEmploye = useCallback(
+    (id: number) => {
+      if (!societeId) return;
+      void tqEmployes.purgeEmploye(id)
+        .then(() => toast.success("Supprimé définitivement"))
+        .catch(() => toast.error("Erreur lors de la suppression définitive"));
+    },
+    [societeId, tqEmployes],
   );
 
   const updateEmploye = useCallback(
@@ -840,7 +876,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerEmploye = useCallback(
     (id: number) => {
       void tqEmployes.validerEmploye(id)
-        .then(() => void logAction("VALIDER_EMPLOYE", "employes", id, null, { id }))
+        .then(() => log("VALIDER_EMPLOYE", "employes", id, null, { id }))
         .catch(() => toast.error("Erreur lors de la validation"));
     },
     [tqEmployes],
@@ -849,7 +885,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterEmploye = useCallback(
     (id: number, motif: string) => {
       void tqEmployes.rejeterEmploye(id, motif)
-        .then(() => void logAction("REJETER_EMPLOYE", "employes", id, null, { id, motif }))
+        .then(() => log("REJETER_EMPLOYE", "employes", id, null, { id, motif }))
         .catch(() => toast.error("Erreur lors du rejet"));
     },
     [tqEmployes],
@@ -981,7 +1017,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const addSanction = useCallback(
     (s: Omit<Sanction, "id">) => {
       void tqSanctions.addSanction(s)
-        .then((saved) => void logAction("INSERT", "sanctions", saved.id, null, saved))
+        .then((saved) => log("INSERT", "sanctions", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de l'ajout de la sanction"));
     },
     [tqSanctions],
@@ -990,7 +1026,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const removeSanction = useCallback(
     (id: number) => {
       void tqSanctions.removeSanction(id)
-        .then(() => void logAction("DELETE", "sanctions", id, null, null))
+        .then(() => log("DELETE", "sanctions", id, null, null))
         .catch(() => toast.error("Erreur lors de la suppression de la sanction"));
     },
     [tqSanctions],
@@ -999,7 +1035,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const validerSanction = useCallback(
     (id: number) => {
       void tqSanctions.validerSanction(id)
-        .then(() => void logAction("VALIDER_SANCTION", "sanctions", id, null, { id }))
+        .then(() => log("VALIDER_SANCTION", "sanctions", id, null, { id }))
         .catch(() => toast.error("Erreur lors de la validation"));
     },
     [tqSanctions],
@@ -1008,7 +1044,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const rejeterSanction = useCallback(
     (id: number, motif: string) => {
       void tqSanctions.rejeterSanction(id, motif)
-        .then(() => void logAction("REJETER_SANCTION", "sanctions", id, null, { id, motif }))
+        .then(() => log("REJETER_SANCTION", "sanctions", id, null, { id, motif }))
         .catch(() => toast.error("Erreur lors du rejet"));
     },
     [tqSanctions],
@@ -1025,7 +1061,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
             : { actif: "24", amortissementCumule: "284", dotation: "6813" };
       void tqImmobilisations.addImmobilisation({ ...i, comptesSYSCOHADA: comptes })
         .then((saved) => {
-          void logAction("INSERT", "immobilisations", saved.id, null, saved);
+          log("INSERT", "immobilisations", saved.id, null, saved);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
@@ -1037,7 +1073,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const removeImmobilisation = useCallback(
     (id: number) => {
       void tqImmobilisations.removeImmobilisation(id)
-        .then(() => void logAction("DELETE", "immobilisations", id, null, null))
+        .then(() => log("DELETE", "immobilisations", id, null, null))
         .catch(() => toast.error("Erreur lors de la suppression de l'immobilisation"));
     },
     [tqImmobilisations],
@@ -1046,7 +1082,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const updateImmobilisation = useCallback(
     (id: number, patch: Partial<Immobilisation>) => {
       void tqImmobilisations.updateImmobilisation(id, patch)
-        .then(() => void logAction("UPDATE", "immobilisations", id, null, patch))
+        .then(() => log("UPDATE", "immobilisations", id, null, patch))
         .catch(() => toast.error("Erreur lors de la mise à jour de l'immobilisation"));
     },
     [tqImmobilisations],
@@ -1129,6 +1165,9 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     rejeterSanction,
     addEmploye,
     removeEmploye,
+    restoreEmploye,
+    purgeEmploye,
+    employesCorbeille: tqEmployes.employesCorbeille,
     updateEmploye,
     validerEmploye,
     rejeterEmploye,

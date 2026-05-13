@@ -73,11 +73,36 @@ export const useEmployes = (societeId: string | null) => {
     onSuccess: invalidate,
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) => repo.restore(id, societeId!),
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["employes-corbeille", societeId] });
+    },
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: (id: number) => repo.purge(id, societeId!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["employes-corbeille", societeId] });
+    },
+  });
+
+  // ── Corbeille ──────────────────────────────────────────────────────────────
+  const corbeilleQuery = useQuery({
+    queryKey: ["employes-corbeille", societeId],
+    queryFn: () => (societeId ? repo.listDeleted(societeId) : []),
+    enabled: !!societeId,
+    staleTime: 30_000,
+  });
+
   return {
     employes: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
+    // Corbeille
+    employesCorbeille: corbeilleQuery.data ?? [],
     // Mutations — compatible avec la signature du store existant
     addEmploye: (e: Omit<Employe, "id">) => addMutation.mutateAsync(e),
     updateEmploye: (id: number, patch: Partial<Omit<Employe, "id">>) =>
@@ -86,6 +111,8 @@ export const useEmployes = (societeId: string | null) => {
     validerEmploye: (id: number) => validerMutation.mutateAsync(id),
     rejeterEmploye: (id: number, motif: string) =>
       rejeterMutation.mutateAsync({ id, motif }),
+    restoreEmploye: (id: number) => restoreMutation.mutateAsync(id),
+    purgeEmploye: (id: number) => purgeMutation.mutateAsync(id),
     // Accès direct aux mutations pour les composants qui veulent gérer isLoading
     mutations: {
       add: addMutation,
@@ -93,6 +120,8 @@ export const useEmployes = (societeId: string | null) => {
       remove: removeMutation,
       valider: validerMutation,
       rejeter: rejeterMutation,
+      restore: restoreMutation,
+      purge: purgeMutation,
     },
   };
 };

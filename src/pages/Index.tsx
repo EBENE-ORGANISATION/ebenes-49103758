@@ -394,6 +394,7 @@ const Index = () => {
                 onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId(tp("stock_delete"))}
                 onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error(tp("stock_action")); return 0; })}
                 onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error(tp("stock_delete")))}
+                isChefCompta={stockValidate}
               />
             </TabsContent>
             )}
@@ -428,6 +429,9 @@ const Index = () => {
                 onRejeterHeuresSup={(eid, motif) => store.rejeterHeuresSup(annee, mois, eid, motif)}
                 onValiderSanction={(id) => store.validerSanction(id)}
                 onRejeterSanction={(id, motif) => store.rejeterSanction(id, motif)}
+                employesCorbeille={store.employesCorbeille}
+                onRestoreEmploye={grhValidate ? store.restoreEmploye : undefined}
+                onPurgeEmploye={grhValidate ? store.purgeEmploye : undefined}
               />
             </TabsContent>
             )}

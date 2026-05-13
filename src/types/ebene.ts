@@ -153,6 +153,13 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
+  // ── Déductions fiscales optionnelles (CGI Togo, art. IRPP) ────────────────
+  /** VI — Intérêt mensuel de prêt immobilier (FCFA/mois) */
+  interetPretImmobilier?: number;
+  /** VII — Prime mensuelle d'assurance-vie (FCFA/mois). Plafond = (200 000 + 30 000 × enfants≤6) / 12 */
+  assuranceVie?: number;
+  /** VIII — Cotisation mensuelle retraite complémentaire (FCFA/mois). Plafond = 6 % du RNT mensuel */
+  retraiteComplementaire?: number;
   /** UUID du compte auth.users lié (portail employé self-service). */
   userId?: string;
   /**

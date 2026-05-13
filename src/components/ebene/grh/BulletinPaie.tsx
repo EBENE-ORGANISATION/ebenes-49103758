@@ -92,14 +92,32 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
     primesDiverses +
     indemnites;
 
-  // Base imposable IRPP : on exclut indemnité transport (souvent exonérée)
-  const imposable = brut - (employe.indemniteTransport || 0);
+  // ── Base imposable IRPP ──────────────────────────────────────────────────
+  // Selon CGI Togo : le RB inclut TOUTES les rémunérations y compris
+  // l'indemnité de transport. On passe donc `brut` complet à calculerIRPP.
+  const imposable = brut; // historique — conservé pour l'affichage bulletin
 
   // CNSS salarié 4%, AMU salarié 5% (taux réglementaires Togo)
+  // Ces montants s'affichent séparément sur le bulletin ; calculerIRPP
+  // refait le calcul en interne à 9 % sur la base imposable.
   const cnssSal = (base + sursalaire + primeAnciennete + hsMontant) * 0.04;
   const amuSal = (base + sursalaire) * 0.05;
 
-  const irpp = calculerIRPP(imposable - cnssSal, employe.situation, employe.enfants);
+  // Déductions fiscales facultatives (VI, VII, VIII) tirées du profil employé
+  const interetPret = employe.interetPretImmobilier ?? 0;
+  const assurVie    = employe.assuranceVie ?? 0;
+  const retraiteC   = employe.retraiteComplementaire ?? 0;
+
+  // calculerIRPP applique la méthode CGI complète :
+  // RB complet → CNSS 9 % → forfait 28 % → CF → RNT → VI/VII/VIII → RNI → barème
+  const irpp = calculerIRPP(
+    brut,
+    employe.situation,
+    employe.enfants,
+    interetPret,
+    assurVie,
+    retraiteC,
+  );
 
   const retenuesDiverses = (data.retenues || {})[employe.id] || 0;
 

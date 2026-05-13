@@ -31,6 +31,8 @@ interface Props {
   onRemoveCategorie: (id: number) => void;
   onAddMouvement: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
   onRemoveMouvement: (annee: number, mois: number, id: number) => void;
+  /** Seuls les chefs (compta ou admin) peuvent supprimer */
+  isChefCompta?: boolean;
 }
 
 const TYPE_MVT_LABEL: Record<TypeMouvementStock, string> = {
@@ -46,6 +48,7 @@ export const Stock = (props: Props) => {
     onAddFournisseur, onUpdateFournisseur, onRemoveFournisseur,
     onAddCategorie, onRemoveCategorie,
     onAddMouvement, onRemoveMouvement,
+    isChefCompta,
   } = props;
 
   const [showInventaire, setShowInventaire] = useState(false);
@@ -108,7 +111,7 @@ export const Stock = (props: Props) => {
         </TabsContent>
 
         <TabsContent value="categories">
-          <CategoriesPanel categories={categories} onAdd={onAddCategorie} onRemove={onRemoveCategorie} />
+          <CategoriesPanel categories={categories} onAdd={onAddCategorie} onRemove={onRemoveCategorie} isChefCompta={isChefCompta} />
         </TabsContent>
       </Tabs>
 
@@ -232,7 +235,9 @@ const ArticlesPanel = ({
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => startEdit(a)}><Pencil className="size-4" /></Button>
-                    <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${a.designation} ?`)) onRemove(a.id); }}><Trash2 className="size-4" /></Button>
+                    {isChefCompta && (
+                      <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${a.designation} ?`)) onRemove(a.id); }}><Trash2 className="size-4" /></Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -347,9 +352,11 @@ const MouvementsPanel = ({
                     {m.motif && <p className="text-xs italic text-muted-foreground">{m.motif}</p>}
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm("Supprimer ce mouvement ? (le stock sera ajusté en sens inverse)")) onRemove(annee, mois, m.id); }}>
-                  <Trash2 className="size-4" />
-                </Button>
+                {isChefCompta && (
+                  <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm("Supprimer ce mouvement ? (le stock sera ajusté en sens inverse)")) onRemove(annee, mois, m.id); }}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </div>
             );
           })}
@@ -472,14 +479,16 @@ const FournisseursPanel = ({
                     >
                       <Pencil className="size-4" />
                     </Button>
-                    <Button
-                      size="icon" variant="ghost"
-                      className="size-8 text-destructive hover:bg-destructive/10"
-                      title="Supprimer"
-                      onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove(f.id); }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {isChefCompta && (
+                      <Button
+                        size="icon" variant="ghost"
+                        className="size-8 text-destructive hover:bg-destructive/10"
+                        title="Supprimer"
+                        onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove(f.id); }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -492,8 +501,8 @@ const FournisseursPanel = ({
 };
 
 // ─── Catégories ────────────────────────────────────────────────────────────
-const CategoriesPanel = ({ categories, onAdd, onRemove }: {
-  categories: CategorieArticle[]; onAdd: (nom: string) => void; onRemove: (id: number) => void;
+const CategoriesPanel = ({ categories, onAdd, onRemove, isChefCompta }: {
+  categories: CategorieArticle[]; onAdd: (nom: string) => void; onRemove: (id: number) => void; isChefCompta?: boolean;
 }) => {
   const [nom, setNom] = useState("");
   return (
@@ -509,7 +518,9 @@ const CategoriesPanel = ({ categories, onAdd, onRemove }: {
           {categories.map((c) => (
             <div key={c.id} className="list-item flex items-center justify-between gap-2">
               <p className="font-medium">{c.nom}</p>
-              <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${c.nom} ?`)) onRemove(c.id); }}><Trash2 className="size-4" /></Button>
+              {isChefCompta && (
+                <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${c.nom} ?`)) onRemove(c.id); }}><Trash2 className="size-4" /></Button>
+              )}
             </div>
           ))}
         </div>

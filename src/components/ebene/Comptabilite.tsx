@@ -361,22 +361,24 @@ export const Comptabilite = ({ data, annee, mois, onAdd, onRemove, isChefCompta,
                     <XCircle className="size-4" />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => {
-                    if (
-                      t.source === "facture" && t.factureId
-                        ? confirm("Cette transaction est liée à une facture payée. La supprimer remettra la facture en attente. Confirmer ?")
-                        : confirm("Supprimer cette transaction ?")
-                    ) {
-                      onRemove(t.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {isChefCompta && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (
+                        t.source === "facture" && t.factureId
+                          ? confirm("Cette transaction est liée à une facture payée. La supprimer remettra la facture en attente. Confirmer ?")
+                          : confirm("Supprimer cette transaction ?")
+                      ) {
+                        onRemove(t.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </div>
             </div>
             );
