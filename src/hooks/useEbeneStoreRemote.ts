@@ -137,7 +137,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       id: number | string | null,
       before: unknown = null,
       after: unknown = null,
-    ) => log(action, table, id, before, after, societeId),
+    ) => logAction(action as never, table, id, before, after, societeId),
     [societeId],
   );
 
