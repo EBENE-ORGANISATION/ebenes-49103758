@@ -411,7 +411,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                 <Input
                   type="date"
                   value={demande.dateDebut}
-                  onChange={(e) => setDemande((d) => ({ ...d, dateDebut: e.target.value })}
+                  onChange={(e) => setDemande((d) => ({ ...d, dateDebut: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
