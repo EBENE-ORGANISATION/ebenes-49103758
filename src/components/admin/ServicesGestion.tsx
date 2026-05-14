@@ -18,6 +18,7 @@ interface Service {
   nom: string;
   description: string | null;
   couleur: string;
+  built_in?: boolean;
 }
 
 interface ServiceMembre {
@@ -67,8 +68,9 @@ export const ServicesGestion = ({ societeId, isAdmin }: Props) => {
       // Services
       const { data: svcData, error: svcErr } = await supabase
         .from("services" as never)
-        .select("id, nom, description, couleur")
+        .select("id, nom, description, couleur, built_in")
         .eq("societe_id", societeId)
+        .order("built_in", { ascending: false })
         .order("nom");
 
       if (svcErr) {
@@ -85,7 +87,7 @@ export const ServicesGestion = ({ societeId, isAdmin }: Props) => {
         const svcIds = svcList.map((s) => s.id);
         const { data: mbData, error: mbErr } = await supabase
           .from("service_membres" as never)
-          .select("id, service_id, user_id, role, profiles(email, nom)")
+          .select("id, service_id, user_id, role, profiles!service_membres_user_id_profiles_fkey(email, nom)")
           .in("service_id", svcIds);
 
         if (mbErr) throw mbErr;
@@ -147,6 +149,11 @@ export const ServicesGestion = ({ societeId, isAdmin }: Props) => {
   };
 
   const deleteService = async (svcId: string, nom: string) => {
+    const svc = services.find((s) => s.id === svcId);
+    if (svc?.built_in) {
+      toast.error("Ce service est intégré et ne peut pas être supprimé.");
+      return;
+    }
     if (!confirm(`Supprimer le service « ${nom} » et tous ses membres ?`)) return;
     const { error } = await supabase.from("services" as never).delete().eq("id", svcId);
     if (error) { toast.error(error.message); return; }
@@ -244,13 +251,20 @@ export const ServicesGestion = ({ societeId, isAdmin }: Props) => {
                   style={{ backgroundColor: svc.couleur }}
                 />
                 <div>
-                  <p className="font-semibold">{svc.nom}</p>
+                  <p className="font-semibold flex items-center gap-2">
+                    {svc.nom}
+                    {svc.built_in && (
+                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+                        Intégré
+                      </Badge>
+                    )}
+                  </p>
                   {svc.description && (
                     <p className="text-xs text-muted-foreground">{svc.description}</p>
                   )}
                 </div>
               </div>
-              {isAdmin && (
+              {isAdmin && !svc.built_in && (
                 <Button
                   size="icon" variant="ghost"
                   className="size-8 text-destructive hover:bg-destructive/10 shrink-0"
