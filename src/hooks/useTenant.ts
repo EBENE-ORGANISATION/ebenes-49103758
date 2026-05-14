@@ -191,7 +191,10 @@ export const useTenant = (): TenantState => {
   }, [user, isSuperAdmin]);
 
   // ── Chargement de la config de la société courante ───────────────────────
+  // Token monotone pour ignorer les réponses obsolètes lors de switchs rapides.
+  const configReqIdRef = useRef(0);
   const loadConfig = useCallback(async (societeId: string | null) => {
+    const reqId = ++configReqIdRef.current;
     if (!societeId) {
       setConfig(null);
       return;
@@ -201,6 +204,8 @@ export const useTenant = (): TenantState => {
       .select("*")
       .eq("societe_id", societeId)
       .maybeSingle();
+    // Si une requête plus récente a démarré entre-temps, on jette le résultat.
+    if (reqId !== configReqIdRef.current) return;
     if (error) {
       setConfig(null);
       return;
@@ -222,19 +227,29 @@ export const useTenant = (): TenantState => {
 
   useEffect(() => {
     if (loading) return;
+    // Purge immédiate de l'ancienne config pour éviter le « flash » du thème
+    // de la société précédente pendant le chargement de la nouvelle.
+    setConfig((prev) =>
+      prev && prev.societe_id !== currentId ? null : prev,
+    );
     void loadConfig(currentId);
   }, [currentId, loading, loadConfig]);
 
   // ── Thème dynamique ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (config) {
+    // On n'applique le thème QUE si la config correspond à la société courante.
+    // Cela évite tout affichage transitoire du thème d'une autre société.
+    if (config && config.societe_id === currentId) {
       const nom =
         societes.find((s) => s.id === config.societe_id)?.nom ?? null;
       applyTheme({ ...config, nom });
-    } else {
+    } else if (!currentId) {
       resetTheme();
     }
-  }, [config, societes]);
+    // Si currentId existe mais config pas encore chargée (ou stale) :
+    // on ne touche pas au thème → on garde le précédent jusqu'à la nouvelle config.
+    // Combiné à la purge ci-dessus, ça évite tout flash inter-sociétés.
+  }, [config, societes, currentId]);
 
   // ── Valeurs dérivées ─────────────────────────────────────────────────────
   const currentSociete = useMemo(
