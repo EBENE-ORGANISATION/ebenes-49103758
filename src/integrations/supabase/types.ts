@@ -1433,10 +1433,18 @@ export type Database = {
             referencedRelation: "services"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "service_membres_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       services: {
         Row: {
+          built_in: boolean
           couleur: string | null
           created_at: string
           created_by: string | null
@@ -1447,6 +1455,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          built_in?: boolean
           couleur?: string | null
           created_at?: string
           created_by?: string | null
@@ -1457,6 +1466,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          built_in?: boolean
           couleur?: string | null
           created_at?: string
           created_by?: string | null
