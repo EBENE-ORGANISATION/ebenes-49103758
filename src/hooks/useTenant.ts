@@ -243,13 +243,16 @@ export const useTenant = (): TenantState => {
       const nom =
         societes.find((s) => s.id === config.societe_id)?.nom ?? null;
       applyTheme({ ...config, nom });
-    } else if (!currentId) {
+    } else if (!sidFromUrl && !loading) {
+      // Reset uniquement quand on est réellement sur l'Appli mère
+      // (pas pendant le chargement initial avec un ?sid= en URL,
+      // sinon on flashe le thème de fallback avant le bon thème).
       resetTheme();
     }
     // Si currentId existe mais config pas encore chargée (ou stale) :
     // on ne touche pas au thème → on garde le précédent jusqu'à la nouvelle config.
     // Combiné à la purge ci-dessus, ça évite tout flash inter-sociétés.
-  }, [config, societes, currentId]);
+  }, [config, societes, currentId, sidFromUrl, loading]);
 
   // ── Valeurs dérivées ─────────────────────────────────────────────────────
   const currentSociete = useMemo(
