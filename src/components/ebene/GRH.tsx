@@ -215,7 +215,7 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full mb-5 h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
@@ -223,16 +223,6 @@ export const GRH = ({
           <TabsTrigger value="indemnites">🧮 Fin de contrat</TabsTrigger>
           <TabsTrigger value="simulateur">⚖️ Simulateur légal</TabsTrigger>
           <TabsTrigger value="config">⚙️ Référentiel</TabsTrigger>
-          {isChefGrh && (
-            <TabsTrigger value="corbeille" className="relative">
-              🗑️ Corbeille
-              {employesCorbeille.length > 0 && (
-                <span className="absolute -top-1 -right-1 size-4 rounded-full bg-destructive text-destructive-foreground text-[10px] grid place-items-center">
-                  {employesCorbeille.length}
-                </span>
-              )}
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="effectif" className="space-y-4">
@@ -624,50 +614,6 @@ export const GRH = ({
           </div>
         </TabsContent>
 
-        {/* ── Corbeille (Soft delete) ─────────────────────────────── */}
-        {isChefGrh && (
-          <TabsContent value="corbeille" className="space-y-4">
-            <div className="card-elevated p-5">
-              <h3 className="font-bold mb-1 flex items-center gap-2">🗑️ Corbeille — Employés supprimés</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Ces employés ont été mis à la corbeille. Vous pouvez les restaurer ou les supprimer définitivement.
-              </p>
-              {employesCorbeille.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground italic">La corbeille est vide.</p>
-              ) : (
-                <div className="space-y-2">
-                  {employesCorbeille.map((e) => (
-                    <div key={e.id} className="flex items-center justify-between gap-2 p-3 rounded border bg-muted/20">
-                      <div>
-                        <p className="font-medium">{e.nom}</p>
-                        <p className="text-xs text-muted-foreground">{e.poste} {e.matricule ? `· ${e.matricule}` : ""}</p>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          size="sm" variant="outline"
-                          className="gap-1.5 text-success border-success/50 hover:bg-success/10"
-                          onClick={() => onRestoreEmploye?.(e.id)}
-                        >
-                          ↩ Restaurer
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost"
-                          className="gap-1.5 text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            if (confirm(`Supprimer définitivement ${e.nom} ? Cette action est irréversible.`))
-                              onPurgeEmploye?.(e.id);
-                          }}
-                        >
-                          <Trash2 className="size-3.5" /> Supprimer
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        )}
       </Tabs>
 
       {bulletin && (
