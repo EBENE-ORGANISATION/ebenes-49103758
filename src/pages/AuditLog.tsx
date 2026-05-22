@@ -48,32 +48,23 @@ const AuditLog = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("audit_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      // Filtre par société si la colonne societe_id existe (migration appliquée)
-      // et qu'une société est sélectionnée.
-      if (currentSociete?.id) {
-        // On tente d'abord avec le filtre — si la colonne n'existe pas, on tombe
-        // dans le catch et on recharge sans filtre.
-        query = query.eq("societe_id" as never, currentSociete.id);
+      // Pas de société sélectionnée → rien à afficher (cloisonnement strict).
+      if (!currentSociete?.id) {
+        setEntries([]);
+        return;
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setEntries((data || []) as unknown as AuditEntry[]);
-    } catch {
-      // Fallback : colonne societe_id absente → charger sans filtre
       const { data, error } = await supabase
         .from("audit_log")
         .select("*")
+        .eq("societe_id", currentSociete.id)
         .order("created_at", { ascending: false })
         .limit(500);
-      if (error) toast.error(error.message);
-      else setEntries((data || []) as unknown as AuditEntry[]);
+      if (error) {
+        toast.error(error.message);
+        setEntries([]);
+      } else {
+        setEntries((data || []) as unknown as AuditEntry[]);
+      }
     } finally {
       setLoading(false);
     }
