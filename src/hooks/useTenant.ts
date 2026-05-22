@@ -187,7 +187,12 @@ export const useTenant = (): TenantState => {
       // si l'URL ne contient pas encore de ?sid=, on navigue vers la première
       // société accessible. On utilise navigateToSociete (pushState + popstate)
       // car ce useCallback ne peut pas utiliser navigate (dépendance instable).
-      if (!isSuperAdmin && !getSidFromHash() && list.length > 0) {
+      // Auto-sélection uniquement quand on est sur la racine (pas sur
+      // /corbeille, /admin/audit, /admin/users, etc.) — sinon on éjecterait
+      // l'utilisateur de la page sur laquelle il vient d'arriver.
+      const hashPath = getHashPath();
+      const onRoot = hashPath === "/" || hashPath === "";
+      if (!isSuperAdmin && !getSidFromHash() && onRoot && list.length > 0) {
         navigateToSociete(list[0].id);
       }
     } catch {
