@@ -304,19 +304,25 @@ export const Header = ({
             )}
             {showCorbeille && (
               <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                <Link to="/corbeille"><Trash2 className="size-4" /> Corbeille</Link>
+                <Link to={`/corbeille${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
+                  <Trash2 className="size-4" /> Corbeille
+                </Link>
               </Button>
             )}
             {(showUsersAdmin || showAuditLog) && (
               <>
                 {showUsersAdmin && (
                   <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                    <Link to="/admin/users"><Users className="size-4" /> Utilisateurs</Link>
+                    <Link to={`/admin/users${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
+                      <Users className="size-4" /> Utilisateurs
+                    </Link>
                   </Button>
                 )}
                 {showAuditLog && (
                   <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                    <Link to="/admin/audit"><History className="size-4" /> Audit</Link>
+                    <Link to={`/admin/audit${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
+                      <History className="size-4" /> Audit
+                    </Link>
                   </Button>
                 )}
               </>
