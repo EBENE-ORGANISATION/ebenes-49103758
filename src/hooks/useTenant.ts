@@ -20,6 +20,14 @@ const getSidFromHash = (): string | null => {
   }
 };
 
+/** Retourne le chemin (hors query) du HashRouter, ex: "/", "/corbeille". */
+const getHashPath = (): string => {
+  const h = window.location.hash || "#/";
+  const withoutHash = h.startsWith("#") ? h.slice(1) : h;
+  const qIdx = withoutHash.indexOf("?");
+  return qIdx === -1 ? withoutHash : withoutHash.slice(0, qIdx);
+};
+
 /**
  * Navigue vers une société (ou l'Appli mère si `null`) sans recharger la page.
  *
