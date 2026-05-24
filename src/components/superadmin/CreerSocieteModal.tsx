@@ -29,6 +29,15 @@ import {
   type ModuleFlags,
 } from "@/lib/superAdminApi";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  type RegimeFiscal,
+  type SecteurActivite,
+  REGIME_LABELS,
+  REGIME_DESCRIPTIONS,
+  SECTEUR_LABELS,
+  SEUIL_TVA_TOGO,
+} from "@/types/fiscal";
+import { generateSetImpots, regimeRecommande, calcAssujetti } from "@/utils/fiscalAutoSet";
 
 interface Props {
   open: boolean;
@@ -55,14 +64,20 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
   const [adminPassword, setAdminPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Step 2
+  // Step 2 — Régime fiscal
+  const [regime,    setRegime]    = useState<RegimeFiscal>("IS");
+  const [secteur,   setSecteur]   = useState<SecteurActivite>("SE");
+  const [caInput,   setCaInput]   = useState("");
+  const [assujettiTva, setAssujettiTva] = useState(false);
+
+  // Step 3 — Branding
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [couleur, setCouleur] = useState("#1F3864");
   const [adresse, setAdresse] = useState("");
   const [nif, setNif] = useState("");
   const [rccm, setRccm] = useState("");
 
-  // Step 3
+  // Step 4 — Modules
   const [modules, setModules] = useState<ModuleFlags>(DEFAULT_MODULES_BY_PLAN.starter);
 
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
@@ -85,6 +100,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
     setStep(1); setBusy(false);
     setNom(""); setSlug(""); setSlugTouched(false); setPlan("starter");
     setAdminEmail(""); setAdminNom(""); setAdminMethod("invite"); setAdminPassword(""); setShowPassword(false);
+    setRegime("IS"); setSecteur("SE"); setCaInput(""); setAssujettiTva(false);
     setLogoFile(null); setCouleur("#1F3864"); setAdresse(""); setNif(""); setRccm("");
     setModules(DEFAULT_MODULES_BY_PLAN.starter);
     setCreatedUrl(null); setCreatedInfo(null);
@@ -126,7 +142,25 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
         modules,
       });
 
-      // 2. Upload logo (optionnel) — rattaché à la société créée
+      // 2. Données fiscales — mise à jour directe de la société créée
+      if (res.societe?.id) {
+        const ca = parseFloat(caInput.replace(/\s/g, "")) || 0;
+        const setImpots = generateSetImpots({
+          regime, secteur, caAnnuel: ca, assujetti_tva: assujettiTva,
+        });
+        await supabase
+          .from("societes")
+          .update({
+            regime_fiscal:    regime,
+            secteur_activite: secteur,
+            assujetti_tva:    assujettiTva,
+            ca_annuel_estime: ca,
+            set_impots:       setImpots,
+          })
+          .eq("id", res.societe.id);
+      }
+
+      // 3. Upload logo (optionnel) — rattaché à la société créée
       if (logoFile && res.societe?.id) {
         const ext = logoFile.name.split(".").pop() || "png";
         const path = `${res.societe.id}/logo.${ext}`;
@@ -318,7 +352,92 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
               </div>
             )}
 
-            {step === 2 && (
+            {step === 2 && (() => {
+              const ca = parseFloat(caInput.replace(/\s/g, "")) || 0;
+              const tvaAutoCalc = calcAssujetti(ca, regime, secteur);
+              const preview = generateSetImpots({ regime, secteur, caAnnuel: ca, assujetti_tva: assujettiTva });
+              return (
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Ces paramètres déterminent les impôts applicables (CGI Togo 2025).
+                  Modifiables à tout moment dans les paramètres.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>{t("creer.regime_fiscal") ?? "Régime fiscal"} *</Label>
+                    <Select value={regime} onValueChange={(v) => setRegime(v as RegimeFiscal)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.entries(REGIME_LABELS) as [RegimeFiscal, string][]).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground italic">{REGIME_DESCRIPTIONS[regime]}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("creer.secteur_activite") ?? "Secteur d'activité"} *</Label>
+                    <Select value={secteur} onValueChange={(v) => setSecteur(v as SecteurActivite)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.entries(SECTEUR_LABELS) as [SecteurActivite, string][]).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("creer.ca_estime") ?? "CA annuel estimé (FCFA)"}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={caInput}
+                      onChange={(e) => {
+                        setCaInput(e.target.value);
+                        const newCa = parseFloat(e.target.value) || 0;
+                        setAssujettiTva(calcAssujetti(newCa, regime, secteur));
+                        setRegime(regimeRecommande(newCa, secteur));
+                      }}
+                      placeholder="Ex : 80000000"
+                    />
+                    {ca > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {ca > SEUIL_TVA_TOGO ? "⚠ Seuil TVA dépassé (> 60 M)" : "Sous le seuil TVA (< 60 M)"}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("creer.assujetti_tva") ?? "Assujetti TVA 18%"}</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Switch checked={assujettiTva} onCheckedChange={setAssujettiTva} />
+                      <span className="text-sm">{assujettiTva ? "Oui" : "Non"}</span>
+                    </div>
+                    {ca > 0 && tvaAutoCalc !== assujettiTva && (
+                      <p className="text-xs text-amber-600">
+                        Recommandé : {tvaAutoCalc ? "Assujetti" : "Non assujetti"} (CA {tvaAutoCalc ? ">" : "<"} 60 M)
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {preview.length > 0 && (
+                  <div className="bg-muted/30 rounded-lg border p-3">
+                    <p className="text-xs font-semibold mb-2">
+                      Aperçu des taxes applicables ({preview.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {preview.map((imp) => (
+                        <span key={imp.code} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {imp.code} {(imp.taux * 100).toFixed(imp.taux < 0.01 ? 2 : 0)}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
+
+            {step === 3 && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label>{t("creer.logo")}</Label>
@@ -349,7 +468,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   <Trans
@@ -390,12 +509,12 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                   <ChevronLeft className="size-4 mr-1" /> {t("creer.previous")}
                 </Button>
               )}
-              {step < 3 && (
+              {step < 4 && (
                 <Button onClick={() => setStep((s) => s + 1)} disabled={step === 1 && !canNext1}>
                   {t("creer.next")} <ChevronRight className="size-4 ml-1" />
                 </Button>
               )}
-              {step === 3 && (
+              {step === 4 && (
                 <Button onClick={submit} disabled={busy}>
                   {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Check className="size-4 mr-2" />}
                   {t("creer.create_btn")}
