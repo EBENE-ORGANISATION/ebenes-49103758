@@ -169,9 +169,9 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action") ?? "backup";
 
     if (action === "list") {
-      const folderId = await ensureFolderId();
-      const files = await listBackups(folderId);
-      return new Response(JSON.stringify({ ok: true, files }), {
+      const location = await ensureFolderId();
+      const files = await listBackups(location);
+      return new Response(JSON.stringify({ ok: true, files, location: location.appData ? "appDataFolder" : "drive" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -193,10 +193,10 @@ Deno.serve(async (req) => {
     if (!body?.snapshot || typeof body.snapshot !== "object") {
       throw new Error("snapshot manquant");
     }
-    const folderId = await ensureFolderId();
-    const existing = await findTodayFile(folderId, todayName());
-    const file = await uploadJson(body.snapshot, folderId, existing);
-    return new Response(JSON.stringify({ ok: true, file }), {
+    const location = await ensureFolderId();
+    const existing = await findTodayFile(location, todayName());
+    const file = await uploadJson(body.snapshot, location, existing);
+    return new Response(JSON.stringify({ ok: true, file, location: location.appData ? "appDataFolder" : "drive" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
