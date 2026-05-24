@@ -204,12 +204,12 @@ echo.
 
 :: Creer la release GitHub
 echo Creation de la release GitHub...
-gh release create v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo Ennod22/ebenes --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
+gh release create v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo EBENE-ORGANISATION/ebenes-49103758 --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
 if %errorlevel% equ 0 goto :release_creee
 
 :: Release deja existante : mettre a jour le fichier
 echo Release deja existante - mise a jour du Setup...
-gh release upload v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo Ennod22/ebenes --clobber
+gh release upload v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo EBENE-ORGANISATION/ebenes-49103758 --clobber
 if %errorlevel% neq 0 goto :err_release
 echo OK - Setup mis a jour dans la release v%VERSION%
 goto :release_done
@@ -229,7 +229,7 @@ echo ============================================================
 echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
 echo ============================================================
 echo.
-echo  GitHub  : https://github.com/Ennod22/ebenes/releases/tag/v%VERSION%
+echo  GitHub  : https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/tag/v%VERSION%
 echo  Setup   : EBENE SERVICES Setup %VERSION%.exe
 echo.
 echo  Les utilisateurs Windows recevront la mise a jour automatiquement.
