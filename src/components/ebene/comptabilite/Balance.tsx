@@ -57,7 +57,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
 
     for (const [code, { debit, credit }] of map.entries()) {
       const planCompte = getCompte(code);
-      const classe     = planCompte?.classe ?? parseInt(code.charAt(0), 10) || 9;
+      const classe     = planCompte?.classe ?? (parseInt(code.charAt(0), 10) || 9);
       const intitule   = planCompte?.intitule ?? code;
 
       const solde = debit - credit;
