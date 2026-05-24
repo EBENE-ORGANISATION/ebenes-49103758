@@ -33,8 +33,6 @@ import {
   resetCompteur,
 } from "@/lib/numerotation";
 import { ServicesGestion } from "@/components/admin/ServicesGestion";
-import { TauxImpots } from "@/components/ebene/TauxImpots";
-import { GestionDelegations } from "@/components/ebene/GestionDelegations";
 
 const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="space-y-1.5">
@@ -57,7 +55,7 @@ const ColorField = ({ label, value, onChange }: { label: string; value: string; 
 
 const ParametresSociete = () => {
   const { t } = useTranslation();
-  const { isAdmin, isSuperAdmin, user } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const { currentSociete, societeConfig, societes, setCurrentSocieteId, isLoading, refresh } = useTenant();
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -458,34 +456,6 @@ const ParametresSociete = () => {
                 Les chefs peuvent valider ; les membres peuvent saisir mais <strong>pas supprimer</strong>.
               </p>
               <ServicesGestion societeId={currentSociete.id} isAdmin={isAdmin || isSuperAdmin} />
-            </Card>
-
-            {/* ── Régime fiscal & Obligations fiscales ─────────────────── */}
-            <Card className="p-5 space-y-4">
-              <h2 className="font-bold flex items-center gap-2">
-                🧾 Régime fiscal &amp; Obligations fiscales
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Configurez le régime fiscal de votre société selon le Code Général des Impôts
-                du Togo (CGI 2025). Les taxes applicables sont calculées automatiquement.
-              </p>
-              <TauxImpots societeId={currentSociete.id} canEdit={isAdmin || isSuperAdmin} />
-            </Card>
-
-            {/* ── Délégations fiscales ─────────────────────────────────── */}
-            <Card className="p-5 space-y-4">
-              <h2 className="font-bold flex items-center gap-2">
-                👥 Délégations fiscales
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Accordez l'accès aux données fiscales à des collaborateurs ou à votre
-                expert-comptable. Les délégués peuvent consulter et exporter les états fiscaux.
-              </p>
-              <GestionDelegations
-                societeId={currentSociete.id}
-                currentUserId={user?.id ?? ""}
-                canEdit={isAdmin || isSuperAdmin}
-              />
             </Card>
 
             <div className="sticky bottom-4 z-10 flex justify-end">

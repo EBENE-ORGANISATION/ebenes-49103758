@@ -40,7 +40,7 @@ BEGIN
   -- Exception VVO : 2 % (min 20 000 FCFA) — CGI Art. 141
   -- (VVO géré comme secteur spécial via note dans set_impots)
   IF p_regime IN ('IS', 'IMF') THEN
-    v_imf_min := 200000;
+    v_imf_min := 20000;
     v_result := v_result || jsonb_build_array(jsonb_build_object(
       'code',        'IMF',
       'label',       'Impôt Minimum Forfaitaire',

@@ -89,12 +89,16 @@ export function generateSetImpots({
 
   // IMF
   if (regime === "IS" || regime === "IMF") {
+    const imfEstime = caAnnuel > 0
+      ? Math.max(Math.round(caAnnuel * 0.01), 20_000)
+      : undefined;
     result.push({
       code: "IMF",
       label: "Impôt Minimum Forfaitaire",
       taux: 0.01,
       assiette: "ca_ht",
-      montant_min: 200_000,
+      montant_min: 20_000,
+      montant_estime: imfEstime,
       article: "CGI Art. 141",
       periodicite: "annuel",
     });
@@ -115,19 +119,21 @@ export function generateSetImpots({
     });
   }
 
-  // TVA
+  // TVA — visible dès que le switch est activé (le seuil conditionne l'assujettissement,
+  // pas l'affichage : l'utilisateur peut forcer TVA manuellement)
   if (
     assujetti_tva &&
     !REGIMES_SANS_TVA.includes(regime) &&
-    !SECTEURS_SANS_TVA.includes(secteur) &&
-    caAnnuel > SEUIL_TVA_TOGO
+    !SECTEURS_SANS_TVA.includes(secteur)
   ) {
+    const tvaEstime = caAnnuel > 0 ? Math.round(caAnnuel * 0.18) : undefined;
     result.push({
       code: "TVA",
       label: "Taxe sur la Valeur Ajoutée",
       taux: 0.18,
       assiette: "ca_ht",
       seuil_ca: SEUIL_TVA_TOGO,
+      montant_estime: tvaEstime,
       article: "CGI Art. 203",
       periodicite: "mensuel",
     });
@@ -175,15 +181,15 @@ export function generateSetImpots({
     });
   }
 
-  // Patente
-  if (caAnnuel > 0) {
-    const tauxPat = getTauxPatente(secteur, caAnnuel);
+  // Patente — toujours affichée (sauf TPU qui l'inclut déjà)
+  if (regime !== "TPU") {
+    const tauxPat = getTauxPatente(secteur, Math.max(caAnnuel, 1));
     result.push({
       code: "PATENTE",
       label: "Taxe Professionnelle (Patente)",
       taux: tauxPat,
       assiette: "ca_annuel",
-      montant_estime: Math.round(caAnnuel * tauxPat),
+      montant_estime: caAnnuel > 0 ? Math.round(caAnnuel * tauxPat) : undefined,
       article: "CGI Art. 302",
       periodicite: "annuel",
     });

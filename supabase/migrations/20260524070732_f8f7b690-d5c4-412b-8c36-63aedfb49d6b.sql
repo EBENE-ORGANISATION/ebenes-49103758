@@ -85,7 +85,7 @@ BEGIN
   END IF;
 
   IF p_regime IN ('IS', 'IMF') THEN
-    v_imf_min := 200000;
+    v_imf_min := 20000;
     v_result := v_result || jsonb_build_array(jsonb_build_object(
       'code','IMF','label','Impôt Minimum Forfaitaire','taux',0.01,
       'assiette','ca_ht','montant_min',v_imf_min,'article','CGI Art. 141','periodicite','annuel'));

@@ -82,8 +82,8 @@ export const REGIME_LABELS: Record<RegimeFiscal, string> = {
 };
 
 export const REGIME_DESCRIPTIONS: Record<RegimeFiscal, string> = {
-  IS:  "SA et SARL — IS 27% sur bénéfice net + IMF 1% CA (min 200 000 FCFA)",
-  IMF: "Entreprises soumises à l'IMF — 1% CA HT, minimum 200 000 FCFA/an",
+  IS:  "SA et SARL — IS 27% sur bénéfice net + IMF 1% CA (min 20 000 FCFA)",
+  IMF: "Entreprises soumises à l'IMF — 1% CA HT, minimum 20 000 FCFA/an",
   TPU: "Petits contribuables — CA < 60 M FCFA. 2% commerce, 8% services",
   BE:  "Banques : TAF 10% sur produits bruts (remplace TVA)",
   ASS: "Compagnies d'assurance : TCA à taux variables selon type de contrat",
