@@ -155,7 +155,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             secteur_activite: secteur,
             assujetti_tva:    assujettiTva,
             ca_annuel_estime: ca,
-            set_impots:       setImpots,
+            set_impots:       setImpots as unknown as any,
           })
           .eq("id", res.societe.id);
       }
