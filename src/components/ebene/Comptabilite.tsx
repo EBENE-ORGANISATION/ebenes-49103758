@@ -23,6 +23,10 @@ import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { SaisieGuidee } from "./comptabilite/SaisieGuidee";
 import { SaisieExpert } from "./comptabilite/SaisieExpert";
 import { JournalEcritures } from "./comptabilite/JournalEcritures";
+import { GrandLivre } from "./comptabilite/GrandLivre";
+import { Balance } from "./comptabilite/Balance";
+import { BilanSYSCOHADA } from "./comptabilite/BilanSYSCOHADA";
+import { CompteResultat } from "./comptabilite/CompteResultat";
 
 interface Props {
   data: MoisData;
@@ -36,8 +40,13 @@ interface Props {
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
   onRejeter?: (id: number, motif: string) => void;
-  /** Toutes les données de l'année — sert au calcul d'anomalies. */
+  /** Toutes les données de l'année — sert au calcul d'anomalies et au Grand-Livre. */
   donneesMensuelles?: DonneesMensuelles;
+  /** Écritures comptables SYSCOHADA */
+  onAddEcriture?: (e: Omit<EcritureComptable, "id">) => void;
+  onValiderEcriture?: (id: number) => void;
+  onRejeterEcriture?: (id: number, motif: string) => void;
+  onRemoveEcriture?: (id: number) => void;
 }
 
 const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -58,6 +67,10 @@ export const Comptabilite = ({
   onRejeter,
   donneesMensuelles,
   taux,
+  onAddEcriture,
+  onValiderEcriture,
+  onRejeterEcriture,
+  onRemoveEcriture,
 }: Props) => {
   // ── États onglet Trésorerie (existants — inchangés) ─────────────────────────
   const [open, setOpen]             = useState(false);
@@ -156,11 +169,14 @@ export const Comptabilite = ({
     setOpen(false);
   };
 
-  // ── Handler Saisie SYSCOHADA (nouveau) ──────────────────────────────────────
+  // ── Handler Saisie SYSCOHADA ─────────────────────────────────────────────────
   const handleSaveEcriture = (ecriture: Omit<EcritureComptable, "id">) => {
-    // La persistance réelle sera câblée dans le Prompt 3 (store + repo).
-    // Pour l'instant, on confirme visuellement à l'utilisateur.
-    toast.success(`Écriture ${ecriture.numeroPiece} enregistrée (${ecriture.journal})`);
+    if (onAddEcriture) {
+      onAddEcriture(ecriture);
+      toast.success(`Écriture ${ecriture.numeroPiece} enregistrée — Journal ${ecriture.journal}`);
+    } else {
+      toast.error("Droits insuffisants pour enregistrer une écriture.");
+    }
     setShowSaisie(false);
   };
 
@@ -168,15 +184,27 @@ export const Comptabilite = ({
   return (
     <div className="space-y-5">
       <Tabs defaultValue="tresorerie" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full mb-4 h-auto">
-          <TabsTrigger value="saisie" className="py-2 text-sm">
-            📒 Saisie SYSCOHADA
+        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-4 h-auto">
+          <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
+            📒 Saisie
           </TabsTrigger>
-          <TabsTrigger value="tresorerie" className="py-2 text-sm">
+          <TabsTrigger value="tresorerie" className="py-2 text-xs sm:text-sm">
             💰 Trésorerie
           </TabsTrigger>
-          <TabsTrigger value="journal" className="py-2 text-sm">
+          <TabsTrigger value="journal" className="py-2 text-xs sm:text-sm">
             📋 Journal ({ecritures.length})
+          </TabsTrigger>
+          <TabsTrigger value="grandlivre" className="py-2 text-xs sm:text-sm">
+            📖 Grand-Livre
+          </TabsTrigger>
+          <TabsTrigger value="balance" className="py-2 text-xs sm:text-sm">
+            ⚖️ Balance
+          </TabsTrigger>
+          <TabsTrigger value="bilan" className="py-2 text-xs sm:text-sm">
+            📊 Bilan
+          </TabsTrigger>
+          <TabsTrigger value="resultat" className="py-2 text-xs sm:text-sm">
+            📈 Résultat
           </TabsTrigger>
         </TabsList>
 
@@ -508,15 +536,67 @@ export const Comptabilite = ({
             ecritures={ecritures}
             isChefCompta={isChefCompta}
             onValider={
-              onValider
-                ? (_id) => { toast.success("Écriture validée"); }
+              onValiderEcriture
+                ? (id) => {
+                    onValiderEcriture(id);
+                    toast.success("Écriture validée");
+                  }
                 : undefined
             }
             onRejeter={
-              onRejeter
-                ? (_id, motif) => { toast.error(`Écriture rejetée : ${motif}`); }
+              onRejeterEcriture
+                ? (id, motif) => {
+                    onRejeterEcriture(id, motif);
+                    toast.warning(`Écriture rejetée : ${motif}`);
+                  }
                 : undefined
             }
+            onSupprimer={
+              onRemoveEcriture
+                ? (id) => {
+                    onRemoveEcriture(id);
+                    toast.success("Écriture supprimée");
+                  }
+                : undefined
+            }
+          />
+        </TabsContent>
+
+        {/* ── Onglet Grand-Livre ────────────────────────────────────────────── */}
+        <TabsContent value="grandlivre">
+          {donneesMensuelles ? (
+            <GrandLivre donneesMensuelles={donneesMensuelles} annee={annee} />
+          ) : (
+            <p className="text-center text-muted-foreground py-10 italic">
+              Données annuelles non disponibles.
+            </p>
+          )}
+        </TabsContent>
+
+        {/* ── Onglet Balance ───────────────────────────────────────────────── */}
+        <TabsContent value="balance">
+          {donneesMensuelles ? (
+            <Balance donneesMensuelles={donneesMensuelles} annee={annee} />
+          ) : (
+            <p className="text-center text-muted-foreground py-10 italic">
+              Données annuelles non disponibles.
+            </p>
+          )}
+        </TabsContent>
+
+        {/* ── Onglet Bilan SYSCOHADA ───────────────────────────────────────── */}
+        <TabsContent value="bilan">
+          <BilanSYSCOHADA
+            donneesMensuelles={donneesMensuelles ?? {}}
+            annee={annee}
+          />
+        </TabsContent>
+
+        {/* ── Onglet Compte de Résultat ────────────────────────────────────── */}
+        <TabsContent value="resultat">
+          <CompteResultat
+            donneesMensuelles={donneesMensuelles ?? {}}
+            annee={annee}
           />
         </TabsContent>
       </Tabs>

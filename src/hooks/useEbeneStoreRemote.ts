@@ -23,6 +23,7 @@ import {
   Immobilisation,
   COMPTES_IMMO_DEFAUT,
   StatutValidation,
+  EcritureComptable,
 } from "@/types/ebene";
 import { moisKey, genererMatricule } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
@@ -129,6 +130,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
   // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.
   const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
+  const [ecrituresState, setEcrituresState] = useState<Record<string, EcritureComptable[]>>({});
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
@@ -184,6 +186,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       ...Object.keys(tqRetenues.retenues),
       ...Object.keys(tqMouvements.mouvementsStock),
       ...Object.keys(tqDevis.devis),
+      ...Object.keys(ecrituresState),
     ]);
     const result: DonneesMensuelles = {};
     for (const key of allKeys) {
@@ -196,6 +199,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         retenues: tqRetenues.retenues[key] ?? {},
         mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
         devis: tqDevis.devis[key] ?? [],
+        ecritures: ecrituresState[key] ?? [],
       };
     }
     return result;
@@ -208,6 +212,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     tqRetenues.retenues,
     tqMouvements.mouvementsStock,
     tqDevis.devis,
+    ecrituresState,
   ]);
 
   // ─── Statut Google Drive ───────────────────────────────────────────────────
@@ -275,6 +280,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   useEffect(() => {
     setLoaded(false);
     setTauxHistorique([TAUX_DEFAUT]);
+    setEcrituresState({});
     localSig.current = {};
     offlineMode.current = false;
     offlineToastShown.current = false;
@@ -456,6 +462,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         retenues: tqRetenues.retenues[key] ?? {},
         mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
         devis: tqDevis.devis[key] ?? [],
+        ecritures: ecrituresState[key] ?? [],
       };
     },
     [
@@ -467,6 +474,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       tqRetenues.retenues,
       tqMouvements.mouvementsStock,
       tqDevis.devis,
+      ecrituresState,
     ],
   );
 
@@ -1148,6 +1156,70 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     return out;
   }, [donneesMensuelles]);
 
+  // ─── Écritures comptables SYSCOHADA (état local par mois) ───────────────
+  const addEcriture = useCallback(
+    (annee: number, mois: number, e: Omit<EcritureComptable, "id">): number => {
+      const key = moisKey(annee, mois);
+      const id = Date.now();
+      setEcrituresState((prev) => ({
+        ...prev,
+        [key]: [...(prev[key] ?? []), { ...e, id }],
+      }));
+      markSignificantWrite();
+      return id;
+    },
+    [markSignificantWrite],
+  );
+
+  const updateEcriture = useCallback(
+    (annee: number, mois: number, id: number, patch: Partial<EcritureComptable>) => {
+      const key = moisKey(annee, mois);
+      setEcrituresState((prev) => ({
+        ...prev,
+        [key]: (prev[key] ?? []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      }));
+    },
+    [],
+  );
+
+  const removeEcriture = useCallback(
+    (annee: number, mois: number, id: number) => {
+      const key = moisKey(annee, mois);
+      setEcrituresState((prev) => ({
+        ...prev,
+        [key]: (prev[key] ?? []).filter((e) => e.id !== id),
+      }));
+      markSignificantWrite();
+    },
+    [markSignificantWrite],
+  );
+
+  const validerEcriture = useCallback(
+    (annee: number, mois: number, id: number) => {
+      const key = moisKey(annee, mois);
+      setEcrituresState((prev) => ({
+        ...prev,
+        [key]: (prev[key] ?? []).map((e) =>
+          e.id === id ? { ...e, statut: "valide" as const, motifRejet: undefined } : e,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const rejeterEcriture = useCallback(
+    (annee: number, mois: number, id: number, motif: string) => {
+      const key = moisKey(annee, mois);
+      setEcrituresState((prev) => ({
+        ...prev,
+        [key]: (prev[key] ?? []).map((e) =>
+          e.id === id ? { ...e, statut: "brouillon" as const, motifRejet: motif } : e,
+        ),
+      }));
+    },
+    [],
+  );
+
   // ─── Interface publique (identique à l'ancienne version) ─────────────────
   return {
     donneesMensuelles,
@@ -1220,6 +1292,12 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     getAmortissements,
     importerDonnees,
     anneesDisponibles,
+    // ─── Écritures SYSCOHADA ───
+    addEcriture,
+    updateEcriture,
+    removeEcriture,
+    validerEcriture,
+    rejeterEcriture,
     // ─── Statut Google Drive ───
     driveStatus,
     driveLastBackup,

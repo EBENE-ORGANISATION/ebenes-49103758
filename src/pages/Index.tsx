@@ -347,6 +347,18 @@ const Index = () => {
                 isChefCompta={comptaValidate}
                 onValider={(id) => store.validerTransaction(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterTransaction(annee, mois, id, motif)}
+                onAddEcriture={comptaWrite
+                  ? (e) => store.addEcriture(annee, mois, e)
+                  : undefined}
+                onValiderEcriture={comptaValidate
+                  ? (id) => store.validerEcriture(annee, mois, id)
+                  : undefined}
+                onRejeterEcriture={comptaValidate
+                  ? (id, motif) => store.rejeterEcriture(annee, mois, id, motif)
+                  : undefined}
+                onRemoveEcriture={comptaValidate
+                  ? (id) => store.removeEcriture(annee, mois, id)
+                  : undefined}
               />
             </TabsContent>
             )}
