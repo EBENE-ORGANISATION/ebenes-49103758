@@ -893,6 +893,47 @@ export type Database = {
           },
         ]
       }
+      fiscal_delegations: {
+        Row: {
+          delegue_user_id: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string
+          id: string
+          is_active: boolean
+          note: string | null
+          societe_id: string
+        }
+        Insert: {
+          delegue_user_id: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          societe_id: string
+        }
+        Update: {
+          delegue_user_id?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          societe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_delegations_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fournisseurs: {
         Row: {
           adresse: string | null
@@ -1584,6 +1625,8 @@ export type Database = {
       societes: {
         Row: {
           adresse: string
+          assujetti_tva: boolean
+          ca_annuel_estime: number | null
           couleur_primaire: string
           couleur_secondaire: string
           created_at: string
@@ -1597,7 +1640,14 @@ export type Database = {
           nom: string
           plan: string
           rccm: string
+          regime_fiscal:
+            | Database["public"]["Enums"]["regime_fiscal_enum"]
+            | null
           representant: string
+          secteur_activite:
+            | Database["public"]["Enums"]["secteur_activite_enum"]
+            | null
+          set_impots: Json
           site_web: string
           slogan: string
           slug: string | null
@@ -1607,6 +1657,8 @@ export type Database = {
         }
         Insert: {
           adresse?: string
+          assujetti_tva?: boolean
+          ca_annuel_estime?: number | null
           couleur_primaire?: string
           couleur_secondaire?: string
           created_at?: string
@@ -1620,7 +1672,14 @@ export type Database = {
           nom: string
           plan?: string
           rccm?: string
+          regime_fiscal?:
+            | Database["public"]["Enums"]["regime_fiscal_enum"]
+            | null
           representant?: string
+          secteur_activite?:
+            | Database["public"]["Enums"]["secteur_activite_enum"]
+            | null
+          set_impots?: Json
           site_web?: string
           slogan?: string
           slug?: string | null
@@ -1630,6 +1689,8 @@ export type Database = {
         }
         Update: {
           adresse?: string
+          assujetti_tva?: boolean
+          ca_annuel_estime?: number | null
           couleur_primaire?: string
           couleur_secondaire?: string
           created_at?: string
@@ -1643,7 +1704,14 @@ export type Database = {
           nom?: string
           plan?: string
           rccm?: string
+          regime_fiscal?:
+            | Database["public"]["Enums"]["regime_fiscal_enum"]
+            | null
           representant?: string
+          secteur_activite?:
+            | Database["public"]["Enums"]["secteur_activite_enum"]
+            | null
+          set_impots?: Json
           site_web?: string
           slogan?: string
           slug?: string | null
@@ -1958,6 +2026,15 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      generate_set_impots: {
+        Args: {
+          p_assujetti_tva?: boolean
+          p_ca_annuel?: number
+          p_regime: Database["public"]["Enums"]["regime_fiscal_enum"]
+          p_secteur: Database["public"]["Enums"]["secteur_activite_enum"]
+        }
+        Returns: Json
+      }
       has_active_chef_grant: {
         Args: { _service: string; _user_id: string }
         Returns: boolean
@@ -2035,6 +2112,20 @@ export type Database = {
         | "json_io"
         | "users_admin"
         | "audit_log"
+      regime_fiscal_enum: "IS" | "IMF" | "TPU" | "BE" | "ASS" | "TEL" | "TI"
+      secteur_activite_enum:
+        | "CO"
+        | "HO"
+        | "PH"
+        | "SE"
+        | "BTP"
+        | "ASS"
+        | "BE"
+        | "TEL"
+        | "TI"
+        | "IND"
+        | "AGRI"
+        | "AUT"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2194,6 +2285,21 @@ export const Constants = {
         "json_io",
         "users_admin",
         "audit_log",
+      ],
+      regime_fiscal_enum: ["IS", "IMF", "TPU", "BE", "ASS", "TEL", "TI"],
+      secteur_activite_enum: [
+        "CO",
+        "HO",
+        "PH",
+        "SE",
+        "BTP",
+        "ASS",
+        "BE",
+        "TEL",
+        "TI",
+        "IND",
+        "AGRI",
+        "AUT",
       ],
     },
   },
