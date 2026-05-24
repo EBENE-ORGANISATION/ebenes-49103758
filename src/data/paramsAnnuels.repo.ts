@@ -11,10 +11,10 @@ const n = <T>(v: T | null | undefined): T | undefined =>
   v == null ? undefined : v;
 
 export const toParamsAnnuels = (row: ParamsRow): ParamsAnnuels & { annee: number } => ({
-  annee: row.annee,
-  th: n(row.th),
-  rsl: n(row.rsl),
-  activite: n(row.activite) as "service" | "commerce" | undefined,
+  annee:       row.annee,
+  th:          n(row.th),
+  loyerAnnuel: n(row.rsl),   // colonne "rsl" stocke le loyer annuel (RSL = loyer × 8,75 %)
+  activite:    n(row.activite) as "service" | "commerce" | undefined,
 });
 
 export const fromParamsAnnuels = (
@@ -24,9 +24,9 @@ export const fromParamsAnnuels = (
 ): TablesInsert<"params_annuels"> => ({
   societe_id: societeId,
   annee,
-  th: p.th ?? null,
-  rsl: p.rsl ?? null,
-  activite: p.activite ?? null,
+  th:       p.th           ?? null,
+  rsl:      p.loyerAnnuel  ?? null,   // stocké dans colonne "rsl" (rétrocompatible)
+  activite: p.activite     ?? null,
 });
 
 export const paramsAnnuels = {

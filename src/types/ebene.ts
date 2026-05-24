@@ -241,8 +241,10 @@ export interface MoisData {
 export type DonneesMensuelles = Record<string, MoisData>; // key = "YYYY-M"
 
 export interface ParamsAnnuels {
-  th?: number; // Taxe d'habitation annuelle
-  rsl?: number; // Redevance annuelle
+  /** Taxe d'Habitation annuelle (FCFA) — payée par acompte semestriel : 15 janv. + 15 juil. */
+  th?: number;
+  /** Loyer annuel (FCFA) — RSL = loyer × 8,75 %, payée mensuellement avant le 15 du mois suivant */
+  loyerAnnuel?: number;
   /** Activité dominante de l'année (impacte la patente) */
   activite?: "service" | "commerce";
 }
