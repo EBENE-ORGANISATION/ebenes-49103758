@@ -8,6 +8,16 @@ const corsHeaders = {
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
 const BACKUP_FOLDER = "EBENE_BACKUPS";
+const APP_DATA_FOLDER = "appDataFolder";
+
+type BackupLocation = {
+  folderId: string;
+  appData: boolean;
+};
+
+function withSpace(path: string, location: BackupLocation): string {
+  return location.appData ? `${path}&spaces=appDataFolder` : path;
+}
 
 function authHeaders() {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -27,7 +37,7 @@ async function gFetch(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
-async function ensureFolderId(): Promise<string> {
+async function ensureFolderId(): Promise<BackupLocation> {
   // Cherche un dossier nommé EBENE_BACKUPS, non supprimé, créé par cette app (drive.file)
   const q = encodeURIComponent(
     `name='${BACKUP_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
@@ -40,7 +50,7 @@ async function ensureFolderId(): Promise<string> {
     throw new Error(`Drive search folder failed [${search.status}]: ${t}`);
   }
   const sj = (await search.json()) as { files?: Array<{ id: string; name: string }> };
-  if (sj.files && sj.files.length > 0) return sj.files[0].id;
+  if (sj.files && sj.files.length > 0) return { folderId: sj.files[0].id, appData: false };
 
   // Créer le dossier
   const create = await gFetch(`/drive/v3/files?fields=id`, {
@@ -53,10 +63,13 @@ async function ensureFolderId(): Promise<string> {
   });
   if (!create.ok) {
     const t = await create.text();
+    if (create.status === 403 && t.includes("insufficientFilePermissions")) {
+      return { folderId: APP_DATA_FOLDER, appData: true };
+    }
     throw new Error(`Drive create folder failed [${create.status}]: ${t}`);
   }
   const cj = (await create.json()) as { id: string };
-  return cj.id;
+  return { folderId: cj.id, appData: false };
 }
 
 function todayName(): string {
@@ -67,21 +80,21 @@ function todayName(): string {
   return `EBENE_Backup_${yyyy}-${mm}-${dd}.json`;
 }
 
-async function findTodayFile(folderId: string, name: string): Promise<string | null> {
-  const q = encodeURIComponent(`name='${name}' and '${folderId}' in parents and trashed=false`);
-  const r = await gFetch(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=5`);
+async function findTodayFile(location: BackupLocation, name: string): Promise<string | null> {
+  const q = encodeURIComponent(`name='${name}' and '${location.folderId}' in parents and trashed=false`);
+  const r = await gFetch(withSpace(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=5`, location));
   if (!r.ok) return null;
   const j = (await r.json()) as { files?: Array<{ id: string }> };
   return j.files && j.files.length > 0 ? j.files[0].id : null;
 }
 
-async function uploadJson(payload: unknown, folderId: string, fileId: string | null) {
+async function uploadJson(payload: unknown, location: BackupLocation, fileId: string | null) {
   const name = todayName();
   const json = JSON.stringify(payload);
   const boundary = "ebene_boundary_" + crypto.randomUUID();
   const meta = fileId
     ? { name, mimeType: "application/json" }
-    : { name, mimeType: "application/json", parents: [folderId] };
+    : { name, mimeType: "application/json", parents: [location.folderId] };
 
   const body =
     `--${boundary}\r\n` +
@@ -108,12 +121,12 @@ async function uploadJson(payload: unknown, folderId: string, fileId: string | n
   return (await r.json()) as { id: string; name: string; modifiedTime: string };
 }
 
-async function listBackups(folderId: string) {
+async function listBackups(location: BackupLocation) {
   const q = encodeURIComponent(
-    `'${folderId}' in parents and trashed=false and mimeType='application/json'`
+    `'${location.folderId}' in parents and trashed=false and mimeType='application/json'`
   );
   const r = await gFetch(
-    `/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime,size)`
+    withSpace(`/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime,size)`, location)
   );
   if (!r.ok) {
     const t = await r.text();
