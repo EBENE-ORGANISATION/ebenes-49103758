@@ -23,7 +23,7 @@ async function fetchFiscalite(societeId: string): Promise<SocieteInfoFiscale> {
     regime_fiscal:    (data.regime_fiscal    ?? "IS")  as RegimeFiscal,
     secteur_activite: (data.secteur_activite ?? "SE")  as SecteurActivite,
     assujetti_tva:    data.assujetti_tva     ?? false,
-    set_impots:       Array.isArray(data.set_impots) ? data.set_impots : [],
+    set_impots:       (Array.isArray(data.set_impots) ? data.set_impots : []) as unknown as SocieteInfoFiscale["set_impots"],
     ca_annuel_estime: data.ca_annuel_estime  ?? 0,
   };
 }
