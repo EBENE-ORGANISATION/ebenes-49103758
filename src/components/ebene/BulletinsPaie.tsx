@@ -118,9 +118,9 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
   // ─── Payer ───────────────────────────────────────────────────────────────
   const handlePayer = async (id: string, nom: string) => {
     setActioning(id);
-    const ok = await payerBulletin(id, store.addTransaction);
+    const ok = await payerBulletin(id, store.addTransaction, store.addEcriture);
     if (ok) {
-      toast.success(`Bulletin de ${nom} payé — écriture comptable créée`);
+      toast.success(`Bulletin de ${nom} payé — écriture SYSCOHADA générée (OD)`);
     } else {
       toast.error("Erreur lors du paiement");
     }
@@ -310,15 +310,21 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmer le paiement</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Vous êtes sur le point de marquer le bulletin de{" "}
-                                  <strong>{b.employe_nom}</strong> comme payé.
-                                  <br />
-                                  Cela créera une écriture comptable de{" "}
-                                  <strong>{formatMontant(b.cout_employeur)}</strong> dans les charges
-                                  du mois ({periode}).
-                                  <br />
-                                  Cette action est irréversible.
+                                <AlertDialogDescription className="space-y-2">
+                                  <p>
+                                    Vous êtes sur le point de marquer le bulletin de{" "}
+                                    <strong>{b.employe_nom}</strong> comme payé pour {periode}.
+                                  </p>
+                                  <p>Cela va générer automatiquement :</p>
+                                  <ul className="list-disc pl-4 space-y-0.5 text-xs">
+                                    <li>Une <strong>transaction de dépense</strong> de {formatMontant(b.cout_employeur)} (Trésorerie)</li>
+                                    <li>Une <strong>écriture SYSCOHADA</strong> dans le journal OD :
+                                      <br />→ Débit 661 Rémunérations ({formatMontant(b.brut)})
+                                      <br />→ Crédit 4221 Net à payer ({formatMontant(b.net_a_payer)})
+                                      <br />→ Crédit 4311/4471/4421 Charges sociales &amp; IRPP
+                                    </li>
+                                  </ul>
+                                  <p className="text-destructive font-medium text-xs">Cette action est irréversible.</p>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

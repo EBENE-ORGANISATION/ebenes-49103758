@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
-import type { BulletinPaieRecord, Employe, MoisData, Transaction } from "@/types/ebene";
+import type { BulletinPaieRecord, Employe, EcritureComptable, MoisData, Transaction } from "@/types/ebene";
 
 export { type BulletinPaieRecord };
 
@@ -163,7 +163,8 @@ export const useBulletinsPaie = (societeId: string | null) => {
   const payerBulletin = useCallback(
     async (
       id: string,
-      addTransaction: (annee: number, mois: number, t: Omit<Transaction, "id">) => void
+      addTransaction: (annee: number, mois: number, t: Omit<Transaction, "id">) => void,
+      addEcriture?: (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => void
     ): Promise<boolean> => {
       if (!societeId) return false;
       const bulletin = bulletins.find((b) => b.id === id);
@@ -177,7 +178,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
         .eq("societe_id", societeId);
       if (error) return false;
 
-      // Intégration comptable : écriture en charges salariales
+      // Intégration comptable : transaction simple (trésorerie)
       const dateStr = `${bulletin.annee}-${String(bulletin.mois).padStart(2, "0")}-01`;
       addTransaction(bulletin.annee, bulletin.mois, {
         date: dateStr,
@@ -188,6 +189,92 @@ export const useBulletinsPaie = (societeId: string | null) => {
         auto: true,
         statut: "valide",
       });
+
+      // Écriture SYSCOHADA en partie double — Journal OD
+      if (addEcriture) {
+        const cnssTotal = bulletin.cnss_sal + bulletin.cnss_pat;
+        const amuTotal  = bulletin.amu_sal  + bulletin.amu_pat;
+
+        const lignes = [
+          // ── DÉBITS ─────────────────────────────────────────────────────
+          {
+            id: 1,
+            compte: "661",
+            intitule: "Rémunérations du personnel",
+            debit: Math.round(bulletin.brut),
+            credit: 0,
+            tiers: bulletin.employe_nom,
+          },
+          {
+            id: 2,
+            compte: "6311",
+            intitule: "Cotisations CNSS patronales",
+            debit: Math.round(bulletin.cnss_pat),
+            credit: 0,
+          },
+          {
+            id: 3,
+            compte: "6312",
+            intitule: "Cotisations AMU patronales",
+            debit: Math.round(bulletin.amu_pat),
+            credit: 0,
+          },
+          // ── CRÉDITS ────────────────────────────────────────────────────
+          {
+            id: 4,
+            compte: "4221",
+            intitule: "Personnel — salaires nets à payer",
+            debit: 0,
+            credit: Math.round(bulletin.net_a_payer),
+            tiers: bulletin.employe_nom,
+          },
+          {
+            id: 5,
+            compte: "4311",
+            intitule: "CNSS à reverser",
+            debit: 0,
+            credit: Math.round(cnssTotal),
+          },
+          {
+            id: 6,
+            compte: "4471",
+            intitule: "AMU à reverser",
+            debit: 0,
+            credit: Math.round(amuTotal),
+          },
+          ...(bulletin.irpp > 0
+            ? [{
+                id: 7,
+                compte: "4421",
+                intitule: "IRPP à reverser à l'État",
+                debit: 0,
+                credit: Math.round(bulletin.irpp),
+              }]
+            : []),
+          ...(bulletin.retenues_diverses > 0
+            ? [{
+                id: 8,
+                compte: "4228",
+                intitule: "Autres retenues sur salaires",
+                debit: 0,
+                credit: Math.round(bulletin.retenues_diverses),
+              }]
+            : []),
+        ];
+
+        const numeroPiece = `OD-SAL-${bulletin.annee}${String(bulletin.mois).padStart(2, "0")}-${bulletin.employe_id}`;
+
+        addEcriture(bulletin.annee, bulletin.mois, {
+          journal: "OD",
+          numeroPiece,
+          libelle: `Paie ${bulletin.employe_nom} — ${bulletin.mois}/${bulletin.annee}`,
+          lignes,
+          statut: "valide",
+          bulletinId: id,
+          annee: bulletin.annee,
+          mois: bulletin.mois,
+        });
+      }
 
       // Email via Edge Function (best-effort)
       supabase.functions
