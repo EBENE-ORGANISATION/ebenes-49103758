@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle, BookOpen } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
@@ -260,10 +260,25 @@ export const Comptabilite = ({
                   autocomplétion du plan comptable (130+ comptes Classes 1→8).
                 </p>
               </div>
-              {ecritures.length === 0 && (
-                <p className="text-center text-muted-foreground py-6 italic">
-                  Aucune écriture ce mois. Commencez par "Saisie guidée".
-                </p>
+              {ecritures.length === 0 && !showSaisie && (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <BookOpen className="size-7 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Aucune écriture ce mois</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Commencez par la saisie guidée pour générer automatiquement les écritures SYSCOHADA.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => { setModeGuide(true); setShowSaisie(true); }}
+                    className="gap-1.5 mt-1"
+                  >
+                    <Plus className="size-4" /> Nouvelle saisie guidée
+                  </Button>
+                </div>
               )}
             </div>
           ) : modeGuide ? (
