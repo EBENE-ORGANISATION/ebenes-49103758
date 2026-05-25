@@ -1,8 +1,16 @@
 /**
- * ecritures.repo.ts — Couche d'accès Supabase pour `ecritures_comptables`.
+ * ecritures.repo.ts — Couche d'accès Supabase pour la table `ecritures_comptables`.
+ *
+ * Mapping TS ↔ DB :
+ *   EcritureComptable.journal     ↔ journal
+ *   EcritureComptable.numeroPiece ↔ numero_piece
+ *   EcritureComptable.lignes      ↔ lignes (jsonb)
+ *   EcritureComptable.creePar     ↔ cree_par
+ *   EcritureComptable.validepar   ↔ valide_par
+ *   EcritureComptable.motifRejet  ↔ motif_rejet
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert, TablesUpdate, Json } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type {
   EcritureComptable,
   LigneEcriture,
@@ -10,20 +18,17 @@ import type {
   StatutEcriture,
 } from "@/types/ebene";
 
-type Row = Tables<"ecritures_comptables">;
+type EcritureRow = Tables<"ecritures_comptables">;
 
 const n = <T>(v: T | null | undefined): T | undefined =>
   v == null ? undefined : v;
 
-export const toEcriture = (row: Row): EcritureComptable => ({
+export const toEcriture = (row: EcritureRow): EcritureComptable => ({
   id: row.id,
-  date: (row.lignes && (row.lignes as { _date?: string })._date) || "",
   journal: row.journal as CodeJournal,
   numeroPiece: row.numero_piece,
   libelle: row.libelle,
-  lignes: Array.isArray(row.lignes)
-    ? (row.lignes as unknown as LigneEcriture[])
-    : ((row.lignes as { lignes?: LigneEcriture[] })?.lignes ?? []),
+  lignes: (row.lignes as LigneEcriture[]) ?? [],
   statut: row.statut as StatutEcriture,
   factureId: n(row.facture_id),
   bulletinId: n(row.bulletin_id),
@@ -37,10 +42,6 @@ export const toEcriture = (row: Row): EcritureComptable => ({
   mois: row.mois,
 });
 
-/** Stocke les lignes + la date dans le JSONB `lignes` pour préserver tout. */
-const packLignes = (e: Omit<EcritureComptable, "id">): Json =>
-  ({ _date: e.date, lignes: e.lignes }) as unknown as Json;
-
 export const fromEcriture = (
   e: Omit<EcritureComptable, "id">,
   annee: number,
@@ -48,12 +49,12 @@ export const fromEcriture = (
   societeId: string,
 ): TablesInsert<"ecritures_comptables"> => ({
   societe_id: societeId,
-  annee,
-  mois,
+  annee: e.annee ?? annee,
+  mois: e.mois ?? mois,
   journal: e.journal,
   numero_piece: e.numeroPiece,
-  libelle: e.libelle ?? "",
-  lignes: packLignes(e),
+  libelle: e.libelle,
+  lignes: e.lignes as never,
   statut: e.statut ?? "brouillon",
   facture_id: e.factureId ?? null,
   bulletin_id: e.bulletinId ?? null,
@@ -66,17 +67,19 @@ export const fromEcriture = (
 });
 
 export const ecritures = {
+  /** Charge TOUTES les écritures actives, groupées par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, EcritureComptable[]>> {
     const { data, error } = await supabase
       .from("ecritures_comptables")
       .select("*")
       .eq("societe_id", societeId)
-      .order("id", { ascending: true });
+      .order("created_at", { ascending: false });
     if (error) throw error;
     const result: Record<string, EcritureComptable[]> = {};
-    for (const row of (data ?? []) as Row[]) {
+    for (const row of (data ?? []) as EcritureRow[]) {
       const key = `${row.annee}-${row.mois}`;
-      (result[key] ??= []).push(toEcriture(row));
+      if (!result[key]) result[key] = [];
+      result[key].push(toEcriture(row));
     }
     return result;
   },
@@ -93,25 +96,23 @@ export const ecritures = {
       .select()
       .single();
     if (error) throw error;
-    return toEcriture(data as Row);
+    return toEcriture(data as EcritureRow);
   },
 
   async update(
     id: number,
-    patch: Partial<EcritureComptable>,
+    patch: Partial<Pick<EcritureComptable, "statut" | "motifRejet" | "validepar" | "lignes" | "libelle">>,
     societeId: string,
   ): Promise<void> {
-    const u: TablesUpdate<"ecritures_comptables"> = {};
-    if (patch.statut !== undefined) u.statut = patch.statut;
-    if (patch.motifRejet !== undefined) u.motif_rejet = patch.motifRejet ?? null;
-    if (patch.validepar !== undefined) u.valide_par = patch.validepar ?? null;
-    if (patch.libelle !== undefined) u.libelle = patch.libelle;
-    if (patch.lignes !== undefined || patch.date !== undefined) {
-      u.lignes = { _date: patch.date, lignes: patch.lignes } as unknown as Json;
-    }
     const { error } = await supabase
       .from("ecritures_comptables")
-      .update(u)
+      .update({
+        ...(patch.statut      !== undefined && { statut: patch.statut }),
+        ...(patch.motifRejet  !== undefined && { motif_rejet: patch.motifRejet ?? null }),
+        ...(patch.validepar   !== undefined && { valide_par: patch.validepar ?? null }),
+        ...(patch.lignes      !== undefined && { lignes: patch.lignes as never }),
+        ...(patch.libelle     !== undefined && { libelle: patch.libelle }),
+      })
       .eq("id", id)
       .eq("societe_id", societeId);
     if (error) throw error;
