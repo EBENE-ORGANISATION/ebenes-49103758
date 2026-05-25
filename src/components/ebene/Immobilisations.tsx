@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  EcritureComptable,
   Immobilisation,
   CategorieImmo,
   CATEGORIE_IMMO_LABELS,
@@ -15,7 +16,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, FileSpreadsheet, Building2, ArrowRightLeft } from "lucide-react";
+import { Plus, Trash2, FileSpreadsheet, Building2, ArrowRightLeft, BookOpen, Loader2 } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { StatCard } from "./StatCard";
@@ -43,6 +44,10 @@ interface Props {
   /** Mise à jour partielle (utilisée pour la cession). Optionnel. */
   onUpdate?: (id: number, patch: Partial<Immobilisation>) => void;
   canEdit: boolean;
+  /** Génère une écriture SYSCOHADA dans le journal OD (dotations amortissement). */
+  onAddEcriture?: (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => void;
+  /** Mois de comptabilisation des dotations (défaut : 12 = décembre). */
+  moisDotation?: number;
 }
 
 const METHODES: { v: MethodeAmortissement; label: string }[] = [
@@ -57,6 +62,8 @@ export const Immobilisations = ({
   onRemove,
   onUpdate,
   canEdit,
+  onAddEcriture,
+  moisDotation = 12,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [libelle, setLibelle] = useState("");
@@ -131,6 +138,60 @@ export const Immobilisations = ({
       ),
     [lignes]
   );
+
+  // ─── Génération écritures dotations ────────────────────────────────────────
+  const [generatingDotations, setGeneratingDotations] = useState(false);
+
+  const genererEcrituresDotations = async () => {
+    if (!onAddEcriture) return;
+    const immoActives = lignes.filter(
+      (l) => l.dotation > 0 && (l.immobilisation.statut ?? "actif") === "actif"
+    );
+    if (immoActives.length === 0) {
+      toast.warning("Aucune dotation à comptabiliser pour " + annee);
+      return;
+    }
+    setGeneratingDotations(true);
+    try {
+      for (const l of immoActives) {
+        const i = l.immobilisation;
+        const comptes = i.comptesSYSCOHADA ?? COMPTES_IMMO_DEFAUT[i.categorie ?? "materiel_bureau"];
+        const compteDotation = comptes?.dotation ?? "6813";
+        const compteAmortissement = comptes?.amortissementCumule ?? "2845";
+        const numeroPiece = `OD-AMO-${annee}-${String(i.id).padStart(4, "0")}`;
+
+        onAddEcriture(annee, moisDotation, {
+          journal: "OD",
+          numeroPiece,
+          libelle: `Dotation amortissement ${annee} — ${i.libelle}`,
+          lignes: [
+            {
+              id: 1,
+              compte: compteDotation,
+              intitule: "Dotations aux amortissements",
+              debit: Math.round(l.dotation),
+              credit: 0,
+            },
+            {
+              id: 2,
+              compte: compteAmortissement,
+              intitule: `Amortissements — ${i.libelle}`,
+              debit: 0,
+              credit: Math.round(l.dotation),
+            },
+          ],
+          statut: "brouillon",
+          annee,
+          mois: moisDotation,
+        });
+      }
+      toast.success(
+        `${immoActives.length} écriture${immoActives.length > 1 ? "s" : ""} de dotation générée${immoActives.length > 1 ? "s" : ""} en brouillon — Journal OD`
+      );
+    } finally {
+      setGeneratingDotations(false);
+    }
+  };
 
   const reset = () => {
     setLibelle(""); setValeur(""); setDuree("5");
@@ -236,6 +297,20 @@ export const Immobilisations = ({
           <FileSpreadsheet className="size-4" />
           Exporter le plan {annee}
         </Button>
+        {/* Bouton génération écritures dotations */}
+        {onAddEcriture && totals.dotation > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void genererEcrituresDotations()}
+            disabled={generatingDotations}
+            className="gap-1.5 border-warning/40 text-warning hover:bg-warning/10"
+          >
+            {generatingDotations
+              ? <><Loader2 className="size-4 animate-spin" /> Génération…</>
+              : <><BookOpen className="size-4" /> Comptabiliser dotations {annee}</>}
+          </Button>
+        )}
         <span className="text-xs text-muted-foreground">
           Conforme SYSCOHADA Révisé. Inclus dans l'export comptable annuel.
         </span>
@@ -305,13 +380,14 @@ export const Immobilisations = ({
               <TableHead className="text-right">Dotation {annee}</TableHead>
               <TableHead className="text-right">Cumul {annee}</TableHead>
               <TableHead className="text-right">VNC {annee}</TableHead>
+              <TableHead className="text-center w-20 text-xs text-muted-foreground">Écriture OD</TableHead>
               {canEdit && <TableHead className="w-12"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {lignes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canEdit ? 10 : 9} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={canEdit ? 11 : 10} className="text-center text-muted-foreground py-8">
                   Aucune immobilisation enregistrée.
                 </TableCell>
               </TableRow>
@@ -364,6 +440,15 @@ export const Immobilisations = ({
                   <TableCell className="text-right tabular-nums">{formatMontant(l.dotation)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatMontant(l.cumul)}</TableCell>
                   <TableCell className="text-right tabular-nums font-semibold">{formatMontant(l.vnc)}</TableCell>
+                  <TableCell className="text-center">
+                    {l.dotation > 0 && (i.statut ?? "actif") === "actif" ? (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {i.comptesSYSCOHADA?.dotation ?? "68xx"}→{i.comptesSYSCOHADA?.amortissementCumule ?? "28xx"}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   {canEdit && (
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -401,6 +486,7 @@ export const Immobilisations = ({
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.dotation)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.cumul)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.vnc)}</TableCell>
+                <TableCell></TableCell>
                 {canEdit && <TableCell></TableCell>}
               </TableRow>
             )}

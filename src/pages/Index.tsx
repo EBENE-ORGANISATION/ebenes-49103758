@@ -535,6 +535,10 @@ const Index = () => {
                   : blockedId(tp("immo_delete"))}
                 onUpdate={immoWrite ? store.updateImmobilisation : undefined}
                 canEdit={immoWrite}
+                onAddEcriture={comptaWrite
+                  ? (a, m, e) => store.addEcriture(a, m, e)
+                  : undefined}
+                moisDotation={12}
               />
             </TabsContent>
             )}
