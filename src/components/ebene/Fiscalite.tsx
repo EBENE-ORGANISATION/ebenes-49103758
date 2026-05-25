@@ -168,91 +168,6 @@ export const Fiscalite = ({
   const nomMois = MOIS_NOMS[mois - 1] ?? "";
   const taux = useMemo(() => tauxPourMois(tauxHistorique, annee, mois), [tauxHistorique, annee, mois]);
 
-  // ── Extraction des montants depuis les écritures SYSCOHADA validées ───────
-  // ligne 7 = ventes HT (comptes 701 / 706 / 707… côté crédit)
-  const ligne7 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide" && e.journal === "VE",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const credit = e.lignes
-        .filter(l => l.compte.startsWith("70"))
-        .reduce((a, l) => a + (l.credit || 0), 0);
-      return sum + credit;
-    }, 0);
-  }, [data.ecritures]);
-
-  // ligne 13 = TVA collectée sur ventes (comptes 4431 / 4432)
-  const ligne13 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const credit = e.lignes
-        .filter(l => l.compte.startsWith("443"))
-        .reduce((a, l) => a + (l.credit || 0), 0);
-      return sum + credit;
-    }, 0);
-  }, [data.ecritures]);
-
-  // ligne 18 = TVA déductible sur achats (compte 4452)
-  const ligne18 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide" && e.journal === "AC",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const debit = e.lignes
-        .filter(l => l.compte.startsWith("4452"))
-        .reduce((a, l) => a + (l.debit || 0), 0);
-      return sum + debit;
-    }, 0);
-  }, [data.ecritures]);
-
-  // ── Calcul formulaire TVA OTR ─────────────────────────────────────────────
-  const tvaCalc = useMemo(() => {
-    // Si écritures SYSCOHADA disponibles, on les utilise (priorité) ;
-    // sinon on replie sur le CA simplifié.
-    const hasEcritures = ligne7 > 0 || ligne13 > 0 || ligne18 > 0;
-
-    // Section II — CA HT
-    const l1  = hasEcritures ? ligne7 : calc.rec;       // ventes intérieures taxables 18%
-    const l2  = tvaManuel.l3;                            // ventes exonérées
-    const l3  = tvaManuel.l4;                            // autres taux
-    const l4  = tvaManuel.l5;                            // livraisons à soi-même
-    const l6  = l1 + l2 + l3 + l4;                      // total CA HT
-
-    // Section III — TVA Brute
-    const l7  = hasEcritures ? ligne13 : Math.round(calc.rec * taux.tva);  // TVA/ventes intérieures
-    const l8  = tvaManuel.l8;                            // TVA sur importations
-    const l9  = tvaManuel.l9;                            // TVA récupérable immo
-    const l10 = tvaManuel.l10;                           // régularisations
-    const l11 = l7 + l8 + l9 + l10;                     // TOTAL TVA BRUTE
-
-    // Section IV — TVA Déductible
-    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);  // TVA/achats locaux
-    const l13 = tvaManuel.l19;                           // TVA/immo
-    const l14 = tvaManuel.l20;                           // régularisations déduc.
-    const l15 = tvaManuel.l21;                           // reversements négatifs
-    const l16 = tvaManuel.l17;                           // crédit mois précédent
-    const prorata = tvaManuel.prorataPct / 100;
-    const l17 = Math.round((l12 + l13 + l14 - l15 + l16) * prorata); // total déductible (prorata)
-
-    // Section V — TVA Nette
-    const l18 = l11 - l17;                              // solde
-    const l19 = Math.max(0, l18);                        // TVA à payer
-    const l20 = Math.max(0, -l18);                       // crédit à reporter
-
-    return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20 };
-  }, [calc, taux, tvaManuel, ligne7, ligne13, ligne18]);
-
-  // ── Labels TVA ───────────────────────────────────────────────────────────
-  const estCloture   = statut === "cloture";
-  const periodeLabel = `${nomMois} ${annee}`;
-  const dateLimiteOTR = mois < 12
-    ? `15 ${MOIS_NOMS[mois]} ${annee}`
-    : `15 Janvier ${annee + 1}`;
-  const societeConfig = currentSociete;
-
   // ── CA annuel cumulé (pour IMF) ────────────────────────────────────────────
   const caAnnuel = useMemo(() => {
     let total = 0;
@@ -331,6 +246,89 @@ export const Fiscalite = ({
     () => bulletins.reduce((a, b) => a + (b.irpp || 0), 0),
     [bulletins],
   );
+
+  // ── Extraction des montants depuis les écritures SYSCOHADA validées ───────
+  // ligne 7 = ventes HT (comptes 701 / 706 / 707… côté crédit)
+  const ligne7 = useMemo(() => {
+    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
+      e => e.statut === "valide" && e.journal === "VE",
+    );
+    return ecrituresValides.reduce((sum, e) => {
+      const credit = e.lignes
+        .filter(l => l.compte.startsWith("70"))
+        .reduce((a, l) => a + (l.credit || 0), 0);
+      return sum + credit;
+    }, 0);
+  }, [data.ecritures]);
+
+  // ligne 13 = TVA collectée sur ventes (comptes 4431 / 4432)
+  const ligne13 = useMemo(() => {
+    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
+      e => e.statut === "valide",
+    );
+    return ecrituresValides.reduce((sum, e) => {
+      const credit = e.lignes
+        .filter(l => l.compte.startsWith("443"))
+        .reduce((a, l) => a + (l.credit || 0), 0);
+      return sum + credit;
+    }, 0);
+  }, [data.ecritures]);
+
+  // ligne 18 = TVA déductible sur achats (compte 4452)
+  const ligne18 = useMemo(() => {
+    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
+      e => e.statut === "valide" && e.journal === "AC",
+    );
+    return ecrituresValides.reduce((sum, e) => {
+      const debit = e.lignes
+        .filter(l => l.compte.startsWith("4452"))
+        .reduce((a, l) => a + (l.debit || 0), 0);
+      return sum + debit;
+    }, 0);
+  }, [data.ecritures]);
+
+  // ── Calcul formulaire TVA OTR ─────────────────────────────────────────────
+  const tvaCalc = useMemo(() => {
+    const hasEcritures = ligne7 > 0 || ligne13 > 0 || ligne18 > 0;
+
+    // Section II — CA HT
+    const l1  = hasEcritures ? ligne7 : calc.rec;
+    const l2  = tvaManuel.l3;
+    const l3  = tvaManuel.l4;
+    const l4  = tvaManuel.l5;
+    const l6  = l1 + l2 + l3 + l4;
+
+    // Section III — TVA Brute
+    const l7  = hasEcritures ? ligne13 : Math.round(calc.rec * taux.tva);
+    const l8  = tvaManuel.l8;
+    const l9  = tvaManuel.l9;
+    const l10 = tvaManuel.l10;
+    const l11 = l7 + l8 + l9 + l10;
+
+    // Section IV — TVA Déductible
+    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);
+    const l13 = tvaManuel.l19;
+    const l14 = tvaManuel.l20;
+    const l15 = tvaManuel.l21;
+    const l16 = tvaManuel.l17;
+    const prorata = tvaManuel.prorataPct / 100;
+    const l17 = Math.round((l12 + l13 + l14 - l15 + l16) * prorata);
+
+    // Section V — TVA Nette
+    const l18 = l11 - l17;
+    const l19 = Math.max(0, l18);
+    const l20 = Math.max(0, -l18);
+
+    return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20 };
+  }, [calc, taux, tvaManuel, ligne7, ligne13, ligne18]);
+
+  // ── Labels TVA ───────────────────────────────────────────────────────────
+  const estCloture    = statut === "cloture";
+  const periodeLabel  = `${nomMois} ${annee}`;
+  const dateLimiteOTR = mois < 12
+    ? `15 ${MOIS_NOMS[mois]} ${annee}`
+    : `15 Janvier ${annee + 1}`;
+  const societeConfig = currentSociete;
 
   const sauverParams = () => {
     const th    = parseFloat(thInput);
