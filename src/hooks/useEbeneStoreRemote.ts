@@ -46,6 +46,7 @@ import { useTransactions } from "@/hooks/data/useTransactions";
 import { useFactures } from "@/hooks/data/useFactures";
 import { useDevis } from "@/hooks/data/useDevis";
 import { useMouvementsStock } from "@/hooks/data/useMouvementsStock";
+import { useEcritures } from "@/hooks/data/useEcritures";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -130,7 +131,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
   // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.
   const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
-  const [ecrituresState, setEcrituresState] = useState<Record<string, EcritureComptable[]>>({});
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
@@ -150,6 +150,8 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqFactures = useFactures(societeId);
   const tqDevis = useDevis(societeId);
   const tqMouvements = useMouvementsStock(societeId);
+  const tqEcritures = useEcritures(societeId);
+  const ecrituresState = tqEcritures.ecritures;
 
   // ─── Audit avec societe_id automatique ──────────────────────────────────────
   // Wrapper sur logAction qui injecte le societeId courant comme dernier argument.
@@ -280,7 +282,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   useEffect(() => {
     setLoaded(false);
     setTauxHistorique([TAUX_DEFAUT]);
-    setEcrituresState({});
     localSig.current = {};
     offlineMode.current = false;
     offlineToastShown.current = false;
