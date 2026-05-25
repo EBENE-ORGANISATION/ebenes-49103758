@@ -250,41 +250,38 @@ export const Fiscalite = ({
   // ── Extraction des montants depuis les écritures SYSCOHADA validées ───────
   // ligne 7 = ventes HT (comptes 701 / 706 / 707… côté crédit)
   const ligne7 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide" && e.journal === "VE",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const credit = e.lignes
-        .filter(l => l.compte.startsWith("70"))
-        .reduce((a, l) => a + (l.credit || 0), 0);
-      return sum + credit;
-    }, 0);
+    return (data.ecritures ?? [])
+      .filter(e => e.statut === "valide" && e.journal === "VE")
+      .reduce((sum, e) => {
+        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+        return sum + lignes
+          .filter(l => l?.compte?.startsWith("70"))
+          .reduce((a, l) => a + (l.credit || 0), 0);
+      }, 0);
   }, [data.ecritures]);
 
   // ligne 13 = TVA collectée sur ventes (comptes 4431 / 4432)
   const ligne13 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const credit = e.lignes
-        .filter(l => l.compte.startsWith("443"))
-        .reduce((a, l) => a + (l.credit || 0), 0);
-      return sum + credit;
-    }, 0);
+    return (data.ecritures ?? [])
+      .filter(e => e.statut === "valide")
+      .reduce((sum, e) => {
+        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+        return sum + lignes
+          .filter(l => l?.compte?.startsWith("443"))
+          .reduce((a, l) => a + (l.credit || 0), 0);
+      }, 0);
   }, [data.ecritures]);
 
   // ligne 18 = TVA déductible sur achats (compte 4452)
   const ligne18 = useMemo(() => {
-    const ecrituresValides: EcritureComptable[] = (data.ecritures ?? []).filter(
-      e => e.statut === "valide" && e.journal === "AC",
-    );
-    return ecrituresValides.reduce((sum, e) => {
-      const debit = e.lignes
-        .filter(l => l.compte.startsWith("4452"))
-        .reduce((a, l) => a + (l.debit || 0), 0);
-      return sum + debit;
-    }, 0);
+    return (data.ecritures ?? [])
+      .filter(e => e.statut === "valide" && e.journal === "AC")
+      .reduce((sum, e) => {
+        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+        return sum + lignes
+          .filter(l => l?.compte?.startsWith("4452"))
+          .reduce((a, l) => a + (l.debit || 0), 0);
+      }, 0);
   }, [data.ecritures]);
 
   // ── Calcul formulaire TVA OTR ─────────────────────────────────────────────
