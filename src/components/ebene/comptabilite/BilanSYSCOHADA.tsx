@@ -16,7 +16,7 @@ function buildSoldes(donneesMensuelles: DonneesMensuelles, annee: number): Map<s
     (moisData.ecritures || [])
       .filter((e) => e.statut !== "brouillon")
       .forEach((ecriture) => {
-        ecriture.lignes.forEach((ligne) => {
+        (Array.isArray(ecriture.lignes) ? ecriture.lignes : []).forEach((ligne) => {
           const current = soldes.get(ligne.compte) || 0;
           soldes.set(ligne.compte, current + ligne.debit - ligne.credit);
         });

@@ -48,7 +48,8 @@ export const JournalEcritures = ({
   return (
     <div className="space-y-2">
       {sorted.map((e) => {
-        const totalDebit = e.lignes.reduce((s, l) => s + l.debit, 0);
+        const lignes     = Array.isArray(e.lignes) ? e.lignes : [];
+        const totalDebit = lignes.reduce((s, l) => s + l.debit, 0);
         const isOpen     = expanded === e.id;
 
         return (
@@ -131,7 +132,7 @@ export const JournalEcritures = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {e.lignes.map((l) => (
+                      {lignes.map((l) => (
                         <tr key={l.id} className="border-b border-border/40">
                           <td className="py-1 pr-3 font-mono font-bold text-primary">{l.compte}</td>
                           <td className="py-1 pr-3 text-muted-foreground">{l.intitule}</td>
@@ -147,10 +148,10 @@ export const JournalEcritures = ({
                       <tr className="font-bold border-t">
                         <td colSpan={3} className="py-1 pr-3">TOTAUX</td>
                         <td className="py-1 pr-3 text-right tabular-nums">
-                          {e.lignes.reduce((s, l) => s + l.debit,  0).toLocaleString("fr-FR")}
+                          {lignes.reduce((s, l) => s + l.debit,  0).toLocaleString("fr-FR")}
                         </td>
                         <td className="py-1 text-right tabular-nums">
-                          {e.lignes.reduce((s, l) => s + l.credit, 0).toLocaleString("fr-FR")}
+                          {lignes.reduce((s, l) => s + l.credit, 0).toLocaleString("fr-FR")}
                         </td>
                       </tr>
                     </tbody>

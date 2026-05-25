@@ -45,10 +45,14 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
       for (const ecriture of (mois.ecritures ?? [])) {
         if (ecriture.statut === "brouillon") continue; // exclure brouillons
 
-        for (const ligne of ecriture.lignes) {
+        const lignesEcr = Array.isArray(ecriture.lignes) ? ecriture.lignes : [];
+        const dateEcr = ecriture.annee && ecriture.mois
+          ? `${ecriture.annee}-${String(ecriture.mois).padStart(2, "0")}-01`
+          : "";
+        for (const ligne of lignesEcr) {
           if (!map.has(ligne.compte)) map.set(ligne.compte, { lignes: [] });
           map.get(ligne.compte)!.lignes.push({
-            date: ecriture.date,
+            date: dateEcr,
             ecriture,
             debit: ligne.debit,
             credit: ligne.credit,

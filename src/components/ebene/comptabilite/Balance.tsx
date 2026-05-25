@@ -43,7 +43,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
       for (const ecriture of (mois.ecritures ?? [])) {
         if (ecriture.statut === "brouillon") continue;
 
-        for (const ligne of ecriture.lignes) {
+        for (const ligne of (Array.isArray(ecriture.lignes) ? ecriture.lignes : [])) {
           const existing = map.get(ligne.compte) ?? { debit: 0, credit: 0 };
           map.set(ligne.compte, {
             debit:  existing.debit  + ligne.debit,
