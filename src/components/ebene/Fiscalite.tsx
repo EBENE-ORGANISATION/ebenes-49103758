@@ -327,6 +327,15 @@ export const Fiscalite = ({
     : `15 Janvier ${annee + 1}`;
   const societeConfig = currentSociete;
 
+  // V5 — Jours restants avant échéance TVA (15 du mois suivant)
+  const joursAvantEcheance = useMemo(() => {
+    const now = new Date();
+    const moisSuivant = mois === 12 ? 1 : mois + 1;
+    const anneeSuivante = mois === 12 ? annee + 1 : annee;
+    const limite = new Date(anneeSuivante, moisSuivant - 1, 15);
+    return Math.ceil((limite.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }, [annee, mois]);
+
   const sauverParams = () => {
     const th    = parseFloat(thInput);
     const loyer = parseFloat(loyerInput);
@@ -423,7 +432,15 @@ export const Fiscalite = ({
       <Tabs defaultValue="dashboard">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="tva">TVA</TabsTrigger>
+          <TabsTrigger value="tva" className="gap-1.5">
+            TVA
+            {statut === "en_cours" && tvaCalc.l19 > 0 && joursAvantEcheance <= 5 && joursAvantEcheance >= 0 && (
+              <span className="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0" />
+            )}
+            {statut === "en_cours" && joursAvantEcheance < 0 && (
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse shrink-0" />
+            )}
+          </TabsTrigger>
           <TabsTrigger value="is">IS / IMF</TabsTrigger>
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="params">Paramètres</TabsTrigger>
@@ -486,10 +503,46 @@ export const Fiscalite = ({
                 {societeConfig?.nif && (
                   <> &nbsp;·&nbsp; NIF : <strong>{societeConfig.nif}</strong></>
                 )}
-                {estCloture && (
-                  <Badge variant="secondary" className="ml-2 gap-1 text-xs"><Lock className="size-3" />Clôturé</Badge>
-                )}
               </p>
+              {/* V5 — Badge délai dynamique */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                {estCloture ? (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    <Lock className="size-3" /> Période clôturée
+                  </Badge>
+                ) : statut === "futur" ? (
+                  <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+                    ○ Période future
+                  </Badge>
+                ) : joursAvantEcheance < 0 ? (
+                  <Badge variant="destructive" className="gap-1 text-xs animate-pulse">
+                    <AlertCircle className="size-3" />
+                    Échéance dépassée de {Math.abs(joursAvantEcheance)} jour{Math.abs(joursAvantEcheance) > 1 ? "s" : ""} !
+                  </Badge>
+                ) : joursAvantEcheance <= 5 ? (
+                  <Badge className="gap-1 text-xs bg-warning text-warning-foreground">
+                    <Clock className="size-3" />
+                    {joursAvantEcheance === 0
+                      ? "Dernier jour — à déposer aujourd'hui !"
+                      : `Urgent — ${joursAvantEcheance} jour${joursAvantEcheance > 1 ? "s" : ""} restant${joursAvantEcheance > 1 ? "s" : ""}`}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+                    <Clock className="size-3" />
+                    À déposer avant le {dateLimiteOTR} ({joursAvantEcheance} jours)
+                  </Badge>
+                )}
+                {tvaCalc.l19 > 0 && !estCloture && (
+                  <Badge variant="destructive" className="gap-1 text-xs">
+                    TVA due : {fmt(tvaCalc.l19)} FCFA
+                  </Badge>
+                )}
+                {tvaCalc.l20 > 0 && (
+                  <Badge className="gap-1 text-xs bg-success/15 text-success border-success/30">
+                    Crédit à reporter : {fmt(tvaCalc.l20)} FCFA
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               {(ligne7 > 0 || ligne13 > 0 || ligne18 > 0) && (
