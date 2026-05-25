@@ -211,7 +211,7 @@ const Index = () => {
     cfg ? Boolean(cfg[key]) : true;
   const showDashboard = can("dashboard", "read");
   const showCompta = lvlCompta !== "none";
-  const showFact = lvlFact !== "none";
+  const showCommercial = lvlFact !== "none";
   const showStock = lvlStock !== "none" && modOk("module_stock");
   const showImmo = lvlImmo !== "none" && modOk("module_immobilisations");
   const showFisc = (lvlFisc !== "none" || lvlParamSoc !== "none") && modOk("module_fiscalite");
@@ -219,12 +219,12 @@ const Index = () => {
   const showPortail = showGrh || (isEmploye && !isEmployeOnly);
 
   const visibleTabs = [
-    showDashboard, showCompta, showFisc, showFact, showStock, showImmo, showGrh, showPortail,
+    showDashboard, showCompta, showFisc, showCommercial, showStock, showImmo, showGrh, showPortail,
   ].filter(Boolean).length;
   const defaultTab = showDashboard
     ? "dashboard"
     : showCompta ? "compta"
-    : showFact ? "fact"
+    : showCommercial ? "commercial"
     : showStock ? "stock"
     : showImmo ? "immo"
     : showGrh ? "grh"
@@ -290,9 +290,9 @@ const Index = () => {
                   🧮 {t("tabs.tax")}
                 </TabsTrigger>
               )}
-              {showFact && (
-                <TabsTrigger value="fact" className="py-2.5 text-sm font-semibold">
-                  📄 {t("tabs.invoices")}
+              {showCommercial && (
+                <TabsTrigger value="commercial" className="py-2.5 text-sm font-semibold">
+                  🧾 Commercial
                 </TabsTrigger>
               )}
               {showStock && (
@@ -382,8 +382,8 @@ const Index = () => {
             </TabsContent>
             )}
 
-            {showFact && (
-            <TabsContent value="fact">
+            {showCommercial && (
+            <TabsContent value="commercial">
               <Factures
                 annee={annee}
                 donneesMensuelles={store.donneesMensuelles}

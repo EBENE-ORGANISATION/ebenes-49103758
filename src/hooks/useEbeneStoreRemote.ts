@@ -150,8 +150,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqFactures = useFactures(societeId);
   const tqDevis = useDevis(societeId);
   const tqMouvements = useMouvementsStock(societeId);
-  const tqEcritures = useEcritures(societeId);
-  const ecrituresState = tqEcritures.ecritures;
+  const tqEcritures  = useEcritures(societeId);
 
   // ─── Audit avec societe_id automatique ──────────────────────────────────────
   // Wrapper sur logAction qui injecte le societeId courant comme dernier argument.
@@ -188,7 +187,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       ...Object.keys(tqRetenues.retenues),
       ...Object.keys(tqMouvements.mouvementsStock),
       ...Object.keys(tqDevis.devis),
-      ...Object.keys(ecrituresState),
+      ...Object.keys(tqEcritures.ecritures),
     ]);
     const result: DonneesMensuelles = {};
     for (const key of allKeys) {
@@ -201,7 +200,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         retenues: tqRetenues.retenues[key] ?? {},
         mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
         devis: tqDevis.devis[key] ?? [],
-        ecritures: ecrituresState[key] ?? [],
+        ecritures: tqEcritures.ecritures[key] ?? [],
       };
     }
     return result;
@@ -214,7 +213,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     tqRetenues.retenues,
     tqMouvements.mouvementsStock,
     tqDevis.devis,
-    ecrituresState,
+    tqEcritures.ecritures,
   ]);
 
   // ─── Statut Google Drive ───────────────────────────────────────────────────
@@ -463,7 +462,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         retenues: tqRetenues.retenues[key] ?? {},
         mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
         devis: tqDevis.devis[key] ?? [],
-        ecritures: ecrituresState[key] ?? [],
+        ecritures: tqEcritures.ecritures[key] ?? [],
       };
     },
     [
@@ -475,7 +474,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       tqRetenues.retenues,
       tqMouvements.mouvementsStock,
       tqDevis.devis,
-      ecrituresState,
+      tqEcritures.ecritures,
     ],
   );
 
@@ -486,10 +485,33 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .then((saved) => {
           log("INSERT", "transactions", saved.id, null, saved);
           markSignificantWrite();
+
+          // Auto-générer une écriture AC si c'est une dépense fournisseur
+          if (t.type === "d" && t.source === "fournisseur" && t.fournisseur) {
+            const montantTTC = Math.round(Math.abs(t.m));
+            const montantHT  = Math.round(montantTTC / 1.18);
+            const montantTVA = montantTTC - montantHT;
+
+            void tqEcritures.addEcriture(annee, mois, {
+              journal: "AC",
+              numeroPiece: `AC-${saved.id}`,
+              libelle: t.desc || `Achat — ${t.fournisseur}`,
+              lignes: [
+                { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
+                { id: 2, compte: "4452", intitule: "TVA récupérable sur achats",        debit: montantTVA, credit: 0 },
+                { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
+              ],
+              statut: "brouillon", // nécessite validation chef compta
+              annee,
+              mois,
+            }).catch(() => {
+              console.warn("[EBENE] Écriture AC auto non créée pour transaction", saved.id);
+            });
+          }
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, markSignificantWrite],
+    [tqTransactions, tqEcritures, markSignificantWrite, log],
   );
 
   const removeTransaction = useCallback(
@@ -574,6 +596,25 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       const key = moisKey(annee, mois);
       const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
       if (!f || f.statut === "payee" || f.statut === "proforma") return;
+
+      // Compte produit selon activité
+      const compteVente  = f.activite === "commerce" ? "701" : "706";
+      const libelleVente = f.activite === "commerce"
+        ? "Ventes de marchandises"
+        : "Services vendus";
+
+      // Lignes SYSCOHADA journal VE
+      const lignesEcriture = f.avecTva
+        ? [
+            { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalTtc), credit: 0,                       tiers: f.client },
+            { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
+            { id: 3, compte: "4431",       intitule: "TVA facturée sur ventes",  debit: 0,                      credit: Math.round(f.totalTva) },
+          ]
+        : [
+            { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalHT),  credit: 0,                       tiers: f.client },
+            { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
+          ];
+
       void tqTransactions.addTransaction(annee, mois, {
         date: f.date,
         desc: `Facture ${f.numero} — ${f.client}`,
@@ -584,14 +625,35 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         activite: f.activite,
       })
         .then((trans) =>
-          tqFactures.updateFacture(factureId, {
-            statut: "payee",
-            transactionId: trans.id,
-          })
+          Promise.all([
+            // Mettre à jour statut facture
+            tqFactures.updateFacture(factureId, {
+              statut: "payee",
+              transactionId: trans.id,
+            }),
+            // Créer l'écriture SYSCOHADA dans journal VE (auto-validée)
+            tqEcritures.addEcriture(annee, mois, {
+              journal: "VE",
+              numeroPiece: `VE-${f.numero}`,
+              libelle: `Facture ${f.numero} — ${f.client}`,
+              lignes: lignesEcriture,
+              statut: "valide",
+              factureId: f.id,
+              annee,
+              mois,
+            }),
+          ])
         )
+        .then(() => {
+          log("MARQUER_PAYEE", "factures", factureId, null, {
+            factureId,
+            ecriture: "VE générée automatiquement",
+          });
+          markSignificantWrite();
+        })
         .catch(() => toast.error("Erreur lors du marquage comme payée"));
     },
-    [tqFactures, tqTransactions],
+    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log],
   );
 
   const convertirProforma = useCallback(
@@ -1157,8 +1219,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     return out;
   }, [donneesMensuelles]);
 
-  // ─── Écritures comptables SYSCOHADA (état local par mois) ───────────────
-  // ─── Écritures comptables SYSCOHADA (table relationnelle) ───────────────
+  // ─── Écritures comptables SYSCOHADA → table relationnelle ────────────────
   const addEcriture = useCallback(
     (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => {
       void tqEcritures.addEcriture(annee, mois, e)
@@ -1166,9 +1227,9 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
           log("INSERT", "ecritures_comptables", saved.id, null, saved);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de l'enregistrement de l'écriture"));
+        .catch(() => toast.error("Erreur lors de l'ajout de l'écriture"));
     },
-    [tqEcritures, log, markSignificantWrite],
+    [tqEcritures, markSignificantWrite, log],
   );
 
   const updateEcriture = useCallback(
@@ -1183,28 +1244,30 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     (_annee: number, _mois: number, id: number) => {
       void tqEcritures.removeEcriture(id)
         .then(() => {
-          log("DELETE", "ecritures_comptables", id);
+          log("DELETE", "ecritures_comptables", id, null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de l'écriture"));
     },
-    [tqEcritures, log, markSignificantWrite],
+    [tqEcritures, markSignificantWrite, log],
   );
 
   const validerEcriture = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqEcritures.validerEcriture(id)
-        .catch(() => toast.error("Erreur lors de la validation"));
+        .then(() => log("VALIDER_ECRITURE", "ecritures_comptables", id, null, { id }))
+        .catch(() => toast.error("Erreur lors de la validation de l'écriture"));
     },
-    [tqEcritures],
+    [tqEcritures, log],
   );
 
   const rejeterEcriture = useCallback(
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqEcritures.rejeterEcriture(id, motif)
-        .catch(() => toast.error("Erreur lors du rejet"));
+        .then(() => log("REJETER_ECRITURE", "ecritures_comptables", id, null, { id, motif }))
+        .catch(() => toast.error("Erreur lors du rejet de l'écriture"));
     },
-    [tqEcritures],
+    [tqEcritures, log],
   );
 
   // ─── Interface publique (identique à l'ancienne version) ─────────────────

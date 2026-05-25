@@ -32,7 +32,6 @@ import {
   formaterNumero,
   resetCompteur,
 } from "@/lib/numerotation";
-import { ServicesGestion } from "@/components/admin/ServicesGestion";
 
 const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="space-y-1.5">
@@ -199,9 +198,7 @@ const ParametresSociete = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to={currentSociete ? `/?sid=${currentSociete.id}` : "/"}>
-                <ArrowLeft className="size-4" /> {t("params.back")}
-              </Link>
+              <Link to="/"><ArrowLeft className="size-4" /> {t("params.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Settings2 className="size-6 text-primary" /> {t("params.title")}
@@ -444,18 +441,6 @@ const ParametresSociete = () => {
                   </AlertDialog>
                 </div>
               </div>
-            </Card>
-
-            {/* ── Gestion des services ─────────────────────────────────── */}
-            <Card className="p-5 space-y-4">
-              <h2 className="font-bold flex items-center gap-2">
-                <Settings2 className="size-4" /> Gestion des services
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Créez des services (départements), désignez des chefs et ajoutez des membres.
-                Les chefs peuvent valider ; les membres peuvent saisir mais <strong>pas supprimer</strong>.
-              </p>
-              <ServicesGestion societeId={currentSociete.id} isAdmin={isAdmin || isSuperAdmin} />
             </Card>
 
             <div className="sticky bottom-4 z-10 flex justify-end">

@@ -245,9 +245,15 @@ export const Factures = ({
         />
       )}
 
-      <div className="bg-info/10 border-l-4 border-info rounded-md p-3 text-sm">
-        💡 Quand une facture passe à <b>Payée</b>, son montant est automatiquement ajouté aux
-        recettes. Supprimer la transaction restaure le statut.
+      <div className="bg-info/10 border-l-4 border-info rounded-md p-3 text-sm space-y-1">
+        <p>💡 Quand une facture passe à <b>Payée</b> :</p>
+        <ul className="list-disc pl-4 space-y-0.5 text-xs text-muted-foreground">
+          <li>Son montant TTC est ajouté aux <b>recettes</b> (Trésorerie)</li>
+          <li>Une <b>écriture SYSCOHADA</b> est générée automatiquement dans le journal VE
+              (4111 Clients / 706 Ventes / 4431 TVA)</li>
+          <li>L'écriture est visible dans <b>Comptabilité → Journal</b> et impacte le
+              <b>Grand-Livre</b>, la <b>Balance</b> et la <b>TVA</b></li>
+        </ul>
       </div>
 
       {!open ? (

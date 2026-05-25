@@ -30,9 +30,6 @@ export interface Transaction {
   statut?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  annee?: number;
-  mois?: number;
 }
 
 export interface LignePrestation {
@@ -64,9 +61,6 @@ export interface Facture {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  annee?: number;
-  mois?: number;
 }
 
 export interface Prime {
@@ -77,10 +71,6 @@ export interface Prime {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  employeId?: number;
-  annee?: number;
-  mois?: number;
 }
 
 // ─── Devis (proche d'une Facture mais sans impact comptable) ───────────────
@@ -104,9 +94,6 @@ export interface Devis {
   /** Renseigné lorsque le devis est converti en facture. */
   factureId?: number | null;
   notes?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  annee?: number;
-  mois?: number;
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
@@ -153,13 +140,6 @@ export interface Employe {
   sursalaire?: number;
   // Solde congés (jours acquis non pris)
   soldeConges?: number;
-  // ── Déductions fiscales optionnelles (CGI Togo, art. IRPP) ────────────────
-  /** VI — Intérêt mensuel de prêt immobilier (FCFA/mois) */
-  interetPretImmobilier?: number;
-  /** VII — Prime mensuelle d'assurance-vie (FCFA/mois). Plafond = (200 000 + 30 000 × enfants≤6) / 12 */
-  assuranceVie?: number;
-  /** VIII — Cotisation mensuelle retraite complémentaire (FCFA/mois). Plafond = 6 % du RNT mensuel */
-  retraiteComplementaire?: number;
   /** UUID du compte auth.users lié (portail employé self-service). */
   userId?: string;
   /**
@@ -201,9 +181,6 @@ export interface Absence {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  annee?: number;
-  mois?: number;
 }
 
 export interface HeuresSup {
@@ -216,12 +193,91 @@ export interface HeuresSup {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  _dbId?: number;
-  employeId?: number;
+}
+
+// ─── Comptabilité SYSCOHADA ────────────────────────────────────────────────────
+
+export type CodeJournal = "AC" | "VE" | "BQ" | "CA" | "OD" | "AN";
+
+export const JOURNAL_LABELS: Record<CodeJournal, string> = {
+  AC: "Achats",
+  VE: "Ventes",
+  BQ: "Banque",
+  CA: "Caisse",
+  OD: "Opérations Diverses",
+  AN: "À Nouveaux",
+};
+
+export type StatutEcriture = "brouillon" | "valide" | "cloture";
+
+export interface LigneEcriture {
+  id: number;
+  compte: string;
+  intitule: string;
+  debit: number;
+  credit: number;
+  tiers?: string;
+}
+
+export interface CompteComptable {
+  code: string;
+  intitule: string;
+  classe: number;
+  sens: "debit" | "credit";
+  racine?: boolean;
+}
+
+export interface EcritureComptable {
+  id: number;
+  journal: CodeJournal;
+  numeroPiece: string;
+  libelle: string;
+  lignes: LigneEcriture[];
+  statut: StatutEcriture;
+  factureId?: number | null;
+  bulletinId?: string | null;
+  creePar?: string;
+  validepar?: string;
+  motifRejet?: string;
+  pieceJointe?: string | null;
+  pieceJointeNom?: string | null;
+  pieceJointeType?: string | null;
   annee?: number;
   mois?: number;
 }
+
+export type TypeOperationGuide =
+  | "vente_marchandises"
+  | "vente_services"
+  | "achat_marchandises"
+  | "achat_fournitures"
+  | "achat_service"
+  | "encaissement_client"
+  | "paiement_fournisseur"
+  | "charge_loyer"
+  | "charge_telephone"
+  | "charge_electricite"
+  | "charge_salaires"
+  | "tva_a_decaisser"
+  | "dotation_amortissement"
+  | "autre";
+
+export const TYPE_OPERATION_LABELS: Record<TypeOperationGuide, string> = {
+  vente_marchandises:     "Vente de marchandises",
+  vente_services:         "Vente de services / prestations",
+  achat_marchandises:     "Achat de marchandises",
+  achat_fournitures:      "Achat de fournitures / matières",
+  achat_service:          "Achat de service (sous-traitance)",
+  encaissement_client:    "Encaissement client (banque)",
+  paiement_fournisseur:   "Paiement fournisseur (banque)",
+  charge_loyer:           "Charge — Loyer",
+  charge_telephone:       "Charge — Téléphone / Internet",
+  charge_electricite:     "Charge — Électricité / Eau",
+  charge_salaires:        "Charge — Salaires & charges sociales",
+  tva_a_decaisser:        "TVA à décaisser (règlement OTR)",
+  dotation_amortissement: "Dotation aux amortissements",
+  autre:                  "Autre opération diverse",
+};
 
 export interface MoisData {
   transactions: Transaction[];
@@ -234,14 +290,14 @@ export interface MoisData {
   mouvementsStock?: MouvementStock[];
   /** Devis émis dans le mois (n'impactent pas la comptabilité tant qu'ils ne sont pas convertis) */
   devis?: Devis[];
-  /** Écritures comptables SYSCOHADA (nouveau — compat ascendante garantie) */
+  /** Écritures comptables SYSCOHADA du mois */
   ecritures?: EcritureComptable[];
 }
 
 export type DonneesMensuelles = Record<string, MoisData>; // key = "YYYY-M"
 
 export interface ParamsAnnuels {
-  /** Taxe d'Habitation annuelle (FCFA) — payée par acompte semestriel : 15 janv. + 15 juil. */
+  /** Taxe d'Habitation annuelle (FCFA) — acompte semestriel : 15 janv. + 15 juil. */
   th?: number;
   /** Loyer annuel (FCFA) — RSL = loyer × 8,75 %, payée mensuellement avant le 15 du mois suivant */
   loyerAnnuel?: number;
@@ -326,9 +382,6 @@ export interface MouvementStock {
   reference?: string; // n° BL, n° facture liée, etc.
   factureId?: number | null;
   transactionId?: number | null;
-  /** Renseignés par les repos relationnels — optionnels pour compat ascendante. */
-  annee?: number;
-  mois?: number;
 }
 
 // ─── Taux versionnés (par date d'entrée en vigueur) ──────────────────────────
@@ -540,112 +593,4 @@ export const COEFF_DEGRESSIF = (duree: number): number => {
   if (duree <= 4) return 1.5;
   if (duree <= 6) return 2.0;
   return 2.5;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPTABILITÉ SYSCOHADA — Nouveaux types (n'impactent pas les types existants)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Journaux comptables SYSCOHADA.
- * AC=Achats, VE=Ventes, BQ=Banque, CA=Caisse, OD=Opérations Diverses, AN=À-Nouveaux
- */
-export type CodeJournal = "AC" | "VE" | "BQ" | "CA" | "OD" | "AN";
-
-export const JOURNAL_LABELS: Record<CodeJournal, string> = {
-  AC: "Journal des Achats",
-  VE: "Journal des Ventes",
-  BQ: "Journal de Banque",
-  CA: "Journal de Caisse",
-  OD: "Journal des Opérations Diverses",
-  AN: "Journal des À-Nouveaux",
-};
-
-/** Une ligne d'écriture comptable (partie double). */
-export interface LigneEcriture {
-  id: number;
-  compte: string;        // Code SYSCOHADA ex: "701", "4111", "44311"
-  intitule: string;      // Libellé du compte
-  debit: number;         // 0 si côté crédit
-  credit: number;        // 0 si côté débit
-  tiers?: string;        // Nom client/fournisseur si applicable
-}
-
-/** Statut d'une écriture comptable. */
-export type StatutEcriture = "brouillon" | "valide" | "cloture";
-
-/**
- * Écriture comptable en partie double (SYSCOHADA).
- * Une écriture contient au moins 2 lignes, et Σ débits = Σ crédits.
- */
-export interface EcritureComptable {
-  id: number;
-  date: string;                // ISO date ex: "2025-01-15"
-  journal: CodeJournal;
-  numeroPiece: string;         // Ex: "VE-2025-001", "AC-2025-042"
-  libelle: string;             // Description de l'opération
-  lignes: LigneEcriture[];
-  statut: StatutEcriture;
-  /** Référence à une facture liée (si générée depuis Factures) */
-  factureId?: number | null;
-  /** Référence à un bulletin de paie lié */
-  bulletinId?: string | null;
-  creePar?: string;
-  validepar?: string;
-  motifRejet?: string;
-  /** Pièce justificative (même format que Transaction.pieceJointe) */
-  pieceJointe?: string | null;
-  pieceJointeNom?: string | null;
-  pieceJointeType?: string | null;
-  /** Pour compat avec le store mensuel */
-  annee?: number;
-  mois?: number;
-}
-
-/** Compte du plan comptable SYSCOHADA. */
-export interface CompteComptable {
-  code: string;          // Ex: "701", "4111"
-  intitule: string;      // Ex: "Ventes de marchandises"
-  classe: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-  /** Sens normal d'augmentation du compte */
-  sens: "debit" | "credit";
-  /** true = compte racine (non utilisable directement en saisie) */
-  racine?: boolean;
-}
-
-/**
- * Types d'opérations en langage courant (mode guidé non-comptable).
- * EBENE traduit automatiquement en écritures SYSCOHADA.
- */
-export type TypeOperationGuide =
-  | "vente_marchandises"       // 701 / 4111 / 4431
-  | "vente_services"           // 706 / 4111 / 4431
-  | "achat_marchandises"       // 601 / 4011 / 4452
-  | "achat_fournitures"        // 604 / 4011 / 4452
-  | "achat_service"            // 62x / 4011 / 4452
-  | "encaissement_client"      // 521 / 4111
-  | "paiement_fournisseur"     // 4011 / 521
-  | "charge_loyer"             // 622 / 521 ou 401
-  | "charge_telephone"         // 628 / 521
-  | "charge_electricite"       // 605 / 521
-  | "charge_salaires"          // 661 / 422 / 431 / 447
-  | "tva_a_decaisser"          // 4431 / 4452 / 4441
-  | "dotation_amortissement"   // 6813 / 284x
-  | "autre";                   // Saisie libre
-
-export const TYPE_OPERATION_LABELS: Record<TypeOperationGuide, string> = {
-  vente_marchandises:    "💰 Vente de marchandises",
-  vente_services:        "🛠️ Vente de services / prestations",
-  achat_marchandises:    "🛒 Achat de marchandises",
-  achat_fournitures:     "📦 Achat de fournitures / matières",
-  achat_service:         "📋 Achat de service (loyer, honoraires...)",
-  encaissement_client:   "✅ Encaissement client",
-  paiement_fournisseur:  "💸 Paiement fournisseur",
-  charge_loyer:          "🏠 Charge : Loyer",
-  charge_telephone:      "📱 Charge : Téléphone / Internet",
-  charge_electricite:    "💡 Charge : Électricité / Eau",
-  charge_salaires:       "👥 Charge : Paie du personnel",
-  tva_a_decaisser:       "🧾 TVA à décaisser",
-  dotation_amortissement:"🏢 Dotation aux amortissements",
-  autre:                 "✏️ Autre (saisie libre)",
 };
