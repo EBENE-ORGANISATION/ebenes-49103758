@@ -186,6 +186,39 @@ export const TresorerieCard = ({
               </span>
             </div>
           </div>
+          {/* D6 : Barre de progression trésorerie actuelle → prévision 30j */}
+          {stats.tresorerie !== 0 && (
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <span>Trésorerie actuelle</span>
+                <span>Prévision 30j</span>
+              </div>
+              <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    stats.previsionNette >= stats.tresorerie ? "bg-success" : "bg-destructive"
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.abs(
+                        stats.previsionNette /
+                          Math.max(Math.abs(stats.tresorerie), Math.abs(stats.previsionNette))
+                      ) * 100
+                    )}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-mono mt-0.5">
+                <span className={stats.tresorerie >= 0 ? "text-success" : "text-destructive"}>
+                  {formatMontant(stats.tresorerie)}
+                </span>
+                <span className={stats.previsionNette >= 0 ? "text-success" : "text-destructive"}>
+                  {formatMontant(stats.previsionNette)}
+                </span>
+              </div>
+            </div>
+          )}
           <p className="text-[11px] text-muted-foreground mt-2 italic">{t("tresorerie.note")}</p>
         </div>
       </CardContent>

@@ -10,12 +10,21 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
+  Area,
+  AreaChart,
 } from "recharts";
 import {
   TrendingUp,
   Wallet,
   FileWarning,
   Banknote,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useTranslation } from "react-i18next";
 import type {
@@ -50,54 +60,61 @@ const MOIS_COURTS = [
   "Juil", "Août", "Sep", "Oct", "Nov", "Déc",
 ];
 
-/** Entrées de trésorerie depuis les écritures SYSCOHADA validées (comptes 52x/57x, débit).
- *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
-const sumRecettesEcritures = (m: MoisData): number =>
-  (m.ecritures ?? [])
-    .filter((e) => e.statut !== "brouillon" && !e.factureId)
-    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
-    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
-    .reduce((s, l) => s + l.debit, 0);
+// ── Helpers consolidés (transactions + écritures SYSCOHADA) ──────────────────
 
-/** Sorties de trésorerie depuis les écritures SYSCOHADA validées (comptes 52x/57x, crédit).
- *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
-const sumDepensesEcritures = (m: MoisData): number =>
-  (m.ecritures ?? [])
-    .filter((e) => e.statut !== "brouillon" && !e.factureId)
-    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
-    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
-    .reduce((s, l) => s + l.credit, 0);
-
-const sumRecettes = (m: MoisData): number =>
-  m.transactions
+const sumRecettes = (m: MoisData): number => {
+  const recTrans = m.transactions
     .filter((t) => t.type === "r")
-    .reduce((s, t) => s + Math.abs(t.m), 0)
-  + sumRecettesEcritures(m);
-
-const sumDepenses = (m: MoisData): number =>
-  m.transactions
-    .filter((t) => t.type === "d")
-    .reduce((s, t) => s + Math.abs(t.m), 0)
-  + sumDepensesEcritures(m);
-
-const sumTvaCollectee = (m: MoisData): number =>
-  m.factures
-    .filter((f) => f.statut === "payee" && f.avecTva)
-    .reduce((s, f) => s + f.totalTva, 0);
-
-/** Unités d'affichage des montants pour le dashboard. */
-type UnitMode = "F" | "kF" | "100kF";
-
-/** Diviseur appliqué à la valeur brute selon l'unité choisie. */
-const UNIT_DIV: Record<UnitMode, number> = { F: 1, kF: 1_000, "100kF": 100_000 };
-/** Suffixe affiché après le nombre. */
-const UNIT_SUFFIX: Record<UnitMode, string> = {
-  F: "F",
-  kF: "k F",
-  "100kF": "×100k F",
+    .reduce((s, t) => s + Math.abs(t.m), 0);
+  const recEcritures = (m.ecritures || [])
+    .filter((e) => e.statut === "valide" && !e.factureId)
+    .reduce((total, e) => {
+      const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+      const debit = lignes
+        .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
+        .reduce((s, l) => s + l.debit, 0);
+      return total + debit;
+    }, 0);
+  return recTrans + recEcritures;
 };
 
-/** Formate un montant brut (en F) selon le mode d'unité choisi. */
+const sumDepenses = (m: MoisData): number => {
+  const depTrans = m.transactions
+    .filter((t) => t.type === "d")
+    .reduce((s, t) => s + Math.abs(t.m), 0);
+  const depEcritures = (m.ecritures || [])
+    .filter((e) => e.statut === "valide" && !e.factureId)
+    .reduce((total, e) => {
+      const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+      const credit = lignes
+        .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
+        .reduce((s, l) => s + l.credit, 0);
+      return total + credit;
+    }, 0);
+  return depTrans + depEcritures;
+};
+
+const sumTvaCollectee = (m: MoisData): number => {
+  // Depuis écritures validées (comptes 4431/4432) — fallback sur factures payées
+  const fromEcritures = (m.ecritures || [])
+    .filter((e) => e.statut === "valide")
+    .reduce((total, e) => {
+      const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+      return total + lignes
+        .filter((l) => l.compte.startsWith("4431") || l.compte.startsWith("4432"))
+        .reduce((s, l) => s + Math.max(0, l.credit - l.debit), 0);
+    }, 0);
+  if (fromEcritures > 0) return fromEcritures;
+  return m.factures
+    .filter((f) => f.statut === "payee" && f.avecTva)
+    .reduce((s, f) => s + f.totalTva, 0);
+};
+
+// ── Mode unité ───────────────────────────────────────────────────────────────
+type UnitMode = "F" | "kF" | "100kF";
+const UNIT_DIV: Record<UnitMode, number> = { F: 1, kF: 1_000, "100kF": 100_000 };
+const UNIT_SUFFIX: Record<UnitMode, string> = { F: "F", kF: "k F", "100kF": "×100k F" };
+
 const formatUnit = (n: number, mode: UnitMode): string => {
   if (mode === "F") return formatMontant(n);
   const v = n / UNIT_DIV[mode];
@@ -109,6 +126,23 @@ const formatUnit = (n: number, mode: UnitMode): string => {
   return `${v < 0 ? "-" : ""}${formatted} ${UNIT_SUFFIX[mode]}`;
 };
 
+// ── Calcul tendance (%) ───────────────────────────────────────────────────────
+const calcTendance = (actuel: number, precedent: number): number | null => {
+  if (precedent === 0) return null;
+  return ((actuel - precedent) / precedent) * 100;
+};
+
+// ── Tone styles (module-level pour partage entre composants) ─────────────────
+type Tone = "primary" | "success" | "warning" | "destructive" | "muted";
+const TONE_BG: Record<Tone, string> = {
+  primary:     "bg-primary/10 text-primary",
+  success:     "bg-success/15 text-success",
+  warning:     "bg-warning/15 text-warning",
+  destructive: "bg-destructive/15 text-destructive",
+  muted:       "bg-muted text-muted-foreground",
+};
+
+// ── Composant principal ───────────────────────────────────────────────────────
 export const Dashboard = ({
   donneesMensuelles,
   employes,
@@ -117,7 +151,7 @@ export const Dashboard = ({
   mois,
 }: DashboardProps) => {
   const { t } = useTranslation();
-  // Mode d'affichage des montants. Persistance locale.
+
   const [unit, setUnit] = useState<UnitMode>(() => {
     try {
       const saved = localStorage.getItem("ebene:dashboard:unit");
@@ -125,104 +159,162 @@ export const Dashboard = ({
     } catch { /* ignore */ }
     return "F";
   });
+
   const setUnitPersist = (u: UnitMode) => {
     setUnit(u);
     try { localStorage.setItem("ebene:dashboard:unit", u); } catch { /* ignore */ }
   };
+
   const fmt = (n: number) => formatUnit(n, unit);
-  // ─── KPIs du mois en cours ──────────────────────────────────────────────
-  const moisCourant = donneesMensuelles[moisKey(annee, mois)];
+
+  const moisCourant  = donneesMensuelles[moisKey(annee, mois)];
+  const moisPrecKey  = mois === 1 ? moisKey(annee - 1, 12) : moisKey(annee, mois - 1);
+  const moisPrecedent = donneesMensuelles[moisPrecKey];
   const taux = tauxPourMois(tauxHistorique, annee, mois) || TAUX_DEFAUT;
 
+  // ── KPIs ─────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
-    const m: MoisData = moisCourant ?? {
-      transactions: [],
-      factures: [],
-      primes: {},
-    };
-    const ca = sumRecettes(m);
+    const m: MoisData  = moisCourant  ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
+    const mp: MoisData = moisPrecedent ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
 
-    // Masse salariale brute = somme des salaires de base + indemnités
+    const ca         = sumRecettes(m);
+    const caPrecedent = sumRecettes(mp);
+    const tendanceCA = calcTendance(ca, caPrecedent);
+
     const masseSalariale = employes.reduce(
       (s, e) =>
-        s +
-        (e.salaire || 0) +
-        (e.indemniteTransport || 0) +
-        (e.indemniteLogement || 0) +
-        (e.indemniteFonction || 0) +
-        (e.sursalaire || 0),
-      0
+        s + (e.salaire || 0) + (e.indemniteTransport || 0) + (e.indemniteLogement || 0)
+          + (e.indemniteFonction || 0) + (e.sursalaire || 0),
+      0,
     );
 
-    const facturesImpayees = m.factures.filter(
-      (f) => f.statut === "en_attente"
-    ).length;
+    const facturesImpayees = m.factures.filter((f) => f.statut === "en_attente");
+    const montantImpaye    = facturesImpayees.reduce((s, f) => s + f.totalTtc, 0);
 
-    // Trésorerie estimée = cumul (recettes - dépenses) sur tous les mois
+    // Trésorerie cumulée (tous les mois)
     let tresorerie = 0;
     Object.values(donneesMensuelles).forEach((mm) => {
       if (!mm) return;
       tresorerie += sumRecettes(mm) - sumDepenses(mm);
     });
 
-    return { ca, masseSalariale, facturesImpayees, tresorerie };
-  }, [moisCourant, employes, donneesMensuelles]);
+    // Trésorerie "précédente" = sans le mois courant
+    let tresoreriePrecedente = 0;
+    Object.entries(donneesMensuelles).forEach(([key, mm]) => {
+      if (!mm) return;
+      const [a, mo] = key.split("-").map(Number);
+      if (a === annee && mo === mois) return;
+      tresoreriePrecedente += sumRecettes(mm) - sumDepenses(mm);
+    });
+    const tendanceTresorerie = calcTendance(tresorerie, tresoreriePrecedente);
 
-  // ─── Série CA des 12 derniers mois ──────────────────────────────────────
+    return {
+      ca, caPrecedent, tendanceCA,
+      masseSalariale,
+      facturesImpayees: facturesImpayees.length,
+      montantImpaye,
+      tresorerie, tresoreriePrecedente, tendanceTresorerie,
+    };
+  }, [moisCourant, moisPrecedent, employes, donneesMensuelles, annee, mois]);
+
+  // ── Sparkline trésorerie 6 mois ──────────────────────────────────────────
+  const sparklineTresorerie = useMemo(() => {
+    const out: { v: number }[] = [];
+    let cumul = 0;
+    for (let i = 5; i >= 0; i--) {
+      const d  = new Date(annee, mois - 1 - i, 1);
+      const mm = donneesMensuelles[moisKey(d.getFullYear(), d.getMonth() + 1)];
+      if (mm) cumul += sumRecettes(mm) - sumDepenses(mm);
+      out.push({ v: cumul });
+    }
+    return out;
+  }, [donneesMensuelles, annee, mois]);
+
+  // ── Série CA 12 mois ─────────────────────────────────────────────────────
   const serieCA = useMemo(() => {
     const out: { label: string; ca: number }[] = [];
     for (let i = 11; i >= 0; i--) {
-      const d = new Date(annee, mois - 1 - i, 1);
-      const a = d.getFullYear();
+      const d  = new Date(annee, mois - 1 - i, 1);
+      const a  = d.getFullYear();
       const mo = d.getMonth() + 1;
       const mm = donneesMensuelles[moisKey(a, mo)];
-      const ca = mm ? sumRecettes(mm) : 0;
       out.push({
         label: `${MOIS_COURTS[d.getMonth()]} ${String(a).slice(2)}`,
-        ca,
+        ca: mm ? sumRecettes(mm) : 0,
       });
     }
     return out;
   }, [donneesMensuelles, annee, mois]);
 
-  // ─── Charges fiscales mensuelles (TVA, CNSS, IRPP) sur 12 mois ──────────
+  const moyenneCA = useMemo(() => {
+    const vals = serieCA.map((d) => d.ca).filter((v) => v > 0);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }, [serieCA]);
+
+  const picCA = useMemo(
+    () => serieCA.reduce((max, d) => (d.ca > max.ca ? d : max), serieCA[0]),
+    [serieCA],
+  );
+
+  // ── Série charges fiscales 12 mois ───────────────────────────────────────
   const serieFiscale = useMemo(() => {
-    const out: { label: string; TVA: number; CNSS: number; IRPP: number }[] = [];
-    // Masse salariale courante (approximation : on applique la même chaque mois)
     const masseSalariale = employes.reduce(
       (s, e) => s + (e.salaire || 0) + (e.sursalaire || 0),
-      0
+      0,
     );
-    const cnssMensuelle =
-      masseSalariale * ((taux.cnssEmp || 0) + (taux.cnssSal || 0));
-
+    const cnssMensuelle = masseSalariale * ((taux.cnssEmp || 0) + (taux.cnssSal || 0));
+    const out: { label: string; TVA: number; CNSS: number; IRPP: number; total: number }[] = [];
     for (let i = 11; i >= 0; i--) {
-      const d = new Date(annee, mois - 1 - i, 1);
-      const a = d.getFullYear();
-      const mo = d.getMonth() + 1;
-      const mm = donneesMensuelles[moisKey(a, mo)];
-      const tvaMois = mm ? sumTvaCollectee(mm) : 0;
-      // IRPP estimé mensuel = approximation simple (10% de la masse salariale)
+      const d    = new Date(annee, mois - 1 - i, 1);
+      const a    = d.getFullYear();
+      const mo   = d.getMonth() + 1;
+      const mm   = donneesMensuelles[moisKey(a, mo)];
+      const tva  = mm ? sumTvaCollectee(mm) : 0;
       const irpp = masseSalariale * 0.1;
       out.push({
         label: `${MOIS_COURTS[d.getMonth()]} ${String(a).slice(2)}`,
-        TVA: Math.round(tvaMois),
-        CNSS: Math.round(cnssMensuelle),
-        IRPP: Math.round(irpp),
+        TVA:   Math.round(tva),
+        CNSS:  Math.round(cnssMensuelle),
+        IRPP:  Math.round(irpp),
+        total: Math.round(tva + cnssMensuelle + irpp),
       });
     }
     return out;
   }, [donneesMensuelles, employes, taux, annee, mois]);
 
+  // ── Alertes internes dashboard ───────────────────────────────────────────
+  const alertesDash = useMemo(() => {
+    const a: { type: "danger" | "warning" | "info"; msg: string }[] = [];
+    if (kpis.tresorerie < 0)
+      a.push({ type: "danger", msg: `Trésorerie négative : ${formatMontant(kpis.tresorerie)}` });
+    if (kpis.montantImpaye > 0)
+      a.push({
+        type: "warning",
+        msg: `${kpis.facturesImpayees} facture${kpis.facturesImpayees > 1 ? "s" : ""} impayée${kpis.facturesImpayees > 1 ? "s" : ""} — ${formatMontant(kpis.montantImpaye)} en attente`,
+      });
+    const now = new Date();
+    if (
+      now.getDate() >= 10 && now.getDate() <= 15
+      && now.getFullYear() === annee
+      && now.getMonth() + 1 === mois
+    )
+      a.push({
+        type: "info",
+        msg: `Déclaration TVA à déposer avant le 15/${String(mois).padStart(2, "0")}/${annee}`,
+      });
+    return a;
+  }, [kpis, annee, mois]);
+
   return (
-    <div className="space-y-6">
-      {/* ─── Sélecteur d'unité ────────────────────────────── */}
+    <div className="space-y-5">
+
+      {/* ── Sélecteur unité ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-end gap-3">
         <Label htmlFor="unit-select" className="text-xs text-muted-foreground">
           {t("dashboard.unit")} :
         </Label>
         <Select value={unit} onValueChange={(v) => setUnitPersist(v as UnitMode)}>
-          <SelectTrigger id="unit-select" className="h-8 w-56">
+          <SelectTrigger id="unit-select" className="h-8 w-48 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -233,35 +325,75 @@ export const Dashboard = ({
         </Select>
       </div>
 
-      {/* ─── KPIs ─────────────────────────────────────────── */}
+      {/* ── D7 : Alertes actives ───────────────────────────────────────────── */}
+      {alertesDash.length > 0 && (
+        <div className="space-y-2">
+          {alertesDash.map((a, i) => {
+            const Icon =
+              a.type === "danger" ? AlertCircle
+              : a.type === "warning" ? AlertTriangle
+              : Info;
+            const cls =
+              a.type === "danger"
+                ? "bg-destructive/10 border-destructive/30 text-destructive"
+                : a.type === "warning"
+                ? "bg-warning/10 border-warning/30 text-warning"
+                : "bg-primary/10 border-primary/30 text-primary";
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border text-sm font-medium ${cls}`}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span>{a.msg}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── D1 / D2 / D3 : KPI Cards ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* D1 : CA Mois avec tendance */}
         <KpiCard
           icon={<TrendingUp className="size-5" />}
           label={t("dashboard.revenue_month")}
           value={fmt(kpis.ca)}
+          tendance={kpis.tendanceCA}
+          comparaison={kpis.caPrecedent > 0 ? `vs ${fmt(kpis.caPrecedent)} mois préc.` : undefined}
           tone="success"
         />
+
+        {/* Masse salariale */}
         <KpiCard
           icon={<Wallet className="size-5" />}
           label={t("dashboard.payroll")}
           value={fmt(kpis.masseSalariale)}
           tone="primary"
         />
+
+        {/* D3 : Factures impayées avec montant total */}
         <KpiCard
           icon={<FileWarning className="size-5" />}
           label={t("dashboard.unpaid_invoices")}
           value={String(kpis.facturesImpayees)}
+          comparaison={kpis.montantImpaye > 0 ? `${fmt(kpis.montantImpaye)} en attente` : undefined}
           tone={kpis.facturesImpayees > 0 ? "warning" : "muted"}
         />
-        <KpiCard
+
+        {/* D2 : Trésorerie avec sparkline 6 mois */}
+        <KpiCardSparkline
           icon={<Banknote className="size-5" />}
           label={t("dashboard.treasury")}
           value={fmt(kpis.tresorerie)}
+          tendance={kpis.tendanceTresorerie}
           tone={kpis.tresorerie >= 0 ? "success" : "destructive"}
+          sparkData={sparklineTresorerie}
         />
       </div>
 
-      {/* ─── Trésorerie & prévisionnel ────────────────────── */}
+      {/* ── Trésorerie prévisionnelle ──────────────────────────────────────── */}
       <TresorerieCard
         donneesMensuelles={donneesMensuelles}
         employes={employes}
@@ -269,23 +401,46 @@ export const Dashboard = ({
         mois={mois}
       />
 
-      {/* ─── Line chart CA ────────────────────────────────── */}
+      {/* ── D4 : Graphique CA 12 mois avec moyenne + annotation pic ──────── */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("dashboard.revenue_12m")}
-          </CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base">{t("dashboard.revenue_12m")}</CardTitle>
+            {moyenneCA > 0 && (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-6 border-t-2 border-dashed border-warning inline-block align-middle" />
+                  Moyenne : {fmt(moyenneCA)}
+                </span>
+                {picCA && picCA.ca > 0 && (
+                  <Badge variant="outline" className="text-[10px]">
+                    📈 Pic : {picCA.label} — {fmt(picCA.ca)}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="h-72">
+        <CardContent className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={serieCA} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+            <AreaChart data={serieCA} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10 }}
+                stroke="hsl(var(--muted-foreground))"
+              />
               <YAxis
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 10 }}
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(v) => fmt(Number(v))}
-                width={80}
+                width={72}
               />
               <Tooltip
                 contentStyle={{
@@ -296,51 +451,80 @@ export const Dashboard = ({
                 }}
                 formatter={(v: number) => [fmt(v), "CA"]}
               />
-              <Line
+              {/* Ligne de moyenne */}
+              {moyenneCA > 0 && (
+                <ReferenceLine
+                  y={moyenneCA}
+                  stroke="hsl(var(--warning))"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: "Moy.",
+                    position: "right",
+                    fontSize: 10,
+                    fill: "hsl(var(--warning))",
+                  }}
+                />
+              )}
+              <Area
                 type="monotone"
                 dataKey="ca"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2.5}
-                dot={{ r: 3 }}
+                fill="url(#gradCA)"
+                dot={{ r: 3, fill: "hsl(var(--primary))" }}
                 activeDot={{ r: 5 }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* ─── Bar chart Charges fiscales ───────────────────── */}
+      {/* ── D5 : Charges fiscales avec total consolidé dans tooltip ──────── */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("dashboard.tax_charges")}
-          </CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{t("dashboard.tax_charges")}</CardTitle>
         </CardHeader>
-        <CardContent className="h-72">
+        <CardContent className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={serieFiscale} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+            <BarChart data={serieFiscale} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10 }}
+                stroke="hsl(var(--muted-foreground))"
+              />
               <YAxis
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 10 }}
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(v) => fmt(Number(v))}
-                width={80}
+                width={72}
               />
+              {/* Tooltip personnalisé avec total */}
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
+                  return (
+                    <div className="bg-popover border border-border rounded-lg p-3 shadow-lg text-xs space-y-1">
+                      <p className="font-semibold text-sm mb-1">{label}</p>
+                      {payload.map((p) => (
+                        <div key={p.name} className="flex justify-between gap-4">
+                          <span style={{ color: p.color }}>{p.name}</span>
+                          <span className="font-mono">{fmt(Number(p.value))}</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-border pt-1 mt-1 flex justify-between font-bold">
+                        <span>Total</span>
+                        <span className="font-mono">{fmt(total)}</span>
+                      </div>
+                    </div>
+                  );
                 }}
-                formatter={(v: number) => fmt(v)}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="TVA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="CNSS" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-              {/* IRPP : couleur destructive (rouge/orangé) — visible sur fond clair ET sombre */}
-              <Bar dataKey="IRPP" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="TVA"  fill="hsl(var(--primary))"     radius={[3, 3, 0, 0]} />
+              <Bar dataKey="CNSS" fill="hsl(var(--accent))"      radius={[3, 3, 0, 0]} />
+              <Bar dataKey="IRPP" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -349,30 +533,93 @@ export const Dashboard = ({
   );
 };
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────
+// ── KPI Card avec tendance ────────────────────────────────────────────────────
 interface KpiCardProps {
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone: "primary" | "success" | "warning" | "destructive" | "muted";
+  tendance?: number | null;
+  comparaison?: string;
+  tone: Tone;
 }
 
-const TONE_CLASSES: Record<KpiCardProps["tone"], string> = {
-  primary: "bg-primary/10 text-primary",
-  success: "bg-success/15 text-success-foreground",
-  warning: "bg-warning/15 text-warning-foreground",
-  destructive: "bg-destructive/15 text-destructive",
-  muted: "bg-muted text-muted-foreground",
+const KpiCard = ({ icon, label, value, tendance, comparaison, tone }: KpiCardProps) => {
+  const hasTendance = tendance !== null && tendance !== undefined;
+  const TendanceIcon = !hasTendance ? Minus : tendance! > 0 ? ArrowUpRight : ArrowDownRight;
+  const tendanceCls  = !hasTendance ? "text-muted-foreground"
+    : tendance! > 0 ? "text-success" : "text-destructive";
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`rounded-lg p-2 ${TONE_BG[tone]}`}>{icon}</div>
+          {hasTendance && (
+            <div className={`flex items-center gap-0.5 text-xs font-semibold ${tendanceCls}`}>
+              <TendanceIcon className="size-3.5" />
+              {Math.abs(tendance!).toFixed(1)}%
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground font-medium mb-0.5 truncate">{label}</p>
+        <p className="text-xl font-bold tabular-nums leading-tight truncate">{value}</p>
+        {comparaison && (
+          <p className="text-[10px] text-muted-foreground mt-1 truncate">{comparaison}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
 };
 
-const KpiCard = ({ icon, label, value, tone }: KpiCardProps) => (
-  <Card>
-    <CardContent className="p-4 flex items-center gap-3">
-      <div className={`rounded-xl p-2.5 ${TONE_CLASSES[tone]}`}>{icon}</div>
-      <div className="min-w-0">
-        <div className="text-xs text-muted-foreground truncate">{label}</div>
-        <div className="text-lg font-bold truncate">{value}</div>
-      </div>
-    </CardContent>
-  </Card>
-);
+// ── D2 : KPI Card avec sparkline 6 mois ──────────────────────────────────────
+interface KpiCardSparklineProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tendance?: number | null;
+  tone: Tone;
+  sparkData: { v: number }[];
+}
+
+const KpiCardSparkline = ({ icon, label, value, tendance, tone, sparkData }: KpiCardSparklineProps) => {
+  const hasTendance = tendance !== null && tendance !== undefined;
+  const TendanceIcon = !hasTendance ? Minus : tendance! > 0 ? ArrowUpRight : ArrowDownRight;
+  const tendanceCls  = !hasTendance ? "text-muted-foreground"
+    : tendance! > 0 ? "text-success" : "text-destructive";
+  const sparkColor =
+    tone === "success"     ? "hsl(var(--success))"
+    : tone === "destructive" ? "hsl(var(--destructive))"
+    : "hsl(var(--primary))";
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`rounded-lg p-2 ${TONE_BG[tone]}`}>{icon}</div>
+          {hasTendance && (
+            <div className={`flex items-center gap-0.5 text-xs font-semibold ${tendanceCls}`}>
+              <TendanceIcon className="size-3.5" />
+              {Math.abs(tendance!).toFixed(1)}%
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground font-medium mb-0.5 truncate">{label}</p>
+        <p className="text-xl font-bold tabular-nums leading-tight truncate">{value}</p>
+        {/* Sparkline 6 mois — sans axes ni grille */}
+        <div className="h-10 mt-2 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={sparkData}>
+              <Line
+                type="monotone"
+                dataKey="v"
+                stroke={sparkColor}
+                strokeWidth={1.5}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
