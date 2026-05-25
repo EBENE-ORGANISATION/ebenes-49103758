@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X } from "lucide-react";
+import { X, UserCircle2, User, Briefcase, Banknote, Heart, Receipt, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface Props {
@@ -52,22 +52,52 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     setForm((f) => ({ ...f, [k]: v }));
   };
 
-  const submit = () => {
-    if (!form.nom.trim()) return alert(t("grh_form.err_name"));
-    if (!form.poste.trim()) return alert(t("grh_form.err_job"));
-    if (!form.salaire || form.salaire <= 0) return alert(t("grh_form.err_salary"));
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    const errs: Record<string, string> = {};
+    if (!form.nom.trim())                   errs.nom     = t("grh_form.err_name");
+    if (!form.poste.trim())                 errs.poste   = t("grh_form.err_job");
+    if (!form.salaire || form.salaire <= 0) errs.salaire = t("grh_form.err_salary");
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 200));
     onSubmit(form);
+    setSaving(false);
   };
 
   return (
-    <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
-      <h3 className="font-bold text-lg">{initial ? t("grh_form.title_edit") : t("grh_form.title_new")}</h3>
+    <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <UserCircle2 className="size-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-bold text-base">{initial ? t("grh_form.title_edit") : t("grh_form.title_new")}</h3>
+            <p className="text-xs text-muted-foreground">Renseignez les informations de l'employé</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onCancel} className="size-8">
+          <X className="size-4" />
+        </Button>
+      </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_identity")}</p>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+            <User className="size-3.5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("grh_form.section_identity")}</p>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label={t("grh_form.full_name")}>
-            <Input value={form.nom} onChange={(e) => update("nom", e.target.value)} />
+          <Field label={t("grh_form.full_name")} error={errors.nom}>
+            <Input value={form.nom}
+              onChange={(e) => { update("nom", e.target.value); setErrors((p) => ({ ...p, nom: "" })); }}
+              className={errors.nom ? "border-destructive" : ""} />
           </Field>
           <Field label={t("grh_form.matricule")}>
             <Input
@@ -120,10 +150,18 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_contract")}</p>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+            <Briefcase className="size-3.5 text-orange-600 dark:text-orange-400" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("grh_form.section_contract")}</p>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label={t("grh_form.job")}>
-            <Input value={form.poste} onChange={(e) => update("poste", e.target.value)} />
+          <Field label={t("grh_form.job")} error={errors.poste}>
+            <Input value={form.poste}
+              onChange={(e) => { update("poste", e.target.value); setErrors((p) => ({ ...p, poste: "" })); }}
+              className={errors.poste ? "border-destructive" : ""} />
           </Field>
           <Field label={t("grh_form.qualification")}>
             <Input value={form.qualification || ""} onChange={(e) => update("qualification", e.target.value)} />
@@ -165,10 +203,18 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_pay")}</p>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <Banknote className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("grh_form.section_pay")}</p>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label={t("grh_form.base_salary")}>
-            <Input type="number" value={form.salaire || ""} onChange={(e) => update("salaire", parseFloat(e.target.value) || 0)} />
+          <Field label={t("grh_form.base_salary")} error={errors.salaire}>
+            <Input type="number" value={form.salaire || ""}
+              onChange={(e) => { update("salaire", parseFloat(e.target.value) || 0); setErrors((p) => ({ ...p, salaire: "" })); }}
+              className={`text-right font-mono ${errors.salaire ? "border-destructive" : ""}`} />
           </Field>
           <Field label={t("grh_form.sursalaire")}>
             <Input type="number" value={form.sursalaire || 0} onChange={(e) => update("sursalaire", parseFloat(e.target.value) || 0)} />
@@ -186,7 +232,13 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">{t("grh_form.section_family")}</p>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Heart className="size-3.5 text-primary" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("grh_form.section_family")}</p>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("grh_form.situation")}>
             <Select value={form.situation} onValueChange={(v) => update("situation", v as "celibataire" | "marie")}>
@@ -205,9 +257,13 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
 
       {/* ── Déductions fiscales IRPP (optionnel) ─────────────────────── */}
       <div>
-        <p className="text-xs font-bold uppercase text-muted-foreground mb-1">
-          Déductions fiscales IRPP (optionnel)
-        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+            <Receipt className="size-3.5 text-warning" />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Déductions fiscales IRPP (optionnel)</p>
+          <div className="flex-1 h-px bg-border" />
+        </div>
         <p className="text-xs text-muted-foreground mb-2">
           À renseigner si l'employé bénéficie de ces déductions selon le CGI togolais.
         </p>
@@ -239,11 +295,13 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
         </div>
       </div>
 
-      <div className="flex gap-2 pt-2">
-        <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
-          {t("grh_form.save")}
+      <div className="flex gap-2 pt-3 border-t border-border">
+        <Button onClick={submit} disabled={saving} className="bg-success text-success-foreground hover:bg-success/90 gap-1.5">
+          {saving
+            ? <><Loader2 className="size-4 animate-spin" /> Enregistrement…</>
+            : <><Check className="size-4" /> {t("grh_form.save")}</>}
         </Button>
-        <Button variant="outline" onClick={onCancel} className="gap-1.5">
+        <Button variant="outline" onClick={onCancel} disabled={saving} className="gap-1.5">
           <X className="size-4" /> {t("grh_form.cancel")}
         </Button>
       </div>
@@ -252,16 +310,20 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
 };
 
 const Field = ({
-  label,
-  children,
-  full,
+  label, children, full, error,
 }: {
   label: string;
   children: React.ReactNode;
   full?: boolean;
+  error?: string;
 }) => (
   <div className={full ? "sm:col-span-2" : ""}>
-    <Label className="text-xs font-bold uppercase text-muted-foreground">{label}</Label>
+    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</Label>
     <div className="mt-1">{children}</div>
+    {error && (
+      <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+        <AlertCircle className="size-3 shrink-0" />{error}
+      </p>
+    )}
   </div>
 );

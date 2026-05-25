@@ -208,11 +208,33 @@ export const GRH = ({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <StatCard label="Employés" value={String(employes.length)} tone="info" />
-        <StatCard label="Masse brute" value={formatMontant(stats.masseBrute)} tone="purple" />
-        <StatCard label="Net à payer" value={formatMontant(stats.netTotal)} tone="success" />
-        <StatCard label="Coût employeur" value={formatMontant(stats.coutTotal)} tone="warning" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard
+          label="Effectif actif"
+          value={String(employes.filter((e) => !e.statutValidation || e.statutValidation === "valide").length)}
+          tone="info"
+          hint={employes.filter((e) => e.statutValidation === "en_validation").length > 0
+            ? `${employes.filter((e) => e.statutValidation === "en_validation").length} en attente de validation`
+            : undefined}
+        />
+        <StatCard
+          label="Masse brute"
+          value={formatMontant(stats.masseBrute)}
+          tone="purple"
+          hint={`Net : ${formatMontant(stats.netTotal)}`}
+        />
+        <StatCard
+          label="Charges patronales"
+          value={formatMontant(stats.coutTotal - stats.masseBrute)}
+          tone="warning"
+          hint={`Coût total : ${formatMontant(stats.coutTotal)}`}
+        />
+        <StatCard
+          label="Net à payer"
+          value={formatMontant(stats.netTotal)}
+          tone="success"
+          hint={`Taux de charge : ${stats.masseBrute > 0 ? ((stats.coutTotal / stats.masseBrute - 1) * 100).toFixed(1) : "0"}%`}
+        />
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
@@ -277,14 +299,20 @@ export const GRH = ({
                 const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (
                   <div key={e.id} className={`list-item border-l-4 border-l-purple ${dim}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-bold flex items-center gap-2 flex-wrap">
-                          <span>{e.nom} {e.matricule && <span className="text-xs text-muted-foreground">({e.matricule})</span>}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        {/* G1 — Avatar initiales coloré */}
+                        <div className="w-10 h-10 rounded-xl bg-purple/15 border border-purple/20 flex items-center justify-center shrink-0 text-purple font-bold text-sm select-none">
+                          {e.nom.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                        <p className="font-bold flex items-center gap-2 flex-wrap text-sm">
+                          <span>{e.nom}</span>
+                          {e.matricule && <span className="text-xs text-muted-foreground font-normal font-mono">({e.matricule})</span>}
                           {sv && <StatutValidationBadge statut={sv} motifRejet={e.motifRejet} />}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {e.poste} • Cat. {e.categorie || "-"} éch. {e.echelon || 1} • {(e.typeContrat || "cdi").toUpperCase()}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {e.poste} • Cat. {e.categorie || "—"} Éch. {e.echelon || 1} • {(e.typeContrat || "cdi").toUpperCase()}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Ancienneté : <strong>{anc.toFixed(1)} ans</strong> (prime {(tx * 100).toFixed(0)}%) • {e.situation === "marie" ? "Marié(e)" : "Célibataire"} • {e.enfants} enf.
@@ -302,6 +330,7 @@ export const GRH = ({
                         <p className="text-xs mt-1">
                           Brut : <span className="amount text-purple">{formatMontant(c.brut)}</span> • Net : <span className="amount text-success">{formatMontant(c.net)}</span> • Coût : <span className="amount text-warning">{formatMontant(c.coutEmployeur)}</span>
                         </p>
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 shrink-0">
                         {isChefGrh && sv && sv !== "valide" && (

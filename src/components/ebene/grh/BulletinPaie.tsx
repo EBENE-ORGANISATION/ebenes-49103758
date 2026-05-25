@@ -203,36 +203,68 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
           </div>
         </div>
 
-        <div id="print-area" className="bg-white text-foreground p-6 border-2 border-border rounded-lg">
-          <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-            <p className="font-bold text-lg">{t("grh_bulletin.company")}</p>
-            <p className="text-xs text-muted-foreground">{t("grh_bulletin.nif")}</p>
-            <h3 className="text-base font-bold mt-2">
-              {t("grh_bulletin.header", { mois: MOIS_NOMS[mois - 1], annee })}
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+        <div id="print-area" className="bg-white text-gray-900 p-6 rounded-lg text-sm">
+          {/* En-tête société + titre bulletin */}
+          <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-4">
             <div>
-              <p><strong>{t("grh_bulletin.name")}</strong> {employe.nom}</p>
-              <p><strong>{t("grh_bulletin.matricule")}</strong> {employe.matricule || "-"}</p>
-              <p><strong>{t("grh_bulletin.poste")}</strong> {employe.poste}</p>
-              <p><strong>{t("grh_bulletin.category")}</strong> {employe.categorie || "-"} - {t("grh_bulletin.echelon")} {employe.echelon || 1}</p>
+              <p className="font-bold text-base uppercase tracking-wide">{t("grh_bulletin.company")}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t("grh_bulletin.nif")}</p>
             </div>
-            <div>
-              <p><strong>{t("grh_bulletin.cnss")}</strong> {employe.numCnss || "-"}</p>
-              <p><strong>{t("grh_bulletin.hire_date")}</strong> {employe.dateEmbauche || "-"}</p>
-              <p><strong>{t("grh_bulletin.seniority")}</strong> {t("grh_bulletin.seniority_years", { val: c.anciennete.toFixed(1) })}</p>
-              <p><strong>{t("grh_bulletin.situation")}</strong> {employe.situation === "marie" ? t("grh_bulletin.married") : t("grh_bulletin.single")} - {t("grh_bulletin.children_short", { n: employe.enfants })}</p>
+            <div className="text-right">
+              <p className="font-bold text-base uppercase">BULLETIN DE PAIE</p>
+              <p className="text-sm font-semibold text-gray-600">
+                {MOIS_NOMS[mois - 1].toUpperCase()} {annee}
+              </p>
             </div>
           </div>
 
-          <table className="w-full text-sm border-collapse">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.name")} :</span>
+                  <span className="font-bold">{employe.nom}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.matricule")} :</span>
+                  <span className="font-mono">{employe.matricule || "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.poste")} :</span>
+                  <span>{employe.poste}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.category")} :</span>
+                  <span>{employe.categorie || "—"} — Éch. {employe.echelon || 1}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.cnss")} :</span>
+                  <span className="font-mono">{employe.numCnss || "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.hire_date")} :</span>
+                  <span>{employe.dateEmbauche || "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.seniority")} :</span>
+                  <span>{c.anciennete.toFixed(1)} ans ({(c.tauxAnc * 100).toFixed(0)}%)</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-500 w-28 shrink-0">{t("grh_bulletin.situation")} :</span>
+                  <span>{employe.situation === "marie" ? t("grh_bulletin.married") : t("grh_bulletin.single")} — {employe.enfants} enf.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-muted">
-                <th className="text-left p-2 border border-border">{t("grh_bulletin.designation")}</th>
-                <th className="text-right p-2 border border-border w-32">{t("grh_bulletin.gain")}</th>
-                <th className="text-right p-2 border border-border w-32">{t("grh_bulletin.retenue")}</th>
+              <tr className="bg-gray-800 text-white">
+                <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">{t("grh_bulletin.designation")}</th>
+                <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide w-32">{t("grh_bulletin.gain")}</th>
+                <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide w-32">{t("grh_bulletin.retenue")}</th>
               </tr>
             </thead>
             <tbody>
@@ -252,10 +284,10 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
               {(employe.indemniteFonction || 0) > 0 && (
                 <Line label={t("grh_bulletin.indem_fonction")} gain={employe.indemniteFonction!} />
               )}
-              <tr className="font-bold bg-muted/50">
-                <td className="p-2 border border-border">{t("grh_bulletin.brut")}</td>
-                <td className="p-2 border border-border text-right amount">{formatMontant(c.brut)}</td>
-                <td className="p-2 border border-border" />
+              <tr className="font-bold bg-gray-100 border-t-2 border-gray-400">
+                <td className="px-3 py-2 border border-gray-300 uppercase text-xs tracking-wide">{t("grh_bulletin.brut")}</td>
+                <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatMontant(c.brut)}</td>
+                <td className="px-3 py-2 border border-gray-300" />
               </tr>
               <Line label={t("grh_bulletin.cnss_sal")} retenue={c.cnssSal} />
               <Line label={t("grh_bulletin.amu_sal")} retenue={c.amuSal} />
@@ -264,29 +296,38 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
                 <Line label={t("grh_bulletin.sans_solde", { j: c.joursSansSolde })} retenue={c.deductionSansSolde} />
               )}
               {c.retenuesDiverses > 0 && <Line label={t("grh_bulletin.retenues_div")} retenue={c.retenuesDiverses} />}
-              <tr className="font-bold bg-muted/50">
-                <td className="p-2 border border-border">{t("grh_bulletin.total_retenues")}</td>
-                <td className="p-2 border border-border" />
-                <td className="p-2 border border-border text-right amount">{formatMontant(c.totalRetenues)}</td>
+              <tr className="font-bold bg-gray-100 border-t-2 border-gray-400">
+                <td className="px-3 py-2 border border-gray-300 uppercase text-xs tracking-wide">{t("grh_bulletin.total_retenues")}</td>
+                <td className="px-3 py-2 border border-gray-300" />
+                <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatMontant(c.totalRetenues)}</td>
               </tr>
-              <tr className="font-bold text-base bg-success/15">
-                <td className="p-2 border border-border">{t("grh_bulletin.net")}</td>
-                <td className="p-2 border border-border text-right amount" colSpan={2}>
-                  {formatMontant(c.net)}
+              <tr className="font-bold bg-green-50 border-t-4 border-green-600">
+                <td className="px-3 py-2.5 border border-gray-300 text-sm uppercase tracking-wide text-green-800">
+                  {t("grh_bulletin.net")}
+                </td>
+                <td className="px-3 py-2.5 border border-gray-300 text-right text-lg font-bold text-green-800 font-mono" colSpan={2}>
+                  {formatMontant(c.net)} FCFA
                 </td>
               </tr>
             </tbody>
           </table>
 
-          <div className="mt-4 text-xs text-muted-foreground border-t border-border pt-3">
-            <p>
-              <Trans
-                i18nKey="grh_bulletin.charges"
-                values={{ cnss: formatMontant(c.cnssEmp), amu: formatMontant(c.amuEmp), cout: formatMontant(c.coutEmployeur) }}
-                components={[<strong key="0" />, <span key="1" />, <strong key="2" />]}
-              />
-            </p>
-            <p className="mt-2 italic">{t("grh_bulletin.footer")}</p>
+          <div className="mt-4 border-t-2 border-gray-300 pt-3">
+            <div className="bg-gray-50 border border-gray-200 rounded p-2.5 text-xs text-gray-600 space-y-1">
+              <p className="font-semibold text-gray-700">Charges patronales :</p>
+              <div className="grid grid-cols-3 gap-2">
+                <span>CNSS Patronal (17,5%) : <span className="font-mono font-semibold">{formatMontant(c.cnssEmp)}</span></span>
+                <span>AMU Patronal (5%) : <span className="font-mono font-semibold">{formatMontant(c.amuEmp)}</span></span>
+                <span className="font-bold">Coût employeur total : <span className="font-mono">{formatMontant(c.coutEmployeur)}</span></span>
+              </div>
+            </div>
+            <div className="mt-3 flex justify-between items-end">
+              <p className="text-xs text-gray-400 italic">{t("grh_bulletin.footer")}</p>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-6">Signature et cachet de l'employeur</p>
+                <div className="border-t border-gray-400 w-40 mx-auto" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -295,13 +336,13 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
 };
 
 const Line = ({ label, gain, retenue }: { label: string; gain?: number; retenue?: number }) => (
-  <tr>
-    <td className="p-2 border border-border">{label}</td>
-    <td className="p-2 border border-border text-right amount">
-      {gain !== undefined ? formatMontant(gain) : ""}
+  <tr className="border-b border-gray-200 hover:bg-gray-50">
+    <td className="px-3 py-1.5 border-x border-gray-200">{label}</td>
+    <td className="px-3 py-1.5 border-r border-gray-200 text-right font-mono tabular-nums text-blue-700">
+      {gain !== undefined && gain > 0 ? formatMontant(gain) : ""}
     </td>
-    <td className="p-2 border border-border text-right amount">
-      {retenue !== undefined ? formatMontant(retenue) : ""}
+    <td className="px-3 py-1.5 border-r border-gray-200 text-right font-mono tabular-nums text-red-600">
+      {retenue !== undefined && retenue > 0 ? formatMontant(retenue) : ""}
     </td>
   </tr>
 );
