@@ -50,15 +50,35 @@ const MOIS_COURTS = [
   "Juil", "Août", "Sep", "Oct", "Nov", "Déc",
 ];
 
+/** Entrées de trésorerie depuis les écritures SYSCOHADA validées (comptes 52x/57x, débit).
+ *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
+const sumRecettesEcritures = (m: MoisData): number =>
+  (m.ecritures ?? [])
+    .filter((e) => e.statut !== "brouillon" && !e.factureId)
+    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
+    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
+    .reduce((s, l) => s + l.debit, 0);
+
+/** Sorties de trésorerie depuis les écritures SYSCOHADA validées (comptes 52x/57x, crédit).
+ *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
+const sumDepensesEcritures = (m: MoisData): number =>
+  (m.ecritures ?? [])
+    .filter((e) => e.statut !== "brouillon" && !e.factureId)
+    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
+    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
+    .reduce((s, l) => s + l.credit, 0);
+
 const sumRecettes = (m: MoisData): number =>
   m.transactions
     .filter((t) => t.type === "r")
-    .reduce((s, t) => s + Math.abs(t.m), 0);
+    .reduce((s, t) => s + Math.abs(t.m), 0)
+  + sumRecettesEcritures(m);
 
 const sumDepenses = (m: MoisData): number =>
   m.transactions
     .filter((t) => t.type === "d")
-    .reduce((s, t) => s + Math.abs(t.m), 0);
+    .reduce((s, t) => s + Math.abs(t.m), 0)
+  + sumDepensesEcritures(m);
 
 const sumTvaCollectee = (m: MoisData): number =>
   m.factures

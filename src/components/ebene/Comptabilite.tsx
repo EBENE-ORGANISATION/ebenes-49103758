@@ -108,8 +108,28 @@ export const Comptabilite = ({
         .filter((t) => t.type === "d" && t.source === "salaires")
         .reduce((a, t) => a + t.m, 0)
     );
-    return { rec, recFact, dep, depSalaires, solde: rec - dep };
-  }, [data.transactions]);
+
+    // Consolidation SYSCOHADA : comptes 52x (Banque) / 57x (Caisse), écritures validées,
+    // hors écritures liées à une facture (déjà comptées via transactions).
+    const lignesEcr = ecritures
+      .filter((e) => e.statut !== "brouillon" && !e.factureId)
+      .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
+      .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"));
+    const recEcritures = lignesEcr.reduce((s, l) => s + l.debit,  0);
+    const depEcritures = lignesEcr.reduce((s, l) => s + l.credit, 0);
+    const hasEcritures = ecritures.some((e) => e.statut !== "brouillon");
+
+    return {
+      rec: rec + recEcritures,
+      recFact,
+      dep: dep + depEcritures,
+      depSalaires,
+      solde: (rec + recEcritures) - (dep + depEcritures),
+      hasEcritures,
+      recEcritures,
+      depEcritures,
+    };
+  }, [data.transactions, ecritures]);
 
   const sorted = useMemo(
     () => [...data.transactions].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
@@ -274,18 +294,29 @@ export const Comptabilite = ({
                 label="Recettes (Mois)"
                 value={formatMontant(totals.rec)}
                 tone="success"
-                hint={`Dont factures : ${formatMontant(totals.recFact)}`}
+                hint={
+                  totals.hasEcritures && totals.recEcritures > 0
+                    ? `Dont factures : ${formatMontant(totals.recFact)} · SYSCOHADA : ${formatMontant(totals.recEcritures)}`
+                    : `Dont factures : ${formatMontant(totals.recFact)}`
+                }
               />
               <StatCard
                 label="Dépenses (Mois)"
                 value={formatMontant(totals.dep)}
                 tone="destructive"
-                hint={totals.depSalaires > 0 ? `Dont salaires payés : ${formatMontant(totals.depSalaires)}` : undefined}
+                hint={
+                  totals.hasEcritures && totals.depEcritures > 0
+                    ? `SYSCOHADA : ${formatMontant(totals.depEcritures)}${totals.depSalaires > 0 ? ` · Salaires : ${formatMontant(totals.depSalaires)}` : ""}`
+                    : totals.depSalaires > 0
+                    ? `Dont salaires payés : ${formatMontant(totals.depSalaires)}`
+                    : undefined
+                }
               />
               <StatCard
                 label="Solde (Mois)"
                 value={formatMontantSigne(totals.solde)}
                 tone={totals.solde >= 0 ? "info" : "destructive"}
+                hint={totals.hasEcritures ? "Transactions + écritures SYSCOHADA" : undefined}
               />
             </div>
 

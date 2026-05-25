@@ -17,6 +17,18 @@ const sumIfMois = (m: MoisData | undefined, type: "r" | "d") =>
     .filter((t) => t.type === type)
     .reduce((s, t) => s + Math.abs(t.m), 0);
 
+/** Flux de trésorerie SYSCOHADA (comptes 52x/57x) pour un mois.
+ *  type "r" = débit (entrées), type "d" = crédit (sorties).
+ *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
+const sumEcrituresMois = (m: MoisData | undefined, type: "r" | "d"): number => {
+  if (!m?.ecritures) return 0;
+  return m.ecritures
+    .filter((e) => e.statut !== "brouillon" && !e.factureId)
+    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
+    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
+    .reduce((s, l) => s + (type === "r" ? l.debit : l.credit), 0);
+};
+
 /**
  * Carte « Trésorerie » :
  *  - Encaissements   = somme des transactions de recette (factures payées + manuelles)
@@ -36,15 +48,17 @@ export const TresorerieCard = ({
   const m = donneesMensuelles[k];
 
   const stats = useMemo(() => {
-    const encaissementsMois = sumIfMois(m, "r");
-    const decaissementsMois = sumIfMois(m, "d");
+    const encaissementsMois = sumIfMois(m, "r") + sumEcrituresMois(m, "r");
+    const decaissementsMois = sumIfMois(m, "d") + sumEcrituresMois(m, "d");
     const soldeMois = encaissementsMois - decaissementsMois;
 
-    // Trésorerie cumulée = solde net depuis le début
+    // Trésorerie cumulée = solde net depuis le début (transactions + SYSCOHADA)
     let tresorerie = 0;
     Object.values(donneesMensuelles).forEach((mm) => {
       if (!mm) return;
-      tresorerie += sumIfMois(mm, "r") - sumIfMois(mm, "d");
+      tresorerie +=
+        sumIfMois(mm, "r") + sumEcrituresMois(mm, "r")
+        - sumIfMois(mm, "d") - sumEcrituresMois(mm, "d");
     });
 
     // Factures en attente sur le mois courant (encaissements probables)
