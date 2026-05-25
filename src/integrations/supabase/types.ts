@@ -598,6 +598,94 @@ export type Database = {
           },
         ]
       }
+      ecritures_comptables: {
+        Row: {
+          annee: number
+          bulletin_id: string | null
+          created_at: string
+          cree_par: string | null
+          facture_id: number | null
+          id: number
+          journal: string
+          libelle: string
+          lignes: Json
+          mois: number
+          motif_rejet: string | null
+          numero_piece: string
+          piece_jointe: string | null
+          piece_jointe_nom: string | null
+          piece_jointe_type: string | null
+          societe_id: string
+          statut: string
+          updated_at: string
+          valide_par: string | null
+        }
+        Insert: {
+          annee: number
+          bulletin_id?: string | null
+          created_at?: string
+          cree_par?: string | null
+          facture_id?: number | null
+          id?: number
+          journal: string
+          libelle?: string
+          lignes?: Json
+          mois: number
+          motif_rejet?: string | null
+          numero_piece?: string
+          piece_jointe?: string | null
+          piece_jointe_nom?: string | null
+          piece_jointe_type?: string | null
+          societe_id: string
+          statut?: string
+          updated_at?: string
+          valide_par?: string | null
+        }
+        Update: {
+          annee?: number
+          bulletin_id?: string | null
+          created_at?: string
+          cree_par?: string | null
+          facture_id?: number | null
+          id?: number
+          journal?: string
+          libelle?: string
+          lignes?: Json
+          mois?: number
+          motif_rejet?: string | null
+          numero_piece?: string
+          piece_jointe?: string | null
+          piece_jointe_nom?: string | null
+          piece_jointe_type?: string | null
+          societe_id?: string
+          statut?: string
+          updated_at?: string
+          valide_par?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecritures_comptables_bulletin_id_fkey"
+            columns: ["bulletin_id"]
+            isOneToOne: false
+            referencedRelation: "bulletins_paie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecritures_comptables_facture_id_fkey"
+            columns: ["facture_id"]
+            isOneToOne: false
+            referencedRelation: "factures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecritures_comptables_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
