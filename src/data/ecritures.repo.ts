@@ -2,7 +2,7 @@
  * ecritures.repo.ts — Couche d'accès Supabase pour `ecritures_comptables`.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert, Json } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate, Json } from "@/integrations/supabase/types";
 import type {
   EcritureComptable,
   LigneEcriture,
@@ -101,13 +101,13 @@ export const ecritures = {
     patch: Partial<EcritureComptable>,
     societeId: string,
   ): Promise<void> {
-    const u: Record<string, unknown> = {};
+    const u: TablesUpdate<"ecritures_comptables"> = {};
     if (patch.statut !== undefined) u.statut = patch.statut;
     if (patch.motifRejet !== undefined) u.motif_rejet = patch.motifRejet ?? null;
     if (patch.validepar !== undefined) u.valide_par = patch.validepar ?? null;
     if (patch.libelle !== undefined) u.libelle = patch.libelle;
     if (patch.lignes !== undefined || patch.date !== undefined) {
-      u.lignes = { _date: patch.date, lignes: patch.lignes };
+      u.lignes = { _date: patch.date, lignes: patch.lignes } as unknown as Json;
     }
     const { error } = await supabase
       .from("ecritures_comptables")
