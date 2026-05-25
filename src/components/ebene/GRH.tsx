@@ -27,6 +27,7 @@ import {
   Check,
   XCircle,
   KeyRound,
+  Users,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -250,7 +251,22 @@ export const GRH = ({
           )}
 
           {employes.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8 italic">Aucun employé enregistré</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 border-2 border-dashed border-border rounded-xl">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Users className="size-8 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-base">Aucun employé enregistré</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Commencez par ajouter votre premier employé ou importez une liste depuis Excel.
+                </p>
+              </div>
+              <div className="flex gap-2 mt-1">
+                <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
+                  <Plus className="size-4" /> Ajouter un employé
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-2">
               {employes.map((e) => {

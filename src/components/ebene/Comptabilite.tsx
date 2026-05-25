@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle, BookOpen } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
@@ -47,6 +48,8 @@ interface Props {
   onValiderEcriture?: (id: number) => void;
   onRejeterEcriture?: (id: number, motif: string) => void;
   onRemoveEcriture?: (id: number) => void;
+  /** Indique que les données sont en cours de chargement depuis Supabase */
+  isLoading?: boolean;
 }
 
 const STATUT_BADGES: Record<StatutValidation, { cls: string; label: string }> = {
@@ -71,6 +74,7 @@ export const Comptabilite = ({
   onValiderEcriture,
   onRejeterEcriture,
   onRemoveEcriture,
+  isLoading = false,
 }: Props) => {
   // ── États onglet Trésorerie (existants — inchangés) ─────────────────────────
   const [open, setOpen]             = useState(false);
@@ -203,6 +207,30 @@ export const Comptabilite = ({
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
+      {/* E1 — Skeleton loading pendant chargement Supabase */}
+      {isLoading && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="border rounded-xl p-4 space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <Skeleton className="h-3 w-32" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isLoading && (
+        <>
       <Tabs defaultValue="tresorerie" className="w-full">
         <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-4 h-auto">
           <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
@@ -670,6 +698,8 @@ export const Comptabilite = ({
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

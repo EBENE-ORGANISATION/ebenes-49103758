@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save, Truck, Tag, Package } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
@@ -209,7 +209,20 @@ const ArticlesPanel = ({
       )}
 
       {articles.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8 italic">Aucun article. Créez votre premier article.</p>
+        <div className="flex flex-col items-center justify-center py-14 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
+          <div className="w-14 h-14 rounded-2xl bg-info/10 flex items-center justify-center">
+            <Package className="size-7 text-info" />
+          </div>
+          <div>
+            <p className="font-semibold">Aucun article dans le stock</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Créez votre premier article pour commencer à gérer votre inventaire.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => { setForm(empty); setEditing(null); setOpen(true); }} className="gap-1.5 mt-1">
+            <Plus className="size-4" /> Créer un article
+          </Button>
+        </div>
       ) : (
         <div className="space-y-2">
           {articles.map((a) => {
@@ -336,7 +349,20 @@ const MouvementsPanel = ({
       )}
 
       {sorted.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8 italic">Aucun mouvement ce mois</p>
+        <div className="flex flex-col items-center justify-center py-14 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
+          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+            <ArrowDownToLine className="size-7 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-semibold">Aucun mouvement ce mois</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Enregistrez les entrées, sorties ou ajustements de stock.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5 mt-1">
+            <Plus className="size-4" /> Nouveau mouvement
+          </Button>
+        </div>
       ) : (
         <div className="space-y-2">
           {sorted.map((m) => {
@@ -442,7 +468,20 @@ const FournisseursPanel = ({
 
       {/* ── Liste ─────────────────────────────────────────────────────── */}
       {fournisseurs.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8 italic">Aucun fournisseur</p>
+        <div className="flex flex-col items-center justify-center py-14 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
+          <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center">
+            <Truck className="size-7 text-warning" />
+          </div>
+          <div>
+            <p className="font-semibold">Aucun fournisseur enregistré</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Ajoutez vos fournisseurs pour les associer à vos articles et commandes.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5 mt-1">
+            <Plus className="size-4" /> Ajouter un fournisseur
+          </Button>
+        </div>
       ) : (
         <div className="space-y-2">
           {fournisseurs.map((f) => (
@@ -518,7 +557,13 @@ const CategoriesPanel = ({ categories, onAdd, onRemove, isChefCompta }: {
         <Button onClick={() => { if (!nom.trim()) return; onAdd(nom.trim()); setNom(""); }} className="gap-1.5"><Plus className="size-4" /> Ajouter</Button>
       </div>
       {categories.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8 italic">Aucune catégorie</p>
+        <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border-2 border-dashed border-border rounded-xl">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+            <Tag className="size-6 text-muted-foreground" />
+          </div>
+          <p className="font-semibold text-sm">Aucune catégorie</p>
+          <p className="text-xs text-muted-foreground">Utilisez le formulaire ci-dessus pour créer une catégorie.</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {categories.map((c) => (
