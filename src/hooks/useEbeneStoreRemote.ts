@@ -46,6 +46,7 @@ import { useTransactions } from "@/hooks/data/useTransactions";
 import { useFactures } from "@/hooks/data/useFactures";
 import { useDevis } from "@/hooks/data/useDevis";
 import { useMouvementsStock } from "@/hooks/data/useMouvementsStock";
+import { useEcritures } from "@/hooks/data/useEcritures";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -130,7 +131,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
   // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.
   const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
-  const [ecrituresState, setEcrituresState] = useState<Record<string, EcritureComptable[]>>({});
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [loaded, setLoaded] = useState(false);
 
@@ -150,6 +150,8 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqFactures = useFactures(societeId);
   const tqDevis = useDevis(societeId);
   const tqMouvements = useMouvementsStock(societeId);
+  const tqEcritures = useEcritures(societeId);
+  const ecrituresState = tqEcritures.ecritures;
 
   // ─── Audit avec societe_id automatique ──────────────────────────────────────
   // Wrapper sur logAction qui injecte le societeId courant comme dernier argument.
@@ -280,7 +282,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   useEffect(() => {
     setLoaded(false);
     setTauxHistorique([TAUX_DEFAUT]);
-    setEcrituresState({});
     localSig.current = {};
     offlineMode.current = false;
     offlineToastShown.current = false;
@@ -1157,67 +1158,53 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   }, [donneesMensuelles]);
 
   // ─── Écritures comptables SYSCOHADA (état local par mois) ───────────────
+  // ─── Écritures comptables SYSCOHADA (table relationnelle) ───────────────
   const addEcriture = useCallback(
-    (annee: number, mois: number, e: Omit<EcritureComptable, "id">): number => {
-      const key = moisKey(annee, mois);
-      const id = Date.now();
-      setEcrituresState((prev) => ({
-        ...prev,
-        [key]: [...(prev[key] ?? []), { ...e, id }],
-      }));
-      markSignificantWrite();
-      return id;
+    (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => {
+      void tqEcritures.addEcriture(annee, mois, e)
+        .then((saved) => {
+          log("INSERT", "ecritures_comptables", saved.id, null, saved);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de l'enregistrement de l'écriture"));
     },
-    [markSignificantWrite],
+    [tqEcritures, log, markSignificantWrite],
   );
 
   const updateEcriture = useCallback(
-    (annee: number, mois: number, id: number, patch: Partial<EcritureComptable>) => {
-      const key = moisKey(annee, mois);
-      setEcrituresState((prev) => ({
-        ...prev,
-        [key]: (prev[key] ?? []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
-      }));
+    (_annee: number, _mois: number, id: number, patch: Partial<EcritureComptable>) => {
+      void tqEcritures.updateEcriture(id, patch)
+        .catch(() => toast.error("Erreur lors de la mise à jour de l'écriture"));
     },
-    [],
+    [tqEcritures],
   );
 
   const removeEcriture = useCallback(
-    (annee: number, mois: number, id: number) => {
-      const key = moisKey(annee, mois);
-      setEcrituresState((prev) => ({
-        ...prev,
-        [key]: (prev[key] ?? []).filter((e) => e.id !== id),
-      }));
-      markSignificantWrite();
+    (_annee: number, _mois: number, id: number) => {
+      void tqEcritures.removeEcriture(id)
+        .then(() => {
+          log("DELETE", "ecritures_comptables", id);
+          markSignificantWrite();
+        })
+        .catch(() => toast.error("Erreur lors de la suppression de l'écriture"));
     },
-    [markSignificantWrite],
+    [tqEcritures, log, markSignificantWrite],
   );
 
   const validerEcriture = useCallback(
-    (annee: number, mois: number, id: number) => {
-      const key = moisKey(annee, mois);
-      setEcrituresState((prev) => ({
-        ...prev,
-        [key]: (prev[key] ?? []).map((e) =>
-          e.id === id ? { ...e, statut: "valide" as const, motifRejet: undefined } : e,
-        ),
-      }));
+    (_annee: number, _mois: number, id: number) => {
+      void tqEcritures.validerEcriture(id)
+        .catch(() => toast.error("Erreur lors de la validation"));
     },
-    [],
+    [tqEcritures],
   );
 
   const rejeterEcriture = useCallback(
-    (annee: number, mois: number, id: number, motif: string) => {
-      const key = moisKey(annee, mois);
-      setEcrituresState((prev) => ({
-        ...prev,
-        [key]: (prev[key] ?? []).map((e) =>
-          e.id === id ? { ...e, statut: "brouillon" as const, motifRejet: motif } : e,
-        ),
-      }));
+    (_annee: number, _mois: number, id: number, motif: string) => {
+      void tqEcritures.rejeterEcriture(id, motif)
+        .catch(() => toast.error("Erreur lors du rejet"));
     },
-    [],
+    [tqEcritures],
   );
 
   // ─── Interface publique (identique à l'ancienne version) ─────────────────
