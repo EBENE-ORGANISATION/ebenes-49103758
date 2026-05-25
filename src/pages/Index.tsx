@@ -253,6 +253,37 @@ const Index = () => {
     navigate({ search: params.toString() });
   };
 
+  // P7 — Raccourcis clavier globaux (Ctrl+1..8 → changer d'onglet)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorer si focus dans un input/textarea/select
+      const tag = (e.target as HTMLElement).tagName;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+
+      if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= 8) {
+          e.preventDefault();
+          const tabOrder = [
+            showDashboard  && "dashboard",
+            showCompta     && "compta",
+            showFisc       && "fisc",
+            showCommercial && "commercial",
+            showStock      && "stock",
+            showImmo       && "immo",
+            showGrh        && "grh",
+            showPortail    && "portail",
+          ].filter(Boolean) as string[];
+          const tab = tabOrder[num - 1];
+          if (tab) handleTabChange(tab);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showDashboard, showCompta, showFisc, showCommercial, showStock, showImmo, showGrh, showPortail, handleTabChange]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header

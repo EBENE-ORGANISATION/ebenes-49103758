@@ -22,7 +22,19 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner
+        position="bottom-right"
+        toastOptions={{
+          duration: 3000,
+          classNames: {
+            toast: "font-sans text-sm",
+            success: "border-l-4 border-success",
+            error: "border-l-4 border-destructive",
+            warning: "border-l-4 border-warning",
+            info: "border-l-4 border-info",
+          },
+        }}
+      />
       <HashRouter>
         <AuthProvider>
           <Routes>
