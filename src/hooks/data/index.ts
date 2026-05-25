@@ -19,3 +19,4 @@ export { useTransactions, QK_TRANSACTIONS } from "./useTransactions";
 export { useFactures, QK_FACTURES } from "./useFactures";
 export { useDevis, QK_DEVIS } from "./useDevis";
 export { useMouvementsStock, QK_MOUVEMENTS_STOCK } from "./useMouvementsStock";
+export { useTauxHistorique, QK_TAUX_HISTORIQUE } from "./useTauxHistorique";

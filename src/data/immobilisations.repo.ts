@@ -35,6 +35,9 @@ export const toImmobilisation = (row: ImmoRow): Immobilisation => ({
   valeurResiduelle: n(row.valeur_residuelle),
   notes: n(row.notes),
   dateCession: n(row.date_cession),
+  statut: (row.statut as "actif" | "cede" | "rebut") ?? "actif",
+  valeurCession: n(row.valeur_cession),
+  plusMoinsValue: n(row.plus_moins_value),
 });
 
 export const fromImmobilisation = (
@@ -53,6 +56,9 @@ export const fromImmobilisation = (
   valeur_residuelle: immo.valeurResiduelle ?? null,
   notes: immo.notes ?? null,
   date_cession: immo.dateCession ?? null,
+  statut: immo.statut ?? "actif",
+  valeur_cession: immo.valeurCession ?? null,
+  plus_moins_value: immo.plusMoinsValue ?? null,
 });
 
 export const immobilisations = {
@@ -61,17 +67,9 @@ export const immobilisations = {
       .from("immobilisations")
       .select("*")
       .eq("societe_id", societeId)
-      .is("deleted_at" as never, null)
+      .is("deleted_at", null)
       .order("libelle", { ascending: true });
-    if (error) {
-      if (error.code === "42703") {
-        const fb = await supabase.from("immobilisations").select("*")
-          .eq("societe_id", societeId).order("libelle");
-        if (fb.error) throw fb.error;
-        return (fb.data ?? []).map(toImmobilisation);
-      }
-      throw error;
-    }
+    if (error) throw error;
     return (data ?? []).map(toImmobilisation);
   },
 
@@ -117,6 +115,13 @@ export const immobilisations = {
       ...(patch.dateCession !== undefined && {
         date_cession: patch.dateCession ?? null,
       }),
+      ...(patch.statut !== undefined && { statut: patch.statut }),
+      ...(patch.valeurCession !== undefined && {
+        valeur_cession: patch.valeurCession ?? null,
+      }),
+      ...(patch.plusMoinsValue !== undefined && {
+        plus_moins_value: patch.plusMoinsValue ?? null,
+      }),
     };
     const { data, error } = await supabase
       .from("immobilisations")
@@ -136,7 +141,7 @@ export const immobilisations = {
   async restore(id: number, societeId: string): Promise<void> {
     const { error } = await supabase
       .from("immobilisations")
-      .update({ deleted_at: null } as never)
+      .update({ deleted_at: null })
       .eq("id", id)
       .eq("societe_id", societeId);
     if (error) throw error;

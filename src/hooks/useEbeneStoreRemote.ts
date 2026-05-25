@@ -13,7 +13,6 @@ import {
   HeuresSup,
   ParamsAnnuels,
   TauxFiscaux,
-  TAUX_DEFAUT,
   Article,
   Fournisseur,
   CategorieArticle,
@@ -47,6 +46,7 @@ import { useFactures } from "@/hooks/data/useFactures";
 import { useDevis } from "@/hooks/data/useDevis";
 import { useMouvementsStock } from "@/hooks/data/useMouvementsStock";
 import { useEcritures } from "@/hooks/data/useEcritures";
+import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -62,12 +62,9 @@ import { useEcritures } from "@/hooks/data/useEcritures";
  * aucun composant n'a besoin d'être modifié.
  */
 
-// ─── Seule clé app_state restante ────────────────────────────────────────────
-const K_TAUX = "tauxHistorique";
-const ALL_KEYS = [K_TAUX] as const;
-
-// Clés conservées pour la purge localStorage au changement de société
+// Clés localStorage à purger au changement de société (entités migrées en Supabase)
 const LEGACY_KEYS = [
+  "tauxHistorique",
   "employes",
   "paramsAnnuels",
   "articles",
@@ -78,32 +75,10 @@ const LEGACY_KEYS = [
   "donneesMensuelles",
 ] as const;
 
-// ─── Fallback localStorage ───────────────────────────────────────────────────
+// ─── Helpers localStorage (purge des anciennes clés uniquement) ──────────────
 const LS_PREFIX = "ebene-remote:";
-
 const lsKey = (k: string, sid: string | null) =>
   sid ? `${LS_PREFIX}s:${sid}:${k}` : `${LS_PREFIX}${k}`;
-
-const tk = (sid: string, k: string) => `s:${sid}:${k}`;
-const untk = (key: string, sid: string): string | null => {
-  const prefix = `s:${sid}:`;
-  return key.startsWith(prefix) ? key.slice(prefix.length) : null;
-};
-
-const lsRead = (k: string, sid: string | null): unknown => {
-  try {
-    const raw = localStorage.getItem(lsKey(k, sid));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const lsWrite = (k: string, sid: string | null, value: unknown) => {
-  try {
-    localStorage.setItem(lsKey(k, sid), JSON.stringify(value));
-  } catch { /* ignore quota errors */ }
-};
 
 
 export const useEbeneStoreRemote = (societeId: string | null = null) => {
@@ -127,12 +102,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     prevSocieteIdRef.current = societeId;
   }, [societeId, qc]);
 
-  // ─── État app_state (tauxHistorique uniquement) ───────────────────────────
-  // donneesMensuelles est désormais calculé depuis les hooks TQ (voir useMemo
-  // plus bas). Plus aucune entité n'est stockée dans app_state sauf tauxHistorique.
-  const [tauxHistorique, setTauxHistorique] = useState<TauxFiscaux[]>([TAUX_DEFAUT]);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
-  const [loaded, setLoaded] = useState(false);
 
   // ─── Entités relationnelles (hooks TanStack Query) ─────────────────────────
   const tqEmployes = useEmployes(societeId);
@@ -151,6 +121,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const tqDevis = useDevis(societeId);
   const tqMouvements = useMouvementsStock(societeId);
   const tqEcritures  = useEcritures(societeId);
+  const tqTaux       = useTauxHistorique(societeId);
+
+  // ─── Taux fiscaux (depuis table relationnelle) ───────────────────────────
+  const tauxHistorique = tqTaux.tauxHistorique;
 
   // ─── Audit avec societe_id automatique ──────────────────────────────────────
   // Wrapper sur logAction qui injecte le societeId courant comme dernier argument.
@@ -223,19 +197,6 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   const driveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const significantWritesRef = useRef<number>(0);
 
-  const localSig = useRef<Record<string, string>>({});
-  const offlineMode = useRef<boolean>(false);
-  const offlineToastShown = useRef<boolean>(false);
-
-  const notifyOffline = useCallback(() => {
-    if (!offlineToastShown.current) {
-      offlineToastShown.current = true;
-      toast.error(
-        "Connexion au serveur indisponible — les modifications sont enregistrées localement.",
-      );
-    }
-  }, []);
-
   const snapshotRef = useRef<EbeneStoreLike | null>(null);
 
   const flushDriveBackup = useCallback(async () => {
@@ -267,162 +228,17 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     await flushDriveBackup();
   }, [flushDriveBackup]);
 
-  // ─── applyValue : uniquement pour K_TAUX ─────────────────────────────────
-  const applyValue = useCallback((key: string, value: unknown) => {
-    if (key === K_TAUX) {
-      const arr = Array.isArray(value) ? (value as TauxFiscaux[]) : [];
-      setTauxHistorique(arr.length ? arr : [TAUX_DEFAUT]);
-    }
-  }, []);
-
-  // ─── Reset au changement de société ───────────────────────────────────────
-  // tauxHistorique est le seul état manuel — les hooks TQ se réinitialisent
-  // automatiquement quand societeId change.
+  // ─── Purge localStorage des entités migrées au changement de société ────────
+  // Les hooks TQ se réinitialisent automatiquement quand societeId change.
   useEffect(() => {
-    setLoaded(false);
-    setTauxHistorique([TAUX_DEFAUT]);
-    localSig.current = {};
-    offlineMode.current = false;
-    offlineToastShown.current = false;
-
-    // Purge des clés localStorage des entités migrées (one-shot par société)
-    if (societeId) {
-      try {
-        LEGACY_KEYS.forEach((k) => {
-          localStorage.removeItem(lsKey(k, societeId));
-          localStorage.removeItem(lsKey(k, null));
-        });
-      } catch { /* ignore */ }
-    }
-  }, [societeId]);
-
-  // ─── Chargement initial + Realtime (app_state : K_TAUX uniquement) ─────────
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadFromLocal = () => {
-      for (const key of ALL_KEYS) {
-        const v = lsRead(key, societeId);
-        if (v !== null) {
-          localSig.current[key] = JSON.stringify(v);
-          applyValue(key, v);
-        }
-      }
-    };
-
-    (async () => {
-      try {
-        const dbKeys = societeId
-          ? ALL_KEYS.map((k) => tk(societeId, k))
-          : [...ALL_KEYS as unknown as string[]];
-
-        const { data, error } = await supabase
-          .from("app_state")
-          .select("key,value")
-          .in("key", dbKeys);
-
-        if (error) throw error;
-
-        if (!cancelled && data) {
-          const seenKeys = new Set<string>();
-          for (const row of data) {
-            const raw = societeId ? untk(row.key, societeId) : row.key;
-            if (!raw) continue;
-            seenKeys.add(raw);
-            const sig = JSON.stringify(row.value);
-            localSig.current[raw] = sig;
-            applyValue(raw, row.value);
-            lsWrite(raw, societeId, row.value);
-          }
-          for (const key of ALL_KEYS) {
-            if (seenKeys.has(key)) continue;
-            const localValue = lsRead(key, societeId);
-            if (localValue !== null) {
-              localSig.current[key] = JSON.stringify(localValue);
-              applyValue(key, localValue);
-            }
-          }
-        }
-      } catch (err) {
-        offlineMode.current = true;
-        notifyOffline();
-        if (!cancelled) loadFromLocal();
-        console.error("[useEbeneStoreRemote] load failed:", err);
-      } finally {
-        if (!cancelled) setLoaded(true);
-      }
-    })();
-
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    if (!societeId) return;
     try {
-      const scopePrefix = societeId ? `s:${societeId}:` : null;
-      const realtimeFilter = scopePrefix ? `key=like.${scopePrefix}%` : undefined;
-      const channelConfig = realtimeFilter
-        ? { event: "*" as const, schema: "public", table: "app_state", filter: realtimeFilter }
-        : { event: "*" as const, schema: "public", table: "app_state" };
-      channel = supabase
-        .channel(`app_state_sync_remote_${societeId ?? "anon"}`)
-        .on("postgres_changes", channelConfig, (payload) => {
-          const row = (payload.new ?? payload.old) as { key?: string; value?: unknown };
-          if (!row?.key) return;
-          if (scopePrefix && !row.key.startsWith(scopePrefix)) return;
-          const raw = societeId ? untk(row.key, societeId) : row.key;
-          if (!raw) return;
-          if (!(ALL_KEYS as readonly string[]).includes(raw)) return;
-          const sig = JSON.stringify(row.value);
-          if (localSig.current[raw] === sig) return;
-          localSig.current[raw] = sig;
-          applyValue(raw, row.value);
-          lsWrite(raw, societeId, row.value);
-        })
-        .subscribe();
-    } catch (err) {
-      console.error("[useEbeneStoreRemote] realtime subscribe failed:", err);
-    }
-
-    return () => {
-      cancelled = true;
-      if (channel) { try { supabase.removeChannel(channel); } catch { /* ignore */ } }
-    };
-  }, [applyValue, notifyOffline, societeId]);
-
-  // ─── Persistance app_state (K_TAUX uniquement) ───────────────────────────
-  const persist = useCallback(
-    async (key: string, value: unknown) => {
-      const sig = JSON.stringify(value);
-      if (localSig.current[key] === sig) return;
-      localSig.current[key] = sig;
-      lsWrite(key, societeId, value);
-      const dbKey = societeId ? tk(societeId, key) : key;
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase
-          .from("app_state")
-          .upsert(
-            {
-              key: dbKey,
-              value: value as never,
-              updated_by: userData.user?.id ?? null,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "key" },
-          );
-        if (error) throw error;
-        setLastSaved(new Date());
-        if (offlineMode.current) {
-          offlineMode.current = false;
-          offlineToastShown.current = false;
-        }
-      } catch (err) {
-        offlineMode.current = true;
-        notifyOffline();
-        console.error(`[useEbeneStoreRemote] persist(${dbKey}) failed:`, err);
-      }
-    },
-    [notifyOffline, societeId],
-  );
-
-  useEffect(() => { if (loaded) persist(K_TAUX, tauxHistorique); }, [tauxHistorique, loaded, persist]);
+      LEGACY_KEYS.forEach((k) => {
+        localStorage.removeItem(lsKey(k, societeId));
+        localStorage.removeItem(lsKey(k, null));
+      });
+    } catch { /* ignore */ }
+  }, [societeId]);
 
   // ─── Snapshot Drive (lit les données TQ + app_state) ─────────────────────
   useEffect(() => {
@@ -858,21 +674,22 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     [tqRetenues],
   );
 
-  // ─── Taux fiscaux (app_state) ─────────────────────────────────────────────
-  const ajouterTaux = useCallback((t: TauxFiscaux) => {
-    setTauxHistorique((prev) =>
-      [...prev.filter((x) => x.dateEffet !== t.dateEffet), t].sort(
-        (a, b) => new Date(a.dateEffet).getTime() - new Date(b.dateEffet).getTime(),
-      ),
-    );
-  }, []);
+  // ─── Taux fiscaux (table relationnelle taux_historique) ──────────────────
+  const ajouterTaux = useCallback(
+    (t: TauxFiscaux) => {
+      void tqTaux.upsertTaux(t)
+        .catch(() => toast.error("Erreur lors de la sauvegarde du taux fiscal"));
+    },
+    [tqTaux],
+  );
 
-  const supprimerTaux = useCallback((dateEffet: string) => {
-    setTauxHistorique((prev) => {
-      const next = prev.filter((x) => x.dateEffet !== dateEffet);
-      return next.length === 0 ? [TAUX_DEFAUT] : next;
-    });
-  }, []);
+  const supprimerTaux = useCallback(
+    (dateEffet: string) => {
+      void tqTaux.removeTaux(dateEffet)
+        .catch(() => toast.error("Erreur lors de la suppression du taux fiscal"));
+    },
+    [tqTaux],
+  );
 
   // ─── Paramètres annuels → table relationnelle ─────────────────────────────
   const setParamAnnuel = useCallback(
@@ -1192,8 +1009,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
       tauxHistorique?: TauxFiscaux[];
     }) => {
       const dataAny = data as { tauxHistorique?: TauxFiscaux[] };
-      if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length)
-        setTauxHistorique(dataAny.tauxHistorique);
+      if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length) {
+        void tqTaux.upsertBatch(dataAny.tauxHistorique)
+          .catch(() => toast.error("Erreur lors de l'import des taux fiscaux"));
+      }
 
       toast.info(
         "Import partiel : seul tauxHistorique est importé. " +
@@ -1201,7 +1020,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         "sont stockées dans Supabase et doivent être importées via leur module respectif.",
       );
     },
-    [],
+    [tqTaux],
   );
 
   // ─── Années disponibles ───────────────────────────────────────────────────

@@ -244,6 +244,8 @@ export interface EcritureComptable {
   pieceJointeType?: string | null;
   annee?: number;
   mois?: number;
+  /** Date comptable explicite (ISO YYYY-MM-DD). Distinct de created_at. */
+  date?: string | null;
 }
 
 export type TypeOperationGuide =

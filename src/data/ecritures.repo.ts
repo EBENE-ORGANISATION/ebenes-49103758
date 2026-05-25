@@ -40,6 +40,7 @@ export const toEcriture = (row: EcritureRow): EcritureComptable => ({
   pieceJointeType: n(row.piece_jointe_type),
   annee: row.annee,
   mois: row.mois,
+  date: n(row.date),
 });
 
 export const fromEcriture = (
@@ -56,6 +57,7 @@ export const fromEcriture = (
   libelle: e.libelle,
   lignes: e.lignes as never,
   statut: e.statut ?? "brouillon",
+  date: e.date ?? null,
   facture_id: e.factureId ?? null,
   bulletin_id: e.bulletinId ?? null,
   cree_par: e.creePar ?? null,
