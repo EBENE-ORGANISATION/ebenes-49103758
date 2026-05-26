@@ -30,6 +30,8 @@ export interface Transaction {
   statut?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
+  annee?: number;
+  mois?: number;
 }
 
 export interface LignePrestation {
