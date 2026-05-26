@@ -14,11 +14,18 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // One-time setup token: required to invoke this endpoint
+    const provided = req.headers.get("x-bootstrap-token") ?? "";
+    const { data: expected } = await admin.rpc("get_internal_webhook_secret");
+    if (!expected || provided !== expected) {
+      return json({ error: "Forbidden — bootstrap token requis (X-Bootstrap-Token)" }, 403);
+    }
+
     const { email, password, nom } = await req.json();
     if (!email || !password) return json({ error: "Email et mot de passe requis" }, 400);
     if (String(password).length < 8) return json({ error: "Mot de passe trop court (min 8)" }, 400);
-
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Vérifie qu'aucun admin n'existe déjà
     const { count, error: countErr } = await admin
