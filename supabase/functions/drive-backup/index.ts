@@ -158,11 +158,28 @@ async function requireAuthUser(req: Request) {
   return data.user;
 }
 
+async function requireBackupRole(userId: string) {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  const { data: roles, error } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (error) throw new Error("Vérification des rôles impossible");
+  const allowed = (roles ?? []).some((r: { role: string }) =>
+    ["admin", "admin_general", "chef_compta", "chef_grh"].includes(r.role)
+  );
+  if (!allowed) throw new Error("Accès réservé aux administrateurs et chefs de service");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    await requireAuthUser(req);
+    const user = await requireAuthUser(req);
+    await requireBackupRole(user.id);
 
     const url = new URL(req.url);
     // Action via querystring pour rester simple
