@@ -403,6 +403,8 @@ export interface MouvementStock {
   reference?: string; // n° BL, n° facture liée, etc.
   factureId?: number | null;
   transactionId?: number | null;
+  annee?: number;
+  mois?: number;
 }
 
 // ─── Taux versionnés (par date d'entrée en vigueur) ──────────────────────────
