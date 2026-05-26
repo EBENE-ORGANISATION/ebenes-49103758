@@ -604,7 +604,6 @@ export type Database = {
           bulletin_id: string | null
           created_at: string
           cree_par: string | null
-          date: string | null
           facture_id: number | null
           id: number
           journal: string
@@ -626,7 +625,6 @@ export type Database = {
           bulletin_id?: string | null
           created_at?: string
           cree_par?: string | null
-          date?: string | null
           facture_id?: number | null
           id?: number
           journal: string
@@ -648,7 +646,6 @@ export type Database = {
           bulletin_id?: string | null
           created_at?: string
           cree_par?: string | null
-          date?: string | null
           facture_id?: number | null
           id?: number
           journal?: string
@@ -1135,17 +1132,13 @@ export type Database = {
           created_at: string
           date_acquisition: string
           date_cession: string | null
-          deleted_at: string | null
           duree_amortissement: number
           id: number
           libelle: string
           methode: string
           notes: string | null
-          plus_moins_value: number | null
           societe_id: string
-          statut: string
           updated_at: string
-          valeur_cession: number | null
           valeur_origine: number
           valeur_residuelle: number | null
         }
@@ -1155,17 +1148,13 @@ export type Database = {
           created_at?: string
           date_acquisition: string
           date_cession?: string | null
-          deleted_at?: string | null
           duree_amortissement?: number
           id?: number
           libelle: string
           methode?: string
           notes?: string | null
-          plus_moins_value?: number | null
           societe_id: string
-          statut?: string
           updated_at?: string
-          valeur_cession?: number | null
           valeur_origine?: number
           valeur_residuelle?: number | null
         }
@@ -1175,17 +1164,13 @@ export type Database = {
           created_at?: string
           date_acquisition?: string
           date_cession?: string | null
-          deleted_at?: string | null
           duree_amortissement?: number
           id?: number
           libelle?: string
           methode?: string
           notes?: string | null
-          plus_moins_value?: number | null
           societe_id?: string
-          statut?: string
           updated_at?: string
-          valeur_cession?: number | null
           valeur_origine?: number
           valeur_residuelle?: number | null
         }
@@ -2196,7 +2181,6 @@ export type Database = {
         | "parametres_sociaux"
         | "grh"
         | "outils_admin"
-        | "portail"
       app_role:
         | "admin"
         | "rh"
@@ -2368,7 +2352,6 @@ export const Constants = {
         "parametres_sociaux",
         "grh",
         "outils_admin",
-        "portail",
       ],
       app_role: [
         "admin",
