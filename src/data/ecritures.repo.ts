@@ -28,7 +28,7 @@ export const toEcriture = (row: EcritureRow): EcritureComptable => ({
   journal: row.journal as CodeJournal,
   numeroPiece: row.numero_piece,
   libelle: row.libelle,
-  lignes: (row.lignes as LigneEcriture[]) ?? [],
+  lignes: (row.lignes as unknown as LigneEcriture[]) ?? [],
   statut: row.statut as StatutEcriture,
   factureId: n(row.facture_id),
   bulletinId: n(row.bulletin_id),
