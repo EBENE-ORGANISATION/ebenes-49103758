@@ -1308,7 +1308,7 @@ export type Database = {
           granted_by: string | null
           id: string
           level: Database["public"]["Enums"]["access_level"]
-          module: Database["public"]["Enums"]["app_module"]
+          module: string
           updated_at: string
           user_id: string
         }
@@ -1317,7 +1317,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           level: Database["public"]["Enums"]["access_level"]
-          module: Database["public"]["Enums"]["app_module"]
+          module: string
           updated_at?: string
           user_id: string
         }
@@ -1326,7 +1326,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           level?: Database["public"]["Enums"]["access_level"]
-          module?: Database["public"]["Enums"]["app_module"]
+          module?: string
           updated_at?: string
           user_id?: string
         }
