@@ -1019,6 +1019,8 @@ const fr = {
     none_active: "Aucune surcharge active — tout est au défaut.",
     n_active: "{{count}} surcharge(s) active(s).",
     reset_all: "Tout remettre au défaut",
+    propagate_all: "→ Tous",
+    propagate_title: "Appliquer ce niveau à tous les sous-modules",
     role_default: "Défaut du rôle",
     target_note: "Cible : <0>{{label}}</0>. Les modifications prennent effet à la prochaine connexion (ou rechargement) de l'utilisateur.",
     cancel: "Annuler",

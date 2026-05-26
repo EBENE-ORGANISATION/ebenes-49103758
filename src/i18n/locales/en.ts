@@ -1021,6 +1021,8 @@ const en: Translation = {
     none_active: "No active override — everything is at default.",
     n_active: "{{count}} active override(s).",
     reset_all: "Reset all to default",
+    propagate_all: "→ All",
+    propagate_title: "Apply this level to all sub-modules",
     role_default: "Role default",
     target_note: "Target: <0>{{label}}</0>. Changes take effect at the user's next sign-in (or refresh).",
     cancel: "Cancel",
