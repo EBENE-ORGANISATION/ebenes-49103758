@@ -135,18 +135,17 @@ export const Fiscalite = ({
 
   // ── État TVA manuel (lignes saisies à la main) ────────────────────────────
   const [tvaManuel, setTvaManuel] = useState({
-    l3:  0,  // ventes exonérées / hors champ
-    l4:  0,  // opérations imposables autres taux
-    l5:  0,  // livraisons à soi-même
-    l8:  0,  // TVA sur importations
-    l9:  0,  // TVA récupérable immobilisations
-    l10: 0,  // régularisations / reversements (+)
-    l17: 0,  // credit TVA mois précédent reporté
-    l19: 0,  // TVA déductible immobilisations
-    l20: 0,  // régularisations déductions (+)
-    l21: 0,  // reversements (-)
-    l22: 0,  // prorata (% si assujetti partiel)
-    prorataPct: 100, // 100 = assujetti total
+    l3:  0,   // ventes exonérées / hors champ
+    l4:  0,   // opérations imposables autres taux
+    l5:  0,   // livraisons à soi-même
+    l8:  0,   // TVA sur importations
+    l9:  0,   // TVA récupérable immobilisations (Sect. III)
+    l10: 0,   // régularisations / reversements (+)
+    l13: 0,   // TVA déductible sur immobilisations (Sect. IV)
+    l14: 0,   // régularisations déductions (+)
+    l15: 0,   // reversements (-)
+    l16: 0,   // crédit TVA mois précédent reporté
+    l17: 0,   // prorata de déduction (FCFA — s'ajoute aux autres déductions)
   });
 
   const setLigne = (key: keyof typeof tvaManuel, val: string) =>
@@ -290,33 +289,33 @@ export const Fiscalite = ({
 
     // Section II — CA HT
     const l1  = hasEcritures ? ligne7 : calc.rec;
-    const l2  = tvaManuel.l3;
-    const l3  = tvaManuel.l4;
-    const l4  = tvaManuel.l5;
-    const l6  = l1 + l2 + l3 + l4;
+    const l2  = tvaManuel.l3;   // exonérées
+    const l3  = tvaManuel.l4;   // autres taux
+    const l4  = tvaManuel.l5;   // LASM
+    const l6  = l1 + l2 + l3 + l4;  // total CA HT
 
     // Section III — TVA Brute
     const l7  = hasEcritures ? ligne13 : Math.round(calc.rec * taux.tva);
-    const l8  = tvaManuel.l8;
-    const l9  = tvaManuel.l9;
-    const l10 = tvaManuel.l10;
-    const l11 = l7 + l8 + l9 + l10;
+    const l8  = tvaManuel.l8;   // TVA importations
+    const l9  = tvaManuel.l9;   // TVA récupérable immo (Sect. III)
+    const l10 = tvaManuel.l10;  // régularisations +
+    const l11 = l7 + l8 + l9 + l10;  // TOTAL TVA BRUTE
 
-    // Section IV — TVA Déductible
-    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);
-    const l13 = tvaManuel.l19;
-    const l14 = tvaManuel.l20;
-    const l15 = tvaManuel.l21;
-    const l16 = tvaManuel.l17;
-    const prorata = tvaManuel.prorataPct / 100;
-    const l17 = Math.round((l12 + l13 + l14 - l15 + l16) * prorata);
+    // Section IV — TVA Déductible (nouvelle numérotation)
+    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);  // AUTO 4452
+    const l13 = tvaManuel.l13;  // déductions immobilisations
+    const l14 = tvaManuel.l14;  // régularisations +
+    const l15 = tvaManuel.l15;  // reversements -
+    const l16 = tvaManuel.l16;  // crédit TVA reporté
+    const l17 = tvaManuel.l17;  // prorata de déduction (FCFA — s'ajoute)
+    const l18 = l12 + l13 + l14 - l15 + l16 + l17;  // TOTAL TVA DÉDUCTIBLE
 
-    // Section V — TVA Nette
-    const l18 = l11 - l17;
-    const l19 = Math.max(0, l18);
-    const l20 = Math.max(0, -l18);
+    // Section V — Résultat
+    const l19 = l11 - l18;           // SOLDE TVA
+    const l20 = Math.max(0, l19);    // TVA NETTE À PAYER
+    const l21 = Math.max(0, -l19);   // CRÉDIT À REPORTER
 
-    return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20 };
+    return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21 };
   }, [calc, taux, tvaManuel, ligne7, ligne13, ligne18]);
 
   // ── Labels TVA ───────────────────────────────────────────────────────────
@@ -359,13 +358,17 @@ export const Fiscalite = ({
     ["L8", "TVA sur importations",                      fmt(tvaCalc.l8)],
     ["L11","TOTAL TVA BRUTE",                           fmt(tvaCalc.l11)],
     ["III","── SECTION IV — TVA DÉDUCTIBLE ──", ""],
-    ["L12","TVA/achats locaux (4452)",                  fmt(tvaCalc.l12)],
-    ["L16","Crédit TVA mois précédent",                 fmt(tvaCalc.l16)],
-    ["L17","TOTAL TVA DÉDUCTIBLE",                      fmt(tvaCalc.l17)],
-    ["IV", "── SECTION V — TVA NETTE ──", ""],
-    ["L18","Solde (Brute − Déductible)",                fmt(tvaCalc.l18)],
-    ["L19","TVA NETTE À PAYER",                         tvaCalc.l19 > 0 ? fmt(tvaCalc.l19) : "—"],
-    ["L20","CRÉDIT DE TVA À REPORTER",                  tvaCalc.l20 > 0 ? fmt(tvaCalc.l20) : "—"],
+    ["L12","TVA/achats locaux (4452)",                                   fmt(tvaCalc.l12)],
+    ["L13","TVA déductible sur immobilisations",                         fmt(tvaCalc.l13)],
+    ["L14","Régularisations déductions (+)",                             fmt(tvaCalc.l14)],
+    ["L15","Reversements sur déductions (−)",                            fmt(tvaCalc.l15)],
+    ["L16","Crédit TVA reporté du mois précédent",                       fmt(tvaCalc.l16)],
+    ["L17","Prorata de déduction (FCFA)",                                fmt(tvaCalc.l17)],
+    ["L18","TOTAL TVA DÉDUCTIBLE (L12+L13+L14−L15+L16+L17)",            fmt(tvaCalc.l18)],
+    ["IV", "── SECTION V — RÉSULTAT ──", ""],
+    ["L19","SOLDE TVA (L11 − L18)",                                      fmt(tvaCalc.l19)],
+    ["L20","TVA NETTE À PAYER [si L19 > 0]",                            tvaCalc.l20 > 0 ? fmt(tvaCalc.l20) : "—"],
+    ["L21","CRÉDIT À REPORTER [si L19 < 0]",                            tvaCalc.l21 > 0 ? fmt(tvaCalc.l21) : "—"],
   ];
   const tvaTableHtml = `<table border="1"><tr><th>Ligne</th><th>Libellé</th><th>Montant (FCFA)</th></tr>
     ${tvaBody.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
@@ -434,7 +437,7 @@ export const Fiscalite = ({
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="tva" className="gap-1.5">
             TVA
-            {statut === "en_cours" && tvaCalc.l19 > 0 && joursAvantEcheance <= 5 && joursAvantEcheance >= 0 && (
+            {statut === "en_cours" && tvaCalc.l20 > 0 && joursAvantEcheance <= 5 && joursAvantEcheance >= 0 && (
               <span className="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0" />
             )}
             {statut === "en_cours" && joursAvantEcheance < 0 && (
@@ -532,14 +535,14 @@ export const Fiscalite = ({
                     À déposer avant le {dateLimiteOTR} ({joursAvantEcheance} jours)
                   </Badge>
                 )}
-                {tvaCalc.l19 > 0 && !estCloture && (
+                {tvaCalc.l20 > 0 && !estCloture && (
                   <Badge variant="destructive" className="gap-1 text-xs">
-                    TVA due : {fmt(tvaCalc.l19)} FCFA
+                    TVA due : {fmt(tvaCalc.l20)} FCFA
                   </Badge>
                 )}
-                {tvaCalc.l20 > 0 && (
+                {tvaCalc.l21 > 0 && (
                   <Badge className="gap-1 text-xs bg-success/15 text-success border-success/30">
-                    Crédit à reporter : {fmt(tvaCalc.l20)} FCFA
+                    Crédit à reporter : {fmt(tvaCalc.l21)} FCFA
                   </Badge>
                 )}
               </div>
@@ -727,7 +730,7 @@ export const Fiscalite = ({
                     Section IV — TVA Déductible
                   </td>
                 </tr>
-                {/* L12 — TVA sur achats locaux */}
+                {/* L12 — AUTO depuis écritures 4452 */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L12</td>
                   <td className="p-2.5">
@@ -736,15 +739,15 @@ export const Fiscalite = ({
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold">{fmt(tvaCalc.l12)} FCFA</td>
                 </tr>
-                {/* L13 — TVA sur immobilisations */}
+                {/* L13 — MANUEL : déductions immobilisations */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L13</td>
                   <td className="p-2.5 flex items-center gap-2">
                     <span>TVA déductible sur immobilisations</span>
                     <Input
                       type="number" min={0}
-                      value={tvaManuel.l19 || ""}
-                      onChange={e => setLigne("l19", e.target.value)}
+                      value={tvaManuel.l13 || ""}
+                      onChange={e => setLigne("l13", e.target.value)}
                       disabled={estCloture}
                       className="h-7 w-32 text-xs font-mono text-right"
                       placeholder="0"
@@ -752,15 +755,15 @@ export const Fiscalite = ({
                   </td>
                   <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l13)} FCFA</td>
                 </tr>
-                {/* L14 — régularisations déductions */}
+                {/* L14 — MANUEL : régularisations + */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L14</td>
                   <td className="p-2.5 flex items-center gap-2">
                     <span>Régularisations déductions (+)</span>
                     <Input
                       type="number" min={0}
-                      value={tvaManuel.l20 || ""}
-                      onChange={e => setLigne("l20", e.target.value)}
+                      value={tvaManuel.l14 || ""}
+                      onChange={e => setLigne("l14", e.target.value)}
                       disabled={estCloture}
                       className="h-7 w-32 text-xs font-mono text-right"
                       placeholder="0"
@@ -768,15 +771,15 @@ export const Fiscalite = ({
                   </td>
                   <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l14)} FCFA</td>
                 </tr>
-                {/* L15 — reversements négatifs */}
+                {/* L15 — MANUEL : reversements - */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L15</td>
                   <td className="p-2.5 flex items-center gap-2">
                     <span>Reversements sur déductions (−)</span>
                     <Input
                       type="number" min={0}
-                      value={tvaManuel.l21 || ""}
-                      onChange={e => setLigne("l21", e.target.value)}
+                      value={tvaManuel.l15 || ""}
+                      onChange={e => setLigne("l15", e.target.value)}
                       disabled={estCloture}
                       className="h-7 w-32 text-xs font-mono text-right"
                       placeholder="0"
@@ -784,11 +787,27 @@ export const Fiscalite = ({
                   </td>
                   <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l15)} FCFA</td>
                 </tr>
-                {/* L16 — crédit TVA mois précédent */}
+                {/* L16 — MANUEL : crédit TVA mois précédent */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L16</td>
                   <td className="p-2.5 flex items-center gap-2">
                     <span>Crédit de TVA reporté du mois précédent</span>
+                    <Input
+                      type="number" min={0}
+                      value={tvaManuel.l16 || ""}
+                      onChange={e => setLigne("l16", e.target.value)}
+                      disabled={estCloture}
+                      className="h-7 w-32 text-xs font-mono text-right"
+                      placeholder="0"
+                    />
+                  </td>
+                  <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l16)} FCFA</td>
+                </tr>
+                {/* L17 — MANUEL : prorata de déduction (FCFA uniquement) */}
+                <tr>
+                  <td className="p-2.5 text-muted-foreground font-bold text-xs">L17</td>
+                  <td className="p-2.5 flex items-center gap-2">
+                    <span>Prorata de déduction (FCFA)</span>
                     <Input
                       type="number" min={0}
                       value={tvaManuel.l17 || ""}
@@ -798,63 +817,43 @@ export const Fiscalite = ({
                       placeholder="0"
                     />
                   </td>
-                  <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l16)} FCFA</td>
+                  <td className="p-2.5 text-right font-mono text-muted-foreground">{fmt(tvaCalc.l17)} FCFA</td>
                 </tr>
-                {/* Prorata */}
-                <tr>
-                  <td className="p-2.5 text-muted-foreground font-bold text-xs">%</td>
-                  <td className="p-2.5 flex items-center gap-2">
-                    <span>Prorata de déduction (assujetti partiel)</span>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number" min={1} max={100}
-                        value={tvaManuel.prorataPct}
-                        onChange={e => setLigne("prorataPct", e.target.value)}
-                        disabled={estCloture}
-                        className="h-7 w-20 text-xs font-mono text-right"
-                      />
-                      <span className="text-xs text-muted-foreground">%</span>
-                    </div>
-                  </td>
-                  <td className="p-2.5 text-right font-mono text-muted-foreground text-xs">
-                    {tvaManuel.prorataPct < 100 ? `(× ${tvaManuel.prorataPct}%)` : "Total (100%)"}
-                  </td>
-                </tr>
-                {/* L17 — TOTAL TVA DÉDUCTIBLE */}
+                {/* L18 — TOTAL TVA DÉDUCTIBLE */}
                 <tr className="bg-green-50/60 dark:bg-green-900/10 font-semibold">
-                  <td className="p-2.5 font-bold text-xs">L17</td>
-                  <td className="p-2.5">TOTAL TVA DÉDUCTIBLE (L12 + L13 + L14 − L15 + L16) × prorata</td>
-                  <td className="p-2.5 text-right font-mono text-green-700 dark:text-green-400 font-bold">{fmt(tvaCalc.l17)} FCFA</td>
+                  <td className="p-2.5 font-bold text-xs">L18</td>
+                  <td className="p-2.5">TOTAL TVA DÉDUCTIBLE (L12 + L13 + L14 − L15 + L16 + L17)</td>
+                  <td className="p-2.5 text-right font-mono text-green-700 dark:text-green-400 font-bold">{fmt(tvaCalc.l18)} FCFA</td>
                 </tr>
 
-                {/* ── SECTION V — TVA NETTE ── */}
+                {/* ── SECTION V — RÉSULTAT ── */}
                 <tr className="bg-orange-50 dark:bg-orange-900/20">
                   <td colSpan={3} className="px-3 py-1.5 text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide">
                     Section V — Résultat de la déclaration
                   </td>
                 </tr>
-                {/* L18 — solde */}
+                {/* L19 — SOLDE TVA */}
                 <tr className="font-semibold">
-                  <td className="p-2.5 font-bold text-xs">L18</td>
-                  <td className="p-2.5">SOLDE TVA (L11 − L17)</td>
-                  <td className={`p-2.5 text-right font-mono font-bold ${tvaCalc.l18 >= 0 ? "text-destructive" : "text-green-700 dark:text-green-400"}`}>
-                    {fmt(tvaCalc.l18)} FCFA
+                  <td className="p-2.5 font-bold text-xs">L19</td>
+                  <td className="p-2.5">SOLDE TVA (L11 − L18)</td>
+                  <td className={`p-2.5 text-right font-mono font-bold ${tvaCalc.l19 >= 0 ? "text-destructive" : "text-green-700 dark:text-green-400"}`}>
+                    {fmt(tvaCalc.l19)} FCFA
                   </td>
                 </tr>
-                {/* L19 — TVA NETTE À PAYER */}
-                <tr className={tvaCalc.l19 > 0 ? "bg-destructive/10 font-bold" : ""}>
-                  <td className={`p-2.5 font-extrabold text-base ${tvaCalc.l19 > 0 ? "text-destructive" : "text-muted-foreground"}`}>L19</td>
-                  <td className="p-2.5 font-bold">TVA NETTE À PAYER [si L18 &gt; 0] — à reverser avant le {dateLimiteOTR}</td>
-                  <td className={`p-2.5 text-right font-mono font-extrabold text-base ${tvaCalc.l19 > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                    {tvaCalc.l19 > 0 ? `${fmt(tvaCalc.l19)} FCFA` : "—"}
-                  </td>
-                </tr>
-                {/* L20 — crédit à reporter */}
-                <tr className={tvaCalc.l20 > 0 ? "bg-green-50 dark:bg-green-900/10 font-bold" : ""}>
-                  <td className={`p-2.5 font-bold ${tvaCalc.l20 > 0 ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>L20</td>
-                  <td className="p-2.5">CRÉDIT DE TVA À REPORTER AU MOIS SUIVANT [si L18 &lt; 0]</td>
-                  <td className={`p-2.5 text-right font-mono ${tvaCalc.l20 > 0 ? "text-green-700 dark:text-green-400 font-bold" : "text-muted-foreground"}`}>
+                {/* L20 — TVA NETTE À PAYER */}
+                <tr className={tvaCalc.l20 > 0 ? "bg-destructive/10 font-bold" : ""}>
+                  <td className={`p-2.5 font-extrabold text-base ${tvaCalc.l20 > 0 ? "text-destructive" : "text-muted-foreground"}`}>L20</td>
+                  <td className="p-2.5 font-bold">TVA NETTE À PAYER [si L19 &gt; 0] — à reverser avant le {dateLimiteOTR}</td>
+                  <td className={`p-2.5 text-right font-mono font-extrabold text-base ${tvaCalc.l20 > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                     {tvaCalc.l20 > 0 ? `${fmt(tvaCalc.l20)} FCFA` : "—"}
+                  </td>
+                </tr>
+                {/* L21 — CRÉDIT À REPORTER */}
+                <tr className={tvaCalc.l21 > 0 ? "bg-green-50 dark:bg-green-900/10 font-bold" : ""}>
+                  <td className={`p-2.5 font-bold ${tvaCalc.l21 > 0 ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>L21</td>
+                  <td className="p-2.5">CRÉDIT DE TVA À REPORTER AU MOIS SUIVANT [si L19 &lt; 0]</td>
+                  <td className={`p-2.5 text-right font-mono ${tvaCalc.l21 > 0 ? "text-green-700 dark:text-green-400 font-bold" : "text-muted-foreground"}`}>
+                    {tvaCalc.l21 > 0 ? `${fmt(tvaCalc.l21)} FCFA` : "—"}
                   </td>
                 </tr>
 
@@ -863,20 +862,20 @@ export const Fiscalite = ({
           </div>
 
           {/* ─ Résumé bas de page ─ */}
-          {tvaCalc.l19 > 0 && (
+          {tvaCalc.l20 > 0 && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-sm">
               <Lock className="size-4 text-destructive shrink-0" />
               <p>
                 TVA à reverser à l'OTR avant le <strong>{dateLimiteOTR}</strong> — montant :{" "}
-                <strong className="text-destructive">{fmt(tvaCalc.l19)} FCFA</strong>
+                <strong className="text-destructive">{fmt(tvaCalc.l20)} FCFA</strong>
               </p>
             </div>
           )}
-          {tvaCalc.l20 > 0 && (
+          {tvaCalc.l21 > 0 && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 text-sm">
               <Unlock className="size-4 text-green-700 shrink-0" />
               <p>
-                Crédit TVA de <strong className="text-green-700">{fmt(tvaCalc.l20)} FCFA</strong> à reporter sur la prochaine déclaration (L16).
+                Crédit TVA de <strong className="text-green-700">{fmt(tvaCalc.l21)} FCFA</strong> à reporter sur la prochaine déclaration (L16).
               </p>
             </div>
           )}
