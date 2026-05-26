@@ -61,6 +61,8 @@ export interface Facture {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */
   motifRejet?: string;
+  annee?: number;
+  mois?: number;
 }
 
 export interface Prime {
@@ -71,6 +73,9 @@ export interface Prime {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  employeId?: number;
+  annee?: number;
+  mois?: number;
 }
 
 // ─── Devis (proche d'une Facture mais sans impact comptable) ───────────────
@@ -94,6 +99,8 @@ export interface Devis {
   /** Renseigné lorsque le devis est converti en facture. */
   factureId?: number | null;
   notes?: string;
+  annee?: number;
+  mois?: number;
 }
 
 export type TypeContrat = "cdi" | "cdd" | "essai" | "stage" | "interim";
@@ -150,6 +157,10 @@ export interface Employe {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  /** Retenues mensuelles optionnelles */
+  interetPretImmobilier?: number;
+  assuranceVie?: number;
+  retraiteComplementaire?: number;
 }
 
 export type TypeAbsence =
@@ -181,6 +192,8 @@ export interface Absence {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  annee?: number;
+  mois?: number;
 }
 
 export interface HeuresSup {
@@ -193,6 +206,10 @@ export interface HeuresSup {
   statutValidation?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef GRH. */
   motifRejet?: string;
+  _dbId?: number;
+  employeId?: number;
+  annee?: number;
+  mois?: number;
 }
 
 // ─── Comptabilité SYSCOHADA ────────────────────────────────────────────────────
