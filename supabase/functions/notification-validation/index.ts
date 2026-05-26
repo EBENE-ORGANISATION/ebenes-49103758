@@ -8,6 +8,14 @@ const corsHeaders = {
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM = "EBN Services <noreply@ebnservicess.com>";
 
+const escapeHtml = (v: unknown): string =>
+  String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 type Payload = {
   type: string;
   record: Record<string, unknown>;
@@ -25,13 +33,13 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const describeAmount = (type: string, r: Record<string, any>): string => {
-  if (type === "transaction") return `${Number(r.montant ?? 0).toLocaleString("fr-FR")} F CFA — ${r.description ?? ""}`;
-  if (type === "facture") return `Facture ${r.numero ?? ""} — ${r.client ?? ""} — ${Number(r.total_ttc ?? 0).toLocaleString("fr-FR")} F CFA`;
-  if (type === "employe") return `${r.nom ?? ""} (${r.poste ?? ""})`;
-  if (type === "prime") return `${r.libelle ?? "Prime"} — ${Number(r.montant ?? 0).toLocaleString("fr-FR")} F CFA`;
-  if (type === "absence") return `Absence du ${r.date_debut ?? ""} au ${r.date_fin ?? ""} (${r.jours ?? 0} j)`;
-  if (type === "heures_sup") return `Heures sup mois ${r.mois ?? ""}/${r.annee ?? ""}`;
-  if (type === "sanction") return `${r.type ?? "Sanction"} — ${r.motif ?? ""}`;
+  if (type === "transaction") return `${Number(r.montant ?? 0).toLocaleString("fr-FR")} F CFA — ${escapeHtml(r.description)}`;
+  if (type === "facture") return `Facture ${escapeHtml(r.numero)} — ${escapeHtml(r.client)} — ${Number(r.total_ttc ?? 0).toLocaleString("fr-FR")} F CFA`;
+  if (type === "employe") return `${escapeHtml(r.nom)} (${escapeHtml(r.poste)})`;
+  if (type === "prime") return `${escapeHtml(r.libelle ?? "Prime")} — ${Number(r.montant ?? 0).toLocaleString("fr-FR")} F CFA`;
+  if (type === "absence") return `Absence du ${escapeHtml(r.date_debut)} au ${escapeHtml(r.date_fin)} (${Number(r.jours ?? 0)} j)`;
+  if (type === "heures_sup") return `Heures sup mois ${escapeHtml(r.mois)}/${escapeHtml(r.annee)}`;
+  if (type === "sanction") return `${escapeHtml(r.type ?? "Sanction")} — ${escapeHtml(r.motif)}`;
   return "";
 };
 
@@ -40,16 +48,26 @@ Deno.serve(async (req) => {
 
   try {
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Internal-secret check: only DB triggers / cron may call this
+    const provided = req.headers.get("x-internal-secret") ?? "";
+    const { data: expected } = await admin.rpc("get_internal_webhook_secret");
+    if (!expected || provided !== expected) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const payload = (await req.json()) as Payload;
     const { type, record, societe_id } = payload;
     if (!type || !societe_id) {
       return new Response(JSON.stringify({ error: "invalid payload" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     // Récupère la société
     const { data: societe } = await admin.from("societes").select("nom").eq("id", societe_id).maybeSingle();
@@ -90,10 +108,12 @@ Deno.serve(async (req) => {
     const typeLabel = TYPE_LABELS[type] ?? type;
     const detail = describeAmount(type, record as any);
     const subject = `[${societeNom}] Validation requise — ${typeLabel}`;
+    const safeSociete = escapeHtml(societeNom);
+    const safeTypeLabel = escapeHtml(typeLabel);
     const html = `
       <div style="font-family:Arial,sans-serif;color:#1F3864;max-width:560px;margin:0 auto;padding:20px;">
-        <h2 style="color:#1F3864;">Nouvelle ${typeLabel} en attente de validation</h2>
-        <p><strong>Société :</strong> ${societeNom}</p>
+        <h2 style="color:#1F3864;">Nouvelle ${safeTypeLabel} en attente de validation</h2>
+        <p><strong>Société :</strong> ${safeSociete}</p>
         <p><strong>Détail :</strong> ${detail}</p>
         <p>Connectez-vous à l'application pour valider ou rejeter cet élément.</p>
         <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>

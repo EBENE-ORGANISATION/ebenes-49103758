@@ -2138,6 +2138,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_internal_webhook_secret: { Args: never; Returns: string }
       has_active_chef_grant: {
         Args: { _service: string; _user_id: string }
         Returns: boolean

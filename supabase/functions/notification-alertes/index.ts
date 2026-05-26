@@ -125,6 +125,16 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Internal-secret check: must be called by DB trigger / cron, not the public
+    const provided = req.headers.get("x-internal-secret") ?? "";
+    const { data: expected } = await admin.rpc("get_internal_webhook_secret");
+    if (!expected || provided !== expected) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: societes } = await admin.from("societes").select("id, nom").eq("statut", "active");
     let totalSent = 0;
 
