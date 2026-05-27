@@ -83,6 +83,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
+  const checkDevice = useCallback(async () => {
+    try {
+      const device_id = getDeviceId();
+      const { data, error } = await supabase.functions.invoke("check-login-device", {
+        body: { device_id },
+      });
+      if (error) return;
+      if (data && data.allowed === false) {
+        await supabase.auth.signOut();
+        const email = data.email ?? "";
+        // Redirige vers /auth avec flag
+        const params = new URLSearchParams({ awaiting_confirmation: "1", email });
+        window.location.replace(`/auth?${params.toString()}`);
+      }
+    } catch (e) {
+      console.error("checkDevice failed", e);
+    }
+  }, []);
+
   const fetchRoles = useCallback(async (uid: string) => {
     const { data, error } = await supabase
       .from("user_roles")
