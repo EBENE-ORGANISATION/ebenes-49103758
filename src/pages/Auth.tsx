@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, LogIn, ShieldPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useTranslation } from "react-i18next";
 
 const Auth = () => {
@@ -65,14 +66,11 @@ const Auth = () => {
   const onGoogleSignIn = async () => {
     setGoogleBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/`,
       });
-      if (error) throw error;
-      // redirection automatique
+      if (result.error) throw new Error(String(result.error));
+      if (result.redirected) return;
     } catch (err) {
       toast.error(t("auth_page.err_google", { msg: (err as Error).message }));
       setGoogleBusy(false);
