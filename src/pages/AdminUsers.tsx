@@ -39,7 +39,15 @@ const ALL_ROLES: AppRole[] = [
 
 const callFn = async (body: Record<string, unknown>) => {
   const { data, error } = await supabase.functions.invoke("admin-users", { body });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const msg = error.message || "";
+    if (msg.includes("401") || /session/i.test(msg)) {
+      await supabase.auth.signOut().catch(() => {});
+      window.location.assign("/auth");
+      throw new Error("Session expirée — reconnectez-vous");
+    }
+    throw new Error(msg);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 };
