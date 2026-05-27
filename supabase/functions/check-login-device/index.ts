@@ -9,7 +9,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") ?? "https://ebnservicess.com";
 
 function randomToken() {
@@ -98,39 +97,18 @@ Deno.serve(async (req) => {
 
     const confirmUrl = `${SUPABASE_URL}/functions/v1/confirm-login-device?token=${token}&redirect=${encodeURIComponent(PUBLIC_SITE_URL)}`;
 
-    // Send via Resend
-    const emailHtml = `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a">
-        <h2 style="margin:0 0 16px">Nouvelle tentative de connexion</h2>
-        <p>Bonjour,</p>
-        <p>Une connexion à votre compte a été demandée depuis un nouvel appareil :</p>
-        <ul style="background:#f5f5f5;padding:12px 24px;border-radius:6px">
-          <li><strong>Navigateur :</strong> ${userAgent || "inconnu"}</li>
-          <li><strong>IP :</strong> ${ip || "inconnue"}</li>
-        </ul>
-        <p>Si c'est bien vous, confirmez en cliquant ci-dessous (lien valable 15 min) :</p>
-        <p style="text-align:center;margin:32px 0">
-          <a href="${confirmUrl}" style="background:#0ea5e9;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">Confirmer la connexion</a>
-        </p>
-        <p style="color:#666;font-size:13px">Si ce n'était pas vous, ignorez cet email et changez votre mot de passe.</p>
-      </div>
-    `;
-
-    const resendResp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
-      body: JSON.stringify({
-        from: "EBN Services <onboarding@resend.dev>",
-        to: [user.email],
-        subject: "Confirmation de connexion - EBN Services",
-        html: emailHtml,
-      }),
+    // Envoi via Lovable Emails (domaine vérifié notify.ebnservicess.com)
+    const sendResp = await admin.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "device-confirmation",
+        recipientEmail: user.email,
+        idempotencyKey: `device-${token}`,
+        templateData: { confirmUrl, userAgent: userAgent || "inconnu", ip: ip || "inconnue" },
+      },
     });
-
-    if (!resendResp.ok) {
-      const err = await resendResp.text();
-      console.error("Resend error:", err);
-      return new Response(JSON.stringify({ error: "Échec d'envoi d'email", details: err }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (sendResp.error) {
+      console.error("send-transactional-email error:", sendResp.error);
+      return new Response(JSON.stringify({ error: "Échec d'envoi d'email" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ allowed: false, email: user.email }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
