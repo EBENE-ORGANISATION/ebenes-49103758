@@ -69,7 +69,7 @@ const Auth = () => {
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/`,
       });
-      if (result.error) throw new Error(result.error);
+      if (result.error) throw new Error(String(result.error));
       if (result.redirected) return;
     } catch (err) {
       toast.error(t("auth_page.err_google", { msg: (err as Error).message }));
