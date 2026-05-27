@@ -110,6 +110,18 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
       <Card className="w-full max-w-md p-8 shadow-2xl border-2">
+        {awaitingConfirmation && (
+          <div className="mb-6 rounded-lg border-2 border-primary/40 bg-primary/5 p-4 text-center space-y-2">
+            <h2 className="font-bold text-lg">📧 Confirmation requise</h2>
+            <p className="text-sm">
+              Une autre session est active sur votre compte. Nous avons envoyé un email
+              {awaitingEmail ? <> à <strong>{awaitingEmail}</strong></> : null} pour valider cette connexion.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Cliquez sur le lien dans l'email (valable 15 minutes), puis reconnectez-vous ici.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col items-center gap-3 mb-6">
           <h1 className="text-2xl font-bold text-center">{t("auth_page.app_title")}</h1>
           <p className="text-sm text-muted-foreground text-center">{t("auth_page.subtitle")}</p>
