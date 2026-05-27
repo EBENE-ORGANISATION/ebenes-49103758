@@ -197,6 +197,9 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     dateFin: new Date().toISOString().split("T")[0],
     motif: "",
   });
+  // Si on modifie une demande rejetée → id de l'ancienne à supprimer
+  const [editId, setEditId] = useState<number | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const envoyerDemande = () => {
     if (!employe) return;
@@ -207,6 +210,9 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     const jours = diffJours(demande.dateDebut, demande.dateFin);
     const moisD = new Date(demande.dateDebut).getMonth() + 1;
     const anneeD = new Date(demande.dateDebut).getFullYear();
+    if (editId != null) {
+      store.removeAbsence(anneeD, moisD, editId);
+    }
     store.addAbsence(anneeD, moisD, {
       employeId: employe.id,
       type: demande.type,
@@ -216,8 +222,27 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
       motif: demande.motif,
       statutValidation: "en_validation",
     });
-    toast.success("Demande envoyée — en attente de validation GRH");
+    toast.success(
+      editId != null
+        ? "Demande modifiée et renvoyée — en attente de validation GRH"
+        : "Demande envoyée — en attente de validation GRH",
+    );
+    setEditId(null);
     setDemande((d) => ({ ...d, motif: "" }));
+  };
+
+  const modifierDemande = (abs: import("@/types/ebene").Absence) => {
+    setEditId(abs.id);
+    setDemande({
+      type: abs.type,
+      dateDebut: abs.dateDebut,
+      dateFin: abs.dateFin,
+      motif: abs.motif || "",
+    });
+    setTimeout(
+      () => formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      50,
+    );
   };
 
   // Aucun compte lié à une fiche
@@ -383,10 +408,11 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
       </Card>
 
       {/* ── Demande de congé / absence ── */}
-      <Card>
+      <Card ref={formRef}>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            <Send className="size-4" /> Demander un congé ou une absence
+            <Send className="size-4" />
+            {editId != null ? "Modifier ma demande rejetée" : "Demander un congé ou une absence"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -441,9 +467,28 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
               Durée estimée :{" "}
               <strong>{diffJours(demande.dateDebut, demande.dateFin)}</strong> jour(s)
             </p>
-            <Button onClick={envoyerDemande} className="gap-1.5">
-              <Send className="size-4" /> Envoyer la demande
-            </Button>
+            <div className="flex items-center gap-2">
+              {editId != null && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEditId(null);
+                    setDemande({
+                      type: "conges_payes",
+                      dateDebut: new Date().toISOString().split("T")[0],
+                      dateFin: new Date().toISOString().split("T")[0],
+                      motif: "",
+                    });
+                  }}
+                >
+                  Annuler
+                </Button>
+              )}
+              <Button onClick={envoyerDemande} className="gap-1.5">
+                <Send className="size-4" />
+                {editId != null ? "Renvoyer la demande" : "Envoyer la demande"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -468,6 +513,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                   <TableHead className="text-right">Jours</TableHead>
                   <TableHead>Motif</TableHead>
                   <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -484,8 +530,24 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                       <TableCell className="text-right text-xs">{abs.jours}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {abs.motif || "—"}
+                        {abs.statutValidation === "rejete" && abs.motifRejet && (
+                          <div className="mt-1 text-destructive italic">
+                            Motif du rejet : {abs.motifRejet}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>{statutBadge(abs.statutValidation)}</TableCell>
+                      <TableCell className="text-right">
+                        {abs.statutValidation === "rejete" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => modifierDemande(abs)}
+                          >
+                            Modifier
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
               </TableBody>

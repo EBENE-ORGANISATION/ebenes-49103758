@@ -262,6 +262,8 @@ export const PortailEmploye = () => {
     dateFin: new Date().toISOString().split("T")[0],
     motif: "",
   });
+  const [editId, setEditId] = useState<number | null>(null);
+  const demandeRef = useRef<HTMLDivElement>(null);
 
   const envoyerDemande = () => {
     if (!employe) return;
@@ -276,6 +278,9 @@ export const PortailEmploye = () => {
     }
     const moisDemande = new Date(demande.dateDebut).getMonth() + 1;
     const anneeDemande = new Date(demande.dateDebut).getFullYear();
+    if (editId != null) {
+      store.removeAbsence(anneeDemande, moisDemande, editId);
+    }
     store.addAbsence(anneeDemande, moisDemande, {
       employeId: employe.id,
       type: demande.type,
@@ -285,8 +290,27 @@ export const PortailEmploye = () => {
       motif: demande.motif,
       statutValidation: "en_validation",
     });
-    toast.success("Demande envoyée — en attente de validation par le chef GRH");
+    toast.success(
+      editId != null
+        ? "Demande modifiée et renvoyée — en attente de validation"
+        : "Demande envoyée — en attente de validation par le chef GRH",
+    );
+    setEditId(null);
     setDemande((d) => ({ ...d, motif: "" }));
+  };
+
+  const modifierDemande = (abs: import("@/types/ebene").Absence) => {
+    setEditId(abs.id);
+    setDemande({
+      type: abs.type,
+      dateDebut: abs.dateDebut,
+      dateFin: abs.dateFin,
+      motif: abs.motif || "",
+    });
+    setTimeout(
+      () => demandeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      50,
+    );
   };
 
   // ─── Vérification appareil (null = chargement en cours) ─────────────
@@ -624,10 +648,11 @@ export const PortailEmploye = () => {
         </Card>
 
         {/* Demande de congé */}
-        <Card>
+        <Card ref={demandeRef}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Send className="size-4" /> Demander un congé
+              <Send className="size-4" />
+              {editId != null ? "Modifier ma demande rejetée" : "Demander un congé"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -680,9 +705,28 @@ export const PortailEmploye = () => {
               <p className="text-xs text-muted-foreground">
                 Durée : <strong>{diffJours(demande.dateDebut, demande.dateFin)}</strong> jour(s)
               </p>
-              <Button onClick={envoyerDemande} className="gap-1.5">
-                <Send className="size-4" /> Envoyer la demande
-              </Button>
+              <div className="flex items-center gap-2">
+                {editId != null && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditId(null);
+                      setDemande({
+                        type: "conges_payes",
+                        dateDebut: new Date().toISOString().split("T")[0],
+                        dateFin: new Date().toISOString().split("T")[0],
+                        motif: "",
+                      });
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                )}
+                <Button onClick={envoyerDemande} className="gap-1.5">
+                  <Send className="size-4" />
+                  {editId != null ? "Renvoyer la demande" : "Envoyer la demande"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -707,6 +751,7 @@ export const PortailEmploye = () => {
                     <TableHead className="text-right">Jours</TableHead>
                     <TableHead>Motif</TableHead>
                     <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -721,8 +766,24 @@ export const PortailEmploye = () => {
                         <TableCell className="text-right">{abs.jours}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {abs.motif || "-"}
+                          {abs.statutValidation === "rejete" && abs.motifRejet && (
+                            <div className="mt-1 text-destructive italic">
+                              Motif du rejet : {abs.motifRejet}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{statutBadge(abs.statutValidation)}</TableCell>
+                        <TableCell className="text-right">
+                          {abs.statutValidation === "rejete" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => modifierDemande(abs)}
+                            >
+                              Modifier
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                 </TableBody>
