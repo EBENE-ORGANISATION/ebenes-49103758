@@ -114,32 +114,56 @@ echo.
 :: ============================================================
 echo [6/7] Generation du fichier Setup Windows v%VERSION%...
 
-:: Fermer l'app si elle tourne
-taskkill /f /im "EBENE SERVICES.exe" >nul 2>&1
+:: ── Tuer tous les processus qui verrouillent les fichiers ──
+taskkill /f /im "EBENE SERVICES.exe"  >nul 2>&1
+taskkill /f /im "rcedit-x64.exe"      >nul 2>&1
+taskkill /f /im "rcedit.exe"          >nul 2>&1
 
-:: Nettoyer l'ancien build decompresse
+:: Attendre que les handles soient liberes
+timeout /t 2 /nobreak >nul
+
+:: ── Nettoyer les anciens builds (fichiers potentiellement verrouillespar Defender) ──
 if exist "dist-electron\win-unpacked" rmdir /s /q "dist-electron\win-unpacked"
+if exist "dist-electron\__appFiles"   rmdir /s /q "dist-electron\__appFiles"
 
-:: Vider le cache rcedit (cause principale de "Unable to commit changes")
-if exist "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign" rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
+:: ── Vider le cache rcedit/winCodeSign (cause directe du "Unable to commit changes") ──
+if exist "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign" (
+    rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
+)
+if exist "%LOCALAPPDATA%\electron-builder\Cache\nsis" (
+    rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\nsis"
+)
 
-:: Exclure les dossiers de build de Windows Defender
+:: ── Exclusions Defender (AVANT de desactiver - plus fiable) ──
+echo Configuration des exclusions Windows Defender...
+powershell -Command "Add-MpPreference -ExclusionPath 'C:\Users\Lenovo\Desktop\ebenes'" >nul 2>&1
 powershell -Command "Add-MpPreference -ExclusionPath 'C:\Users\Lenovo\Desktop\ebenes\dist-electron'" >nul 2>&1
 powershell -Command "Add-MpPreference -ExclusionPath '%LOCALAPPDATA%\electron-builder'" >nul 2>&1
+powershell -Command "Add-MpPreference -ExclusionProcess 'rcedit-x64.exe'" >nul 2>&1
+powershell -Command "Add-MpPreference -ExclusionProcess 'electron.exe'" >nul 2>&1
 
-:: Desactiver la protection temps reel pendant le build
+:: ── Desactiver la protection temps reel ──
 echo Desactivation temporaire de Windows Defender...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" >nul 2>&1
+
+:: CRITIQUE : attendre 4s que Defender soit vraiment inactif avant le build
+timeout /t 4 /nobreak >nul
 
 call npm run electron:build:win
 set BUILD_ERR=%errorlevel%
 
-:: Reactivation immediate apres le build
+:: ── Reactivation immediate apres le build ──
 echo Reactivation de Windows Defender...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul 2>&1
 
 if %BUILD_ERR% neq 0 (
+    echo.
     echo ERREUR lors de la generation du Setup Windows.
+    echo Cause probable : Windows Defender a verrouille un fichier.
+    echo.
+    echo Solution : Relancez update.bat - les exclusions sont maintenant
+    echo configurees donc le prochain essai devrait reussir.
+    echo.
     pause
     exit /b 1
 )
