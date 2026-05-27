@@ -28,14 +28,38 @@ jobs:
       - name: Build Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run electron:build:win -- --publish always
+        # --publish never : on laisse softprops gérer l'upload
+        # (évite le conflit avec la release déjà créée par update.bat)
+        run: npm run electron:build:win -- --publish never
+
+      - name: Fix latest.yml filename (espaces → points)
+        shell: pwsh
+        run: |
+          $raw = Get-Content "dist-electron\latest.yml" -Raw
+          $sha = if ($raw -match '(?m)^sha512:\s*(\S+)') { $Matches[1] } else { '' }
+          $sz  = if ($raw -match '(?m)size:\s*(\d+)')    { $Matches[1] } else { '0' }
+          $ver = if ($raw -match '(?m)^version:\s*(\S+)') { $Matches[1] } else { '' }
+          $fn  = "EBENE.SERVICES.Setup.$ver.exe"
+          $dt  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+          $out = "version: $ver`nfiles:`n  - url: $fn`n    sha512: $sha`n    size: $sz`npath: $fn`nsha512: $sha`nreleaseDate: '$dt'`n"
+          Set-Content "dist-electron\latest.yml" $out -NoNewline -Encoding utf8
+
+          # Renommer le .exe avec points pour que l'URL corresponde au latest.yml
+          $src = Get-ChildItem "dist-electron\*.exe" | Select-Object -First 1
+          if ($src) {
+            $dst = "dist-electron\$fn"
+            if ($src.FullName -ne (Resolve-Path $dst -ErrorAction SilentlyContinue)) {
+              Copy-Item $src.FullName $dst
+            }
+          }
+          Write-Host "latest.yml genere : $fn"
 
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          fail_on_unmatched_files: false
           files: |
-            dist-electron/*.exe
-            dist-electron/*.blockmap
+            dist-electron/EBENE.SERVICES.Setup.*.exe
             dist-electron/latest.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -27,7 +27,7 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
-autoUpdater.setFeedURL("https://github.com/Ennod22/ebenes/releases/latest/download");
+autoUpdater.setFeedURL("https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest/download");
 
 function sendToRenderer(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
