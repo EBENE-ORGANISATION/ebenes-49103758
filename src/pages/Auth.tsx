@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,17 @@ const Auth = () => {
   const { signIn, user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const awaitingConfirmation = searchParams.get("awaiting_confirmation") === "1";
+  const awaitingEmail = searchParams.get("email") ?? "";
+  const deviceConfirmed = searchParams.get("device_confirmed") === "1";
+
+  useEffect(() => {
+    if (deviceConfirmed) {
+      toast.success("Appareil confirmé. Reconnectez-vous pour finaliser.");
+    }
+  }, [deviceConfirmed]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
