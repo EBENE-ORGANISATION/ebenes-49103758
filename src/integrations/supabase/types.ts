@@ -518,6 +518,48 @@ export type Database = {
         }
         Relationships: []
       }
+      device_sessions: {
+        Row: {
+          confirmation_token: string | null
+          created_at: string
+          device_id: string
+          id: string
+          ip: string | null
+          last_seen_at: string
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          confirmation_token?: string | null
+          created_at?: string
+          device_id: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          confirmation_token?: string | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       devis: {
         Row: {
           activite: string | null

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
+import { getDeviceId } from "@/lib/deviceId";
 import {
   computePermissions,
   type AccessLevel,
@@ -82,6 +83,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
+  const checkDevice = useCallback(async () => {
+    try {
+      const device_id = getDeviceId();
+      const { data, error } = await supabase.functions.invoke("check-login-device", {
+        body: { device_id },
+      });
+      if (error) return;
+      if (data && data.allowed === false) {
+        await supabase.auth.signOut();
+        const email = data.email ?? "";
+        // Redirige vers /auth avec flag
+        const params = new URLSearchParams({ awaiting_confirmation: "1", email });
+        window.location.replace(`/auth?${params.toString()}`);
+      }
+    } catch (e) {
+      console.error("checkDevice failed", e);
+    }
+  }, []);
+
   const fetchRoles = useCallback(async (uid: string) => {
     const { data, error } = await supabase
       .from("user_roles")
@@ -142,7 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
@@ -153,6 +173,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchFeatures(sess.user.id);
           fetchMustChange(sess.user.id);
         }, 0);
+        // Verification appareil après login (couvre OAuth Google et email/password)
+        if (evt === "SIGNED_IN") {
+          setTimeout(() => { void checkDevice(); }, 0);
+        }
       } else {
         setRoles([]);
         setGrants([]);
@@ -190,9 +214,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => sub.subscription.unsubscribe();
   }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange]);
 
+  /** Heartbeat: maintient last_seen_at sur la session en cours */
+  useEffect(() => {
+    if (!user) return;
+    const tick = () => { void checkDevice(); };
+    const id = setInterval(tick, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    if (error) return { error: error.message };
+    return { error: null };
   };
 
   const signOut = async () => {

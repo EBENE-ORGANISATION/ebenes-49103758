@@ -9,3 +9,7 @@ project_id = "nmeyylvltlvvcvbhvxpz"
     verify_jwt = false
   [functions.notification-validation]
     verify_jwt = false
+  [functions.confirm-login-device]
+    verify_jwt = false
+  [functions.check-login-device]
+    verify_jwt = false
