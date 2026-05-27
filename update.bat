@@ -179,12 +179,9 @@ git add -A
 git commit -m "Release v%VERSION%"
 if %errorlevel% neq 0 echo Pas de nouveaux fichiers - continuation...
 
+:: Tag : supprimer l'ancien tag local s'il existe (cas de retry)
+git tag -d v%VERSION% >nul 2>&1
 git tag v%VERSION%
-if %errorlevel% neq 0 (
-    echo ERREUR lors de la creation du tag v%VERSION%.
-    pause
-    exit /b 1
-)
 
 git push origin main
 if %errorlevel% neq 0 (
@@ -193,7 +190,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-git push origin v%VERSION%
+:: Forcer le push du tag (cas de retry ou tag deja present)
+git push origin v%VERSION% --force
 if %errorlevel% neq 0 (
     echo ERREUR lors du push du tag sur GitHub.
     pause
@@ -202,21 +200,76 @@ if %errorlevel% neq 0 (
 echo OK - Code pousse sur GitHub avec le tag v%VERSION%
 echo.
 
-:: Creer la release GitHub
-echo Creation de la release GitHub...
-gh release create v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo EBENE-ORGANISATION/ebenes-49103758 --title "v%VERSION%" --notes "Release v%VERSION% - Mise a jour automatique"
+:: ─────────────────────────────────────────────────────────────
+:: Preparer les fichiers a uploader
+::   - .exe renomme avec des POINTS (URL stable, correspond a latest.yml)
+::   - latest.yml OBLIGATOIRE pour que le client se mette a jour
+:: ─────────────────────────────────────────────────────────────
+set EXE_SRC=dist-electron\EBENE SERVICES Setup %VERSION%.exe
+set EXE_DOT=dist-electron\EBENE.SERVICES.Setup.%VERSION%.exe
+
+if not exist "%EXE_SRC%" (
+    echo ERREUR : fichier Setup introuvable : %EXE_SRC%
+    pause
+    exit /b 1
+)
+if exist "%EXE_DOT%" del /f /q "%EXE_DOT%"
+copy "%EXE_SRC%" "%EXE_DOT%" >nul
+
+:: Timeout plus long pour gh (secondes)
+set GH_TIMEOUT=120
+
+:: ─────────────────────────────────────────────────────────────
+:: Upload avec retry automatique (3 tentatives, 20s d'attente)
+:: ─────────────────────────────────────────────────────────────
+set TENTATIVE=0
+
+:retry_release
+set /a TENTATIVE+=1
+echo Tentative !TENTATIVE!/3 - Creation/mise a jour de la release GitHub...
+
+gh release create v%VERSION% ^
+    "%EXE_DOT%" ^
+    "dist-electron\latest.yml" ^
+    --repo EBENE-ORGANISATION/ebenes-49103758 ^
+    --title "v%VERSION%" ^
+    --notes "Release v%VERSION% - Mise a jour automatique"
+
 if %errorlevel% equ 0 goto :release_creee
 
-:: Release deja existante : mettre a jour le fichier
-echo Release deja existante - mise a jour du Setup...
-gh release upload v%VERSION% "dist-electron\EBENE SERVICES Setup %VERSION%.exe" --repo EBENE-ORGANISATION/ebenes-49103758 --clobber
-if %errorlevel% neq 0 goto :err_release
-echo OK - Setup mis a jour dans la release v%VERSION%
-goto :release_done
+:: Release deja existante : remplacer les assets
+echo Release existante detectee - remplacement des fichiers...
+gh release upload v%VERSION% ^
+    "%EXE_DOT%" ^
+    "dist-electron\latest.yml" ^
+    --repo EBENE-ORGANISATION/ebenes-49103758 ^
+    --clobber
 
-:err_release
-echo ERREUR lors de la creation ou mise a jour de la release GitHub.
-echo Verifiez que GitHub CLI est installe et authentifie (gh auth login).
+if %errorlevel% equ 0 (
+    echo OK - Fichiers mis a jour dans la release v%VERSION%
+    goto :release_done
+)
+
+:: Echec reseau - nouvelle tentative si possible
+if !TENTATIVE! lss 3 (
+    echo.
+    echo [RESEAU] Echec tentative !TENTATIVE!/3. Attente 20 secondes...
+    timeout /t 20 /nobreak >nul
+    goto :retry_release
+)
+
+:: 3 tentatives epuisees
+echo.
+echo ERREUR : 3 tentatives d'upload echouees ^(timeout reseau^).
+echo.
+echo Solutions :
+echo   1. Verifiez votre connexion internet et relancez update.bat
+echo   2. Uploadez manuellement sur : https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/tag/v%VERSION%
+echo      Fichiers a uploader :
+echo        - %EXE_DOT%
+echo        - dist-electron\latest.yml
+echo   3. Verifiez : gh auth status
+echo.
 pause
 exit /b 1
 
@@ -230,7 +283,8 @@ echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
 echo ============================================================
 echo.
 echo  GitHub  : https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/tag/v%VERSION%
-echo  Setup   : EBENE SERVICES Setup %VERSION%.exe
+echo  Setup   : %EXE_DOT%
+echo  yml     : dist-electron\latest.yml
 echo.
 echo  Les utilisateurs Windows recevront la mise a jour automatiquement.
 echo.
