@@ -150,6 +150,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
+        // Re-valide la session côté serveur. Si le refresh token a été révoqué
+        // (login sur un autre onglet/domaine), on déconnecte proprement.
+        supabase.auth.getUser().then(({ data, error }) => {
+          if (error || !data?.user) {
+            supabase.auth.signOut().catch(() => {});
+          }
+        });
         // Fetch roles before marking auth as loaded so that isSuperAdmin is
         // correctly known when useTenant.loadSocietes first runs.
         Promise.all([
