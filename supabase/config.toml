@@ -13,3 +13,5 @@ project_id = "nmeyylvltlvvcvbhvxpz"
     verify_jwt = false
   [functions.check-login-device]
     verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
