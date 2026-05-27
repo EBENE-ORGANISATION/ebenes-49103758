@@ -486,6 +486,7 @@ const Index = () => {
                 data={data}
                 annee={annee}
                 mois={mois}
+                allAbsences={Object.values(store.donneesMensuelles).flatMap((m) => m.absences || [])}
                 sanctions={store.sanctions}
                 isChefGrh={grhValidate}
                 onAddEmploye={grhWrite ? store.addEmploye : blocked(tp("grh_read_only"))}
