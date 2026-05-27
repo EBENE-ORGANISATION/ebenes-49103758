@@ -64,6 +64,10 @@ interface AuthContextValue {
   /** L'utilisateur n'a QUE le rôle employe (aucun rôle métier admin/chef/membre) */
   isEmployeOnly: boolean;
   refreshRoles: () => Promise<void>;
+  /** TRUE si l'admin a (re)défini le mot de passe : l'utilisateur doit en choisir un nouveau. */
+  mustChangePassword: boolean;
+  /** Appelé par ForceChangePasswordModal après succès pour rafraîchir le flag. */
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -76,6 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [overrides, setOverrides] = useState<PermissionOverride[]>([]);
   const [features, setFeatures] = useState<HeaderFeature[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const fetchRoles = useCallback(async (uid: string) => {
     const { data, error } = await supabase
@@ -114,6 +119,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOverrides((data || []) as PermissionOverride[]);
   }, []);
 
+  const fetchMustChange = useCallback(async (uid: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("must_change_password")
+      .eq("user_id", uid)
+      .maybeSingle();
+    setMustChangePassword(data?.must_change_password === true);
+  }, []);
+
   const fetchFeatures = useCallback(async (uid: string) => {
     const { data, error } = await supabase
       .from("user_feature_access")
@@ -137,12 +151,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchGrants(sess.user.id);
           fetchOverrides(sess.user.id);
           fetchFeatures(sess.user.id);
+          fetchMustChange(sess.user.id);
         }, 0);
       } else {
         setRoles([]);
         setGrants([]);
         setOverrides([]);
         setFeatures([]);
+        setMustChangePassword(false);
       }
     });
 
@@ -164,6 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchGrants(sess.user.id),
           fetchOverrides(sess.user.id),
           fetchFeatures(sess.user.id),
+          fetchMustChange(sess.user.id),
         ]).finally(() => setLoading(false));
       } else {
         setLoading(false);
@@ -171,7 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures]);
+  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -192,8 +209,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await fetchGrants(user.id);
       await fetchOverrides(user.id);
       await fetchFeatures(user.id);
+      await fetchMustChange(user.id);
     }
-  }, [user, fetchRoles, fetchGrants, fetchOverrides, fetchFeatures]);
+  }, [user, fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange]);
+
+  const clearMustChangePassword = useCallback(() => {
+    setMustChangePassword(false);
+  }, []);
 
   const hasRole = (role: AppRole) => roles.includes(role);
   // Le super-admin = rôle 'admin_general' (alias historique). On reconnaît
@@ -237,6 +259,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin, isSuperAdmin,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
+        mustChangePassword, clearMustChangePassword,
       }}
     >
       {children}
@@ -282,6 +305,8 @@ export const useAuth = () => {
       isEmploye: false,
       isEmployeOnly: false,
       refreshRoles: async () => {},
+      mustChangePassword: false,
+      clearMustChangePassword: () => {},
     } satisfies AuthContextValue;
   }
   return ctx;

@@ -186,9 +186,14 @@ Deno.serve(async (req: Request) => {
           const inserts = body.roles.map((r) => ({ user_id: newUserId, role: r }));
           await admin.from("user_roles").insert(inserts);
         }
-        if (body.nom) {
-          await admin.from("profiles").update({ nom: body.nom }).eq("user_id", newUserId);
-        }
+        // Marquer "doit changer le mot de passe" + mettre à jour le nom si fourni
+        await admin
+          .from("profiles")
+          .update({
+            must_change_password: true,
+            ...(body.nom ? { nom: body.nom } : {}),
+          })
+          .eq("user_id", newUserId);
         // Rattacher automatiquement l'utilisateur créé à la société cible
         if (targetSocieteId) {
           await admin.from("user_societes").upsert(
@@ -249,6 +254,11 @@ Deno.serve(async (req: Request) => {
           password: body.new_password,
         });
         if (error) return json({ error: error.message }, 400);
+        // Forcer le changement de mot de passe à la prochaine connexion
+        await admin
+          .from("profiles")
+          .update({ must_change_password: true })
+          .eq("user_id", body.user_id);
         return json({ ok: true });
       }
 

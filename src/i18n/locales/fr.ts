@@ -1008,6 +1008,18 @@ const fr = {
     saved: "Accès aux fonctionnalités enregistré",
     err_save: "Échec : {{msg}}",
   },
+  force_pwd: {
+    title: "Changement de mot de passe requis",
+    subtitle: "Votre mot de passe a été défini par un administrateur. Vous devez en choisir un nouveau pour continuer.",
+    new_password: "Nouveau mot de passe",
+    confirm_password: "Confirmer le mot de passe",
+    rule_min8: "Au moins 8 caractères",
+    rule_match: "Les deux mots de passe sont identiques",
+    submit: "Changer mon mot de passe",
+    success: "Mot de passe mis à jour avec succès",
+    err_min8: "Le mot de passe doit contenir au moins 8 caractères",
+    err_mismatch: "Les mots de passe ne correspondent pas",
+  },
   admin_perms: {
     title: "Permissions personnalisées par utilisateur",
     intro: "Surchargez les niveaux d'accès par module pour un utilisateur précis. « Défaut du rôle » = on applique automatiquement les droits liés à ses rôles. Les autres niveaux (Aucun / Lecture / Lecture+saisie / Lecture+saisie+validation) remplacent le défaut.",

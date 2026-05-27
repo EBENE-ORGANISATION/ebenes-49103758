@@ -15,6 +15,7 @@ import Corbeille from "./pages/Corbeille.tsx";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
+import { ForceChangePasswordGate } from "@/components/auth/ForceChangePasswordGate";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
       />
       <HashRouter>
         <AuthProvider>
+          <ForceChangePasswordGate />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route

@@ -1010,6 +1010,18 @@ const en: Translation = {
     saved: "Feature access saved",
     err_save: "Failed: {{msg}}",
   },
+  force_pwd: {
+    title: "Password change required",
+    subtitle: "Your password was set by an administrator. You must choose a new one to continue.",
+    new_password: "New password",
+    confirm_password: "Confirm password",
+    rule_min8: "At least 8 characters",
+    rule_match: "Both passwords match",
+    submit: "Change my password",
+    success: "Password updated successfully",
+    err_min8: "Password must be at least 8 characters",
+    err_mismatch: "Passwords do not match",
+  },
   admin_perms: {
     title: "Custom permissions per user",
     intro: "Override access levels per module for a specific user. \"Role default\" = automatically apply rights linked to their roles. Other levels (None / Read / Read+write / Read+write+validation) replace the default.",
