@@ -262,6 +262,8 @@ export const PortailEmploye = () => {
     dateFin: new Date().toISOString().split("T")[0],
     motif: "",
   });
+  const [editId, setEditId] = useState<number | null>(null);
+  const demandeRef = useRef<HTMLDivElement>(null);
 
   const envoyerDemande = () => {
     if (!employe) return;
@@ -276,6 +278,9 @@ export const PortailEmploye = () => {
     }
     const moisDemande = new Date(demande.dateDebut).getMonth() + 1;
     const anneeDemande = new Date(demande.dateDebut).getFullYear();
+    if (editId != null) {
+      store.removeAbsence(anneeDemande, moisDemande, editId);
+    }
     store.addAbsence(anneeDemande, moisDemande, {
       employeId: employe.id,
       type: demande.type,
@@ -285,8 +290,27 @@ export const PortailEmploye = () => {
       motif: demande.motif,
       statutValidation: "en_validation",
     });
-    toast.success("Demande envoyée — en attente de validation par le chef GRH");
+    toast.success(
+      editId != null
+        ? "Demande modifiée et renvoyée — en attente de validation"
+        : "Demande envoyée — en attente de validation par le chef GRH",
+    );
+    setEditId(null);
     setDemande((d) => ({ ...d, motif: "" }));
+  };
+
+  const modifierDemande = (abs: import("@/types/ebene").Absence) => {
+    setEditId(abs.id);
+    setDemande({
+      type: abs.type,
+      dateDebut: abs.dateDebut,
+      dateFin: abs.dateFin,
+      motif: abs.motif || "",
+    });
+    setTimeout(
+      () => demandeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      50,
+    );
   };
 
   // ─── Vérification appareil (null = chargement en cours) ─────────────
