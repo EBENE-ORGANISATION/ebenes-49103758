@@ -79,6 +79,8 @@ interface Props {
   employesCorbeille?: Employe[];
   onRestoreEmploye?: (id: number) => void;
   onPurgeEmploye?: (id: number) => void;
+  /** Toutes les absences (tous mois confondus) — pour visibilité GRH des demandes en attente */
+  allAbsences?: Absence[];
 }
 
 export const GRH = ({
@@ -112,6 +114,7 @@ export const GRH = ({
   employesCorbeille = [],
   onRestoreEmploye,
   onPurgeEmploye,
+  allAbsences,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
