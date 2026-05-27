@@ -211,7 +211,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     const moisD = new Date(demande.dateDebut).getMonth() + 1;
     const anneeD = new Date(demande.dateDebut).getFullYear();
     if (editId != null) {
-      store.removeAbsence(editId);
+      store.removeAbsence(anneeD, moisD, editId);
     }
     store.addAbsence(anneeD, moisD, {
       employeId: employe.id,
