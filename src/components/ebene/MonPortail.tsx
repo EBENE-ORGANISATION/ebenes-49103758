@@ -197,6 +197,9 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     dateFin: new Date().toISOString().split("T")[0],
     motif: "",
   });
+  // Si on modifie une demande rejetée → id de l'ancienne à supprimer
+  const [editId, setEditId] = useState<number | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const envoyerDemande = () => {
     if (!employe) return;
@@ -207,6 +210,9 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     const jours = diffJours(demande.dateDebut, demande.dateFin);
     const moisD = new Date(demande.dateDebut).getMonth() + 1;
     const anneeD = new Date(demande.dateDebut).getFullYear();
+    if (editId != null) {
+      store.removeAbsence(editId);
+    }
     store.addAbsence(anneeD, moisD, {
       employeId: employe.id,
       type: demande.type,
@@ -216,8 +222,27 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
       motif: demande.motif,
       statutValidation: "en_validation",
     });
-    toast.success("Demande envoyée — en attente de validation GRH");
+    toast.success(
+      editId != null
+        ? "Demande modifiée et renvoyée — en attente de validation GRH"
+        : "Demande envoyée — en attente de validation GRH",
+    );
+    setEditId(null);
     setDemande((d) => ({ ...d, motif: "" }));
+  };
+
+  const modifierDemande = (abs: import("@/types/ebene").Absence) => {
+    setEditId(abs.id);
+    setDemande({
+      type: abs.type,
+      dateDebut: abs.dateDebut,
+      dateFin: abs.dateFin,
+      motif: abs.motif || "",
+    });
+    setTimeout(
+      () => formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      50,
+    );
   };
 
   // Aucun compte lié à une fiche
