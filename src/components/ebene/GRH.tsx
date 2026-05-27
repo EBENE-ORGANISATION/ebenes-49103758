@@ -580,7 +580,7 @@ export const GRH = ({
         <TabsContent value="absences">
           <AbsencesPanel
             employes={employes}
-            absences={data.absences || []}
+            absences={allAbsences ?? data.absences ?? []}
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
             isChefGrh={isChefGrh}
