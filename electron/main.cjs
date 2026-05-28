@@ -27,7 +27,14 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
-autoUpdater.setFeedURL("https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest/download");
+// Utilise le provider GitHub natif (API GitHub) plutôt qu'une URL générique
+// qui dépend du redirect /releases/latest/download/ (404 fréquents si la
+// release n'est pas marquée "Latest" par GitHub).
+autoUpdater.setFeedURL({
+  provider: "github",
+  owner: "EBENE-ORGANISATION",
+  repo: "ebenes-49103758",
+});
 
 function sendToRenderer(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
