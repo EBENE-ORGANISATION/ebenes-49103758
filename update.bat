@@ -251,18 +251,28 @@ if exist "%BM_SRC%" (
 set GH_TIMEOUT=120
 
 :: ─────────────────────────────────────────────────────────────
+:: Construire la liste des fichiers a uploader
+:: latest.yml + exe sont OBLIGATOIRES, blockmap OPTIONNEL
+:: ─────────────────────────────────────────────────────────────
+set UPLOAD_FILES="%EXE_DOT%" "dist-electron\latest.yml"
+if exist "%BM_DOT%" set UPLOAD_FILES="%EXE_DOT%" "%BM_DOT%" "dist-electron\latest.yml"
+
+echo Fichiers a uploader :
+echo   - %EXE_DOT%
+if exist "%BM_DOT%" echo   - %BM_DOT%
+echo   - dist-electron\latest.yml
+echo.
+
+:: ─────────────────────────────────────────────────────────────
 :: Upload avec retry automatique (3 tentatives, 20s d'attente)
 :: ─────────────────────────────────────────────────────────────
 set TENTATIVE=0
 
 :retry_release
 set /a TENTATIVE+=1
-echo Tentative !TENTATIVE!/3 - Creation/mise a jour de la release GitHub...
+echo Tentative !TENTATIVE!/3 - Creation de la release GitHub...
 
-gh release create v%VERSION% ^
-    "%EXE_DOT%" ^
-    "%BM_DOT%" ^
-    "dist-electron\latest.yml" ^
+gh release create v%VERSION% %UPLOAD_FILES% ^
     --repo EBENE-ORGANISATION/ebenes-49103758 ^
     --title "v%VERSION%" ^
     --notes "Release v%VERSION% - Mise a jour automatique" ^
@@ -272,10 +282,7 @@ if %errorlevel% equ 0 goto :release_creee
 
 :: Release deja existante : remplacer les assets
 echo Release existante detectee - remplacement des fichiers...
-gh release upload v%VERSION% ^
-    "%EXE_DOT%" ^
-    "%BM_DOT%" ^
-    "dist-electron\latest.yml" ^
+gh release upload v%VERSION% %UPLOAD_FILES% ^
     --repo EBENE-ORGANISATION/ebenes-49103758 ^
     --clobber
 
@@ -299,9 +306,7 @@ echo.
 echo Solutions :
 echo   1. Verifiez votre connexion internet et relancez update.bat
 echo   2. Uploadez manuellement sur : https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/tag/v%VERSION%
-echo      Fichiers a uploader :
-echo        - %EXE_DOT%
-echo        - dist-electron\latest.yml
+echo      Fichiers a uploader : %EXE_DOT% + dist-electron\latest.yml
 echo   3. Verifiez : gh auth status
 echo.
 pause
