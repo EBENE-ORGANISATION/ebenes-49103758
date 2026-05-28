@@ -83,6 +83,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: false
+          make_latest: "true"
           files: |
             dist-electron/EBENE.SERVICES.Setup.*.exe
             dist-electron/EBENE.SERVICES.Setup.*.exe.blockmap
