@@ -28,65 +28,28 @@ jobs:
       - name: Build Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --publish never : on laisse softprops gérer l'upload
+        # --publish never : update.bat gère seul la release GitHub
+        # Le CI sert uniquement à valider que le build passe sur un
+        # environnement propre. L'upload est fait localement par update.bat
+        # pour éviter la race condition (SHA512 incohérent si les deux
+        # systèmes uploadent en même temps).
         run: npm run electron:build:win -- --publish never
 
-      - name: Fix noms de fichiers + latest.yml (espaces → points)
+      - name: Verify build output
         shell: pwsh
         run: |
-          $distDir = "dist-electron"
+          $exe = Get-ChildItem "dist-electron\*.exe" | Select-Object -First 1
+          $yml = "dist-electron\latest.yml"
+          if (-not $exe) { Write-Error "EXE manquant dans dist-electron"; exit 1 }
+          if (-not (Test-Path $yml)) { Write-Error "latest.yml manquant"; exit 1 }
+          $ver = if ((Get-Content $yml -Raw) -match '(?m)^version:\s*(\S+)') { $Matches[1] } else { '?' }
+          Write-Host "Build OK : $($exe.Name) — version $ver"
 
-          # --- Lire le latest.yml généré par electron-builder ---
-          $raw = Get-Content "$distDir\latest.yml" -Raw
-          $sha = if ($raw -match '(?m)^sha512:\s*(\S+)') { $Matches[1] } else { '' }
-          $sz  = if ($raw -match '(?m)size:\s*(\d+)')    { $Matches[1] } else { '0' }
-          $ver = if ($raw -match '(?m)^version:\s*(\S+)') { $Matches[1] } else { '' }
-
-          $fn    = "EBENE.SERVICES.Setup.$ver.exe"
-          $fnBm  = "$fn.blockmap"
-          $dt    = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-
-          # --- Recréer latest.yml propre avec noms en points ---
-          $out = @"
-          version: $ver
-          files:
-            - url: $fn
-              sha512: $sha
-              size: $sz
-          path: $fn
-          sha512: $sha
-          releaseDate: '$dt'
-          "@
-          # Supprimer l'indentation du here-string
-          $out = ($out -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
-          Set-Content "$distDir\latest.yml" $out -NoNewline -Encoding utf8
-
-          # --- Renommer .exe ---
-          $exeSrc = Get-ChildItem "$distDir\*.exe" | Where-Object { $_.Name -notlike "EBENE.SERVICES*" } | Select-Object -First 1
-          if ($exeSrc) {
-            Copy-Item $exeSrc.FullName "$distDir\$fn"
-            Write-Host "EXE: $($exeSrc.Name) -> $fn"
-          }
-
-          # --- Renommer .blockmap ---
-          $bmSrc = Get-ChildItem "$distDir\*.blockmap" | Where-Object { $_.Name -notlike "EBENE.SERVICES*" } | Select-Object -First 1
-          if ($bmSrc) {
-            Copy-Item $bmSrc.FullName "$distDir\$fnBm"
-            Write-Host "BLOCKMAP: $($bmSrc.Name) -> $fnBm"
-          }
-
-          # --- Afficher le latest.yml final ---
-          Write-Host "=== latest.yml ==="
-          Get-Content "$distDir\latest.yml"
-
-      - name: Upload artifacts to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload CI artifact (diagnostic uniquement)
+        uses: actions/upload-artifact@v4
         with:
-          fail_on_unmatched_files: false
-          make_latest: "true"
-          files: |
-            dist-electron/EBENE.SERVICES.Setup.*.exe
-            dist-electron/EBENE.SERVICES.Setup.*.exe.blockmap
+          name: windows-installer-ci
+          path: |
+            dist-electron/*.exe
             dist-electron/latest.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          retention-days: 7

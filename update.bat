@@ -99,14 +99,14 @@ if %errorlevel% neq 0 (
 echo OK - Application compilee
 echo.
 
-echo [5/7] Synchronisation avec Android...
+echo [5/7] Synchronisation avec Android (optionnel)...
 call npx cap sync
 if %errorlevel% neq 0 (
-    echo ERREUR lors de la synchronisation Android.
-    pause
-    exit /b 1
+    echo AVERTISSEMENT : cap sync a echoue ^(Android SDK manquant ou non configure^).
+    echo                 Le build Windows continue normalement.
+) else (
+    echo OK - Android synchronise
 )
-echo OK - Android synchronise
 echo.
 
 :: ============================================================
@@ -231,6 +231,8 @@ echo.
 :: ─────────────────────────────────────────────────────────────
 set EXE_SRC=dist-electron\EBENE SERVICES Setup %VERSION%.exe
 set EXE_DOT=dist-electron\EBENE.SERVICES.Setup.%VERSION%.exe
+set BM_SRC=dist-electron\EBENE SERVICES Setup %VERSION%.exe.blockmap
+set BM_DOT=dist-electron\EBENE.SERVICES.Setup.%VERSION%.exe.blockmap
 
 if not exist "%EXE_SRC%" (
     echo ERREUR : fichier Setup introuvable : %EXE_SRC%
@@ -239,6 +241,11 @@ if not exist "%EXE_SRC%" (
 )
 if exist "%EXE_DOT%" del /f /q "%EXE_DOT%"
 copy "%EXE_SRC%" "%EXE_DOT%" >nul
+
+if exist "%BM_SRC%" (
+    if exist "%BM_DOT%" del /f /q "%BM_DOT%"
+    copy "%BM_SRC%" "%BM_DOT%" >nul
+)
 
 :: Timeout plus long pour gh (secondes)
 set GH_TIMEOUT=120
@@ -254,10 +261,12 @@ echo Tentative !TENTATIVE!/3 - Creation/mise a jour de la release GitHub...
 
 gh release create v%VERSION% ^
     "%EXE_DOT%" ^
+    "%BM_DOT%" ^
     "dist-electron\latest.yml" ^
     --repo EBENE-ORGANISATION/ebenes-49103758 ^
     --title "v%VERSION%" ^
-    --notes "Release v%VERSION% - Mise a jour automatique"
+    --notes "Release v%VERSION% - Mise a jour automatique" ^
+    --latest
 
 if %errorlevel% equ 0 goto :release_creee
 
@@ -265,6 +274,7 @@ if %errorlevel% equ 0 goto :release_creee
 echo Release existante detectee - remplacement des fichiers...
 gh release upload v%VERSION% ^
     "%EXE_DOT%" ^
+    "%BM_DOT%" ^
     "dist-electron\latest.yml" ^
     --repo EBENE-ORGANISATION/ebenes-49103758 ^
     --clobber
