@@ -28,6 +28,7 @@ import {
   XCircle,
   KeyRound,
   Users,
+  IdCard,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
@@ -41,6 +42,8 @@ import { IndemnitesCalculator } from "./grh/IndemnitesCalculator";
 import { SimulateurLegal } from "./grh/SimulateurLegal";
 import { StatutValidationBadge } from "./grh/StatutValidationBadge";
 import { ImportEmployesExcel } from "./grh/ImportEmployesExcel";
+import { FichePersonnel } from "./grh/FichePersonnel";
+import { ListePersonnel } from "./grh/ListePersonnel";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 import { BulletinsPaie } from "./BulletinsPaie";
@@ -120,6 +123,7 @@ export const GRH = ({
   const [editing, setEditing] = useState<Employe | null>(null);
   const [bulletin, setBulletin] = useState<Employe | null>(null);
   const [contrat, setContrat] = useState<Employe | null>(null);
+  const [fiche, setFiche] = useState<Employe | null>(null);
   const [hsOpen, setHsOpen] = useState<number | null>(null);
   const [primeOpen, setPrimeOpen] = useState<number | null>(null);
   const [primeLib, setPrimeLib] = useState("");
@@ -241,8 +245,9 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-5 h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
+          <TabsTrigger value="liste">📋 Liste du personnel</TabsTrigger>
           <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>
           <TabsTrigger value="absences">📅 Congés & absences</TabsTrigger>
           <TabsTrigger value="discipline">⚠️ Discipline</TabsTrigger>
@@ -363,6 +368,9 @@ export const GRH = ({
                         )}
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setBulletin(e)}>
                           <Receipt className="size-3" /> Bulletin
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setFiche(e)} title="Fiche de personnel complète">
+                          <IdCard className="size-3" /> Fiche
                         </Button>
                         <Button
                           size="sm"
@@ -567,6 +575,14 @@ export const GRH = ({
           )}
         </TabsContent>
 
+        <TabsContent value="liste">
+          {currentSociete?.id ? (
+            <ListePersonnel employes={employes} societeId={currentSociete.id} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Société non sélectionnée.</p>
+          )}
+        </TabsContent>
+
         <TabsContent value="bulletins">
           <BulletinsPaie
             employes={employes}
@@ -668,6 +684,9 @@ export const GRH = ({
         <BulletinPaie employe={bulletin} data={data} annee={annee} mois={mois} onClose={() => setBulletin(null)} />
       )}
       {contrat && <ContratGenerator employe={contrat} onClose={() => setContrat(null)} />}
+      {fiche && currentSociete?.id && (
+        <FichePersonnel employe={fiche} societeId={currentSociete.id} onClose={() => setFiche(null)} />
+      )}
     </div>
   );
 };
