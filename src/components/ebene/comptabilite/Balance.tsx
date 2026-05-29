@@ -32,6 +32,7 @@ const CLASSE_LABELS: Record<number, string> = {
 };
 
 export const Balance = ({ donneesMensuelles, annee }: Props) => {
+  const printRef = useRef<HTMLDivElement>(null);
   const [filtre, setFiltre] = useState<"tous" | "mouvements">("mouvements");
 
   const lignes = useMemo<LigneBalance[]>(() => {
