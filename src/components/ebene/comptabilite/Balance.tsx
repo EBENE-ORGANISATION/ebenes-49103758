@@ -125,7 +125,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={printRef}>
       {/* Contrôles + badge équilibre + imprimer */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1.5">
@@ -160,7 +160,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
             )}
           </div>
           {/* T7 — Imprimer */}
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => window.print()}>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs no-print" onClick={() => printElement(printRef.current, `Balance ${annee}`)}>
             <Printer className="size-3.5" /> Imprimer
           </Button>
         </div>
