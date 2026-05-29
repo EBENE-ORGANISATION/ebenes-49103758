@@ -4,6 +4,7 @@ import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { printElementById } from "@/lib/print";
 import { useTenant } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
 
