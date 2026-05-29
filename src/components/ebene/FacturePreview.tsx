@@ -4,6 +4,7 @@ import { Facture } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { printElementById } from "@/lib/print";
 import { useTenant } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
 
@@ -45,7 +46,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
         <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-muted/30 no-print">
           <h2 className="font-bold">{t("facture_preview.header", { numero: facture.numero })}</h2>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => window.print()} className="gap-1.5">
+            <Button size="sm" onClick={() => printElementById("print-area", `Facture ${facture.numero}`)} className="gap-1.5">
               <Printer className="size-4" /> {t("facture_preview.print")}
             </Button>
             <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">

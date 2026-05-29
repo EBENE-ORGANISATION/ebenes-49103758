@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { printElementById } from "@/lib/print";
 import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
@@ -188,7 +189,7 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
         <div className="flex items-center justify-between mb-4 no-print">
           <h2 className="text-xl font-bold">{t("grh_bulletin.title")}</h2>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => printElementById("print-area", `Bulletin ${employe.nom}`)} className="gap-1.5">
               <Printer className="size-4" /> {t("grh_bulletin.print")}
             </Button>
             <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1.5">

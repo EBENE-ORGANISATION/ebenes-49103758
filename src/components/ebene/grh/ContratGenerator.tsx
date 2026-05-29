@@ -2,6 +2,7 @@ import { Employe, MOIS_NOMS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
 import { formatMontant } from "@/lib/ebene-utils";
+import { printElementById } from "@/lib/print";
 import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
@@ -34,7 +35,7 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
         <div className="flex items-center justify-between mb-4 no-print">
           <h2 className="text-xl font-bold">{t("grh_contrat.title")}</h2>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => printElementById("print-area", `Contrat ${employe.nom}`)} className="gap-1.5">
               <Printer className="size-4" /> {t("grh_contrat.print")}
             </Button>
             <Button size="sm" variant="ghost" onClick={onClose}><X className="size-4" /></Button>

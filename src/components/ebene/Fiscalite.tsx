@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -18,6 +18,7 @@ import {
   Printer, CheckCircle2, Unlock,
 } from "lucide-react";
 import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
+import { printElement } from "@/lib/print";
 import { TauxImpots } from "./TauxImpots";
 import { GestionDelegations } from "./GestionDelegations";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,6 +133,7 @@ export const Fiscalite = ({
   const [showHistorique, setShowHistorique] = useState(false);
   const [thInput,    setThInput]    = useState("");
   const [loyerInput, setLoyerInput] = useState("");
+  const tvaPrintRef = useRef<HTMLDivElement>(null);
 
   // ── État TVA manuel (lignes saisies à la main) ────────────────────────────
   const [tvaManuel, setTvaManuel] = useState({
@@ -495,6 +497,7 @@ export const Fiscalite = ({
 
         {/* ══ TVA ═══════════════════════════════════════════════════════════ */}
         <TabsContent value="tva" className="space-y-4 mt-4">
+         <div ref={tvaPrintRef} className="space-y-4">
           {/* ─ En-tête formulaire OTR ─ */}
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
@@ -558,7 +561,7 @@ export const Fiscalite = ({
                 onPdf={() => dlPDF(`TVA_${annee}_${mois}`, tvaTitre, tvaHead, tvaBody)}
                 onWord={() => dlWord(`TVA_${annee}_${mois}`, tvaTitre, tvaTableHtml)}
               />
-              <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => window.print()}>
+              <Button size="sm" variant="outline" className="gap-1 h-8 text-xs no-print" onClick={() => printElement(tvaPrintRef.current, `Déclaration TVA ${annee}-${String(mois).padStart(2,"0")}`)}>
                 <Printer className="size-3" />Imprimer
               </Button>
             </div>
@@ -879,6 +882,7 @@ export const Fiscalite = ({
               </p>
             </div>
           )}
+         </div>
         </TabsContent>
 
         {/* ══ IS / IMF ══════════════════════════════════════════════════════ */}
