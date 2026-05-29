@@ -2,11 +2,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import pkg from "./package.json";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // Base relative requise pour qu'Electron charge correctement les assets
   // depuis `file://` (sinon : page blanche). Innocue pour le mode web/PWA.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   base: "./",
   server: {
     host: "::",

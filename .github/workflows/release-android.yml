@@ -57,13 +57,26 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
-          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+          # Utilise la dernière version de build-tools disponible
+          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)/apksigner
+          # L'APK peut être app-release-unsigned.apk ou app-release.apk selon Gradle
+          APK_IN=""
+          if [ -f android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            APK_IN=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          elif [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            APK_IN=android/app/build/outputs/apk/release/app-release.apk
+          else
+            echo "❌ APK introuvable pour la signature"
+            ls -la android/app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          $APKSIGNER sign \
             --ks /tmp/keystore.jks \
             --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --key-pass "pass:$ANDROID_KEY_PASSWORD" \
             --out android/app/build/outputs/apk/release/ebenes-signed.apk \
-            android/app/build/outputs/apk/release/app-release-unsigned.apk
+            "$APK_IN"
 
       - name: Rename unsigned APK (fallback)
         if: ${{ env.HAS_KEYSTORE != 'true' }}

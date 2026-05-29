@@ -16,6 +16,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { ForceChangePasswordGate } from "@/components/auth/ForceChangePasswordGate";
+import { AndroidUpdateChecker } from "@/components/AndroidUpdateChecker";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
       <HashRouter>
         <AuthProvider>
           <ForceChangePasswordGate />
+          <AndroidUpdateChecker />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route
