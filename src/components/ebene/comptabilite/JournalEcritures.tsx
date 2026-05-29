@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type EcritureComptable, type StatutEcriture, JOURNAL_LABELS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import {
   Trash2, Printer, BookOpen,
 } from "lucide-react";
 import { formatMontant } from "@/lib/ebene-utils";
+import { printElement } from "@/lib/print";
 
 interface Props {
   ecritures: EcritureComptable[];
@@ -42,6 +43,7 @@ export const JournalEcritures = ({
   ecritures, isChefCompta, onValider, onRejeter, onSupprimer,
 }: Props) => {
   const [expanded, setExpanded] = useState<number | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   // T2 — Empty state illustré
   if (ecritures.length === 0) {
@@ -73,7 +75,7 @@ export const JournalEcritures = ({
   const validees   = ecritures.filter((e) => e.statut === "valide").length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={printRef}>
       {/* En-tête : stats + bouton imprimer */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
@@ -91,7 +93,7 @@ export const JournalEcritures = ({
           </span>
         </div>
         {/* T7 — Imprimer */}
-        <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => window.print()}>
+        <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs no-print" onClick={() => printElement(printRef.current, "Journal des écritures")}>
           <Printer className="size-3.5" /> Imprimer
         </Button>
       </div>
