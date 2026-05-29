@@ -496,7 +496,8 @@ export const Fiscalite = ({
         </TabsContent>
 
         {/* ══ TVA ═══════════════════════════════════════════════════════════ */}
-        <TabsContent value="tva" className="space-y-4 mt-4" ref={tvaPrintRef as unknown as React.Ref<HTMLDivElement>}>
+        <TabsContent value="tva" className="space-y-4 mt-4">
+         <div ref={tvaPrintRef} className="space-y-4">
           {/* ─ En-tête formulaire OTR ─ */}
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
