@@ -27,3 +27,7 @@ dist/
 
 # Worktrees Claude Code
 .claude/
+
+# Android keystore (NE JAMAIS COMMITER)
+*.jks
+*.keystore
