@@ -133,6 +133,7 @@ export const Fiscalite = ({
   const [showHistorique, setShowHistorique] = useState(false);
   const [thInput,    setThInput]    = useState("");
   const [loyerInput, setLoyerInput] = useState("");
+  const tvaPrintRef = useRef<HTMLDivElement>(null);
 
   // ── État TVA manuel (lignes saisies à la main) ────────────────────────────
   const [tvaManuel, setTvaManuel] = useState({
