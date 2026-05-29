@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type DonneesMensuelles } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
 import { Scale, Printer, CheckCircle2, AlertTriangle } from "lucide-react";
+import { printElement } from "@/lib/print";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
