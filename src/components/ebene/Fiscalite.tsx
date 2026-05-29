@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -18,6 +18,7 @@ import {
   Printer, CheckCircle2, Unlock,
 } from "lucide-react";
 import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
+import { printElement } from "@/lib/print";
 import { TauxImpots } from "./TauxImpots";
 import { GestionDelegations } from "./GestionDelegations";
 import { useAuth } from "@/hooks/useAuth";
