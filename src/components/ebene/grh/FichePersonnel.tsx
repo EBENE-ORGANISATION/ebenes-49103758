@@ -153,7 +153,8 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="w-full" ref={printRef as unknown as React.Ref<HTMLDivElement>}>
+        <div ref={printRef}>
+        <Tabs defaultValue="info" className="w-full">
           <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto">
             <TabsTrigger value="info">Identité</TabsTrigger>
             <TabsTrigger value="contrat">Contrat</TabsTrigger>
@@ -245,6 +246,7 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
             )}
           </TabsContent>
         </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
