@@ -882,6 +882,7 @@ export const Fiscalite = ({
               </p>
             </div>
           )}
+         </div>
         </TabsContent>
 
         {/* ══ IS / IMF ══════════════════════════════════════════════════════ */}
