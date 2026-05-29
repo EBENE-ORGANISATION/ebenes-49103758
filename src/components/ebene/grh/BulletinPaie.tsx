@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
+import { printElementById } from "@/lib/print";
 import { Trans, useTranslation } from "react-i18next";
 
 interface Props {
