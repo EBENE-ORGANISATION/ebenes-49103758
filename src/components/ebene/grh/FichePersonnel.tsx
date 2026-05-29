@@ -3,13 +3,14 @@
  * informations d'un employé et le retraçage de sa carrière (bulletins,
  * absences, sanctions, heures sup, primes).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMontant, calculerAnciennete } from "@/lib/ebene-utils";
+import { printElement } from "@/lib/print";
 import type { Employe } from "@/types/ebene";
 
 interface Props {
@@ -51,6 +52,7 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
   const [absences, setAbsences] = useState<AbsenceRow[]>([]);
   const [sanctions, setSanctions] = useState<SanctionRow[]>([]);
   const [hs, setHs] = useState<HSRow[]>([]);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -141,7 +143,7 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
           <DialogTitle className="flex items-center justify-between gap-2 flex-wrap">
             <span>📋 Fiche de personnel — {e.nom}</span>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1">
+              <Button size="sm" variant="outline" onClick={() => printElement(printRef.current, `Fiche ${e.nom}`)} className="gap-1">
                 <Printer className="size-3.5" /> Imprimer
               </Button>
               <Button size="sm" onClick={exportFiche} className="gap-1">
@@ -151,7 +153,7 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="w-full">
+        <Tabs defaultValue="info" className="w-full" ref={printRef as unknown as React.Ref<HTMLDivElement>}>
           <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto">
             <TabsTrigger value="info">Identité</TabsTrigger>
             <TabsTrigger value="contrat">Contrat</TabsTrigger>
