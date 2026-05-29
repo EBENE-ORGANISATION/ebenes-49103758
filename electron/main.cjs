@@ -77,9 +77,23 @@ autoUpdater.on("update-downloaded", (info) => {
   }).catch((err) => log.error("dialog update-downloaded error:", err));
 });
 autoUpdater.on("error", (err) => {
+  const msg = String(err && err.message ? err.message : err);
+  // Erreurs silencieuses : hors ligne, repo privé (404), timeout réseau.
+  // On log mais on n'affiche RIEN à l'utilisateur pour ces cas normaux.
+  const isSilent =
+    msg.includes("404") ||
+    msg.includes("net::") ||
+    msg.includes("ENOTFOUND") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("releases.atom") ||
+    msg.includes("latest.yml");
+  if (isSilent) {
+    log.info("Update check skipped (réseau/accès) :", msg.split("\n")[0]);
+    return;
+  }
   log.error("Auto-updater error:", err);
-  sendToRenderer("update-error", { message: String(err && err.message ? err.message : err) });
-  // Ne pas afficher de dialog pour les erreurs (fréquentes en dev ou hors ligne)
+  sendToRenderer("update-error", { message: msg });
 });
 
 ipcMain.on("install-update", () => {
