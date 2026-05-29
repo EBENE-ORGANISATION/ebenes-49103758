@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, Search, Printer, BookMarked } from "lucide-r
 import { type DonneesMensuelles, type EcritureComptable } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
 import { formatMontant } from "@/lib/ebene-utils";
+import { printElement } from "@/lib/print";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
@@ -35,6 +36,7 @@ interface CompteGrandLivre {
 export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
   const [search, setSearch]     = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const comptes = useMemo<CompteGrandLivre[]>(() => {
     const map = new Map<string, {
@@ -120,7 +122,7 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={printRef}>
       {/* Barre de recherche + compteur + imprimer */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-48">
@@ -136,7 +138,7 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
           {filtered.length} compte{filtered.length > 1 ? "s" : ""} — Exercice {annee}
         </span>
         {/* T7 — Imprimer */}
-        <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs shrink-0" onClick={() => window.print()}>
+        <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs shrink-0 no-print" onClick={() => printElement(printRef.current, `Grand livre ${annee}`)}>
           <Printer className="size-3.5" /> Imprimer
         </Button>
       </div>
