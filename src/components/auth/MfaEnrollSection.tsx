@@ -134,6 +134,7 @@ export const MfaEnrollSection = () => {
       if (error) throw error;
       toast.success(t("mfa.unenroll_success"));
       setFactorId(null);
+      await refreshMfa();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
