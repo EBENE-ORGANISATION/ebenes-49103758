@@ -1060,11 +1060,6 @@ const fr = {
     err_6digits:          "Le code doit contenir exactement 6 chiffres",
     err_invalid:          "Code invalide. Vérifiez l'heure de votre appareil.",
   },
-  common: {
-    cancel: "Annuler",
-    save:   "Enregistrer",
-    close:  "Fermer",
-  },
   admin_perms: {
     title: "Permissions personnalisées par utilisateur",
     intro: "Surchargez les niveaux d'accès par module pour un utilisateur précis. « Défaut du rôle » = on applique automatiquement les droits liés à ses rôles. Les autres niveaux (Aucun / Lecture / Lecture+saisie / Lecture+saisie+validation) remplacent le défaut.",
