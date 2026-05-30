@@ -1062,11 +1062,6 @@ const en: Translation = {
     err_6digits:          "Code must be exactly 6 digits",
     err_invalid:          "Invalid code. Check your device's time.",
   },
-  common: {
-    cancel: "Cancel",
-    save:   "Save",
-    close:  "Close",
-  },
   admin_perms: {
     title: "Custom permissions per user",
     intro: "Override access levels per module for a specific user. \"Role default\" = automatically apply rights linked to their roles. Other levels (None / Read / Read+write / Read+write+validation) replace the default.",
