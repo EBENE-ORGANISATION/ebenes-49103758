@@ -26,6 +26,8 @@ import { ShieldCheck, ShieldOff, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
+import { MfaRecoveryCodesDialog } from "./MfaRecoveryCodesDialog";
+import { KeyRound } from "lucide-react";
 
 export const MfaEnrollSection = () => {
   const { t } = useTranslation();
@@ -47,6 +49,11 @@ export const MfaEnrollSection = () => {
   // Désactivation
   const [unenrolling, setUnenrolling] = useState(false);
 
+  // Codes de récupération
+  const [recoveryCount, setRecoveryCount] = useState<number>(0);
+  const [generatingRecovery, setGeneratingRecovery] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+
   const loadFactors = useCallback(async () => {
     setLoading(true);
     try {
@@ -60,7 +67,36 @@ export const MfaEnrollSection = () => {
     }
   }, []);
 
-  useEffect(() => { void loadFactors(); }, [loadFactors]);
+  const loadRecoveryCount = useCallback(async () => {
+    const { count } = await supabase
+      .from("mfa_recovery_codes")
+      .select("id", { count: "exact", head: true })
+      .is("used_at", null);
+    setRecoveryCount(count ?? 0);
+  }, []);
+
+  useEffect(() => {
+    void loadFactors();
+    void loadRecoveryCount();
+  }, [loadFactors, loadRecoveryCount]);
+
+  const handleGenerateRecovery = async () => {
+    setGeneratingRecovery(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("mfa-recovery-generate");
+      if (error) throw error;
+      if (!data?.codes) throw new Error("Réponse invalide du serveur");
+      setRecoveryCodes(data.codes as string[]);
+      await loadRecoveryCount();
+    } catch (err) {
+      toast.error(
+        (err as Error).message ??
+          "Impossible de générer les codes. Vérifiez votre 2FA puis réessayez.",
+      );
+    } finally {
+      setGeneratingRecovery(false);
+    }
+  };
 
   // ── Démarrer l'enrollment ──────────────────────────────────────────────────
   const handleStartEnroll = async () => {
