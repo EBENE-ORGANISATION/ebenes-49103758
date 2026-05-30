@@ -20,10 +20,7 @@ export const MfaEnrollRequiredGate = () => {
   const {
     user,
     loading,
-    isAdmin,
     isSuperAdmin,
-    isChefCompta,
-    isChefGrh,
     mfaFactorId,
     mfaRequired,
     mustChangePassword,
@@ -34,8 +31,7 @@ export const MfaEnrollRequiredGate = () => {
   if (mustChangePassword) return null;
   if (mfaRequired) return null;
 
-  const mustEnroll =
-    (isAdmin || isSuperAdmin || isChefCompta || isChefGrh) && !mfaFactorId;
+  const mustEnroll = isSuperAdmin && !mfaFactorId;
 
   if (!mustEnroll) return null;
 
