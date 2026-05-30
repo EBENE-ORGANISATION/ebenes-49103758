@@ -39,17 +39,21 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user?.id) {
       return new Response(JSON.stringify({ error: "Session invalide" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
-    // Exige AAL2 : on doit avoir vérifié le TOTP avant de générer les codes
-    const aal = (claimsData.claims as Record<string, unknown>).aal;
+    // Exige AAL2 : on décode le JWT pour vérifier le niveau d'assurance
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    let aal: string | undefined;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      aal = payload.aal;
+    } catch { /* ignore */ }
     if (aal !== "aal2") {
       return new Response(JSON.stringify({ error: "Vérification 2FA requise avant génération" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
