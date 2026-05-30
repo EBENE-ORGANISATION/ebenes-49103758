@@ -15,8 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldCheck, Loader2, KeyRound, ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface Props {
   factorId: string;
@@ -25,9 +27,16 @@ interface Props {
 
 export const MfaVerifyModal = ({ factorId, onDone }: Props) => {
   const { t } = useTranslation();
+  const { refreshMfa } = useAuth();
   const [code, setCode]       = useState("");
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
+
+  // Mode "code de récupération"
+  const [mode, setMode] = useState<"totp" | "recovery">("totp");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +68,34 @@ export const MfaVerifyModal = ({ factorId, onDone }: Props) => {
     }
   };
 
+  const handleRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = recoveryCode.trim().toUpperCase().replace(/\s+/g, "");
+    if (!/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/.test(trimmed)) {
+      setRecoveryError("Format attendu : XXXX-XXXX");
+      return;
+    }
+    setRecoveryError(null);
+    setRecoverySaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("mfa-recovery-use", {
+        body: { code: trimmed },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        "Code accepté. Votre 2FA a été réinitialisée — vous devez maintenant en configurer une nouvelle.",
+      );
+      await refreshMfa();
+      onDone();
+    } catch (err) {
+      setRecoveryError((err as Error).message ?? "Code invalide");
+      setRecoveryCode("");
+    } finally {
+      setRecoverySaving(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
@@ -68,17 +105,27 @@ export const MfaVerifyModal = ({ factorId, onDone }: Props) => {
         {/* En-tête */}
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="bg-primary/10 rounded-full p-4">
-            <ShieldCheck className="size-8 text-primary" />
+            {mode === "totp"
+              ? <ShieldCheck className="size-8 text-primary" />
+              : <KeyRound className="size-8 text-primary" />}
           </div>
           <div>
-            <h2 className="text-xl font-bold">{t("mfa.verify_title")}</h2>
+            <h2 className="text-xl font-bold">
+              {mode === "totp"
+                ? t("mfa.verify_title")
+                : "Code de récupération"}
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {t("mfa.verify_subtitle")}
+              {mode === "totp"
+                ? t("mfa.verify_subtitle")
+                : "Saisissez l'un de vos codes de secours à usage unique (format XXXX-XXXX)."}
             </p>
           </div>
         </div>
 
-        {/* Formulaire */}
+        {/* Formulaire TOTP */}
+        {mode === "totp" && (
+        <>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mfa-code">{t("mfa.code_label")}</Label>
@@ -116,6 +163,58 @@ export const MfaVerifyModal = ({ factorId, onDone }: Props) => {
             {t("mfa.verify_btn")}
           </Button>
         </form>
+        <button
+          type="button"
+          onClick={() => { setMode("recovery"); setError(null); }}
+          className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+        >
+          Application d'authentification perdue ? Utiliser un code de récupération
+        </button>
+        </>
+        )}
+
+        {/* Formulaire code de récupération */}
+        {mode === "recovery" && (
+        <>
+        <form onSubmit={handleRecovery} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="recovery-code">Code de récupération</Label>
+            <Input
+              id="recovery-code"
+              type="text"
+              maxLength={9}
+              value={recoveryCode}
+              onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX"
+              autoFocus
+              disabled={recoverySaving}
+              className="text-center text-lg tracking-[0.3em] font-mono uppercase"
+            />
+          </div>
+
+          {recoveryError && (
+            <p className="text-sm text-destructive font-medium bg-destructive/10 rounded-md px-3 py-2">
+              {recoveryError}
+            </p>
+          )}
+
+          <Button type="submit" className="w-full" disabled={recoverySaving}>
+            {recoverySaving
+              ? <Loader2 className="size-4 animate-spin mr-2" />
+              : <KeyRound className="size-4 mr-2" />}
+            Valider le code
+          </Button>
+        </form>
+        <button
+          type="button"
+          onClick={() => { setMode("totp"); setRecoveryError(null); }}
+          className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3" />
+          Retour au code de l'application
+        </button>
+        </>
+        )}
       </div>
     </div>
   );
