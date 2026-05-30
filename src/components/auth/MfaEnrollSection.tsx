@@ -207,6 +207,7 @@ export const MfaEnrollSection = () => {
       <CardContent className="space-y-4">
         {/* ── 2FA actif ──────────────────────────────────────────────────── */}
         {factorId && !qrCode && (
+          <>
           <div className="flex items-center justify-between gap-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
             <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
               <ShieldCheck className="size-4 shrink-0" />
@@ -238,6 +239,31 @@ export const MfaEnrollSection = () => {
               </AlertDialogContent>
             </AlertDialog>
           </div>
+          {/* Codes de récupération */}
+          <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
+            <div className="flex items-start gap-2 text-sm">
+              <KeyRound className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="font-medium">Codes de récupération</p>
+                <p className="text-xs text-muted-foreground">
+                  {recoveryCount > 0
+                    ? `${recoveryCount} code(s) inutilisé(s). Régénérer invalide les anciens.`
+                    : "Aucun code généré. Indispensable en cas de perte du téléphone."}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateRecovery}
+              disabled={generatingRecovery}
+              className="shrink-0"
+            >
+              {generatingRecovery && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
+              {recoveryCount > 0 ? "Régénérer" : "Générer"}
+            </Button>
+          </div>
+          </>
         )}
 
         {/* ── 2FA désactivé, pas d'enrollment en cours ────────────────────── */}
