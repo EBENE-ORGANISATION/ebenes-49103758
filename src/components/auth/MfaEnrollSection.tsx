@@ -350,5 +350,13 @@ export const MfaEnrollSection = () => {
         )}
       </CardContent>
     </Card>
+    {recoveryCodes && (
+      <MfaRecoveryCodesDialog
+        open={true}
+        codes={recoveryCodes}
+        onClose={() => setRecoveryCodes(null)}
+      />
+    )}
+    </>
   );
 };
