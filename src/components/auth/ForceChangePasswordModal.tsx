@@ -8,7 +8,7 @@
  * - Aucune navigation possible tant que le mot de passe n'est pas changé
  * - Après succès : profiles.must_change_password → false, auth state rafraîchi
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { KeyRound, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { evaluatePassword } from "@/lib/passwordUtils";
+import { PasswordStrengthIndicator } from "./PasswordStrengthIndicator";
 
 interface Props {
   userId: string;
@@ -28,17 +30,26 @@ export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
   const [confirmPwd, setConfirmPwd] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hibpPwned, setHibpPwned] = useState(false);
+
+  const handleHibpResult = useCallback((pwned: boolean) => setHibpPwned(pwned), []);
+
+  const strength = evaluatePassword(newPwd);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (newPwd.length < 8) {
-      setError(t("force_pwd.err_min8"));
+    if (!strength.isValid) {
+      setError(t("force_pwd.err_complexity"));
       return;
     }
     if (newPwd !== confirmPwd) {
       setError(t("force_pwd.err_mismatch"));
+      return;
+    }
+    if (hibpPwned) {
+      setError(t("force_pwd.err_hibp"));
       return;
     }
 
@@ -99,6 +110,7 @@ export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
               autoFocus
               disabled={saving}
             />
+            <PasswordStrengthIndicator password={newPwd} onHibpResult={handleHibpResult} />
           </div>
 
           <div className="space-y-2">
@@ -114,16 +126,6 @@ export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
             />
           </div>
 
-          {/* Règles */}
-          <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-            <li className={newPwd.length >= 8 ? "text-success" : ""}>
-              {t("force_pwd.rule_min8")}
-            </li>
-            <li className={newPwd && newPwd === confirmPwd ? "text-success" : ""}>
-              {t("force_pwd.rule_match")}
-            </li>
-          </ul>
-
           {/* Erreur */}
           {error && (
             <p className="text-sm text-destructive font-medium bg-destructive/10 rounded-md px-3 py-2">
@@ -134,7 +136,7 @@ export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
           <Button
             type="submit"
             className="w-full"
-            disabled={saving || newPwd.length < 8 || newPwd !== confirmPwd}
+            disabled={saving || !strength.isValid || newPwd !== confirmPwd || hibpPwned}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin mr-2" />

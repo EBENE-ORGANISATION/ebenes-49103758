@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { getDeviceId } from "@/lib/deviceId";
@@ -10,6 +10,10 @@ import {
   type PermissionOverride,
 } from "@/lib/permissions";
 import type { HeaderFeature } from "@/lib/features";
+import { toast } from "sonner";
+
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_WARN_MS    = 25 * 60 * 1000; // avertissement à 25 min
 
 export type AppRole =
   | "admin"
@@ -69,6 +73,12 @@ interface AuthContextValue {
   mustChangePassword: boolean;
   /** Appelé par ForceChangePasswordModal après succès pour rafraîchir le flag. */
   clearMustChangePassword: () => void;
+  /** ID du facteur TOTP enrôlé et vérifié, null si pas de 2FA. */
+  mfaFactorId: string | null;
+  /** TRUE si le 2FA est requis mais pas encore vérifié pour cette session. */
+  mfaRequired: boolean;
+  /** Appelé par MfaVerifyModal après vérification réussie. */
+  clearMfaRequired: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -82,6 +92,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [features, setFeatures] = useState<HeaderFeature[]>([]);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkDevice = useCallback(async () => {
     try {
@@ -139,6 +153,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOverrides((data || []) as PermissionOverride[]);
   }, []);
 
+  const fetchMfa = useCallback(async () => {
+    try {
+      const [{ data: factors }, { data: aal }] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+      ]);
+      const verified = factors?.totp?.find((f) => f.status === "verified");
+      setMfaFactorId(verified?.id ?? null);
+      // Vérification nécessaire si le niveau courant est AAL1 mais que AAL2 est requis
+      if (verified && aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+        setMfaRequired(true);
+      } else {
+        setMfaRequired(false);
+      }
+    } catch {
+      setMfaFactorId(null);
+      setMfaRequired(false);
+    }
+  }, []);
+
   const fetchMustChange = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
@@ -172,6 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchOverrides(sess.user.id);
           fetchFeatures(sess.user.id);
           fetchMustChange(sess.user.id);
+          void fetchMfa();
         }, 0);
         // Verification appareil après login (couvre OAuth Google et email/password)
         if (evt === "SIGNED_IN") {
@@ -183,6 +218,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setOverrides([]);
         setFeatures([]);
         setMustChangePassword(false);
+        setMfaFactorId(null);
+        setMfaRequired(false);
       }
     });
 
@@ -205,6 +242,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchOverrides(sess.user.id),
           fetchFeatures(sess.user.id),
           fetchMustChange(sess.user.id),
+          fetchMfa(),
         ]).finally(() => setLoading(false));
       } else {
         setLoading(false);
@@ -212,7 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange]);
+  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange, fetchMfa]);
 
   /** Heartbeat: maintient last_seen_at sur la session en cours */
   useEffect(() => {
@@ -220,6 +258,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const tick = () => { void checkDevice(); };
     const id = setInterval(tick, 2 * 60 * 1000);
     return () => clearInterval(id);
+  }, [user]);
+
+  /** Inactivity timeout: déconnexion après 30 min sans activité */
+  useEffect(() => {
+    if (!user) return;
+
+    const clearTimers = () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      if (warnTimer.current)       clearTimeout(warnTimer.current);
+    };
+
+    const resetTimers = () => {
+      clearTimers();
+      warnTimer.current = setTimeout(() => {
+        toast.warning("Vous serez déconnecté dans 5 minutes pour inactivité.", {
+          id: "inactivity-warn",
+          duration: 5 * 60 * 1000,
+        });
+      }, INACTIVITY_WARN_MS);
+      inactivityTimer.current = setTimeout(() => {
+        toast.dismiss("inactivity-warn");
+        supabase.auth.signOut().catch(() => {});
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
+    EVENTS.forEach((ev) => window.addEventListener(ev, resetTimers, { passive: true }));
+    resetTimers(); // Démarre les timers dès la connexion
+
+    return () => {
+      clearTimers();
+      EVENTS.forEach((ev) => window.removeEventListener(ev, resetTimers));
+    };
   }, [user]);
 
   const signIn = async (email: string, password: string) => {
@@ -248,6 +319,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const clearMustChangePassword = useCallback(() => {
     setMustChangePassword(false);
+  }, []);
+
+  const clearMfaRequired = useCallback(() => {
+    setMfaRequired(false);
   }, []);
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -293,6 +368,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
         mustChangePassword, clearMustChangePassword,
+        mfaFactorId, mfaRequired, clearMfaRequired,
       }}
     >
       {children}
@@ -340,6 +416,9 @@ export const useAuth = () => {
       refreshRoles: async () => {},
       mustChangePassword: false,
       clearMustChangePassword: () => {},
+      mfaFactorId: null,
+      mfaRequired: false,
+      clearMfaRequired: () => {},
     } satisfies AuthContextValue;
   }
   return ctx;

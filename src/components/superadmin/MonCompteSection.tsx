@@ -8,6 +8,9 @@ import { Loader2, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callSuperAdmin } from "@/lib/superAdminApi";
+import { evaluatePassword } from "@/lib/passwordUtils";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { MfaEnrollSection } from "@/components/auth/MfaEnrollSection";
 
 /**
  * Section "Mon compte" du super-admin : permet de modifier
@@ -29,6 +32,8 @@ export const MonCompteSection = () => {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
+  const [hibpPwned, setHibpPwned] = useState(false);
+  const strength = evaluatePassword(newPwd);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -73,8 +78,12 @@ export const MonCompteSection = () => {
       toast.error(t("account.err_pwd_mismatch"));
       return;
     }
-    if (newPwd.length < 8) {
+    if (!strength.isValid) {
       toast.error(t("account.err_pwd_short"));
+      return;
+    }
+    if (hibpPwned) {
+      toast.error(t("force_pwd.err_hibp"));
       return;
     }
     setSavingPwd(true);
@@ -96,6 +105,7 @@ export const MonCompteSection = () => {
 
   return (
     <div className="space-y-4 max-w-2xl">
+      <MfaEnrollSection />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -165,6 +175,7 @@ export const MonCompteSection = () => {
                   onChange={(e) => setNewPwd(e.target.value)}
                   autoComplete="new-password"
                 />
+                <PasswordStrengthIndicator password={newPwd} onHibpResult={setHibpPwned} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-pwd">{t("account.confirm_password")}</Label>
