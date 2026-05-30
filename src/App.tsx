@@ -17,6 +17,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { ForceChangePasswordGate } from "@/components/auth/ForceChangePasswordGate";
 import { MfaGate } from "@/components/auth/MfaGate";
+import { MfaEnrollRequiredGate } from "@/components/auth/MfaEnrollRequiredGate";
 import { AndroidUpdateChecker } from "@/components/AndroidUpdateChecker";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
         <AuthProvider>
           <ForceChangePasswordGate />
           <MfaGate />
+          <MfaEnrollRequiredGate />
           <AndroidUpdateChecker />
           <Routes>
             <Route path="/auth" element={<Auth />} />
