@@ -25,9 +25,11 @@ import {
 import { ShieldCheck, ShieldOff, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
 
 export const MfaEnrollSection = () => {
   const { t } = useTranslation();
+  const { refreshMfa } = useAuth();
 
   // État courant du facteur
   const [factorId, setFactorId]   = useState<string | null>(null);
@@ -102,6 +104,7 @@ export const MfaEnrollSection = () => {
       setEnrollFactorId(null);
       setVerifyCode("");
       await loadFactors();
+      await refreshMfa();
     } catch (err) {
       setVerifyError((err as Error).message ?? t("mfa.err_invalid"));
       setVerifyCode("");
