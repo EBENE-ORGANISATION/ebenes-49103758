@@ -79,6 +79,8 @@ interface AuthContextValue {
   mfaRequired: boolean;
   /** Appelé par MfaVerifyModal après vérification réussie. */
   clearMfaRequired: () => void;
+  /** Recharge l'état MFA (à appeler après enrôlement/désenrôlement). */
+  refreshMfa: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -325,6 +327,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMfaRequired(false);
   }, []);
 
+  const refreshMfa = useCallback(async () => {
+    await fetchMfa();
+  }, [fetchMfa]);
+
   const hasRole = (role: AppRole) => roles.includes(role);
   // Le super-admin = rôle 'admin_general' (alias historique). On reconnaît
   // aussi 'super_admin' au cas où il serait ajouté plus tard.
@@ -369,6 +375,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isEmploye, isEmployeOnly, refreshRoles,
         mustChangePassword, clearMustChangePassword,
         mfaFactorId, mfaRequired, clearMfaRequired,
+        refreshMfa,
       }}
     >
       {children}
@@ -419,6 +426,7 @@ export const useAuth = () => {
       mfaFactorId: null,
       mfaRequired: false,
       clearMfaRequired: () => {},
+      refreshMfa: async () => {},
     } satisfies AuthContextValue;
   }
   return ctx;
