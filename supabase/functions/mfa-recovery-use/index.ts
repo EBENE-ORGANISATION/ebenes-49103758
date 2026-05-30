@@ -35,14 +35,13 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user?.id) {
       return new Response(JSON.stringify({ error: "Session invalide" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
     const body = await req.json().catch(() => ({}));
     const raw = String(body?.code ?? "").trim().toUpperCase().replace(/\s+/g, "");
