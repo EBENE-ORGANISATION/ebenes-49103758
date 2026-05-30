@@ -26,13 +26,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Non authentifié" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
-      console.error("getClaims error:", claimsErr);
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user?.id) {
+      console.error("getUser error:", userErr);
       return new Response(JSON.stringify({ error: "Session invalide" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const user = { id: claimsData.claims.sub as string, email: (claimsData.claims.email as string) ?? "" };
+    const user = { id: userData.user.id, email: userData.user.email ?? "" };
 
     const { device_id } = await req.json();
     if (!device_id || typeof device_id !== "string") {
