@@ -8,10 +8,6 @@ on:
 permissions:
   contents: write
 
-# Force Node.js 24 pour éviter la dépréciation des actions Node.js 20
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -32,19 +28,16 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required Android SDK components
+      # Le runner ubuntu-latest embarque déjà l'Android SDK.
+      # On installe uniquement les composants manquants via sdkmanager.
+      - name: Install Android SDK components
         run: |
-          # Accepter toutes les licences automatiquement
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          # Installer SDK 36, build-tools 35 (compatibles AGP 8.x) et les outils nécessaires
-          sdkmanager \
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
             "platforms;android-36" \
             "build-tools;35.0.0" \
-            "platform-tools" \
-            "cmdline-tools;latest" 2>&1 | tail -5
+            "platform-tools"
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -55,7 +48,7 @@ jobs:
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
-      - name: Install dependencies
+      - name: Install JS dependencies
         run: npm install
 
       - name: Build web assets
@@ -69,15 +62,9 @@ jobs:
 
       - name: Build Release APK
         working-directory: android
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-        run: |
-          ./gradlew assembleRelease \
-            --no-daemon \
-            --stacktrace \
-            -Pandroid.useAndroidX=true 2>&1 | tail -40
+        run: ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
 
-      - name: List APK outputs (debug)
+      - name: List APK outputs
         if: always()
         run: ls -la android/app/build/outputs/apk/release/ 2>/dev/null || echo "Dossier APK absent"
 
@@ -91,17 +78,14 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
-          # Utilise la dernière version de build-tools disponible
-          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/* 2>/dev/null | sort -V | tail -1)/apksigner
-          echo "apksigner: $APKSIGNER"
-          # L'APK peut être app-release-unsigned.apk ou app-release.apk selon Gradle
-          APK_IN=""
+          APKSIGNER=$(ls -d $ANDROID_SDK_ROOT/build-tools/* 2>/dev/null | sort -V | tail -1)/apksigner
+          echo "apksigner : $APKSIGNER"
           if [ -f android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
             APK_IN=android/app/build/outputs/apk/release/app-release-unsigned.apk
           elif [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
             APK_IN=android/app/build/outputs/apk/release/app-release.apk
           else
-            echo "❌ APK introuvable pour la signature"
+            echo "❌ APK introuvable"
             exit 1
           fi
           $APKSIGNER sign \
@@ -111,9 +95,9 @@ jobs:
             --key-pass "pass:$ANDROID_KEY_PASSWORD" \
             --out android/app/build/outputs/apk/release/ebenes-signed.apk \
             "$APK_IN"
-          echo "✅ APK signé : ebenes-signed.apk"
+          echo "✅ Signé : ebenes-signed.apk"
 
-      - name: Rename unsigned APK (fallback sans keystore)
+      - name: Rename APK (sans keystore)
         if: ${{ env.HAS_KEYSTORE != 'true' }}
         env:
           HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
@@ -125,7 +109,7 @@ jobs:
             cp android/app/build/outputs/apk/release/app-release.apk \
                android/app/build/outputs/apk/release/ebenes-unsigned.apk
           else
-            echo "❌ Aucun APK trouvé"
+            echo "❌ APK introuvable"
             exit 1
           fi
 
