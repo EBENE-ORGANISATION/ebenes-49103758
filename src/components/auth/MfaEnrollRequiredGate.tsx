@@ -1,9 +1,9 @@
 /**
  * MfaEnrollRequiredGate
  * ─────────────────────────────────────────────────────────────────────────────
- * Bloque l'accès à l'application pour les comptes à privilèges
- * (admin, super-admin, chef de service) tant qu'ils n'ont pas enrôlé
- * un facteur TOTP (2FA).
+ * Bloque l'accès à l'application pour le super-administrateur tant
+ * qu'il n'a pas enrôlé un facteur TOTP (2FA). Les autres rôles ne sont
+ * pas concernés par le 2FA.
  *
  * Affiche une modale plein écran non-fermable contenant le composant
  * d'enrôlement. Une fois le TOTP vérifié, MfaEnrollSection met à jour
