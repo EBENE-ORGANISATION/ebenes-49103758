@@ -478,6 +478,7 @@ export const DevisSection = ({
       </div>
 
       <div className="border-t border-border my-2" />
+      <DevisPreview devis={previewDevis} onClose={() => setPreviewId(null)} />
     </div>
   );
 };
