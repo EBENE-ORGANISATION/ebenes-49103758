@@ -400,6 +400,15 @@ export const DevisSection = ({
                     <span className="amount text-base text-foreground">
                       {formatMontant(d.totalTtc)}
                     </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      title="Voir / Télécharger"
+                      onClick={() => setPreviewId(d.id)}
+                    >
+                      <Eye className="size-4" />
+                    </Button>
                     {onUpdate && d.statut !== "converti" && d.statut !== "refuse" && (
                       <Button
                         size="icon"
