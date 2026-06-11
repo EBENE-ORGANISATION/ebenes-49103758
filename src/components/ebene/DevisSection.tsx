@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X, RefreshCw, FileText, Pencil } from "lucide-react";
+import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { useTenant } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
+import { DevisPreview } from "./DevisPreview";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
@@ -90,6 +91,7 @@ export const DevisSection = ({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<number | null>(null);
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [validite, setValidite] = useState("");
@@ -189,6 +191,7 @@ export const DevisSection = ({
     () => [...(data.devis || [])].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
     [data.devis]
   );
+  const previewDevis = previewId != null ? sorted.find((x) => x.id === previewId) ?? null : null;
 
   return (
     <div className="space-y-4">
@@ -397,6 +400,15 @@ export const DevisSection = ({
                     <span className="amount text-base text-foreground">
                       {formatMontant(d.totalTtc)}
                     </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      title="Voir / Télécharger"
+                      onClick={() => setPreviewId(d.id)}
+                    >
+                      <Eye className="size-4" />
+                    </Button>
                     {onUpdate && d.statut !== "converti" && d.statut !== "refuse" && (
                       <Button
                         size="icon"
@@ -466,6 +478,7 @@ export const DevisSection = ({
       </div>
 
       <div className="border-t border-border my-2" />
+      <DevisPreview devis={previewDevis} onClose={() => setPreviewId(null)} />
     </div>
   );
 };
