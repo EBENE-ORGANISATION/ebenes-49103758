@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X, RefreshCw, FileText, Pencil } from "lucide-react";
+import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { useTenant } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
+import { DevisPreview } from "./DevisPreview";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
@@ -90,6 +91,7 @@ export const DevisSection = ({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<number | null>(null);
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [validite, setValidite] = useState("");
@@ -189,6 +191,7 @@ export const DevisSection = ({
     () => [...(data.devis || [])].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
     [data.devis]
   );
+  const previewDevis = previewId != null ? sorted.find((x) => x.id === previewId) ?? null : null;
 
   return (
     <div className="space-y-4">
