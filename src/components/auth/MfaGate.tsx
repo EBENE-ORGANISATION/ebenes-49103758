@@ -8,8 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { MfaVerifyModal } from "./MfaVerifyModal";
 
 export const MfaGate = () => {
-  const { mfaRequired, mfaFactorId, clearMfaRequired } = useAuth();
+  const { mfaRequired, mfaFactorId, clearMfaRequired, isSuperAdmin } = useAuth();
 
+  // 2FA réservé au super-administrateur uniquement.
+  if (!isSuperAdmin) return null;
   if (!mfaRequired || !mfaFactorId) return null;
 
   return <MfaVerifyModal factorId={mfaFactorId} onDone={clearMfaRequired} />;
