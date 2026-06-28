@@ -1,10 +1,11 @@
 // ============================================================================
-// ocr-facture — Extraction structurée de factures via l'API Anthropic (Claude)
+// ocr-facture — Extraction structurée de factures via Google Gemini
 // ----------------------------------------------------------------------------
-// Remplace l'ancien appel au gateway IA Lovable. Appelle directement
-// l'API Messages d'Anthropic (vision + tool use) pour extraire les champs.
-// Contrat inchangé : entrée { imageBase64, mimeType } → sortie { data: {...} }.
-// Secret requis : ANTHROPIC_API_KEY.
+// Remplace l'ancien gateway IA Lovable. Appelle directement l'API Google
+// Generative Language (Gemini, vision + sortie JSON structurée) pour extraire
+// les champs. Contrat inchangé : { imageBase64, mimeType } → { data: {...} }.
+// Secret requis : GEMINI_API_KEY (clé Google AI Studio, facturation activée
+// pour la confidentialité des données — Google n'entraîne alors pas dessus).
 // ============================================================================
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,11 +22,17 @@ interface OCRResult {
   montantTTC: number | null;
 }
 
-// Modèle Claude. Opus 4.8 par défaut (le plus capable). Pour réduire les coûts
-// d'OCR, on peut basculer sur "claude-haiku-4-5" ou "claude-sonnet-4-6".
-const ANTHROPIC_MODEL = "claude-opus-4-8";
+// Modèle Gemini. Flash = rapide et très bon marché, excellent pour l'extraction.
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+function json(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,10 +55,10 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid session" }, 401);
     }
 
-    // ── Clé API Anthropic ─────────────────────────────────────────────────
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      return json({ error: "ANTHROPIC_API_KEY non configurée" }, 500);
+    // ── Clé API Gemini ────────────────────────────────────────────────────
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return json({ error: "GEMINI_API_KEY non configurée" }, 500);
     }
 
     // ── Entrée ────────────────────────────────────────────────────────────
@@ -60,7 +67,7 @@ Deno.serve(async (req) => {
       return json({ error: "imageBase64 manquant" }, 400);
     }
 
-    // Normaliser : extraire le base64 brut + le type MIME (gère les data URL)
+    // Normaliser : base64 brut + type MIME (gère les data URL)
     let rawBase64 = imageBase64;
     let mediaType = mimeType || "image/jpeg";
     const dataUrlMatch = imageBase64.match(/^data:([^;]+);base64,(.*)$/s);
@@ -68,89 +75,75 @@ Deno.serve(async (req) => {
       mediaType = dataUrlMatch[1];
       rawBase64 = dataUrlMatch[2];
     }
-
-    // Bloc de contenu : image OU document PDF
-    let mediaBlock: Record<string, unknown>;
-    if (mediaType === "application/pdf") {
-      mediaBlock = {
-        type: "document",
-        source: { type: "base64", media_type: "application/pdf", data: rawBase64 },
-      };
-    } else {
-      if (!SUPPORTED_IMAGE_TYPES.includes(mediaType)) mediaType = "image/jpeg";
-      mediaBlock = {
-        type: "image",
-        source: { type: "base64", media_type: mediaType, data: rawBase64 },
-      };
+    if (mediaType !== "application/pdf" && !SUPPORTED_IMAGE_TYPES.includes(mediaType)) {
+      mediaType = "image/jpeg";
     }
 
-    // ── Appel API Anthropic (vision + tool use forcé) ─────────────────────
-    const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
+    // ── Appel API Gemini (vision + sortie JSON structurée) ────────────────
+    const endpoint =
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const resp = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system:
-          "Tu es un expert en extraction de données de factures. Utilise UNIQUEMENT l'outil extract_facture pour répondre. Si une valeur n'est pas lisible, mets null. Les montants sont en FCFA : renvoie des nombres uniquement, sans séparateur de milliers ni symbole. La date doit être au format ISO YYYY-MM-DD.",
-        tools: [
-          {
-            name: "extract_facture",
-            description: "Retourne les informations structurées d'une facture.",
-            strict: true,
-            input_schema: {
-              type: "object",
-              properties: {
-                fournisseur: { type: ["string", "null"], description: "Nom du fournisseur/émetteur" },
-                date: { type: ["string", "null"], description: "Date de la facture, ISO YYYY-MM-DD" },
-                montantHT: { type: ["number", "null"], description: "Montant hors taxes en FCFA" },
-                tva: { type: ["number", "null"], description: "Montant de la TVA en FCFA" },
-                montantTTC: { type: ["number", "null"], description: "Montant toutes taxes comprises en FCFA" },
-              },
-              required: ["fournisseur", "date", "montantHT", "tva", "montantTTC"],
-              additionalProperties: false,
+        systemInstruction: {
+          parts: [{
+            text:
+              "Tu es un expert en extraction de données de factures. Si une valeur n'est pas lisible, mets null. Les montants sont en FCFA : renvoie des nombres uniquement (sans séparateur de milliers ni symbole). La date doit être au format ISO YYYY-MM-DD.",
+          }],
+        },
+        contents: [{
+          role: "user",
+          parts: [
+            { inline_data: { mime_type: mediaType, data: rawBase64 } },
+            { text: "Extrais les informations de cette facture." },
+          ],
+        }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              fournisseur: { type: "STRING", nullable: true },
+              date: { type: "STRING", nullable: true },
+              montantHT: { type: "NUMBER", nullable: true },
+              tva: { type: "NUMBER", nullable: true },
+              montantTTC: { type: "NUMBER", nullable: true },
             },
+            required: ["fournisseur", "date", "montantHT", "tva", "montantTTC"],
           },
-        ],
-        tool_choice: { type: "tool", name: "extract_facture" },
-        messages: [
-          {
-            role: "user",
-            content: [
-              mediaBlock,
-              { type: "text", text: "Extrais les informations de cette facture." },
-            ],
-          },
-        ],
+        },
       }),
     });
 
-    if (!anthropicResp.ok) {
-      const status = anthropicResp.status;
-      const body = await anthropicResp.text();
-      console.error("Anthropic API error", status, body.slice(0, 500));
+    if (!resp.ok) {
+      const status = resp.status;
+      const body = await resp.text();
+      console.error("Gemini API error", status, body.slice(0, 500));
       if (status === 429) {
         return json({ error: "Trop de requêtes, réessayez dans un instant." }, 429);
       }
-      if (status === 401) {
-        return json({ error: "Clé API Anthropic invalide." }, 500);
+      if (status === 400 && /API key|API_KEY_INVALID/i.test(body)) {
+        return json({ error: "Clé API Gemini invalide." }, 500);
       }
-      if (status === 400 && body.includes("credit")) {
-        return json({ error: "Crédits IA épuisés. Rechargez votre compte Anthropic." }, 402);
+      if (status === 403) {
+        return json({ error: "Accès Gemini refusé (vérifiez la clé / la facturation)." }, 500);
       }
       return json({ error: "Erreur du service d'extraction IA." }, 500);
     }
 
-    const ai = await anthropicResp.json();
-    // Trouver le bloc tool_use produit par le modèle
-    const toolUse = Array.isArray(ai?.content)
-      ? ai.content.find((b: { type?: string; name?: string }) => b.type === "tool_use" && b.name === "extract_facture")
-      : null;
-    const parsed: OCRResult | null = toolUse?.input ?? null;
+    const ai = await resp.json();
+    // Gemini renvoie le JSON dans candidates[0].content.parts[0].text
+    const textPart = ai?.candidates?.[0]?.content?.parts?.[0]?.text;
+    let parsed: OCRResult | null = null;
+    if (textPart) {
+      try {
+        parsed = JSON.parse(textPart);
+      } catch (e) {
+        console.error("Parse Gemini JSON failed", e, String(textPart).slice(0, 200));
+      }
+    }
 
     return json({ data: parsed });
   } catch (e) {
@@ -158,10 +151,3 @@ Deno.serve(async (req) => {
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
-
-function json(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
