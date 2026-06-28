@@ -8,9 +8,12 @@ ALTER TABLE public.immobilisations
   ADD COLUMN IF NOT EXISTS deleted_at       timestamptz;
 
 -- Contrainte CHECK sur statut
-ALTER TABLE public.immobilisations
-  ADD CONSTRAINT IF NOT EXISTS immo_statut_check
-  CHECK (statut IN ('actif', 'cede', 'rebut'));
+DO $$ BEGIN
+  ALTER TABLE public.immobilisations
+    ADD CONSTRAINT immo_statut_check
+    CHECK (statut IN ('actif', 'cede', 'rebut'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Index pour les soft-deletes (n'indexe que les lignes supprimées, coût quasi nul)
 CREATE INDEX IF NOT EXISTS idx_immobilisations_deleted_at

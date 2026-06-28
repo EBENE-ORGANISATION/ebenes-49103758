@@ -1,28 +1,25 @@
 
--- Étape 1 : changer le type de colonne de enum vers text
--- (seule permission_overrides utilise app_module, aucun impact ailleurs)
-ALTER TABLE public.permission_overrides
-  ALTER COLUMN module TYPE text;
-
--- Étape 2 : migration exacte fournie par l'utilisateur
+-- Étape 1 : supprimer tout CHECK sur module (il bloque le changement de type)
 DO $$
 DECLARE
   _constraint_name text;
 BEGIN
-  SELECT conname INTO _constraint_name
-  FROM pg_constraint
-  WHERE conrelid = 'public.permission_overrides'::regclass
-    AND contype = 'c'
-    AND pg_get_constraintdef(oid) LIKE '%module%'
-  LIMIT 1;
-
-  IF _constraint_name IS NOT NULL THEN
+  FOR _constraint_name IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.permission_overrides'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%module%'
+  LOOP
     EXECUTE format(
       'ALTER TABLE public.permission_overrides DROP CONSTRAINT %I',
       _constraint_name
     );
-  END IF;
+  END LOOP;
 END $$;
+
+-- Étape 2 : changer le type de colonne de enum vers text
+ALTER TABLE public.permission_overrides
+  ALTER COLUMN module TYPE text USING module::text;
 
 ALTER TABLE public.permission_overrides
   ADD CONSTRAINT permission_overrides_module_check

@@ -43,15 +43,8 @@ ALTER TABLE public.ecritures_comptables ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "ecritures_societe_access" ON public.ecritures_comptables
   FOR ALL
   USING (
-    societe_id IN (
-      SELECT s.id FROM public.societes s
-      WHERE
-        s.owner_id = auth.uid()
-        OR EXISTS (
-          SELECT 1 FROM public.services_membres sm
-          WHERE sm.societe_id = s.id AND sm.user_id = auth.uid()
-        )
-    )
+    is_admin_general(auth.uid())
+    OR has_societe_access(auth.uid(), societe_id)
   );
 
 -- ── Trigger updated_at ────────────────────────────────────────────────────────

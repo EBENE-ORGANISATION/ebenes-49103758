@@ -31,3 +31,4 @@ dist/
 # Android keystore (NE JAMAIS COMMITER)
 *.jks
 *.keystore
+supabase/.temp/
