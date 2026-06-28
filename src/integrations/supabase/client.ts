@@ -13,5 +13,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    // Flux PKCE : le retour OAuth arrive en ?code=... (query) plutôt qu'en
+    // #access_token=... (hash), ce qui évite tout conflit avec le HashRouter.
+    flowType: "pkce",
+    detectSessionInUrl: true,
   }
 });
