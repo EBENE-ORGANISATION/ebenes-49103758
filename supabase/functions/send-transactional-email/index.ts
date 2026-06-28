@@ -6,15 +6,11 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
-const SITE_NAME = "ebenes"
-// SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
-// It MUST match the subdomain delegated to Lovable's nameservers — never the root domain.
-// The email API looks up this exact domain; a mismatch causes "No email domain record found".
-const SENDER_DOMAIN = "notify.ebnservicess.com"
-// FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// When display_from_root is enabled, this can be the root domain for cleaner branding,
-// even though actual sending uses the subdomain above.
-const FROM_DOMAIN = "notify.ebnservicess.com"
+const SITE_NAME = "EBENE SERVICES"
+// Domaine expéditeur — DOIT être vérifié dans Resend.
+// Ici on utilise le domaine racine ebnservicess.com (vérifié dans le compte Resend).
+const SENDER_DOMAIN = "ebnservicess.com"
+const FROM_DOMAIN = "ebnservicess.com"
 
 // Generate a cryptographically random 32-byte hex token
 function generateToken(): string {
@@ -292,10 +288,7 @@ Deno.serve(async (req) => {
       ? template.subject(templateData)
       : template.subject
 
-  // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
-  // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
-
-  // Log pending BEFORE enqueue so we have a record even if enqueue crashes
+  // 5. Envoi DIRECT via Resend (synchrone — plus de dépendance pgmq / dispatcher / Lovable).
   await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: templateName,
@@ -303,49 +296,66 @@ Deno.serve(async (req) => {
     status: 'pending',
   })
 
-  const { error: enqueueError } = await supabase.rpc('enqueue_email', {
-    queue_name: 'transactional_emails',
-    payload: {
-      message_id: messageId,
-      to: effectiveRecipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
-      subject: resolvedSubject,
-      html,
-      text: plainText,
-      purpose: 'transactional',
-      label: templateName,
-      idempotency_key: idempotencyKey,
-      unsubscribe_token: unsubscribeToken,
-      queued_at: new Date().toISOString(),
-    },
-  })
-
-  if (enqueueError) {
-    console.error('Failed to enqueue email', {
-      error: enqueueError,
-      templateName,
-      effectiveRecipient,
-    })
-
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'failed',
-      error_message: 'Failed to enqueue email',
-    })
-
-    return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+  if (!RESEND_API_KEY) {
+    console.error('RESEND_API_KEY non configuré')
+    await supabase.from('email_send_log')
+      .update({ status: 'failed', error_message: 'RESEND_API_KEY manquant' })
+      .eq('message_id', messageId)
+    return new Response(JSON.stringify({ error: 'Email service not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
-  console.log('Transactional email enqueued', { templateName, effectiveRecipient })
+  // Lien de désinscription (List-Unsubscribe) — pointe vers l'edge function dédiée
+  const unsubUrl = unsubscribeToken
+    ? `${supabaseUrl}/functions/v1/handle-email-unsubscribe?token=${unsubscribeToken}`
+    : null
+
+  let sendOk = false
+  let sendErr = ''
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+        to: [effectiveRecipient],
+        subject: resolvedSubject,
+        html,
+        text: plainText,
+        ...(unsubUrl ? { headers: { 'List-Unsubscribe': `<${unsubUrl}>` } } : {}),
+      }),
+    })
+    if (resp.ok) {
+      sendOk = true
+    } else {
+      sendErr = `Resend ${resp.status}: ${(await resp.text()).slice(0, 300)}`
+    }
+  } catch (e) {
+    sendErr = String((e as Error)?.message ?? e)
+  }
+
+  await supabase.from('email_send_log')
+    .update({ status: sendOk ? 'sent' : 'failed', error_message: sendOk ? null : sendErr })
+    .eq('message_id', messageId)
+
+  if (!sendOk) {
+    console.error('Echec envoi Resend', { templateName, effectiveRecipient, sendErr })
+    return new Response(JSON.stringify({ error: 'Failed to send email', detail: sendErr }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  console.log('Email transactionnel envoyé via Resend', { templateName, effectiveRecipient })
 
   return new Response(
-    JSON.stringify({ success: true, queued: true }),
+    JSON.stringify({ success: true, sent: true }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
