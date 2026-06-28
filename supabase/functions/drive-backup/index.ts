@@ -1,3 +1,14 @@
+// ============================================================================
+// drive-backup — Sauvegarde / restauration via Supabase Storage
+// ----------------------------------------------------------------------------
+// Remplace l'ancien connecteur Google Drive de Lovable. Stocke les snapshots
+// JSON dans un bucket privé `backups`, dans un dossier propre à chaque
+// utilisateur (<user_id>/backup-<timestamp>.json).
+// Contrat inchangé (côté frontend src/lib/googleDrive.ts) :
+//   - POST  { snapshot }                       → { ok, file }
+//   - GET   ?action=list                       → { ok, files: [...] }
+//   - GET   ?action=download&fileId=<path>     → { ok, data }
+// ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
@@ -6,223 +17,133 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
-const BACKUP_FOLDER = "EBENE_BACKUPS";
-const APP_DATA_FOLDER = "appDataFolder";
+const BUCKET = "backups";
+const MAX_LIST = 20;
 
-type BackupLocation = {
-  folderId: string;
-  appData: boolean;
-};
-
-function withSpace(path: string, location: BackupLocation): string {
-  return location.appData ? `${path}&spaces=appDataFolder` : path;
-}
-
-function authHeaders() {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const GOOGLE_DRIVE_API_KEY = Deno.env.get("GOOGLE_DRIVE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY non configuré");
-  if (!GOOGLE_DRIVE_API_KEY) throw new Error("GOOGLE_DRIVE_API_KEY non configuré (connecteur Google Drive)");
-  return {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "X-Connection-Api-Key": GOOGLE_DRIVE_API_KEY,
-  };
-}
-
-async function gFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(`${GATEWAY}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init.headers || {}) },
+function json(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function ensureFolderId(): Promise<BackupLocation> {
-  // Cherche un dossier nommé EBENE_BACKUPS, non supprimé, créé par cette app (drive.file)
-  const q = encodeURIComponent(
-    `name='${BACKUP_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  );
-  const search = await gFetch(
-    `/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=10`
-  );
-  if (!search.ok) {
-    const t = await search.text();
-    throw new Error(`Drive search folder failed [${search.status}]: ${t}`);
-  }
-  const sj = (await search.json()) as { files?: Array<{ id: string; name: string }> };
-  if (sj.files && sj.files.length > 0) return { folderId: sj.files[0].id, appData: false };
-
-  // Créer le dossier
-  const create = await gFetch(`/drive/v3/files?fields=id`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: BACKUP_FOLDER,
-      mimeType: "application/vnd.google-apps.folder",
-    }),
-  });
-  if (!create.ok) {
-    const t = await create.text();
-    if (create.status === 403 && t.includes("insufficientFilePermissions")) {
-      return { folderId: APP_DATA_FOLDER, appData: true };
-    }
-    throw new Error(`Drive create folder failed [${create.status}]: ${t}`);
-  }
-  const cj = (await create.json()) as { id: string };
-  return { folderId: cj.id, appData: false };
-}
-
-function todayName(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `EBENE_Backup_${yyyy}-${mm}-${dd}.json`;
-}
-
-async function findTodayFile(location: BackupLocation, name: string): Promise<string | null> {
-  const q = encodeURIComponent(`name='${name}' and '${location.folderId}' in parents and trashed=false`);
-  const r = await gFetch(withSpace(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=5`, location));
-  if (!r.ok) return null;
-  const j = (await r.json()) as { files?: Array<{ id: string }> };
-  return j.files && j.files.length > 0 ? j.files[0].id : null;
-}
-
-async function uploadJson(payload: unknown, location: BackupLocation, fileId: string | null) {
-  const name = todayName();
-  const json = JSON.stringify(payload);
-  const boundary = "ebene_boundary_" + crypto.randomUUID();
-  const meta = fileId
-    ? { name, mimeType: "application/json" }
-    : { name, mimeType: "application/json", parents: [location.folderId] };
-
-  const body =
-    `--${boundary}\r\n` +
-    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-    `${JSON.stringify(meta)}\r\n` +
-    `--${boundary}\r\n` +
-    `Content-Type: application/json\r\n\r\n` +
-    `${json}\r\n` +
-    `--${boundary}--`;
-
-  const url = fileId
-    ? `/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,name,modifiedTime`
-    : `/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime`;
-
-  const r = await gFetch(url, {
-    method: fileId ? "PATCH" : "POST",
-    headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-    body,
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Drive upload failed [${r.status}]: ${t}`);
-  }
-  return (await r.json()) as { id: string; name: string; modifiedTime: string };
-}
-
-async function listBackups(location: BackupLocation) {
-  const q = encodeURIComponent(
-    `'${location.folderId}' in parents and trashed=false and mimeType='application/json'`
-  );
-  const r = await gFetch(
-    withSpace(`/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime,size)`, location)
-  );
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Drive list failed [${r.status}]: ${t}`);
-  }
-  const j = (await r.json()) as { files?: unknown[] };
-  return j.files ?? [];
-}
-
-async function downloadFile(fileId: string) {
-  const r = await gFetch(`/drive/v3/files/${fileId}?alt=media`);
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Drive download failed [${r.status}]: ${t}`);
-  }
-  return await r.json();
-}
-
-async function requireAuthUser(req: Request) {
-  const auth = req.headers.get("Authorization");
-  if (!auth) throw new Error("Authentification requise");
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const sb = createClient(supabaseUrl, supabaseAnon, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data, error } = await sb.auth.getUser();
-  if (error || !data.user) throw new Error("Session invalide");
-  return data.user;
-}
-
-async function requireBackupRole(userId: string) {
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
-  const { data: roles, error } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
-  if (error) throw new Error("Vérification des rôles impossible");
-  const allowed = (roles ?? []).some((r: { role: string }) =>
-    ["admin", "admin_general", "chef_compta", "chef_grh"].includes(r.role)
-  );
-  if (!allowed) throw new Error("Accès réservé aux administrateurs et chefs de service");
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
-    const user = await requireAuthUser(req);
-    await requireBackupRole(user.id);
+    // ── Authentifier l'utilisateur via son JWT ────────────────────────────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const userClient = createClient(
+      SUPABASE_URL,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return json({ ok: false, error: "Invalid session" }, 401);
+    }
+    const userId = userData.user.id;
+
+    // ── Client service_role pour les opérations Storage ───────────────────
+    const admin = createClient(
+      SUPABASE_URL,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // S'assurer que le bucket existe (idempotent)
+    await admin.storage.createBucket(BUCKET, { public: false }).catch(() => {});
 
     const url = new URL(req.url);
-    // Action via querystring pour rester simple
-    const action = url.searchParams.get("action") ?? "backup";
+    const action = url.searchParams.get("action") ?? (req.method === "POST" ? "backup" : "list");
 
+    // ── LISTE des sauvegardes de l'utilisateur ────────────────────────────
     if (action === "list") {
-      const location = await ensureFolderId();
-      const files = await listBackups(location);
-      return new Response(JSON.stringify({ ok: true, files, location: location.appData ? "appDataFolder" : "drive" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const { data, error } = await admin.storage
+        .from(BUCKET)
+        .list(userId, { limit: MAX_LIST, sortBy: { column: "created_at", order: "desc" } });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      const files = (data ?? [])
+        .filter((f) => f.name.endsWith(".json"))
+        .map((f) => ({
+          id: `${userId}/${f.name}`,
+          name: f.name,
+          modifiedTime: f.updated_at ?? f.created_at ?? new Date().toISOString(),
+          size: f.metadata?.size != null ? String(f.metadata.size) : undefined,
+        }));
+      return json({ ok: true, files });
     }
 
+    // ── TÉLÉCHARGEMENT d'une sauvegarde ───────────────────────────────────
     if (action === "download") {
       const fileId = url.searchParams.get("fileId");
-      if (!fileId) throw new Error("fileId requis");
-      const data = await downloadFile(fileId);
-      return new Response(JSON.stringify({ ok: true, data }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (!fileId) return json({ ok: false, error: "fileId manquant" }, 400);
+      // Sécurité : un utilisateur ne peut télécharger que ses propres fichiers
+      if (!fileId.startsWith(`${userId}/`)) {
+        return json({ ok: false, error: "Accès refusé" }, 403);
+      }
+      const { data, error } = await admin.storage.from(BUCKET).download(fileId);
+      if (error || !data) return json({ ok: false, error: error?.message ?? "Introuvable" }, 404);
+      const text = await data.text();
+      let snapshot: unknown;
+      try {
+        snapshot = JSON.parse(text);
+      } catch {
+        return json({ ok: false, error: "Snapshot illisible" }, 500);
+      }
+      return json({ ok: true, data: snapshot });
+    }
+
+    // ── BACKUP (POST { snapshot }) ────────────────────────────────────────
+    if (action === "backup") {
+      const body = await req.json().catch(() => ({}));
+      const snapshot = body?.snapshot;
+      if (!snapshot || typeof snapshot !== "object") {
+        return json({ ok: false, error: "snapshot manquant" }, 400);
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const name = `backup-${stamp}.json`;
+      const path = `${userId}/${name}`;
+      const payload = JSON.stringify(snapshot);
+      const { error } = await admin.storage
+        .from(BUCKET)
+        .upload(path, new Blob([payload], { type: "application/json" }), {
+          contentType: "application/json",
+          upsert: false,
+        });
+      if (error) return json({ ok: false, error: error.message }, 500);
+
+      // Purge : ne garder que les 20 dernières sauvegardes
+      const { data: existing } = await admin.storage
+        .from(BUCKET)
+        .list(userId, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+      const toDelete = (existing ?? [])
+        .filter((f) => f.name.endsWith(".json"))
+        .slice(MAX_LIST)
+        .map((f) => `${userId}/${f.name}`);
+      if (toDelete.length > 0) {
+        await admin.storage.from(BUCKET).remove(toDelete).catch(() => {});
+      }
+
+      return json({
+        ok: true,
+        file: {
+          id: path,
+          name,
+          modifiedTime: new Date().toISOString(),
+          size: String(payload.length),
+        },
       });
     }
 
-    // Default: backup (POST avec body { snapshot })
-    if (req.method !== "POST") throw new Error("POST requis");
-    const body = (await req.json()) as { snapshot?: unknown };
-    if (!body?.snapshot || typeof body.snapshot !== "object") {
-      throw new Error("snapshot manquant");
-    }
-    const location = await ensureFolderId();
-    const existing = await findTodayFile(location, todayName());
-    const file = await uploadJson(body.snapshot, location, existing);
-    return new Response(JSON.stringify({ ok: true, file, location: location.appData ? "appDataFolder" : "drive" }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur inconnue";
-    console.error("[drive-backup] error:", message);
-    return new Response(JSON.stringify({ ok: false, error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: false, error: `Action inconnue : ${action}` }, 400);
+  } catch (e) {
+    console.error("[drive-backup] error:", e);
+    return json({ ok: false, error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
