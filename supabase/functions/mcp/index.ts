@@ -3,7 +3,7 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/echo.ts
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
@@ -17,53 +17,13 @@ var echo_default = defineTool({
   handler: ({ text }) => ({ content: [{ type: "text", text }] })
 });
 
-// src/lib/mcp/tools/list-my-societes.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.104.1";
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
-function supabaseForUser(ctx) {
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY,
-    {
-      global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-      auth: { persistSession: false, autoRefreshToken: false }
-    }
-  );
-}
-var list_my_societes_default = defineTool2({
-  name: "list_my_societes",
-  title: "Lister mes soci\xE9t\xE9s",
-  description: "Retourne la liste des soci\xE9t\xE9s auxquelles l'utilisateur connect\xE9 a acc\xE8s (via RLS).",
-  inputSchema: {},
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Non authentifi\xE9" }], isError: true };
-    }
-    const supabase = supabaseForUser(ctx);
-    const { data, error } = await supabase.from("societes").select("id, nom, slug, plan");
-    if (error) {
-      return { content: [{ type: "text", text: error.message }], isError: true };
-    }
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { societes: data ?? [] }
-    };
-  }
-});
-
 // src/lib/mcp/index.ts
-var projectRef = "nmeyylvltlvvcvbhvxpz";
 var mcp_default = defineMcp({
   name: "ebene-services-mcp",
   title: "EBENE SERVICES MCP",
   version: "0.1.0",
-  instructions: "Outils MCP pour l'application EBENE SERVICES. Utilisez `echo` pour tester la connectivit\xE9 et `list_my_societes` pour lister les soci\xE9t\xE9s de l'utilisateur connect\xE9.",
-  auth: auth.oauth.issuer({
-    issuer: `https://${projectRef}.supabase.co/auth/v1`,
-    acceptedAudiences: "authenticated"
-  }),
-  tools: [echo_default, list_my_societes_default]
+  instructions: "Outils MCP pour l'application EBENE SERVICES. Utilisez `echo` pour v\xE9rifier la connectivit\xE9.",
+  tools: [echo_default]
 });
 
 // lovable-mcp-supabase-entry.ts

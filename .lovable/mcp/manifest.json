@@ -3,11 +3,7 @@
   "sdk_version": "0.20.0",
   "path": "/functions/v1/mcp",
   "auth": {
-    "type": "oauth",
-    "issuer": "https://nmeyylvltlvvcvbhvxpz.supabase.co/auth/v1",
-    "accepted_audiences": [
-      "authenticated"
-    ]
+    "type": "none"
   },
   "mcp": {
     "server": {
@@ -39,22 +35,6 @@
           ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
-        },
-        "outputSchema": null
-      },
-      {
-        "name": "list_my_societes",
-        "title": "Lister mes sociétés",
-        "description": "Retourne la liste des sociétés auxquelles l'utilisateur connecté a accès (via RLS).",
-        "annotations": {
-          "readOnlyHint": true,
-          "idempotentHint": true,
-          "openWorldHint": false
-        },
-        "inputSchema": {
-          "$schema": "http://json-schema.org/draft-07/schema#",
-          "type": "object",
-          "properties": {}
         },
         "outputSchema": null
       }
