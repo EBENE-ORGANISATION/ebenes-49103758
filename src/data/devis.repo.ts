@@ -37,6 +37,7 @@ export const toDevis = (row: DevisRow): Devis => ({
   totalTva: row.total_tva,
   totalTtc: row.total_ttc,
   activite: n(row.activite) as ActiviteType | undefined,
+  activiteId: n(row.activite_id),
   factureId: n(row.facture_id),
   notes: n(row.notes),
   annee: row.annee,
@@ -64,6 +65,7 @@ export const fromDevis = (
   total_tva: d.totalTva,
   total_ttc: d.totalTtc,
   activite: d.activite ?? null,
+  activite_id: d.activiteId ?? null,
   facture_id: d.factureId ?? null,
   notes: d.notes ?? null,
 });
@@ -119,7 +121,7 @@ export const devis = {
   async update(
     id: number,
     patch: Partial<
-      Pick<Devis, "statut" | "factureId" | "notes" | "lignes" | "reduction" | "totalHT" | "totalTva" | "totalTtc">
+      Pick<Devis, "statut" | "factureId" | "notes" | "lignes" | "reduction" | "totalHT" | "totalTva" | "totalTtc" | "activiteId">
     >,
     societeId: string,
   ): Promise<void> {
@@ -136,6 +138,7 @@ export const devis = {
         ...(patch.totalHT !== undefined && { total_ht: patch.totalHT }),
         ...(patch.totalTva !== undefined && { total_tva: patch.totalTva }),
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
+        ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
       })
       .eq("id", id)
       .eq("societe_id", societeId);

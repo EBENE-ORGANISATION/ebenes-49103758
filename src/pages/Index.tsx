@@ -28,6 +28,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { useTenant } from "@/hooks/useTenant";
+import { useActivites } from "@/hooks/data/useActivites";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
 import { isElectron } from "@/lib/platform";
 
@@ -60,6 +62,20 @@ const Index = () => {
 
   const effectiveSocieteId = currentSociete?.id ?? null;
   const qc = useQueryClient();
+
+  // ─── Compartiment d'activité courant ──────────────────────────────────────
+  const { activites } = useActivites(effectiveSocieteId);
+  const { currentActiviteId } = useActiviteFilter();
+  // On ne retient l'activité de l'URL que si elle appartient à la société.
+  const validActiviteId = useMemo(
+    () => (activites.some((a) => a.id === currentActiviteId) ? currentActiviteId : null),
+    [activites, currentActiviteId],
+  );
+  // Activité « Général » (repli pour estampiller les saisies en vue consolidée).
+  const defaultActiviteId = useMemo(() => {
+    const general = activites.find((a) => a.nom === "Général");
+    return general?.id ?? activites[0]?.id ?? null;
+  }, [activites]);
 
   // ─── Purge globale du cache React Query au changement de société ──────────
   // • Quand l'ID change (null → A, A → B, B → A) : supprime le cache de
@@ -94,7 +110,10 @@ const Index = () => {
     prevSidRef.current = current;
   }, [effectiveSocieteId, qc]);
 
-  const store = useEbeneStore(effectiveSocieteId);
+  const store = useEbeneStore(effectiveSocieteId, {
+    activiteId: validActiviteId,
+    defaultActiviteId,
+  });
   useEffect(() => {
     if (currentSociete?.id) {
       nettoyerAncienCacheLocalStorage(currentSociete.id);

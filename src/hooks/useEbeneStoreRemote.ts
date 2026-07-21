@@ -80,9 +80,41 @@ const LS_PREFIX = "ebene-remote:";
 const lsKey = (k: string, sid: string | null) =>
   sid ? `${LS_PREFIX}s:${sid}:${k}` : `${LS_PREFIX}${k}`;
 
+// ─── Filtrage par compartiment d'activité ────────────────────────────────────
+// Filtre un Record<moisKey, T[]> pour ne garder que les lignes de l'activité
+// donnée. Si `activiteId` est null (« Toutes les activités »), renvoie la map
+// inchangée (vue consolidée). Les entités GRH ne sont jamais filtrées.
+const filterMoisMap = <T extends { activiteId?: string | null }>(
+  m: Record<string, T[]>,
+  activiteId: string | null,
+): Record<string, T[]> => {
+  if (!activiteId) return m;
+  const out: Record<string, T[]> = {};
+  for (const [k, v] of Object.entries(m)) {
+    out[k] = v.filter((r) => r.activiteId === activiteId);
+  }
+  return out;
+};
 
-export const useEbeneStoreRemote = (societeId: string | null = null) => {
+export interface EbeneStoreOptions {
+  /** Compartiment d'activité filtré. null = « Toutes les activités » (consolidé). */
+  activiteId?: string | null;
+  /**
+   * Activité par défaut (« Général ») pour estampiller les nouvelles saisies
+   * lorsque la vue consolidée est active. Sert de repli quand `activiteId` null.
+   */
+  defaultActiviteId?: string | null;
+}
+
+export const useEbeneStoreRemote = (
+  societeId: string | null = null,
+  options?: EbeneStoreOptions,
+) => {
   const qc = useQueryClient();
+  const activiteId = options?.activiteId ?? null;
+  // Activité estampillée à la création : l'activité sélectionnée, sinon
+  // l'activité « Général » (repli), sinon rien (sociétés sans activités).
+  const stampActiviteId = activiteId ?? options?.defaultActiviteId ?? null;
 
   // ─── Purge du cache React Query lors d'un changement de société ────────────
   // Évite que les données d'une société précédente restent visibles pendant
@@ -141,53 +173,86 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
 
   // Raccourcis lisibles (même noms que l'ancien useState)
   const employes = tqEmployes.employes;
-  const articles = tqArticles.articles;
+  const articles = tqArticles.articles; // liste brute (usage interne : recalcul stock)
   const fournisseurs = tqFournisseurs.fournisseurs;
   const categoriesStock = tqCategories.categoriesStock;
-  const immobilisations = tqImmobilisations.immobilisations;
+  const immobilisationsRaw = tqImmobilisations.immobilisations; // brute (usage interne)
   const paramsAnnuels = tqParams.paramsAnnuels;
   const sanctions = tqSanctions.sanctions;
+
+  // ─── Vues filtrées par activité (exposées aux composants) ─────────────────
+  const articlesVisibles = useMemo(
+    () => (activiteId ? articles.filter((a) => a.activiteId === activiteId) : articles),
+    [articles, activiteId],
+  );
+  const immobilisations = useMemo(
+    () =>
+      activiteId
+        ? immobilisationsRaw.filter((i) => i.activiteId === activiteId)
+        : immobilisationsRaw,
+    [immobilisationsRaw, activiteId],
+  );
+  const fTransactions = useMemo(
+    () => filterMoisMap(tqTransactions.transactions, activiteId),
+    [tqTransactions.transactions, activiteId],
+  );
+  const fFactures = useMemo(
+    () => filterMoisMap(tqFactures.factures, activiteId),
+    [tqFactures.factures, activiteId],
+  );
+  const fDevis = useMemo(
+    () => filterMoisMap(tqDevis.devis, activiteId),
+    [tqDevis.devis, activiteId],
+  );
+  const fEcritures = useMemo(
+    () => filterMoisMap(tqEcritures.ecritures, activiteId),
+    [tqEcritures.ecritures, activiteId],
+  );
+  const fMouvements = useMemo(
+    () => filterMoisMap(tqMouvements.mouvementsStock, activiteId),
+    [tqMouvements.mouvementsStock, activiteId],
+  );
 
   // ─── donneesMensuelles : calculé depuis tous les hooks TQ ─────────────────
   // Remplace complètement l'ancien useState. Toutes les entités mensuelles
   // proviennent des tables relationnelles Supabase via TanStack Query.
   const donneesMensuelles = useMemo<DonneesMensuelles>(() => {
     const allKeys = new Set<string>([
-      ...Object.keys(tqTransactions.transactions),
-      ...Object.keys(tqFactures.factures),
+      ...Object.keys(fTransactions),
+      ...Object.keys(fFactures),
       ...Object.keys(tqAbsences.absences),
       ...Object.keys(tqPrimes.primes),
       ...Object.keys(tqHeuresSup.heuresSup),
       ...Object.keys(tqRetenues.retenues),
-      ...Object.keys(tqMouvements.mouvementsStock),
-      ...Object.keys(tqDevis.devis),
-      ...Object.keys(tqEcritures.ecritures),
+      ...Object.keys(fMouvements),
+      ...Object.keys(fDevis),
+      ...Object.keys(fEcritures),
     ]);
     const result: DonneesMensuelles = {};
     for (const key of allKeys) {
       result[key] = {
-        transactions: tqTransactions.transactions[key] ?? [],
-        factures: tqFactures.factures[key] ?? [],
+        transactions: fTransactions[key] ?? [],
+        factures: fFactures[key] ?? [],
         absences: tqAbsences.absences[key] ?? [],
         primes: tqPrimes.primes[key] ?? {},
         heuresSup: tqHeuresSup.heuresSup[key] ?? {},
         retenues: tqRetenues.retenues[key] ?? {},
-        mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
-        devis: tqDevis.devis[key] ?? [],
-        ecritures: tqEcritures.ecritures[key] ?? [],
+        mouvementsStock: fMouvements[key] ?? [],
+        devis: fDevis[key] ?? [],
+        ecritures: fEcritures[key] ?? [],
       };
     }
     return result;
   }, [
-    tqTransactions.transactions,
-    tqFactures.factures,
+    fTransactions,
+    fFactures,
     tqAbsences.absences,
     tqPrimes.primes,
     tqHeuresSup.heuresSup,
     tqRetenues.retenues,
-    tqMouvements.mouvementsStock,
-    tqDevis.devis,
-    tqEcritures.ecritures,
+    fMouvements,
+    fDevis,
+    fEcritures,
   ]);
 
   // ─── Statut Google Drive ───────────────────────────────────────────────────
@@ -270,34 +335,35 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     (annee: number, mois: number): MoisData => {
       const key = moisKey(annee, mois);
       return {
-        transactions: tqTransactions.transactions[key] ?? [],
-        factures: tqFactures.factures[key] ?? [],
+        transactions: fTransactions[key] ?? [],
+        factures: fFactures[key] ?? [],
         absences: tqAbsences.absences[key] ?? [],
         primes: tqPrimes.primes[key] ?? {},
         heuresSup: tqHeuresSup.heuresSup[key] ?? {},
         retenues: tqRetenues.retenues[key] ?? {},
-        mouvementsStock: tqMouvements.mouvementsStock[key] ?? [],
-        devis: tqDevis.devis[key] ?? [],
-        ecritures: tqEcritures.ecritures[key] ?? [],
+        mouvementsStock: fMouvements[key] ?? [],
+        devis: fDevis[key] ?? [],
+        ecritures: fEcritures[key] ?? [],
       };
     },
     [
-      tqTransactions.transactions,
-      tqFactures.factures,
+      fTransactions,
+      fFactures,
       tqAbsences.absences,
       tqPrimes.primes,
       tqHeuresSup.heuresSup,
       tqRetenues.retenues,
-      tqMouvements.mouvementsStock,
-      tqDevis.devis,
-      tqEcritures.ecritures,
+      fMouvements,
+      fDevis,
+      fEcritures,
     ],
   );
 
   // ─── Transactions → table relationnelle ──────────────────────────────────
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
-      void tqTransactions.addTransaction(annee, mois, t)
+      const aid = t.activiteId ?? stampActiviteId;
+      void tqTransactions.addTransaction(annee, mois, { ...t, activiteId: aid })
         .then((saved) => {
           log("INSERT", "transactions", saved.id, null, saved);
           markSignificantWrite();
@@ -318,6 +384,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
                 { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
               ],
               statut: "brouillon", // nécessite validation chef compta
+              activiteId: aid,
               annee,
               mois,
             }).catch(() => {
@@ -327,7 +394,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
   );
 
   const removeTransaction = useCallback(
@@ -371,7 +438,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── Factures → table relationnelle ──────────────────────────────────────
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
-      void tqFactures.createFacture(annee, mois, f)
+      void tqFactures.createFacture(annee, mois, { ...f, activiteId: f.activiteId ?? stampActiviteId })
         .then((saved) => {
           log("INSERT", "factures", saved.id, null, saved);
           markSignificantWrite();
@@ -379,7 +446,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .catch(() => toast.error("Erreur lors de la création de la facture"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqFactures, markSignificantWrite],
+    [tqFactures, markSignificantWrite, stampActiviteId],
   );
 
   const updateFacture = useCallback(
@@ -431,6 +498,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
             { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
           ];
 
+      const aid = f.activiteId ?? stampActiviteId;
       void tqTransactions.addTransaction(annee, mois, {
         date: f.date,
         desc: `Facture ${f.numero} — ${f.client}`,
@@ -439,6 +507,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         source: "facture",
         factureId: f.id,
         activite: f.activite,
+        activiteId: aid,
       })
         .then((trans) =>
           Promise.all([
@@ -455,6 +524,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
               lignes: lignesEcriture,
               statut: "valide",
               factureId: f.id,
+              activiteId: aid,
               annee,
               mois,
             }),
@@ -469,7 +539,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         })
         .catch(() => toast.error("Erreur lors du marquage comme payée"));
     },
-    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log],
+    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
   );
 
   const convertirProforma = useCallback(
@@ -503,12 +573,16 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── Devis → table relationnelle ─────────────────────────────────────────
   const addDevis = useCallback(
     (annee: number, mois: number, d: Omit<Devis, "id">) => {
-      void tqDevis.createDevis(annee, mois, { ...d, statut: d.statut || "envoye" })
+      void tqDevis.createDevis(annee, mois, {
+        ...d,
+        statut: d.statut || "envoye",
+        activiteId: d.activiteId ?? stampActiviteId,
+      })
         .then((saved) => log("INSERT", "devis", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de la création du devis"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqDevis],
+    [tqDevis, stampActiviteId],
   );
 
   const removeDevis = useCallback(
@@ -547,6 +621,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         totalTva: d.totalTva,
         totalTtc: d.totalTtc,
         activite: d.activite,
+        activiteId: d.activiteId ?? stampActiviteId,
       })
         .then((facture) =>
           tqDevis.updateDevis(devisId, { statut: "converti", factureId: facture.id })
@@ -561,7 +636,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .catch(() => toast.error("Erreur lors de la conversion du devis en facture"));
       return null; // ID disponible après invalidation TQ
     },
-    [tqDevis, tqFactures],
+    [tqDevis, tqFactures, stampActiviteId],
   );
 
   // ─── GRH : Primes → table relationnelle ──────────────────────────────────
@@ -845,10 +920,10 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── Stock : articles → table relationnelle ───────────────────────────────
   const addArticle = useCallback(
     (a: Omit<Article, "id">) => {
-      void tqArticles.addArticle(a)
+      void tqArticles.addArticle({ ...a, activiteId: a.activiteId ?? stampActiviteId })
         .catch(() => toast.error("Erreur lors de l'ajout de l'article"));
     },
-    [tqArticles],
+    [tqArticles, stampActiviteId],
   );
 
   const updateArticle = useCallback(
@@ -870,7 +945,12 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── Stock : mouvements → table relationnelle ────────────────────────────
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
-      void tqMouvements.createMouvement(annee, mois, mvt)
+      // Estampille le mouvement avec l'activité de l'article, sinon l'activité courante.
+      const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
+      void tqMouvements.createMouvement(annee, mois, {
+        ...mvt,
+        activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
+      })
         .then(() => {
           const article = articles.find((a) => a.id === mvt.articleId);
           if (article && societeId) {
@@ -896,7 +976,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .catch(() => toast.error("Erreur lors de l'ajout du mouvement de stock"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqMouvements, articles, societeId, tqArticles],
+    [tqMouvements, articles, societeId, tqArticles, stampActiviteId],
   );
 
   const removeMouvementStock = useCallback(
@@ -968,7 +1048,11 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
           : i.categorie
             ? COMPTES_IMMO_DEFAUT[i.categorie]
             : { actif: "24", amortissementCumule: "284", dotation: "6813" };
-      void tqImmobilisations.addImmobilisation({ ...i, comptesSYSCOHADA: comptes })
+      void tqImmobilisations.addImmobilisation({
+        ...i,
+        comptesSYSCOHADA: comptes,
+        activiteId: i.activiteId ?? stampActiviteId,
+      })
         .then((saved) => {
           log("INSERT", "immobilisations", saved.id, null, saved);
           markSignificantWrite();
@@ -976,7 +1060,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
         .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqImmobilisations, markSignificantWrite],
+    [tqImmobilisations, markSignificantWrite, stampActiviteId],
   );
 
   const removeImmobilisation = useCallback(
@@ -1041,14 +1125,14 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
   // ─── Écritures comptables SYSCOHADA → table relationnelle ────────────────
   const addEcriture = useCallback(
     (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => {
-      void tqEcritures.addEcriture(annee, mois, e)
+      void tqEcritures.addEcriture(annee, mois, { ...e, activiteId: e.activiteId ?? stampActiviteId })
         .then((saved) => {
           log("INSERT", "ecritures_comptables", saved.id, null, saved);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de l'ajout de l'écriture"));
     },
-    [tqEcritures, markSignificantWrite, log],
+    [tqEcritures, markSignificantWrite, log, stampActiviteId],
   );
 
   const updateEcriture = useCallback(
@@ -1095,7 +1179,7 @@ export const useEbeneStoreRemote = (societeId: string | null = null) => {
     employes,
     paramsAnnuels,
     tauxHistorique,
-    articles,
+    articles: articlesVisibles,
     fournisseurs,
     categoriesStock,
     sanctions,

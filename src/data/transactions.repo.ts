@@ -31,6 +31,7 @@ export const toTransaction = (row: TransactionRow): Transaction => ({
   source: row.source as TransactionSource,
   factureId: n(row.facture_id),
   activite: n(row.activite) as ActiviteType | undefined,
+  activiteId: n(row.activite_id),
   pieceJointe: n(row.piece_jointe),
   pieceJointeNom: n(row.piece_jointe_nom),
   pieceJointeType: n(row.piece_jointe_type),
@@ -58,6 +59,7 @@ export const fromTransaction = (
   source: t.source ?? "manuelle",
   facture_id: t.factureId ?? null,
   activite: t.activite ?? null,
+  activite_id: t.activiteId ?? null,
   piece_jointe: t.pieceJointe ?? null,
   piece_jointe_nom: t.pieceJointeNom ?? null,
   piece_jointe_type: t.pieceJointeType ?? null,
@@ -117,7 +119,7 @@ export const transactions = {
 
   async update(
     id: number,
-    patch: Partial<Pick<Transaction, "statut" | "motifRejet" | "factureId">>,
+    patch: Partial<Pick<Transaction, "statut" | "motifRejet" | "factureId" | "activiteId">>,
     societeId: string,
   ): Promise<void> {
     const { error } = await supabase
@@ -126,6 +128,7 @@ export const transactions = {
         ...(patch.statut !== undefined && { statut: patch.statut }),
         ...(patch.motifRejet !== undefined && { motif_rejet: patch.motifRejet ?? null }),
         ...(patch.factureId !== undefined && { facture_id: patch.factureId ?? null }),
+        ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
       })
       .eq("id", id)
       .eq("societe_id", societeId);

@@ -38,6 +38,7 @@ export const toFacture = (row: FactureRow): Facture => ({
   totalTva: row.total_tva,
   totalTtc: row.total_ttc,
   activite: n(row.activite) as ActiviteType | undefined,
+  activiteId: n(row.activite_id),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
   annee: row.annee,
@@ -65,6 +66,7 @@ export const fromFacture = (
   total_tva: f.totalTva,
   total_ttc: f.totalTtc,
   activite: f.activite ?? null,
+  activite_id: f.activiteId ?? null,
   statut_validation: f.statutValidation ?? "en_validation",
   motif_rejet: f.motifRejet ?? null,
 });
@@ -133,6 +135,7 @@ export const factures = {
         | "totalHT"
         | "totalTva"
         | "totalTtc"
+        | "activiteId"
       >
     >,
     societeId: string,
@@ -159,6 +162,7 @@ export const factures = {
         ...(patch.totalHT !== undefined && { total_ht: patch.totalHT }),
         ...(patch.totalTva !== undefined && { total_tva: patch.totalTva }),
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
+        ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
       })
       .eq("id", id)
       .eq("societe_id", societeId);

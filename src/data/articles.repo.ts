@@ -24,6 +24,7 @@ export const toArticle = (row: ArticleRow): Article => ({
   fournisseurId: n(row.fournisseur_id),
   emplacement: n(row.emplacement),
   description: n(row.description),
+  activiteId: n(row.activite_id),
 });
 
 export const fromArticle = (
@@ -42,6 +43,7 @@ export const fromArticle = (
   fournisseur_id: a.fournisseurId ?? null,
   emplacement: a.emplacement ?? null,
   description: a.description ?? null,
+  activite_id: a.activiteId ?? null,
 });
 
 export const articles = {
@@ -95,6 +97,7 @@ export const articles = {
       }),
       ...(patch.emplacement !== undefined && { emplacement: patch.emplacement ?? null }),
       ...(patch.description !== undefined && { description: patch.description ?? null }),
+      ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
     };
     const { data, error } = await supabase
       .from("articles")

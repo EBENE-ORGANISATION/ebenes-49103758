@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
+import { ActivitesManager } from "@/components/ebene/ActivitesManager";
 import { applyTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -348,6 +349,8 @@ const ParametresSociete = () => {
                 </div>
               </div>
             </Card>
+
+            <ActivitesManager societeId={currentSociete.id} />
 
             <Card className="p-5 space-y-4">
               <h2 className="font-bold">{t("params.section_numbering")}</h2>

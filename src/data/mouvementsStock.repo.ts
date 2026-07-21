@@ -21,6 +21,7 @@ export const toMouvement = (row: MouvementRow): MouvementStock => ({
   reference: n(row.reference),
   factureId: n(row.facture_id),
   transactionId: n(row.transaction_id),
+  activiteId: n(row.activite_id),
   annee: row.annee,
   mois: row.mois,
 });
@@ -43,6 +44,7 @@ export const fromMouvement = (
   reference: m.reference ?? null,
   facture_id: m.factureId ?? null,
   transaction_id: m.transactionId ?? null,
+  activite_id: m.activiteId ?? null,
 });
 
 export const mouvementsStock = {

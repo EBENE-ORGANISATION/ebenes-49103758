@@ -11,6 +11,7 @@ import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SocieteSwitcher } from "@/components/SocieteSwitcher";
+import { ActiviteSwitcher } from "@/components/ActiviteSwitcher";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -285,6 +286,11 @@ export const Header = ({
                 <SocieteSwitcher />
               </div>
 
+              {/* Sélecteur d'activité (masqué si <2 activités) */}
+              <div className="hidden sm:block">
+                <ActiviteSwitcher />
+              </div>
+
               {/* Langue */}
               <div className="hidden md:block">
                 <LanguageSwitcher />
@@ -326,8 +332,9 @@ export const Header = ({
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {/* Société sur mobile */}
-                  <div className="sm:hidden px-2 py-1.5">
+                  <div className="sm:hidden px-2 py-1.5 space-y-1.5">
                     <SocieteSwitcher />
+                    <ActiviteSwitcher />
                   </div>
                   <DropdownMenuSeparator className="sm:hidden" />
                   {actionsSecondaires}

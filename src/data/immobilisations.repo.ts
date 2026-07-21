@@ -38,6 +38,7 @@ export const toImmobilisation = (row: ImmoRow): Immobilisation => ({
   statut: (row.statut as "actif" | "cede" | "rebut") ?? "actif",
   valeurCession: n(row.valeur_cession),
   plusMoinsValue: n(row.plus_moins_value),
+  activiteId: n(row.activite_id),
 });
 
 export const fromImmobilisation = (
@@ -59,6 +60,7 @@ export const fromImmobilisation = (
   statut: immo.statut ?? "actif",
   valeur_cession: immo.valeurCession ?? null,
   plus_moins_value: immo.plusMoinsValue ?? null,
+  activite_id: immo.activiteId ?? null,
 });
 
 export const immobilisations = {
@@ -122,6 +124,7 @@ export const immobilisations = {
       ...(patch.plusMoinsValue !== undefined && {
         plus_moins_value: patch.plusMoinsValue ?? null,
       }),
+      ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
     };
     const { data, error } = await supabase
       .from("immobilisations")

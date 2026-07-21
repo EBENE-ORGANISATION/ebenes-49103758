@@ -1,3 +1,15 @@
+/**
+ * Compartiment d'activité métier au sein d'UNE société (dimension `activites`).
+ * Ex : Hôtel, Bar, Commerce… — libre, défini par l'admin. À ne pas confondre
+ * avec `ActiviteType` ("service" | "commerce") qui est une classification fiscale.
+ */
+export interface Activite {
+  id: string;
+  nom: string;
+  couleur: string;
+  actif: boolean;
+}
+
 export type TransactionType = "r" | "d";
 export type TransactionSource = "manuelle" | "facture" | "salaires" | "fournisseur";
 export type ActiviteType = "service" | "commerce";
@@ -19,6 +31,8 @@ export interface Transaction {
   factureId?: number | null;
   /** Activité associée à la recette (impacte la patente) */
   activite?: ActiviteType;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
   /** PDF/image fournisseur en data URL (base64) */
   pieceJointe?: string | null;
   pieceJointeNom?: string | null;
@@ -56,6 +70,8 @@ export interface Facture {
   totalTtc: number;
   /** Type d'activité (impacte la patente lors du règlement) */
   activite?: ActiviteType;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
   /**
    * Statut du workflow de validation, indépendant du statut métier
    * (en_attente / payee / proforma).
@@ -98,6 +114,8 @@ export interface Devis {
   totalTva: number;
   totalTtc: number;
   activite?: ActiviteType;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
   /** Renseigné lorsque le devis est converti en facture. */
   factureId?: number | null;
   notes?: string;
@@ -255,6 +273,8 @@ export interface EcritureComptable {
   statut: StatutEcriture;
   factureId?: number | null;
   bulletinId?: string | null;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
   creePar?: string;
   validepar?: string;
   motifRejet?: string;
@@ -390,6 +410,8 @@ export interface Article {
   fournisseurId?: number | null;
   emplacement?: string;
   description?: string;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
 }
 
 export interface MouvementStock {
@@ -403,6 +425,8 @@ export interface MouvementStock {
   reference?: string; // n° BL, n° facture liée, etc.
   factureId?: number | null;
   transactionId?: number | null;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
   annee?: number;
   mois?: number;
 }
@@ -540,6 +564,8 @@ export interface Immobilisation {
    */
   plusMoinsValue?: number;
   notes?: string;
+  /** Compartiment d'activité métier (dimension `activites`, ex: Hôtel, Bar). */
+  activiteId?: string | null;
 }
 
 /**
