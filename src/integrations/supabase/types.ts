@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       absences: {
@@ -20,6 +45,7 @@ export type Database = {
           created_at: string
           date_debut: string
           date_fin: string
+          deleted_at: string | null
           employe_id: number
           id: number
           jours: number
@@ -36,6 +62,7 @@ export type Database = {
           created_at?: string
           date_debut: string
           date_fin: string
+          deleted_at?: string | null
           employe_id: number
           id?: number
           jours?: number
@@ -52,6 +79,7 @@ export type Database = {
           created_at?: string
           date_debut?: string
           date_fin?: string
+          deleted_at?: string | null
           employe_id?: number
           id?: number
           jours?: number
@@ -66,6 +94,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "absences_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activites: {
+        Row: {
+          actif: boolean
+          couleur: string
+          created_at: string
+          id: string
+          nom: string
+          societe_id: string
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          couleur?: string
+          created_at?: string
+          id?: string
+          nom: string
+          societe_id: string
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          couleur?: string
+          created_at?: string
+          id?: string
+          nom?: string
+          societe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activites_societe_id_fkey"
             columns: ["societe_id"]
             isOneToOne: false
             referencedRelation: "societes"
@@ -126,6 +192,7 @@ export type Database = {
       }
       articles: {
         Row: {
+          activite_id: string | null
           categorie_id: number | null
           created_at: string
           deleted_at: string | null
@@ -144,6 +211,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activite_id?: string | null
           categorie_id?: number | null
           created_at?: string
           deleted_at?: string | null
@@ -162,6 +230,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activite_id?: string | null
           categorie_id?: number | null
           created_at?: string
           deleted_at?: string | null
@@ -180,6 +249,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "articles_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "articles_societe_id_fkey"
             columns: ["societe_id"]
@@ -486,7 +562,15 @@ export type Database = {
           updated_at?: string
           workflow_validation?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_services_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       device_otps: {
         Row: {
@@ -563,6 +647,7 @@ export type Database = {
       devis: {
         Row: {
           activite: string | null
+          activite_id: string | null
           annee: number
           avec_tva: boolean | null
           client: string
@@ -586,6 +671,7 @@ export type Database = {
         }
         Insert: {
           activite?: string | null
+          activite_id?: string | null
           annee: number
           avec_tva?: boolean | null
           client: string
@@ -609,6 +695,7 @@ export type Database = {
         }
         Update: {
           activite?: string | null
+          activite_id?: string | null
           annee?: number
           avec_tva?: boolean | null
           client?: string
@@ -632,6 +719,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "devis_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "devis_societe_id_fkey"
             columns: ["societe_id"]
             isOneToOne: false
@@ -642,6 +736,7 @@ export type Database = {
       }
       ecritures_comptables: {
         Row: {
+          activite_id: string | null
           annee: number
           bulletin_id: string | null
           created_at: string
@@ -664,6 +759,7 @@ export type Database = {
           valide_par: string | null
         }
         Insert: {
+          activite_id?: string | null
           annee: number
           bulletin_id?: string | null
           created_at?: string
@@ -686,6 +782,7 @@ export type Database = {
           valide_par?: string | null
         }
         Update: {
+          activite_id?: string | null
           annee?: number
           bulletin_id?: string | null
           created_at?: string
@@ -708,6 +805,13 @@ export type Database = {
           valide_par?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecritures_comptables_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecritures_comptables_bulletin_id_fkey"
             columns: ["bulletin_id"]
@@ -949,6 +1053,7 @@ export type Database = {
       factures: {
         Row: {
           activite: string | null
+          activite_id: string | null
           annee: number
           avec_tva: boolean | null
           client: string
@@ -972,6 +1077,7 @@ export type Database = {
         }
         Insert: {
           activite?: string | null
+          activite_id?: string | null
           annee: number
           avec_tva?: boolean | null
           client: string
@@ -995,6 +1101,7 @@ export type Database = {
         }
         Update: {
           activite?: string | null
+          activite_id?: string | null
           annee?: number
           avec_tva?: boolean | null
           client?: string
@@ -1017,6 +1124,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "factures_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "factures_societe_id_fkey"
             columns: ["societe_id"]
@@ -1072,6 +1186,7 @@ export type Database = {
           adresse: string | null
           contact: string | null
           created_at: string
+          deleted_at: string | null
           email: string | null
           id: number
           nom: string
@@ -1083,6 +1198,7 @@ export type Database = {
           adresse?: string | null
           contact?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           id?: number
           nom: string
@@ -1094,6 +1210,7 @@ export type Database = {
           adresse?: string | null
           contact?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           id?: number
           nom?: string
@@ -1172,6 +1289,7 @@ export type Database = {
       }
       immobilisations: {
         Row: {
+          activite_id: string | null
           categorie: string | null
           comptes_syscohada: Json
           created_at: string
@@ -1192,6 +1310,7 @@ export type Database = {
           valeur_residuelle: number | null
         }
         Insert: {
+          activite_id?: string | null
           categorie?: string | null
           comptes_syscohada?: Json
           created_at?: string
@@ -1212,6 +1331,7 @@ export type Database = {
           valeur_residuelle?: number | null
         }
         Update: {
+          activite_id?: string | null
           categorie?: string | null
           comptes_syscohada?: Json
           created_at?: string
@@ -1232,6 +1352,13 @@ export type Database = {
           valeur_residuelle?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "immobilisations_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "immobilisations_societe_id_fkey"
             columns: ["societe_id"]
@@ -1267,6 +1394,7 @@ export type Database = {
       }
       mouvements_stock: {
         Row: {
+          activite_id: string | null
           annee: number
           article_id: number
           created_at: string
@@ -1284,6 +1412,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activite_id?: string | null
           annee: number
           article_id: number
           created_at?: string
@@ -1301,6 +1430,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activite_id?: string | null
           annee?: number
           article_id?: number
           created_at?: string
@@ -1318,6 +1448,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mouvements_stock_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mouvements_stock_societe_id_fkey"
             columns: ["societe_id"]
@@ -1440,6 +1577,7 @@ export type Database = {
         Row: {
           annee: number
           created_at: string
+          deleted_at: string | null
           employe_id: number
           id: number
           libelle: string
@@ -1453,6 +1591,7 @@ export type Database = {
         Insert: {
           annee: number
           created_at?: string
+          deleted_at?: string | null
           employe_id: number
           id?: number
           libelle?: string
@@ -1466,6 +1605,7 @@ export type Database = {
         Update: {
           annee?: number
           created_at?: string
+          deleted_at?: string | null
           employe_id?: number
           id?: number
           libelle?: string
@@ -1564,6 +1704,7 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          deleted_at: string | null
           employe_id: number
           id: number
           jours_mise_a_pied: number | null
@@ -1578,6 +1719,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date: string
+          deleted_at?: string | null
           employe_id: number
           id?: number
           jours_mise_a_pied?: number | null
@@ -1592,6 +1734,7 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          deleted_at?: string | null
           employe_id?: number
           id?: number
           jours_mise_a_pied?: number | null
@@ -1985,6 +2128,7 @@ export type Database = {
       transactions: {
         Row: {
           activite: string | null
+          activite_id: string | null
           annee: number
           auto: boolean | null
           created_at: string
@@ -2008,6 +2152,7 @@ export type Database = {
         }
         Insert: {
           activite?: string | null
+          activite_id?: string | null
           annee: number
           auto?: boolean | null
           created_at?: string
@@ -2031,6 +2176,7 @@ export type Database = {
         }
         Update: {
           activite?: string | null
+          activite_id?: string | null
           annee?: number
           auto?: boolean | null
           created_at?: string
@@ -2053,6 +2199,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_activite_id_fkey"
+            columns: ["activite_id"]
+            isOneToOne: false
+            referencedRelation: "activites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_societe_id_fkey"
             columns: ["societe_id"]
@@ -2093,6 +2246,13 @@ export type Database = {
             columns: ["poste_id"]
             isOneToOne: false
             referencedRelation: "custom_postes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_custom_postes_societe_id_fkey"
+            columns: ["societe_id"]
+            isOneToOne: false
+            referencedRelation: "societes"
             referencedColumns: ["id"]
           },
         ]
@@ -2190,15 +2350,6 @@ export type Database = {
     Functions: {
       app_state_societe_id: { Args: { _key: string }; Returns: string }
       current_employe_id: { Args: { _user_id: string }; Returns: number }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
       generate_set_impots: {
         Args: {
           p_assujetti_tva?: boolean
@@ -2224,36 +2375,22 @@ export type Database = {
         }
         Returns: boolean
       }
-      has_societe_access: {
-        Args: { _societe_id: string; _user_id: string }
-        Returns: boolean
-      }
+      has_societe_access:
+        | { Args: { _societe_id: string }; Returns: boolean }
+        | { Args: { _societe_id: string; _user_id: string }; Returns: boolean }
       in_service_compta: { Args: { _user_id: string }; Returns: boolean }
       in_service_grh: { Args: { _user_id: string }; Returns: boolean }
-      is_admin: { Args: { _user_id: string }; Returns: boolean }
-      is_admin_general: { Args: { _user_id: string }; Returns: boolean }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
+      is_admin_general:
+        | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
       is_chef: { Args: { _user_id: string }; Returns: boolean }
       is_chef_compta: { Args: { _user_id: string }; Returns: boolean }
       is_chef_grh: { Args: { _user_id: string }; Returns: boolean }
       is_employe: { Args: { _user_id: string }; Returns: boolean }
       is_modele_societe: { Args: { _societe_id: string }; Returns: boolean }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
-      }
     }
     Enums: {
       access_level: "none" | "read" | "write" | "validate"
@@ -2266,8 +2403,31 @@ export type Database = {
         | "fiscalite"
         | "parametres_sociaux"
         | "grh"
-        | "outils_admin"
         | "portail"
+        | "saisie_ecritures"
+        | "validation_ecritures"
+        | "journaux"
+        | "rapports_compta"
+        | "devis"
+        | "factures_vente"
+        | "factures_achat"
+        | "articles"
+        | "mouvements_stock"
+        | "inventaire"
+        | "fiches_immo"
+        | "cessions_immo"
+        | "tva"
+        | "is_impot"
+        | "imf"
+        | "patente"
+        | "parafiscaux"
+        | "grilles_salaire"
+        | "baremes_cnss"
+        | "employes"
+        | "bulletins"
+        | "conges_absences"
+        | "sanctions"
+        | "paie_virements"
       app_role:
         | "admin"
         | "rh"
@@ -2280,6 +2440,7 @@ export type Database = {
         | "dashboard_viewer"
         | "employe"
         | "admin_general"
+        | "super_admin"
       header_feature:
         | "alertes"
         | "recap_annuel"
@@ -2426,6 +2587,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       access_level: ["none", "read", "write", "validate"],
@@ -2438,8 +2602,31 @@ export const Constants = {
         "fiscalite",
         "parametres_sociaux",
         "grh",
-        "outils_admin",
         "portail",
+        "saisie_ecritures",
+        "validation_ecritures",
+        "journaux",
+        "rapports_compta",
+        "devis",
+        "factures_vente",
+        "factures_achat",
+        "articles",
+        "mouvements_stock",
+        "inventaire",
+        "fiches_immo",
+        "cessions_immo",
+        "tva",
+        "is_impot",
+        "imf",
+        "patente",
+        "parafiscaux",
+        "grilles_salaire",
+        "baremes_cnss",
+        "employes",
+        "bulletins",
+        "conges_absences",
+        "sanctions",
+        "paie_virements",
       ],
       app_role: [
         "admin",
@@ -2453,6 +2640,7 @@ export const Constants = {
         "dashboard_viewer",
         "employe",
         "admin_general",
+        "super_admin",
       ],
       header_feature: [
         "alertes",
