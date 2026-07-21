@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save, Truck, Tag, Package } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { ActiviteSelect } from "./ActiviteSelect";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -140,10 +142,11 @@ const ArticlesPanel = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Article | null>(null);
+  const { currentActiviteId } = useActiviteFilter();
   const empty: Omit<Article, "id"> = {
     reference: "", designation: "", unite: "pièce",
     prixAchat: 0, prixVente: 0, stock: 0, seuilAlerte: 0,
-    categorieId: null, fournisseurId: null,
+    categorieId: null, fournisseurId: null, activiteId: currentActiviteId,
   };
   const [form, setForm] = useState<Omit<Article, "id">>(empty);
 
@@ -200,6 +203,7 @@ const ArticlesPanel = ({
             <Lab label="Stock initial"><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} disabled={!!editing} /></Lab>
             <Lab label="Seuil alerte"><Input type="number" value={form.seuilAlerte} onChange={(e) => setForm({ ...form, seuilAlerte: parseFloat(e.target.value) || 0 })} /></Lab>
             <Lab label="Emplacement"><Input value={form.emplacement || ""} onChange={(e) => setForm({ ...form, emplacement: e.target.value })} /></Lab>
+            <ActiviteSelect value={form.activiteId} onChange={(id) => setForm({ ...form, activiteId: id })} allowNone={false} />
           </div>
           <div className="flex gap-2">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">✓ Enregistrer</Button>

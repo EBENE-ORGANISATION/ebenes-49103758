@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   EcritureComptable,
   Immobilisation,
@@ -20,6 +20,8 @@ import { Plus, Trash2, FileSpreadsheet, Building2, ArrowRightLeft, BookOpen, Loa
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { StatCard } from "./StatCard";
+import { ActiviteSelect } from "./ActiviteSelect";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import {
   amortissementsAnnee,
   planAmortissement,
@@ -72,6 +74,9 @@ export const Immobilisations = ({
   const [valeur, setValeur] = useState("");
   const [duree, setDuree] = useState("5");
   const [methode, setMethode] = useState<MethodeAmortissement>("lineaire");
+  const { currentActiviteId } = useActiviteFilter();
+  const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
+  useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
 
   // ─── Cession ─────────────────────────────────────────────────────────────
   const [cessionImmo, setCessionImmo] = useState<Immobilisation | null>(null);
@@ -196,6 +201,7 @@ export const Immobilisations = ({
   const reset = () => {
     setLibelle(""); setValeur(""); setDuree("5");
     setCategorie("materiel_bureau"); setMethode("lineaire");
+    setActiviteId(currentActiviteId);
     setDateAcq(todayISO()); setShowForm(false);
   };
 
@@ -213,6 +219,7 @@ export const Immobilisations = ({
       dureeAmortissement: d,
       methode: categorie === "terrain" ? "lineaire" : methode,
       comptesSYSCOHADA: COMPTES_IMMO_DEFAUT[categorie],
+      activiteId,
     });
     toast.success("Immobilisation ajoutée");
     reset();
@@ -360,6 +367,7 @@ export const Immobilisations = ({
               </SelectContent>
             </Select>
           </div>
+          <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} />
           <div className="sm:col-span-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={reset}>Annuler</Button>
             <Button size="sm" onClick={submit}>Enregistrer</Button>

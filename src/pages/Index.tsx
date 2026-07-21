@@ -376,6 +376,8 @@ const Index = () => {
                   tauxHistorique={store.tauxHistorique}
                   annee={annee}
                   mois={mois}
+                  activites={activites.filter((a) => a.actif)}
+                  activiteFiltre={validActiviteId}
                 />
               </TabsContent>
             )}

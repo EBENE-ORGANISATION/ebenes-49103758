@@ -13,6 +13,7 @@ import {
   ReferenceLine,
   Area,
   AreaChart,
+  Cell,
 } from "recharts";
 import {
   TrendingUp,
@@ -42,6 +43,7 @@ import type {
   Employe,
   TauxFiscaux,
   MoisData,
+  Activite,
 } from "@/types/ebene";
 import { formatMontant, moisKey, tauxPourMois } from "@/lib/ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
@@ -53,7 +55,26 @@ interface DashboardProps {
   tauxHistorique: TauxFiscaux[];
   annee: number;
   mois: number;
+  /** Activités actives de la société (pour la répartition consolidée). */
+  activites?: Activite[];
+  /** Activité filtrée courante (null = vue consolidée). */
+  activiteFiltre?: string | null;
 }
+
+/**
+ * Restreint une MoisData à une activité donnée. `aid = null` cible les lignes
+ * sans activité (non rattachées). Utilisé pour la répartition par activité.
+ */
+const filterMoisByActivite = (m: MoisData, aid: string | null): MoisData => {
+  const match = (row: { activiteId?: string | null }) =>
+    aid === null ? !row.activiteId : row.activiteId === aid;
+  return {
+    ...m,
+    transactions: m.transactions.filter(match),
+    factures: m.factures.filter(match),
+    ecritures: (m.ecritures || []).filter(match),
+  };
+};
 
 const MOIS_COURTS = [
   "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
@@ -149,6 +170,8 @@ export const Dashboard = ({
   tauxHistorique,
   annee,
   mois,
+  activites = [],
+  activiteFiltre = null,
 }: DashboardProps) => {
   const { t } = useTranslation();
 
@@ -305,6 +328,33 @@ export const Dashboard = ({
     return a;
   }, [kpis, annee, mois]);
 
+  // ── Répartition par activité (vue consolidée uniquement) ──────────────────
+  const showRepartition = !activiteFiltre && activites.length >= 2;
+  const repartition = useMemo(() => {
+    if (!showRepartition || !moisCourant) return [];
+    const rows = activites.map((a) => {
+      const sub = filterMoisByActivite(moisCourant, a.id);
+      const ca = sumRecettes(sub);
+      const dep = sumDepenses(sub);
+      return { id: a.id, nom: a.nom, couleur: a.couleur, ca, dep, solde: ca - dep };
+    });
+    // Lignes sans activité (repli), affichées seulement si elles portent des montants.
+    const sub0 = filterMoisByActivite(moisCourant, null);
+    const ca0 = sumRecettes(sub0);
+    const dep0 = sumDepenses(sub0);
+    if (ca0 !== 0 || dep0 !== 0) {
+      rows.push({ id: "__none__", nom: "Sans activité", couleur: "#94a3b8", ca: ca0, dep: dep0, solde: ca0 - dep0 });
+    }
+    return rows
+      .filter((r) => r.ca !== 0 || r.dep !== 0)
+      .sort((x, y) => y.ca - x.ca);
+  }, [showRepartition, moisCourant, activites]);
+
+  const totalRepartitionCA = useMemo(
+    () => repartition.reduce((s, r) => s + r.ca, 0),
+    [repartition],
+  );
+
   return (
     <div className="space-y-5">
 
@@ -392,6 +442,99 @@ export const Dashboard = ({
           sparkData={sparklineTresorerie}
         />
       </div>
+
+      {/* ── Répartition par activité (consolidé, ≥2 activités) ─────────────── */}
+      {showRepartition && repartition.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base">
+                Répartition par activité — {MOIS_COURTS[mois - 1]} {annee}
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">
+                CA total : {fmt(totalRepartitionCA)}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Barres CA par activité */}
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={repartition}
+                  layout="vertical"
+                  margin={{ top: 4, right: 16, bottom: 0, left: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(v) => fmt(Number(v))}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="nom"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    width={96}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: number) => [fmt(v), "CA"]}
+                  />
+                  <Bar dataKey="ca" radius={[0, 3, 3, 0]}>
+                    {repartition.map((r) => (
+                      <Cell key={r.id} fill={r.couleur} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Tableau détaillé */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-muted-foreground border-b">
+                    <th className="text-left font-medium py-1.5 pr-3">Activité</th>
+                    <th className="text-right font-medium py-1.5 px-3">CA</th>
+                    <th className="text-right font-medium py-1.5 px-3">Dépenses</th>
+                    <th className="text-right font-medium py-1.5 px-3">Solde</th>
+                    <th className="text-right font-medium py-1.5 pl-3 hidden sm:table-cell">% CA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {repartition.map((r) => (
+                    <tr key={r.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: r.couleur }} />
+                          <span className="truncate">{r.nom}</span>
+                        </span>
+                      </td>
+                      <td className="text-right tabular-nums py-2 px-3">{fmt(r.ca)}</td>
+                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.dep)}</td>
+                      <td className={`text-right tabular-nums py-2 px-3 font-medium ${r.solde >= 0 ? "text-success" : "text-destructive"}`}>
+                        {fmt(r.solde)}
+                      </td>
+                      <td className="text-right tabular-nums py-2 pl-3 text-muted-foreground hidden sm:table-cell">
+                        {totalRepartitionCA > 0 ? `${Math.round((r.ca / totalRepartitionCA) * 100)}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Trésorerie prévisionnelle ──────────────────────────────────────── */}
       <TresorerieCard

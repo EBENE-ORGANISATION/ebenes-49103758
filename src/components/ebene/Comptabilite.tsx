@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import {
   ActiviteType,
   DonneesMensuelles,
@@ -21,6 +21,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
+import { ActiviteSelect } from "./ActiviteSelect";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { SaisieGuidee } from "./comptabilite/SaisieGuidee";
 import { SaisieExpert } from "./comptabilite/SaisieExpert";
 import { JournalEcritures } from "./comptabilite/JournalEcritures";
@@ -81,6 +83,11 @@ export const Comptabilite = ({
   const [date, setDate]             = useState(todayISO());
   const [type, setType]             = useState<"r" | "d">("r");
   const [activite, setActivite]     = useState<ActiviteType>("service");
+  const { currentActiviteId } = useActiviteFilter();
+  const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
+  // Garde le compartiment du formulaire aligné sur l'activité sélectionnée
+  // dans l'en-tête, tout en autorisant un choix par saisie.
+  useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
   const [desc, setDesc]             = useState("");
   const [montant, setMontant]       = useState("");
   const [fournisseur, setFournisseur] = useState("");
@@ -169,6 +176,7 @@ export const Comptabilite = ({
     setFournisseur("");
     setPiece(null);
     setActivite("service");
+    setActiviteId(currentActiviteId);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -185,6 +193,7 @@ export const Comptabilite = ({
       source: type === "d" && piece ? "fournisseur" : "manuelle",
       fournisseur: fournisseur.trim() || null,
       activite: type === "r" ? activite : undefined,
+      activiteId,
       pieceJointe: piece?.data || null,
       pieceJointeNom: piece?.nom || null,
       pieceJointeType: piece?.type || null,
@@ -397,6 +406,8 @@ export const Comptabilite = ({
                   <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Description *</Label>
                   <Input value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" />
                 </div>
+
+                <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} />
 
                 {type === "r" && (
                   <div>

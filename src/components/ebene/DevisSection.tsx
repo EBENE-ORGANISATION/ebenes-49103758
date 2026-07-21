@@ -20,6 +20,8 @@ import {
 import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye } from "lucide-react";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { useTenant } from "@/hooks/useTenant";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
+import { ActiviteSelect } from "./ActiviteSelect";
 import { useTranslation } from "react-i18next";
 import { DevisPreview } from "./DevisPreview";
 import {
@@ -98,6 +100,9 @@ export const DevisSection = ({
   const [reduction, setReduction] = useState("0");
   const [avecTva, setAvecTva] = useState(true);
   const [activite, setActivite] = useState<ActiviteType>("service");
+  const { currentActiviteId } = useActiviteFilter();
+  const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
+  useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
@@ -125,6 +130,7 @@ export const DevisSection = ({
     setReduction("0");
     setAvecTva(true);
     setActivite("service");
+    setActiviteId(currentActiviteId);
     setLignes([{ description: "", montant: "" }]);
     setNumero("");
     setNumeroEdited(false);
@@ -155,6 +161,7 @@ export const DevisSection = ({
         totalTva,
         totalTtc,
         activite,
+        activiteId,
       });
       reset();
       setOpen(false);
@@ -175,6 +182,7 @@ export const DevisSection = ({
       totalTva,
       totalTtc,
       activite,
+      activiteId,
     });
     if (currentSociete?.id && societeConfig && numeroFinal === numeroAuto) {
       void incrementerCompteur(
@@ -323,6 +331,8 @@ export const DevisSection = ({
             </Button>
           </div>
 
+          <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} label="Compartiment d'activité" />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -423,6 +433,7 @@ export const DevisSection = ({
                           setReduction(String(d.reduction || 0));
                           setAvecTva(!!d.avecTva);
                           setActivite(d.activite || "service");
+                          setActiviteId(d.activiteId ?? null);
                           setLignes(
                             (d.lignes && d.lignes.length > 0
                               ? d.lignes

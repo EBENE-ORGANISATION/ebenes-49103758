@@ -13,6 +13,8 @@ import type { Devis } from "@/types/ebene";
 import { OCRFacture, type OCRDraft } from "./OCRFacture";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { useTenant } from "@/hooks/useTenant";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
+import { ActiviteSelect } from "./ActiviteSelect";
 import {
   genererNumeroFacture,
   incrementerCompteur,
@@ -94,6 +96,9 @@ export const Factures = ({
   const [avecTva, setAvecTva] = useState(true);
   const [proforma, setProforma] = useState(false);
   const [activite, setActivite] = useState<ActiviteType>("service");
+  const { currentActiviteId } = useActiviteFilter();
+  const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
+  useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
   const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
     { description: "", montant: "" },
   ]);
@@ -128,6 +133,7 @@ export const Factures = ({
     setAvecTva(true);
     setProforma(false);
     setActivite("service");
+    setActiviteId(currentActiviteId);
     setLignes([{ description: "", montant: "" }]);
     setNumero("");
     setNumeroEdited(false);
@@ -171,6 +177,7 @@ export const Factures = ({
         totalTva,
         totalTtc,
         activite,
+        activiteId,
       });
       reset();
       setOpen(false);
@@ -191,6 +198,7 @@ export const Factures = ({
       totalTva,
       totalTtc,
       activite,
+      activiteId,
     });
     // Incrémente le compteur uniquement si on a utilisé le numéro auto
     // (sinon on respecte le choix manuel sans avancer la séquence).
@@ -217,6 +225,7 @@ export const Factures = ({
     setAvecTva(!!f.avecTva);
     setProforma(f.statut === "proforma");
     setActivite(f.activite || "service");
+    setActiviteId(f.activiteId ?? null);
     setLignes(
       (f.lignes && f.lignes.length > 0
         ? f.lignes
@@ -373,6 +382,8 @@ export const Factures = ({
               <Plus className="size-3.5" /> Ajouter ligne
             </Button>
           </div>
+
+          <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} label="Compartiment d'activité" />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
