@@ -6,12 +6,12 @@
  *
  * - Vérifie au démarrage (après 5s) et toutes les 6h.
  * - Compare la version GitHub avec la version embarquée dans package.json.
- * - Le lien pointe directement sur l'APK signé de la release.
+ * - Le bouton ouvre l'APK signé dans le navigateur externe → le gestionnaire
+ *   de téléchargement Android récupère le fichier puis propose l'installation.
  * - Entièrement silencieux en cas d'erreur réseau.
  */
 import { useEffect, useState, useCallback } from "react";
 import { isAndroid } from "@/lib/platform";
-import { Share } from "@capacitor/share";
 import APP_VERSION from "@/lib/appVersion";
 
 const GITHUB_OWNER = "EBENE-ORGANISATION";
@@ -75,17 +75,23 @@ export function AndroidUpdateChecker() {
     return () => { clearTimeout(t); clearInterval(i); };
   }, [check]);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!update) return;
+    // Ouvre l'URL directe de l'APK dans le navigateur externe : sous Capacitor
+    // Android, un lien target="_blank" est délégué au navigateur système, qui
+    // télécharge le .apk via le gestionnaire de téléchargement (puis Android
+    // propose l'installation). Évite la feuille de partage de Share.share().
     try {
-      await Share.share({
-        title: `EBENE SERVICES v${update.version}`,
-        text: `Téléchargez la mise à jour v${update.version} d'EBENE SERVICES`,
-        url: update.apkUrl,
-        dialogTitle: "Ouvrir dans le navigateur",
-      });
+      const a = document.createElement("a");
+      a.href = update.apkUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch {
-      // Si Share échoue (ex: annulé), on ignore
+      // Repli : navigation directe
+      window.open(update.apkUrl, "_blank");
     }
   };
 
@@ -99,7 +105,7 @@ export function AndroidUpdateChecker() {
         left: 0,
         right: 0,
         zIndex: 9998,
-        backgroundColor: "#1F3864",
+        backgroundColor: "#3D0000",
         color: "#fff",
         padding: "12px 16px",
         display: "flex",
@@ -119,7 +125,7 @@ export function AndroidUpdateChecker() {
           onClick={handleDownload}
           style={{
             backgroundColor: "#fff",
-            color: "#1F3864",
+            color: "#3D0000",
             border: "none",
             borderRadius: 6,
             padding: "8px 14px",
