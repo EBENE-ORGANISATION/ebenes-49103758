@@ -1,0 +1,14 @@
+# Liens de téléchargement courts (redirections Cloudflare Pages → GitHub Releases)
+# Toujours vers la dernière version publiée.
+
+# APK Android (nom d'asset stable) → téléchargement direct
+/apk           https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest/download/ebenes-signed.apk   302
+/android       https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest/download/ebenes-signed.apk   302
+
+# Windows / page de la dernière version (l'utilisateur y télécharge le .exe)
+/windows       https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest   302
+/exe           https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest   302
+
+# Page de téléchargement générique (toutes plateformes)
+/telecharger   https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest   302
+/download      https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest   302

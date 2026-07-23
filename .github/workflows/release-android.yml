@@ -62,7 +62,23 @@ jobs:
 
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
+        # `set -o pipefail` : un échec de gradlew doit faire échouer l'étape
+        # (sinon masqué par un éventuel pipe). Retry auto x3 pour absorber les
+        # pannes réseau transitoires (ex : Maven Central renvoyant 403).
+        run: |
+          set -o pipefail
+          for i in 1 2 3; do
+            echo "==== Build APK — tentative $i/3 ===="
+            if ./gradlew assembleRelease --no-daemon --stacktrace; then
+              echo "Build APK réussi (tentative $i)."
+              exit 0
+            fi
+            echo "Échec tentative $i. Nettoyage du cache et nouvelle tentative dans 20s…"
+            ./gradlew --stop || true
+            sleep 20
+          done
+          echo "::error::Build APK échoué après 3 tentatives."
+          exit 1
 
       - name: List APK outputs
         if: always()
