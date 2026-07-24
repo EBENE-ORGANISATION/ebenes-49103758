@@ -17,6 +17,8 @@ import APP_VERSION from "@/lib/appVersion";
 const GITHUB_OWNER = "EBENE-ORGANISATION";
 const GITHUB_REPO  = "ebenes-49103758";
 const API_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
+// Lien court à la marque (redirection Cloudflare → dernier APK signé).
+const APK_SHORT_URL = "https://ebnservicess.com/apk";
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 heures
 
 interface ReleaseInfo {
@@ -83,7 +85,8 @@ export function AndroidUpdateChecker() {
     // propose l'installation). Évite la feuille de partage de Share.share().
     try {
       const a = document.createElement("a");
-      a.href = update.apkUrl;
+      // Lien court à la marque ; redirige toujours vers le dernier APK signé.
+      a.href = APK_SHORT_URL;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       document.body.appendChild(a);
@@ -91,7 +94,7 @@ export function AndroidUpdateChecker() {
       a.remove();
     } catch {
       // Repli : navigation directe
-      window.open(update.apkUrl, "_blank");
+      window.open(APK_SHORT_URL, "_blank");
     }
   };
 
