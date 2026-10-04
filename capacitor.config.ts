@@ -14,7 +14,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  */
 const config: CapacitorConfig = {
   appId: "com.ebeneservices.app",
-  appName: "EBENE SERVICES",
+  appName: "Ébène Suite",
   webDir: "dist",
   server: {
     androidScheme: "https",

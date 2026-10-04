@@ -1,8 +1,8 @@
 {
-  "name": "Appli mère",
-  "short_name": "Appli mère",
+  "name": "Ébène Suite",
+  "short_name": "Ébène Suite",
   "description": "Plateforme multi-sociétés de gestion d'entreprise : comptabilité, fiscalité, factures et social.",
-  "theme_color": "#1F3864",
+  "theme_color": "#3D0000",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",

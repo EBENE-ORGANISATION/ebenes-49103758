@@ -12,6 +12,7 @@ import { useTenant } from "@/hooks/useTenant";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SocieteSwitcher } from "@/components/SocieteSwitcher";
 import { ActiviteSwitcher } from "@/components/ActiviteSwitcher";
+import { EbeneSuiteMark } from "@/components/brand/EbeneSuiteLogo";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -56,7 +57,7 @@ export const Header = ({
 
   const inMasterMode = !currentSociete;
   const logoSrc = inMasterMode ? null : (societeConfig?.logo_url || null);
-  const nomSociete = inMasterMode ? "EBENE Business Suite" : (currentSociete?.nom || "EBENE Business Suite");
+  const nomSociete = inMasterMode ? "Ébène Suite" : (currentSociete?.nom || "Ébène Suite");
   const sousTitre = currentSociete
     ? (societeConfig?.rccm || societeConfig?.nif || "Système de Gestion")
     : "Console de gestion globale";
@@ -225,9 +226,7 @@ export const Header = ({
                   </div>
                 ) : (
                   <div className="bg-primary-foreground/15 border border-primary-foreground/30 rounded-xl h-10 sm:h-12 w-10 sm:w-12 flex items-center justify-center shadow-inner">
-                    <span className="text-primary-foreground font-black text-lg sm:text-xl tracking-tighter select-none">
-                      E
-                    </span>
+                    <EbeneSuiteMark tone="inverse" className="h-6 sm:h-7" />
                   </div>
                 )}
               </div>

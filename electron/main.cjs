@@ -110,9 +110,9 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 700,
-    title: "EBENE SERVICES",
+    title: "Ébène Suite",
     icon: path.join(__dirname, "..", "public", "icons", "icon.ico"),
-    backgroundColor: "#1F3864",
+    backgroundColor: "#3D0000",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -191,8 +191,8 @@ function buildMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: "info",
-              title: "À propos d'EBENE SERVICES",
-              message: "EBENE SERVICES",
+              title: "À propos d’Ébène Suite",
+              message: "Ébène Suite",
               detail:
                 "Système de gestion d'entreprise — comptabilité, fiscalité, " +
                 "factures et social.\n\nVersion " + app.getVersion() +

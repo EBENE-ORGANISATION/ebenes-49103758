@@ -682,7 +682,7 @@ const en: Translation = {
     confirm_import: "⚠️ This will overwrite all current data. Continue?",
     import_success: "Import successful",
     import_invalid: "Invalid or corrupted file",
-    superadmin_console_title: "Parent App Console",
+    superadmin_console_title: "Ébène Suite Console",
     superadmin_console_desc:
       "You are connected as super-admin on the parent application. Select a company in the top-right switcher to access its business modules, or open the super-admin console to manage companies, users and global settings.",
     open_superadmin: "Open super-admin console",
@@ -873,7 +873,7 @@ const en: Translation = {
     s_converti: "→ Invoiced",
   },
   auth_page: {
-    app_title: "PARENT APP",
+    app_title: "Ébène Suite",
     subtitle: "Sign in to access your workspace",
     google_signin: "Sign in with Google",
     or_email: "Or by email",
@@ -904,10 +904,10 @@ const en: Translation = {
     denied_msg: "You don't have the required permissions to access this page.",
   },
   societe_switcher: {
-    parent_app: "Parent app",
+    parent_app: "Ébène Suite",
     societes: "Companies",
     super_admin: "Super-admin",
-    parent_app_emoji: "🏠 Parent app",
+    parent_app_emoji: "🏠 Ébène Suite",
     super_admin_global_view: "Super-admin global view",
   },
   audit_log: {

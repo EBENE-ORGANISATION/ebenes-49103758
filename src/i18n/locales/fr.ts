@@ -680,7 +680,7 @@ const fr = {
     confirm_import: "⚠️ Cela va écraser toutes les données actuelles. Continuer ?",
     import_success: "Import réussi",
     import_invalid: "Fichier invalide ou corrompu",
-    superadmin_console_title: "Console Appli mère",
+    superadmin_console_title: "Console Ébène Suite",
     superadmin_console_desc:
       "Vous êtes connecté en mode super-admin sur l'application mère. Sélectionnez une société dans le sélecteur en haut à droite pour accéder à ses modules métier, ou ouvrez la console super-admin pour gérer les sociétés, utilisateurs et paramètres globaux.",
     open_superadmin: "Ouvrir la console super-admin",
@@ -871,7 +871,7 @@ const fr = {
     s_converti: "→ Facturé",
   },
   auth_page: {
-    app_title: "APPLI MERE",
+    app_title: "Ébène Suite",
     subtitle: "Connectez-vous pour accéder à votre espace",
     google_signin: "Se connecter avec Google",
     or_email: "Ou par email",
@@ -902,10 +902,10 @@ const fr = {
     denied_msg: "Vous n'avez pas les permissions nécessaires pour accéder à cette page.",
   },
   societe_switcher: {
-    parent_app: "Appli mère",
+    parent_app: "Ébène Suite",
     societes: "Sociétés",
     super_admin: "Super-admin",
-    parent_app_emoji: "🏠 Appli mère",
+    parent_app_emoji: "🏠 Ébène Suite",
     super_admin_global_view: "Vue globale super-admin",
   },
   audit_log: {

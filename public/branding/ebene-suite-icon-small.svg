@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Ébène Suite">
+  <!-- Variante simplifiée pour les très petites tailles (16–24 px) : 2 cernes épais au lieu de 4 -->
+  <rect width="100" height="100" rx="22" fill="#3D0000"/>
+  <g fill="none" stroke="#FAF7F4" stroke-width="9.4">
+    <path d="M62.5 18.75 A31.25 31.25 0 0 0 62.5 81.25"/>
+    <path d="M62.5 37.5 A12.5 12.5 0 0 0 62.5 62.5"/>
+  </g>
+  <line x1="62.5" y1="14" x2="62.5" y2="86" stroke="#FAF7F4" stroke-width="9.4"/>
+</svg>

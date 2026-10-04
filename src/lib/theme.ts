@@ -35,8 +35,9 @@ const hexToRgb = (hex: string): [number, number, number] | null => {
   return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
 };
 
-const DEFAULT_TITLE = "Appli mère — Gestion d'Entreprise";
+const DEFAULT_TITLE = "Ébène Suite — Gestion d'Entreprise";
 const DEFAULT_FAVICON = "/favicon.png";
+const DEFAULT_FAVICON_ICO = "/favicon.ico";
 
 /** Met à jour le <title> de l'onglet selon la société active. */
 const applyDocumentTitle = (nom?: string | null): void => {
@@ -53,7 +54,7 @@ const applyDocumentTitle = (nom?: string | null): void => {
   };
   setMeta('meta[property="og:title"]', document.title);
   setMeta('meta[name="twitter:title"]', document.title);
-  setMeta('meta[name="apple-mobile-web-app-title"]', clean || "Appli mère");
+  setMeta('meta[name="apple-mobile-web-app-title"]', clean || "Ébène Suite");
 };
 
 /** Remplace le favicon par le logo de la société (ou le défaut). */
@@ -72,10 +73,13 @@ const applyFavicon = (logoUrl?: string | null): void => {
       el.rel = sel.includes("apple") ? "apple-touch-icon" : "icon";
       document.head.appendChild(el);
     }
-    el.href = href;
+    // Par défaut, l'onglet utilise le .ico (variante simplifiée en 16/24 px) ;
+    // l'icône Apple reste en PNG.
+    const isApple = sel.includes("apple");
+    el.href = logoUrl ? href : isApple ? DEFAULT_FAVICON : DEFAULT_FAVICON_ICO;
     // Si on utilise une URL externe (logo société), on retire le type figé
     if (logoUrl) el.removeAttribute("type");
-    else el.setAttribute("type", "image/png");
+    else el.setAttribute("type", isApple ? "image/png" : "image/x-icon");
   });
 };
 

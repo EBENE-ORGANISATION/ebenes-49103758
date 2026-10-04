@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, LogIn, ShieldPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
+import { EbeneSuiteLogo } from "@/components/brand/EbeneSuiteLogo";
 
 const Auth = () => {
   const { signIn, user, loading: authLoading } = useAuth();
@@ -125,7 +126,8 @@ const Auth = () => {
           </div>
         )}
         <div className="flex flex-col items-center gap-3 mb-6">
-          <h1 className="text-2xl font-bold text-center">{t("auth_page.app_title")}</h1>
+          <EbeneSuiteLogo className="h-24" />
+          <h1 className="sr-only">{t("auth_page.app_title")}</h1>
           <p className="text-sm text-muted-foreground text-center">{t("auth_page.subtitle")}</p>
         </div>
 
