@@ -91,6 +91,31 @@ npm run dev
 - Windows : voir [docs/WINDOWS_BUILD.md](docs/WINDOWS_BUILD.md)
 - Android : voir [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md)
 
+## Publier une version
+
+Tout est construit et publié par GitHub Actions :
+
+| Workflow | Déclencheur | Résultat |
+| --- | --- | --- |
+| `deploy-web.yml` | push sur `main` | Version web déployée sur Cloudflare Pages |
+| `release.yml` | tag `vX.Y.Z` | Release GitHub avec le Setup Windows (+ `latest.yml` pour la mise à jour automatique) et l'APK signé |
+
+Pour publier la version `2.3.0` :
+
+```bash
+npm version 2.3.0 --no-git-tag-version
+git commit -am "Release v2.3.0"
+git tag v2.3.0
+git push origin main v2.3.0
+```
+
+La release reste en brouillon tant que les builds Windows et Android n'ont pas tous deux réussi.
+
+Secrets requis (Settings → Secrets and variables → Actions) :
+
+- Android : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`
+- Web : `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` et la variable `CF_PAGES_PROJECT`
+
 ---
 
 © EBENE SERVICES

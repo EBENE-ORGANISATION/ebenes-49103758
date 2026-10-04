@@ -1,4 +1,10 @@
-name: Release Windows Build
+name: Release (Windows + Android)
+
+# Publication complète d'une version, entièrement sur GitHub :
+#   npm version X.Y.Z --no-git-tag-version  →  commit  →  git tag vX.Y.Z  →  git push origin main vX.Y.Z
+# La release est créée en brouillon, remplie par les builds Windows et Android,
+# puis publiée seulement si les deux réussissent (jamais de release à moitié vide
+# vue par l'auto-update).
 
 on:
   push:
@@ -8,16 +14,50 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.ref_name }}
+
 jobs:
-  release:
-    runs-on: windows-latest
-
+  # ── 1. Vérifier la version et créer la release (brouillon) ────────────────
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Vérifier que le tag correspond à package.json
+        id: v
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          if [ "v$PKG" != "$TAG" ]; then
+            echo "::error::Le tag $TAG ne correspond pas à package.json (v$PKG)."
+            exit 1
+          fi
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+
+      - name: Créer la release en brouillon (si absente)
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG déjà existante — les fichiers seront remplacés."
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft \
+              --title "$TAG" --notes "Release $TAG - Mise a jour automatique"
+          fi
+
+  # ── 2. Installateur Windows (.exe + latest.yml pour l'auto-update) ────────
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
@@ -26,30 +66,143 @@ jobs:
         run: npm install
 
       - name: Build Windows installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --publish never : update.bat gère seul la release GitHub
-        # Le CI sert uniquement à valider que le build passe sur un
-        # environnement propre. L'upload est fait localement par update.bat
-        # pour éviter la race condition (SHA512 incohérent si les deux
-        # systèmes uploadent en même temps).
         run: npm run electron:build:win -- --publish never
 
-      - name: Verify build output
+      # GitHub remplace les espaces des noms d'assets par des points : on publie
+      # le Setup avec des points et on régénère latest.yml en conséquence
+      # (même logique que update.bat).
+      - name: Préparer les fichiers de release
         shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          $exe = Get-ChildItem "dist-electron\*.exe" | Select-Object -First 1
-          $yml = "dist-electron\latest.yml"
-          if (-not $exe) { Write-Error "EXE manquant dans dist-electron"; exit 1 }
-          if (-not (Test-Path $yml)) { Write-Error "latest.yml manquant"; exit 1 }
-          $ver = if ((Get-Content $yml -Raw) -match '(?m)^version:\s*(\S+)') { $Matches[1] } else { '?' }
-          Write-Host "Build OK : $($exe.Name) — version $ver"
+          $src = "dist-electron\EBENE SERVICES Setup $env:VERSION.exe"
+          $dot = "dist-electron\EBENE.SERVICES.Setup.$env:VERSION.exe"
+          if (-not (Test-Path $src)) { Write-Error "Setup introuvable : $src"; exit 1 }
+          Copy-Item $src $dot -Force
+          $bm = "$src.blockmap"
+          if (Test-Path $bm) { Copy-Item $bm "$dot.blockmap" -Force }
 
-      - name: Upload CI artifact (diagnostic uniquement)
-        uses: actions/upload-artifact@v4
+          $raw = Get-Content 'dist-electron\latest.yml' -Raw
+          $sha = if ($raw -match '(?m)^sha512:\s*(\S+)') { $Matches[1] } else { Write-Error 'sha512 absent'; exit 1 }
+          $sz  = if ($raw -match '(?m)size:\s*(\d+)') { $Matches[1] } else { Write-Error 'size absent'; exit 1 }
+          $fn  = "EBENE.SERVICES.Setup.$env:VERSION.exe"
+          $dt  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+          $nl  = [char]10
+          $out = "version: $env:VERSION$nl" + "files:$nl" + "  - url: $fn$nl" + "    sha512: $sha$nl" + "    size: $sz$nl" + "path: $fn$nl" + "sha512: $sha$nl" + "releaseDate: '$dt'$nl"
+          [IO.File]::WriteAllText("$PWD\dist-electron\latest.yml", $out)
+          Get-Content 'dist-electron\latest.yml'
+
+      - name: Envoyer dans la release
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $files = @("dist-electron\EBENE.SERVICES.Setup.$env:VERSION.exe", "dist-electron\latest.yml")
+          $bm = "dist-electron\EBENE.SERVICES.Setup.$env:VERSION.exe.blockmap"
+          if (Test-Path $bm) { $files += $bm }
+          gh release upload $env:TAG @files --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  # ── 3. APK Android signé ──────────────────────────────────────────────────
+  android:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          name: windows-installer-ci
+          node-version: "22"
+          cache: "npm"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      # Le runner ubuntu-latest embarque déjà l'Android SDK.
+      - name: Install Android SDK components
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "platform-tools"
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
           path: |
-            dist-electron/*.exe
-            dist-electron/latest.yml
-          retention-days: 7
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Install JS dependencies
+        run: npm install
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      # versionCode dérivé de la version (2.3.0 → 20300) : chaque release est
+      # installable par-dessus la précédente.
+      - name: Build Release APK
+        working-directory: android
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -o pipefail
+          IFS=. read -r MA MI PA <<< "$VERSION"
+          CODE=$((MA * 10000 + MI * 100 + PA))
+          for i in 1 2 3; do
+            echo "==== Build APK $VERSION (code $CODE) — tentative $i/3 ===="
+            if ./gradlew assembleRelease --no-daemon --stacktrace -PappVersionCode=$CODE -PappVersionName=$VERSION; then
+              exit 0
+            fi
+            ./gradlew --stop || true
+            sleep 20
+          done
+          echo "::error::Build APK échoué après 3 tentatives."
+          exit 1
+
+      - name: Signer l'APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          OUT=android/app/build/outputs/apk/release
+          if [ -f $OUT/app-release-unsigned.apk ]; then APK_IN=$OUT/app-release-unsigned.apk; else APK_IN=$OUT/app-release.apk; fi
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 absent : un APK non signé ne peut pas mettre à jour l'application installée."
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
+          APKSIGNER=$(ls -d $ANDROID_SDK_ROOT/build-tools/* | sort -V | tail -1)/apksigner
+          $APKSIGNER sign \
+            --ks /tmp/keystore.jks \
+            --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --key-pass "pass:$ANDROID_KEY_PASSWORD" \
+            --out $OUT/ebenes-signed.apk \
+            "$APK_IN"
+          rm -f /tmp/keystore.jks
+
+      - name: Envoyer dans la release
+        run: gh release upload "$TAG" android/app/build/outputs/apk/release/ebenes-signed.apk --repo "$GITHUB_REPOSITORY" --clobber
+
+  # ── 4. Publier la release (seulement si Windows ET Android ont réussi) ────
+  publish:
+    needs: [prepare, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publier
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

@@ -224,6 +224,11 @@ if %errorlevel% neq 0 (
 echo OK - Code pousse sur GitHub avec le tag v%VERSION%
 echo.
 
+:: La release (Setup Windows + latest.yml + APK) est desormais construite et
+:: publiee par GitHub Actions (.github/workflows/release.yml) des la reception
+:: du tag. Plus d'upload local : il entrerait en conflit avec la CI.
+goto :release_done
+
 :: ─────────────────────────────────────────────────────────────
 :: Preparer les fichiers a uploader
 ::   - .exe renomme avec des POINTS (URL stable, correspond a latest.yml)
@@ -318,14 +323,13 @@ echo OK - Release GitHub v%VERSION% creee
 :release_done
 echo.
 echo ============================================================
-echo           VERSION v%VERSION% PUBLIEE AVEC SUCCES !
+echo           VERSION v%VERSION% ENVOYEE A GITHUB !
 echo ============================================================
 echo.
-echo  GitHub  : https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/tag/v%VERSION%
-echo  Setup   : %EXE_DOT%
-echo  yml     : dist-electron\latest.yml
+echo  GitHub construit et publie la release (Windows + Android) :
+echo  https://github.com/EBENE-ORGANISATION/ebenes-49103758/actions
 echo.
-echo  Les utilisateurs Windows recevront la mise a jour automatiquement.
+echo  Les utilisateurs recevront la mise a jour des la fin du build (~15 min).
 echo.
 goto :fin_script
 
