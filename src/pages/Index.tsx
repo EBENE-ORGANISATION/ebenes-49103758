@@ -7,13 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Header } from "@/components/ebene/Header";
 import { MoisNav } from "@/components/ebene/MoisNav";
 import { Dashboard } from "@/components/ebene/Dashboard";
-import { Comptabilite } from "@/components/ebene/Comptabilite";
-import { Fiscalite } from "@/components/ebene/Fiscalite";
-import { Factures } from "@/components/ebene/Factures";
-import { GRH } from "@/components/ebene/GRH";
-import { MonPortail } from "@/components/ebene/MonPortail";
-import { Stock } from "@/components/ebene/Stock";
-import { Immobilisations } from "@/components/ebene/Immobilisations";
 import { RecapAnnuelModal } from "@/components/ebene/RecapAnnuelModal";
 import { ArchivesModal } from "@/components/ebene/ArchivesModal";
 import { FacturePreview } from "@/components/ebene/FacturePreview";
@@ -37,6 +30,16 @@ import { isElectron } from "@/lib/platform";
 const PortailEmploye = lazy(() =>
   import("@/components/employe/PortailEmploye").then((m) => ({ default: m.PortailEmploye }))
 );
+
+// ── Onglets chargés à l'ouverture (Radix démonte les onglets inactifs) ──────
+// Évite de télécharger jsPDF / xlsx / modules métier avant le premier affichage.
+const Comptabilite = lazy(() => import("@/components/ebene/Comptabilite").then((m) => ({ default: m.Comptabilite })));
+const Fiscalite = lazy(() => import("@/components/ebene/Fiscalite").then((m) => ({ default: m.Fiscalite })));
+const Factures = lazy(() => import("@/components/ebene/Factures").then((m) => ({ default: m.Factures })));
+const GRH = lazy(() => import("@/components/ebene/GRH").then((m) => ({ default: m.GRH })));
+const MonPortail = lazy(() => import("@/components/ebene/MonPortail").then((m) => ({ default: m.MonPortail })));
+const Stock = lazy(() => import("@/components/ebene/Stock").then((m) => ({ default: m.Stock })));
+const Immobilisations = lazy(() => import("@/components/ebene/Immobilisations").then((m) => ({ default: m.Immobilisations })));
 
 const PortalFallback = () => (
   <div className="p-8 space-y-3">
@@ -368,6 +371,7 @@ const Index = () => {
               )}
             </TabsList>
 
+            <Suspense fallback={<PortalFallback />}>
             {showDashboard && (
               <TabsContent value="dashboard">
                 <Dashboard
@@ -564,6 +568,7 @@ const Index = () => {
               />
             </TabsContent>
             )}
+            </Suspense>
           </Tabs>
         </div>
 
