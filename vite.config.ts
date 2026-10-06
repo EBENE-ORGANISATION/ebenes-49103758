@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // ── Helper de préchargement Vite : sinon Rollup le range dans vendor-pdf
+          //    et les 1,7 Mo de jsPDF sont téléchargés au démarrage.
+          if (id.includes("vite/preload-helper") || id.includes("commonjsHelpers")) {
+            return "vendor-runtime";
+          }
           // ── Chunk dédié html-to-docx (1,2 MB) — chargé uniquement à l'export Word
           if (id.includes("html-to-docx") || id.includes("xmlbuilder2") || id.includes("htmlparser2")) {
             return "vendor-docx";
