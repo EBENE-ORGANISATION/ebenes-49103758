@@ -132,6 +132,9 @@
     font-family: var(--font-base, 'Poppins', sans-serif);
     /* P3 — Transition globale douce sur changement de thème */
     transition: background-color 0.2s ease, color 0.2s ease;
+    /* Android 15+ (edge-to-edge) : ne pas passer sous la barre d'état / l'encoche.
+       Vaut 0 sur navigateur desktop et Electron. */
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
   }
 
   /* P2 — Typographie monospace pour les montants */
