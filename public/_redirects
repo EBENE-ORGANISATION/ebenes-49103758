@@ -2,7 +2,7 @@
 # Toujours vers la dernière version publiée.
 
 # APK Android (nom d'asset stable) → téléchargement direct
-# Après la première release publiée avec Ebene-Suite.apk (v2.3.2+), remplacer
+# Après la première release publiée avec Ebene-Suite.apk (v2.4.0+), remplacer
 # ebenes-signed.apk par Ebene-Suite.apk ci-dessous, puis retirer la copie
 # « ebenes-signed.apk » de .github/workflows/release.yml.
 /apk           https://github.com/EBENE-ORGANISATION/ebenes-49103758/releases/latest/download/ebenes-signed.apk   302
