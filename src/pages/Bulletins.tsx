@@ -90,7 +90,7 @@ const Bulletins = () => {
     const emp = employes.find((e) => e.id === b.employe_id);
     if (!emp) return;
     const moisData = store.getMois(b.annee, b.mois);
-    try { generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois)); } catch { /* noop */ }
+    try { generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois), b); } catch { /* noop */ }
   };
 
   return (

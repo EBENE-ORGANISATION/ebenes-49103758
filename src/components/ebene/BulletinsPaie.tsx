@@ -144,7 +144,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
     }
     const moisData = store.getMois(b.annee, b.mois);
     try {
-      generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois));
+      generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois), b);
     } catch {
       toast.error("Impossible de générer le PDF");
     }

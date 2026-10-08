@@ -631,7 +631,7 @@ export const PortailEmploye = () => {
                             className="gap-1.5"
                             onClick={() => {
                               try {
-                                generateBulletin(employe, store.getMois(b.annee, b.mois), b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois));
+                                generateBulletin(employe, store.getMois(b.annee, b.mois), b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois), b);
                               } catch (err) {
                                 console.error(err);
                                 toast.error("Impossible de générer le bulletin");

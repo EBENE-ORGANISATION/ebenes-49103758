@@ -187,3 +187,146 @@ export const calculerPaie = (
     th,
   };
 };
+
+/** Montants stockés d'un bulletin (sous-ensemble de BulletinPaieRecord). */
+export interface MontantsEnregistres {
+  salaire_base: number;
+  sursalaire: number;
+  prime_anciennete: number;
+  hs_montant: number;
+  primes_diverses: number;
+  indemnites: number;
+  brut: number;
+  cnss_sal: number;
+  amu_sal: number;
+  irpp: number;
+  retenues_diverses: number;
+  total_retenues: number;
+  net_a_payer: number;
+  cnss_pat: number;
+  amu_pat: number;
+  cout_employeur: number;
+}
+
+export interface LigneBulletin {
+  libelle: string;
+  montant: number;
+}
+
+/** Contenu chiffré d'un bulletin PDF, prêt à mettre en page. */
+export interface ContenuBulletin {
+  gains: LigneBulletin[];
+  brut: number;
+  retenues: LigneBulletin[];
+  totalRetenues: number;
+  net: number;
+  cnssEmp: number;
+  amuEmp: number;
+  coutEmployeur: number;
+  /** Libellés des charges patronales, avec le taux quand il est connu. */
+  libelleCnssEmp: string;
+  libelleAmuEmp: string;
+}
+
+const egal = (a: number, b: number) => Math.round(a) === Math.round(b);
+const somme = (l: LigneBulletin[]) => l.reduce((s, x) => s + x.montant, 0);
+const avecTaux = (libelle: string, taux: number, connu: boolean) =>
+  connu ? `${libelle} (${pctTaux(taux)}%)` : libelle;
+
+/**
+ * Lignes du bulletin PDF.
+ *  - Sans `enregistre` : montants du calcul `c` (aperçu du mois en cours).
+ *  - Avec `enregistre` : montants du bulletin enregistré, qui font foi même si
+ *    la fiche employé, les primes ou les taux ont changé depuis. Le calcul `c`
+ *    ne sert qu'au détail (liste des primes, indemnités, taux, jours sans
+ *    solde), et seulement quand il retombe sur les montants enregistrés.
+ */
+export const contenuBulletin = (
+  c: CalculPaie,
+  employe: Employe,
+  enregistre?: MontantsEnregistres | null,
+): ContenuBulletin => {
+  const indemnitesDetail: LigneBulletin[] = [
+    { libelle: "Indemnité transport", montant: employe.indemniteTransport || 0 },
+    { libelle: "Indemnité logement", montant: employe.indemniteLogement || 0 },
+    { libelle: "Indemnité fonction", montant: employe.indemniteFonction || 0 },
+  ].filter((l) => l.montant > 0);
+  const primesDetail: LigneBulletin[] = c.primes.map((p) => ({
+    libelle: `Prime : ${p.libelle}`,
+    montant: p.montant,
+  }));
+
+  const e = enregistre;
+  const v = {
+    base: e ? e.salaire_base : c.base,
+    sursalaire: e ? e.sursalaire : c.sursalaire,
+    anc: e ? e.prime_anciennete : c.primeAnciennete,
+    hs: e ? e.hs_montant : c.hsMontant,
+    primes: e ? e.primes_diverses : c.primesDiverses,
+    indemnites: e ? e.indemnites : c.indemnites,
+    brut: e ? e.brut : c.brut,
+    cnssSal: e ? e.cnss_sal : c.cnssSal,
+    amuSal: e ? e.amu_sal : c.amuSal,
+    irpp: e ? e.irpp : c.irpp,
+    retenuesDiverses: e ? e.retenues_diverses : c.retenuesDiverses,
+    totalRetenues: e ? e.total_retenues : c.totalRetenues,
+    net: e ? e.net_a_payer : c.net,
+    cnssEmp: e ? e.cnss_pat : c.cnssEmp,
+    amuEmp: e ? e.amu_pat : c.amuEmp,
+    cout: e ? e.cout_employeur : c.coutEmployeur,
+  };
+  // Le détail recalculé n'est repris que s'il concorde avec l'enregistré.
+  const concorde = (calcule: number, affiche: number) => !e || egal(calcule, affiche);
+
+  const gains: LigneBulletin[] = [{ libelle: "Salaire de base", montant: v.base }];
+  if (v.sursalaire > 0) gains.push({ libelle: "Sursalaire", montant: v.sursalaire });
+  if (v.anc > 0)
+    gains.push({
+      libelle: concorde(c.primeAnciennete, v.anc)
+        ? `Prime d'ancienneté (${(c.tauxAnc * 100).toFixed(0)}%)`
+        : "Prime d'ancienneté",
+      montant: v.anc,
+    });
+  if (v.hs > 0) gains.push({ libelle: "Heures supplémentaires", montant: v.hs });
+  if (v.primes > 0) {
+    if (concorde(somme(primesDetail), v.primes)) gains.push(...primesDetail);
+    else gains.push({ libelle: "Primes", montant: v.primes });
+  }
+  if (v.indemnites > 0) {
+    if (concorde(somme(indemnitesDetail), v.indemnites)) gains.push(...indemnitesDetail);
+    else gains.push({ libelle: "Indemnités", montant: v.indemnites });
+  }
+
+  const retenues: LigneBulletin[] = [
+    { libelle: avecTaux("CNSS salarié", c.taux.cnssSal, concorde(c.cnssSal, v.cnssSal)), montant: v.cnssSal },
+    { libelle: avecTaux("AMU salarié", c.taux.amuSal, concorde(c.amuSal, v.amuSal)), montant: v.amuSal },
+    { libelle: "IRPP (barème progressif Togo)", montant: v.irpp },
+  ];
+  // Congés sans solde : non stockés à part, ils sont la part du total des
+  // retenues qui n'est ni cotisation, ni IRPP, ni retenue diverse.
+  const sansSolde = e
+    ? Math.max(0, e.total_retenues - e.cnss_sal - e.amu_sal - e.irpp - e.retenues_diverses)
+    : c.deductionSansSolde;
+  if (Math.round(sansSolde) > 0)
+    retenues.push({
+      libelle:
+        c.joursSansSolde > 0 && concorde(c.deductionSansSolde, sansSolde)
+          ? `Congés sans solde (${c.joursSansSolde} j)`
+          : "Congés sans solde",
+      montant: sansSolde,
+    });
+  if (v.retenuesDiverses > 0) retenues.push({ libelle: "Retenues diverses", montant: v.retenuesDiverses });
+
+  return {
+    gains,
+    brut: v.brut,
+    retenues,
+    totalRetenues: v.totalRetenues,
+    net: v.net,
+    cnssEmp: v.cnssEmp,
+    amuEmp: v.amuEmp,
+    coutEmployeur: v.cout,
+    libelleCnssEmp: avecTaux("CNSS employeur", c.taux.cnssEmp, concorde(c.cnssEmp, v.cnssEmp)),
+    libelleAmuEmp: avecTaux("AMU employeur", c.taux.amuEmp, concorde(c.amuEmp, v.amuEmp)),
+  };
+};

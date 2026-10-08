@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Employe, MoisData, TauxFiscaux } from "@/types/ebene";
 import { TAUX_DEFAUT } from "@/types/ebene";
-import { calculerPaie } from "./paie";
+import { calculerPaie, contenuBulletin, type MontantsEnregistres } from "./paie";
 import { tauxAnciennete } from "./ebene-utils";
 
 const moisVide: MoisData = {
@@ -93,5 +93,49 @@ describe("calculerPaie — cotisations CNSS / AMU", () => {
     expect(demi.baseCotisable).toBeCloseTo(100_000, 6);
     expect(demi.irpp).toBeLessThan(plein.irpp);
     expect(demi.coutEmployeur).toBeLessThan(plein.coutEmployeur - 100_000);
+  });
+});
+
+describe("contenuBulletin — le PDF d'un bulletin enregistré reprend ses montants", () => {
+  const enregistrer = (e: Employe): MontantsEnregistres => {
+    const c = calculerPaie(e, moisVide, 2026, 3);
+    return {
+      salaire_base: Math.round(c.base), sursalaire: Math.round(c.sursalaire),
+      prime_anciennete: Math.round(c.primeAnciennete), hs_montant: Math.round(c.hsMontant),
+      primes_diverses: Math.round(c.primesDiverses), indemnites: Math.round(c.indemnites),
+      brut: Math.round(c.brut), cnss_sal: Math.round(c.cnssSal), amu_sal: Math.round(c.amuSal),
+      irpp: Math.round(c.irpp), retenues_diverses: Math.round(c.retenuesDiverses),
+      total_retenues: Math.round(c.totalRetenues), net_a_payer: Math.round(c.net),
+      cnss_pat: Math.round(c.cnssEmp), amu_pat: Math.round(c.amuEmp), cout_employeur: Math.round(c.coutEmployeur),
+    };
+  };
+  const avecIndemnite = { ...employe, indemniteTransport: 20_000 } as Employe;
+
+  it("sans changement, montants et détail identiques au calcul", () => {
+    const enr = enregistrer(avecIndemnite);
+    const b = contenuBulletin(calculerPaie(avecIndemnite, moisVide, 2026, 3), avecIndemnite, enr);
+    expect(b.net).toBe(enr.net_a_payer);
+    expect(b.gains.map((l) => l.libelle)).toContain("Indemnité transport");
+    expect(b.retenues[0].libelle).toBe("CNSS salarié (4%)");
+  });
+
+  it("après une augmentation, le PDF garde les montants enregistrés", () => {
+    const enr = enregistrer(avecIndemnite);
+    const augmente = { ...avecIndemnite, salaire: 300_000, indemniteTransport: 35_000 } as Employe;
+    const b = contenuBulletin(calculerPaie(augmente, moisVide, 2026, 3), augmente, enr);
+    expect(b.gains[0]).toEqual({ libelle: "Salaire de base", montant: 200_000 });
+    expect(b.brut).toBe(enr.brut);
+    expect(b.net).toBe(enr.net_a_payer);
+    expect(b.cnssEmp).toBe(enr.cnss_pat);
+    // Le détail recalculé ne concorde plus : lignes globales, sans taux
+    expect(b.gains).toContainEqual({ libelle: "Indemnités", montant: 20_000 });
+    expect(b.retenues[0].libelle).toBe("CNSS salarié");
+    expect(b.retenues.reduce((s, l) => s + l.montant, 0)).toBe(enr.total_retenues);
+  });
+
+  it("congés sans solde retrouvés à partir du total des retenues", () => {
+    const enr = { ...enregistrer(employe), total_retenues: enregistrer(employe).total_retenues + 9_000 };
+    const b = contenuBulletin(calculerPaie(employe, moisVide, 2026, 3), employe, enr);
+    expect(b.retenues).toContainEqual({ libelle: "Congés sans solde", montant: 9_000 });
   });
 });

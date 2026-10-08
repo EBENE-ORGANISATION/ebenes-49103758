@@ -393,6 +393,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                                   b.mois,
                                   societeInfo,
                                   tauxPourMois(historiqueTaux, b.annee, b.mois),
+                                  b,
                                 );
                               } catch {
                                 toast.error("Impossible de générer le bulletin");
