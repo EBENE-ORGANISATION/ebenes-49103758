@@ -294,6 +294,11 @@ const MouvementsPanel = ({
     if (!aId) return toast.error("Article obligatoire");
     if (isNaN(q) || q < 0) return toast.error("Quantité invalide");
     if (type !== "ajustement" && q <= 0) return toast.error("Quantité doit être > 0");
+    // Contrôle immédiat (le stock est revérifié en base à l'enregistrement)
+    const art = articles.find((a) => a.id === aId);
+    if (type === "sortie" && art && q > art.stock) {
+      return toast.error(`Stock insuffisant : ${art.stock} ${art.unite} disponible(s).`);
+    }
     onAdd(annee, mois, {
       date, articleId: aId, type, quantite: q,
       prixUnitaire: type === "entree" ? parseFloat(pu) || 0 : undefined,

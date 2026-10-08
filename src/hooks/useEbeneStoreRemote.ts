@@ -27,6 +27,13 @@ import {
 import { moisKey, genererMatricule, tauxPourMois } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
+import {
+  appliquerMouvement,
+  annulerMouvement,
+  ecartAjustement,
+  libelleEcart,
+  ErreurStock,
+} from "@/lib/stock";
 import { logAction } from "@/lib/audit";
 
 // ─── Hooks data relationnels ─────────────────────────────────────────────────
@@ -1019,63 +1026,75 @@ export const useEbeneStoreRemote = (
   );
 
   // ─── Stock : mouvements → table relationnelle ────────────────────────────
+  /**
+   * Enregistre un mouvement de stock. Le stock de l'article est d'abord mis à
+   * jour en base de façon sûre (valeur relue, écriture conditionnelle) : une
+   * sortie supérieure au stock est refusée et rien n'est enregistré. Le
+   * mouvement n'est créé qu'ensuite ; s'il échoue, le stock est rétabli.
+   */
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      if (!societeId) return 0;
       // Estampille le mouvement avec l'activité de l'article, sinon l'activité courante.
       const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
-      void tqMouvements.createMouvement(annee, mois, {
+      let mvtFinal: Omit<MouvementStock, "id"> = {
         ...mvt,
         activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
+      };
+
+      void tqArticles.ajusterStock(mvt.articleId, (actuel) => {
+        // Ajustement : on inscrit l'écart dans le motif pour pouvoir l'annuler
+        if (mvt.type === "ajustement" && ecartAjustement(mvt.motif) === null) {
+          const ecart = libelleEcart(mvt.quantite - actuel.stock);
+          mvtFinal = { ...mvtFinal, motif: mvt.motif ? `${mvt.motif} ${ecart}` : `Ajustement ${ecart}` };
+        }
+        return appliquerMouvement(actuel, mvt);
       })
-        .then(() => {
-          const article = articles.find((a) => a.id === mvt.articleId);
-          if (article && societeId) {
-            let nouveauStock = article.stock;
-            let nouveauPMP = article.prixAchat;
-            if (mvt.type === "entree") {
-              const valAvant = article.stock * article.prixAchat;
-              const valEntree = mvt.quantite * (mvt.prixUnitaire ?? article.prixAchat);
-              nouveauStock = article.stock + mvt.quantite;
-              nouveauPMP =
-                nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : article.prixAchat;
-            } else if (mvt.type === "sortie") {
-              nouveauStock = Math.max(0, article.stock - mvt.quantite);
-            } else if (mvt.type === "ajustement") {
-              nouveauStock = mvt.quantite;
-            }
-            void tqArticles.updateArticle(article.id, {
-              stock: nouveauStock,
-              prixAchat: nouveauPMP,
-            }).catch(() => toast.error("Erreur lors de la mise à jour du stock"));
-          }
-        })
-        .catch(() => toast.error("Erreur lors de l'ajout du mouvement de stock"));
+        .then(() =>
+          tqMouvements.createMouvement(annee, mois, mvtFinal).catch(async (err) => {
+            // Mouvement non enregistré : on remet le stock comme avant
+            await tqArticles.ajusterStock(mvt.articleId, (a) => annulerMouvement(a, mvtFinal))
+              .catch(() => undefined);
+            throw err;
+          }),
+        )
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors de l'ajout du mouvement de stock"),
+        );
       return 0; // ID définitif disponible après invalidation TQ
     },
     [tqMouvements, articles, societeId, tqArticles, stampActiviteId],
   );
 
+  /**
+   * Supprime un mouvement et retire son effet du stock actuel (voir
+   * annulerMouvement). Si l'annulation est impossible (entrée déjà consommée,
+   * ajustement sans écart connu), rien n'est supprimé.
+   */
   const removeMouvementStock = useCallback(
     (annee: number, mois: number, id: number) => {
       const key = moisKey(annee, mois);
       const mvt = (tqMouvements.mouvementsStock[key] ?? []).find((x) => x.id === id);
-      void tqMouvements.removeMouvement(id)
-        .then(() => {
-          if (mvt) {
-            const article = articles.find((a) => a.id === mvt.articleId);
-            if (article && societeId) {
-              let nouveauStock = article.stock;
-              if (mvt.type === "entree")
-                nouveauStock = Math.max(0, article.stock - mvt.quantite);
-              if (mvt.type === "sortie") nouveauStock = article.stock + mvt.quantite;
-              void tqArticles.updateArticle(article.id, { stock: nouveauStock })
-                .catch(() => toast.error("Erreur lors de la mise à jour du stock"));
-            }
-          }
-        })
-        .catch(() => toast.error("Erreur lors de la suppression du mouvement de stock"));
+      if (!mvt || !societeId) return;
+
+      void tqArticles.ajusterStock(mvt.articleId, (actuel) => annulerMouvement(actuel, mvt))
+        .then(() =>
+          tqMouvements.removeMouvement(id).catch(async (err) => {
+            // Suppression échouée : on réapplique le mouvement
+            await tqArticles.ajusterStock(mvt.articleId, (a) => appliquerMouvement(a, mvt))
+              .catch(() => undefined);
+            throw err;
+          }),
+        )
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors de la suppression du mouvement de stock"),
+        );
     },
-    [tqMouvements, articles, societeId, tqArticles],
+    [tqMouvements, societeId, tqArticles],
   );
 
   // ─── Sanctions → table relationnelle ─────────────────────────────────────

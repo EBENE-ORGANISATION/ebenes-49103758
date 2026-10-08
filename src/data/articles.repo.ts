@@ -110,6 +110,43 @@ export const articles = {
     return toArticle(data);
   },
 
+  /**
+   * Modifie stock et PMP d'un article de façon sûre à plusieurs utilisateurs :
+   * relit la valeur en base, applique `calcul`, puis n'écrit que si la ligne
+   * n'a pas changé entre-temps (sinon relit et réessaie). `calcul` peut lever
+   * une erreur métier (ex. stock insuffisant) : elle est propagée telle quelle.
+   */
+  async ajusterStock(
+    id: number,
+    societeId: string,
+    calcul: (actuel: { stock: number; prixAchat: number }) => { stock: number; prixAchat: number },
+  ): Promise<Article> {
+    for (let essai = 0; essai < 5; essai++) {
+      const { data: row, error: readErr } = await supabase
+        .from("articles")
+        .select("stock, prix_achat")
+        .eq("id", id)
+        .eq("societe_id", societeId)
+        .single();
+      if (readErr) throw readErr;
+
+      const suivant = calcul({ stock: row.stock, prixAchat: row.prix_achat });
+      const { data, error } = await supabase
+        .from("articles")
+        // PMP arrondi à 4 décimales : valeur stable pour la comparaison suivante
+        .update({ stock: suivant.stock, prix_achat: Math.round(suivant.prixAchat * 10_000) / 10_000 })
+        .eq("id", id)
+        .eq("societe_id", societeId)
+        .eq("stock", row.stock)
+        .eq("prix_achat", row.prix_achat)
+        .select();
+      if (error) throw error;
+      if (data && data.length === 1) return toArticle(data[0]);
+      // Modifié par quelqu'un d'autre entre la lecture et l'écriture → on réessaie
+    }
+    throw new Error("Stock modifié simultanément, veuillez réessayer.");
+  },
+
   async remove(id: number, societeId: string): Promise<void> {
     await softRemove("articles", id, societeId);
   },
