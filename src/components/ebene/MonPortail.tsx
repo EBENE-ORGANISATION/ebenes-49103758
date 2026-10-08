@@ -68,7 +68,7 @@ import {
 } from "@/types/ebene";
 import { useTranslation } from "react-i18next";
 import { generateBulletin } from "@/lib/bulletinPDF";
-import { tauxPourMois } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -196,8 +196,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
   // Formulaire demande de congé
   const [demande, setDemande] = useState({
     type: "conges_payes" as TypeAbsence,
-    dateDebut: new Date().toISOString().split("T")[0],
-    dateFin: new Date().toISOString().split("T")[0],
+    dateDebut: todayISO(),
+    dateFin: todayISO(),
     motif: "",
   });
   // Si on modifie une demande rejetée → id de l'ancienne à supprimer
@@ -479,8 +479,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                     setEditId(null);
                     setDemande({
                       type: "conges_payes",
-                      dateDebut: new Date().toISOString().split("T")[0],
-                      dateFin: new Date().toISOString().split("T")[0],
+                      dateDebut: todayISO(),
+                      dateFin: todayISO(),
                       motif: "",
                     });
                   }}

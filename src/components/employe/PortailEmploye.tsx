@@ -34,7 +34,7 @@ const BASE_CONGES_ANNUEL = 30;
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 import { supabase } from "@/lib/supabase";
-import { tauxPourMois } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 /** Construit l'objet societeInfo passé aux générateurs PDF / en-têtes. */
@@ -261,8 +261,8 @@ export const PortailEmploye = () => {
   // ─── Form demande de congé ─────────────────────────────────────────────
   const [demande, setDemande] = useState({
     type: "conges_payes" as TypeAbsence,
-    dateDebut: new Date().toISOString().split("T")[0],
-    dateFin: new Date().toISOString().split("T")[0],
+    dateDebut: todayISO(),
+    dateFin: todayISO(),
     motif: "",
   });
   const [editId, setEditId] = useState<number | null>(null);
@@ -716,8 +716,8 @@ export const PortailEmploye = () => {
                       setEditId(null);
                       setDemande({
                         type: "conges_payes",
-                        dateDebut: new Date().toISOString().split("T")[0],
-                        dateFin: new Date().toISOString().split("T")[0],
+                        dateDebut: todayISO(),
+                        dateFin: todayISO(),
                         motif: "",
                       });
                     }}

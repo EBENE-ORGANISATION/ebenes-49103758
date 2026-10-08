@@ -57,15 +57,33 @@ const toISODate = (v: unknown): string | undefined => {
   }
   const s = String(v).trim();
   // déjà ISO
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  // jj/mm/aaaa
-  const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, mo, d] = s.slice(0, 10).split("-").map(Number);
+    return dateValide(y, mo, d) ? s.slice(0, 10) : undefined;
+  }
+  // jj/mm/aaaa ou jj/mm/aa
+  const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2}|\d{4})$/);
   if (m) {
-    let [, dd, mm, yyyy] = m;
-    if (yyyy.length === 2) yyyy = `20${yyyy}`;
-    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    const [, dd, mm, yy] = m;
+    let annee = parseInt(yy, 10);
+    // Année sur 2 chiffres : « 85 » → 1985, « 24 » → 2024 (pivot = année en cours)
+    if (yy.length === 2) {
+      const siecleCourant = Math.floor(new Date().getFullYear() / 100) * 100;
+      const anneeCourte = new Date().getFullYear() % 100;
+      annee += annee <= anneeCourte ? siecleCourant : siecleCourant - 100;
+    }
+    const mois = parseInt(mm, 10);
+    const jour = parseInt(dd, 10);
+    if (!dateValide(annee, mois, jour)) return undefined;
+    return `${annee}-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
   }
   return undefined;
+};
+
+/** Vrai si jour/mois/année forment une date existante (ex. refuse 31/02 ou 13e mois). */
+const dateValide = (annee: number, mois: number, jour: number): boolean => {
+  if (mois < 1 || mois > 12 || jour < 1) return false;
+  return jour <= new Date(annee, mois, 0).getDate();
 };
 
 const parseRows = (
@@ -123,6 +141,10 @@ const parseRows = (
     }
 
     const dateISO = toISODate(dateEmbauche);
+    // Date saisie mais illisible ou inexistante : on le signale au lieu de l'ignorer
+    if (dateEmbauche !== undefined && !dateISO) {
+      errors.push(`Date d'embauche invalide : « ${String(dateEmbauche)} » (format attendu jj/mm/aaaa)`);
+    }
 
     return {
       index: i + 2, // ligne Excel (header = 1)

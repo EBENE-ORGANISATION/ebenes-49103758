@@ -1,6 +1,18 @@
 import { describe, it, expect } from "vitest";
 import type { EcritureComptable, Facture, Transaction } from "@/types/ebene";
-import { transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+import { isoLocal, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+import { TAUX_DEFAUT } from "@/types/ebene";
+
+describe("dates locales", () => {
+  it("isoLocal garde le jour local (minuit local ne recule pas d'un jour)", () => {
+    expect(isoLocal(new Date(2026, 2, 31))).toBe("2026-03-31");
+  });
+
+  it("un taux en vigueur le dernier jour du mois s'applique à ce mois", () => {
+    const nouveau = { ...TAUX_DEFAUT, dateEffet: "2026-03-31", tva: 0.2 };
+    expect(tauxPourMois([TAUX_DEFAUT, nouveau], 2026, 3).tva).toBe(0.2);
+  });
+});
 
 const tx = (p: Partial<Transaction>): Transaction => ({
   id: 1,

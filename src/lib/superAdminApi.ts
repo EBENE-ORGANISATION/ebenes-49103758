@@ -4,13 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
  * Wrapper unique pour appeler l'Edge Function `super-admin-ops`.
  * La fonction côté serveur valide que l'appelant a bien le rôle admin_general.
  */
-export async function callSuperAdmin<T = any>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+export async function callSuperAdmin<T = unknown>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke("super-admin-ops", {
     body: { action, payload },
   });
   if (error) throw new Error(error.message || "Erreur appel super-admin-ops");
-  if (data && typeof data === "object" && "error" in data && (data as any).error) {
-    throw new Error(String((data as any).error));
+  if (data && typeof data === "object" && "error" in data && (data as { error?: unknown }).error) {
+    throw new Error(String((data as { error?: unknown }).error));
   }
   return data as T;
 }

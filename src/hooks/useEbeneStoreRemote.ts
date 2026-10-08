@@ -200,23 +200,23 @@ export const useEbeneStoreRemote = (
     [immobilisationsRaw, activiteId],
   );
   const fTransactions = useMemo(
-    () => filterMoisMap(tqTransactions.transactions, activiteId),
+    () => filterMoisMap<Transaction>(tqTransactions.transactions, activiteId),
     [tqTransactions.transactions, activiteId],
   );
   const fFactures = useMemo(
-    () => filterMoisMap(tqFactures.factures, activiteId),
+    () => filterMoisMap<Facture>(tqFactures.factures, activiteId),
     [tqFactures.factures, activiteId],
   );
   const fDevis = useMemo(
-    () => filterMoisMap(tqDevis.devis, activiteId),
+    () => filterMoisMap<Devis>(tqDevis.devis, activiteId),
     [tqDevis.devis, activiteId],
   );
   const fEcritures = useMemo(
-    () => filterMoisMap(tqEcritures.ecritures, activiteId),
+    () => filterMoisMap<EcritureComptable>(tqEcritures.ecritures, activiteId),
     [tqEcritures.ecritures, activiteId],
   );
   const fMouvements = useMemo(
-    () => filterMoisMap(tqMouvements.mouvementsStock, activiteId),
+    () => filterMoisMap<MouvementStock>(tqMouvements.mouvementsStock, activiteId),
     [tqMouvements.mouvementsStock, activiteId],
   );
 

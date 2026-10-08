@@ -72,8 +72,8 @@ export const exportElementToWord = async (element: HTMLElement, filename: string
 
   // ── Repli 2 : HTML enregistré comme .doc (compatible Word / LibreOffice) ─
   try {
-    // Le BOM UTF-8 (﻿) aide Word à détecter l'encodage correctement.
-    const blob = new Blob(["﻿" + html], {
+    // Le BOM UTF-8 (U+FEFF) aide Word à détecter l'encodage correctement.
+    const blob = new Blob(["\uFEFF" + html], {
       type: "application/vnd.ms-word;charset=utf-8",
     });
     triggerDownload(blob, `${filename}.doc`);

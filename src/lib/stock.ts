@@ -20,9 +20,9 @@ export const libelleEcart = (ecart: number): string =>
 
 /** Relit l'écart inscrit dans le motif d'un ajustement ; null s'il est absent. */
 export const ecartAjustement = (motif?: string): number | null => {
-  const m = motif?.match(/écart\s*:\s*([+-]?\d[\d\s ]*(?:[.,]\d+)?)/);
+  const m = motif?.match(/écart\s*:\s*([+-]?\d[\d\s\u202f]*(?:[.,]\d+)?)/);
   if (!m) return null;
-  const n = parseFloat(m[1].replace(/[\s ]/g, "").replace(",", "."));
+  const n = parseFloat(m[1].replace(/[\s\u202f]/g, "").replace(",", "."));
   return isNaN(n) ? null : n;
 };
 

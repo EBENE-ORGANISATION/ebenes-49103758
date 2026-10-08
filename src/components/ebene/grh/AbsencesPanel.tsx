@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, X, Check, XCircle } from "lucide-react";
-import { formatJours } from "@/lib/ebene-utils";
+import { formatJours, todayISO, isoLocal } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
 import { Trans, useTranslation } from "react-i18next";
 
@@ -38,8 +38,8 @@ export const AbsencesPanel = ({
   const [open, setOpen] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
   const [type, setType] = useState<TypeAbsence>("conges_payes");
-  const [debut, setDebut] = useState(new Date().toISOString().split("T")[0]);
-  const [fin, setFin] = useState(new Date().toISOString().split("T")[0]);
+  const [debut, setDebut] = useState(todayISO());
+  const [fin, setFin] = useState(todayISO());
   const [motif, setMotif] = useState("");
   const [motifLegal, setMotifLegal] = useState<string>("");
 
@@ -73,11 +73,11 @@ export const AbsencesPanel = ({
     const found = MOTIFS_LEGAUX.find((m) => m.value === val);
     if (found && found.jours !== null) {
       // Remplir automatiquement la date de fin selon le nombre de jours légaux
-      const debutDate = new Date(debut);
+      const debutDate = new Date(`${debut}T00:00:00`); // minuit local
       if (!isNaN(debutDate.getTime())) {
         const finDate = new Date(debutDate);
         finDate.setDate(finDate.getDate() + found.jours - 1);
-        setFin(finDate.toISOString().split("T")[0]);
+        setFin(isoLocal(finDate));
       }
     }
   };

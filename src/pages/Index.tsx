@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +16,7 @@ import { OfflineBanner } from "@/components/ebene/OfflineBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
-import { tauxPourMois } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
@@ -168,7 +168,7 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = t("index_page.archive_filename", { date: new Date().toISOString().split("T")[0] });
+    a.download = t("index_page.archive_filename", { date: todayISO() });
     a.click();
     URL.revokeObjectURL(url);
     toast.success(t("index_page.archive_exported"));
@@ -261,11 +261,12 @@ const Index = () => {
   const tabFromUrl = searchParams.get("tab");
   const effectiveTab = tabFromUrl || defaultTab;
 
-  const handleTabChange = (value: string) => {
+  // Stable entre les rendus : évite de réinstaller l'écouteur clavier à chaque rendu
+  const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(location.search);
     params.set("tab", value);
     navigate({ search: params.toString() });
-  };
+  }, [location.search, navigate]);
 
   // P7 — Raccourcis clavier globaux (Ctrl+1..8 → changer d'onglet)
   useEffect(() => {

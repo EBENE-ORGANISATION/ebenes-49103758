@@ -5,7 +5,7 @@ import type {
   Facture,
   MoisData,
 } from "@/types/ebene";
-import { moisKey } from "@/lib/ebene-utils";
+import { moisKey, isoLocal } from "@/lib/ebene-utils";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AlerteSeverite = "info" | "warning" | "danger";
@@ -79,7 +79,7 @@ export const getAlertes = (store: AlertesStoreInput): Alerte[] => {
       month: "long",
       year: "numeric",
     });
-    const dateISO = echeance.toISOString().split("T")[0];
+    const dateISO = isoLocal(echeance);
     const sev: AlerteSeverite = jours <= 3 ? "danger" : "warning";
 
     alertes.push({
@@ -154,7 +154,7 @@ export const markAlertRead = async (
       return { ok: false, error: error.message };
     }
     return { ok: true };
-  } catch (e: any) {
+  } catch (e: unknown) {
     return { ok: false, error: String(e) };
   }
 };
@@ -175,7 +175,7 @@ export const getDismissedAlertIds = async (
       .eq("user_id", userId)
       .eq("societe_id", societeId);
     if (error) return new Set();
-    return new Set((data ?? []).map((r: any) => r.alerte_id));
+    return new Set((data ?? []).map((r: { alerte_id: string }) => r.alerte_id));
   } catch {
     return new Set();
   }

@@ -12,7 +12,15 @@ export const formatMontantSigne = (n: number): string => {
 
 export const moisKey = (annee: number, mois: number) => `${annee}-${mois}`;
 
-export const todayISO = () => new Date().toISOString().split("T")[0];
+/**
+ * Date au format AAAA-MM-JJ selon le fuseau LOCAL de l'appareil.
+ * (toISOString() donne la date UTC : en UTC+1, entre minuit et 1 h, ou pour
+ * une date créée à minuit local, elle tombe sur la veille.)
+ */
+export const isoLocal = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export const todayISO = () => isoLocal(new Date());
 
 export const escapeHtml = (str: string): string =>
   String(str)
@@ -279,7 +287,7 @@ export const tauxPourMois = (
   mois: number
 ): TauxFiscaux => {
   // on prend le dernier jour du mois pour appliquer un changement intervenu en cours de mois
-  const ref = new Date(annee, mois, 0).toISOString().split("T")[0];
+  const ref = isoLocal(new Date(annee, mois, 0));
   return tauxApplicables(historique, ref);
 };
 

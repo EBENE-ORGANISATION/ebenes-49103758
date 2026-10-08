@@ -18,6 +18,7 @@ import {
   indemniteLicenciement,
   indemniteRetraite,
   indemniteConges,
+  todayISO,
 } from "@/lib/ebene-utils";
 import { Calculator, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
@@ -41,7 +42,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
   };
   const [employeId, setEmployeId] = useState("");
   const [motif, setMotif] = useState<Motif>("licenciement_simple");
-  const [dateRupture, setDateRupture] = useState(new Date().toISOString().split("T")[0]);
+  const [dateRupture, setDateRupture] = useState(todayISO());
   const [salaireMoyenInput, setSalaireMoyenInput] = useState("");
   const [soldeConges, setSoldeConges] = useState("");
 

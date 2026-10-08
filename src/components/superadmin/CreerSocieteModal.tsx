@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation, Trans } from "react-i18next";
 import {
@@ -121,7 +122,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
     if (!nom || !slug) return;
     setBusy(true);
     try {
-      const config: Record<string, any> = {
+      const config: Record<string, unknown> = {
         couleur_primaire: couleur,
         adresse: adresse || null,
         nif: nif || null,
@@ -155,7 +156,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
             secteur_activite: secteur,
             assujetti_tva:    assujettiTva,
             ca_annuel_estime: ca,
-            set_impots:       setImpots as unknown as any,
+            set_impots:       setImpots as unknown as Json,
           })
           .eq("id", res.societe.id);
       }

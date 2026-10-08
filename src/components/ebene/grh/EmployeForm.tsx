@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { X, UserCircle2, User, Briefcase, Banknote, Heart, Receipt, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { todayISO } from "@/lib/ebene-utils";
 
 interface Props {
   initial?: Employe;
@@ -31,7 +32,7 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     sexe: "M",
     nationalite: "Togolaise",
     typeContrat: "cdi",
-    dateEmbauche: new Date().toISOString().split("T")[0],
+    dateEmbauche: todayISO(),
     categorie: "E1",
     echelon: 1,
     indemniteTransport: 0,
