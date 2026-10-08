@@ -143,3 +143,38 @@ export const repartirSoldes = (
   });
   return totaux;
 };
+
+/** Chiffres fiscaux d'une période, lus dans les écritures validées. */
+export interface FiscalitePeriode {
+  /** Chiffre d'affaires hors taxes (crédits nets des comptes 70). */
+  caHT: number;
+  /** Part commerce (701) et part service (autres 70x), pour la patente. */
+  caCommerce: number;
+  caService: number;
+  /** TVA collectée (crédits nets 443) et déductible (débits nets 445). */
+  tvaCollectee: number;
+  tvaDeductible: number;
+  /** Résultat de la période : produits − charges (classes 6, 7, 8). */
+  resultat: number;
+}
+
+export const fiscaliteDepuisEcritures = (
+  ecritures: { statut: string; lignes?: { compte: string; debit: number; credit: number }[] | null }[],
+): FiscalitePeriode => {
+  const soldes = new Map<string, number>();
+  ecritures
+    .filter((e) => e.statut !== "brouillon")
+    .forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
+      soldes.set(l.compte, (soldes.get(l.compte) || 0) + (l.debit || 0) - (l.credit || 0));
+    }));
+  const caCommerce = 0 - sommePrefixes(soldes, ["701"]);
+  const caHT = 0 - sommePrefixes(soldes, ["70"]);
+  return {
+    caHT,
+    caCommerce,
+    caService: caHT - caCommerce,
+    tvaCollectee: 0 - sommePrefixes(soldes, ["443"]),
+    tvaDeductible: sommePrefixes(soldes, ["445"]),
+    resultat: resultatExercice(soldes),
+  };
+};

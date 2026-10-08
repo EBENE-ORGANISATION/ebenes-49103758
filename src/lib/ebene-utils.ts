@@ -87,8 +87,10 @@ export const tvaDepuisTransactions = (
         caHT += f.totalHT;
         tvaCollectee += f.avecTva ? f.totalTva : 0;
       } else {
-        caHT += montant;
-        tvaCollectee += montant * tauxTva;
+        // Recette manuelle : montant TTC si « avec TVA », sinon hors TVA
+        const ht = t.avecTva ? montant / (1 + tauxTva) : montant;
+        caHT += ht;
+        tvaCollectee += montant - ht;
       }
     } else if (t.source === "fournisseur") {
       const ac = ecritures.find((e) => e.journal === "AC" && e.numeroPiece === `AC-${t.id}`);

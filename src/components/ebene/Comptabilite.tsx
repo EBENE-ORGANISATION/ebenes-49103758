@@ -103,6 +103,8 @@ export const Comptabilite = ({
   const [compteDepense, setCompteDepense] = useState<string>(COMPTE_DEPENSE_DEFAUT);
   const [compteRecette, setCompteRecette] = useState<string>(COMPTE_RECETTE_DEFAUT);
   const [tresorerie, setTresorerie] = useState<CompteTresorerie>("521");
+  /** Recette avec TVA : montant TTC, la TVA collectée est générée et déclarée. */
+  const [recetteAvecTva, setRecetteAvecTva] = useState(false);
   const [previewPiece, setPreviewPiece] = useState<typeof piece>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -193,6 +195,7 @@ export const Comptabilite = ({
     setCompteDepense(COMPTE_DEPENSE_DEFAUT);
     setCompteRecette(COMPTE_RECETTE_DEFAUT);
     setTresorerie("521");
+    setRecetteAvecTva(false);
     setActivite("service");
     setActiviteId(currentActiviteId);
     if (fileRef.current) fileRef.current.value = "";
@@ -210,7 +213,7 @@ export const Comptabilite = ({
       m: type === "d" ? -m : m,
       source: type === "d" && piece ? "fournisseur" : "manuelle",
       fournisseur: fournisseur.trim() || null,
-      avecTva: type === "d" && piece ? achatAvecTva : undefined,
+      avecTva: type === "d" ? (piece ? achatAvecTva : undefined) : recetteAvecTva,
       compte: type === "d" ? compteDepense : compteRecette,
       tresorerie,
       activite: type === "r" ? activite : undefined,
@@ -485,6 +488,22 @@ export const Comptabilite = ({
                     </div>
                   )}
                 </div>
+
+                {type === "r" && (
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={recetteAvecTva}
+                      onCheckedChange={(v) => setRecetteAvecTva(v === true)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Recette avec TVA (18 % incluse dans le montant)
+                      <span className="block text-xs text-muted-foreground">
+                        Cochez si vous avez facturé la TVA : elle sera collectée (4431) et déclarée.
+                      </span>
+                    </span>
+                  </label>
+                )}
 
                 {type === "d" && (
                   <div className="border-2 border-dashed border-border rounded-lg p-3">

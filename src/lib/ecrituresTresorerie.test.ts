@@ -99,3 +99,15 @@ describe("ecritureAcquisitionImmo", () => {
     expect(e.lignes[1]).toMatchObject({ compte: "481", credit: 8_000_000 });
   });
 });
+
+describe("recette avec TVA", () => {
+  it("montant TTC : produit HT et TVA collectée 4431", () => {
+    const [e] = ecrituresDeTransaction(
+      { ...base, type: "r", m: 354_000, source: "manuelle", avecTva: true },
+      30, 0.18, 2026, 10,
+    );
+    expect(e.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
+      ["521", 354_000, 0], ["706", 0, 300_000], ["4431", 0, 54_000],
+    ]);
+  });
+});

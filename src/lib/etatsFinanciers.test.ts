@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compteResultat, repartirSoldes, resultatExercice, sommePrefixes } from "./etatsFinanciers";
+import { compteResultat, fiscaliteDepuisEcritures, repartirSoldes, resultatExercice, sommePrefixes } from "./etatsFinanciers";
 
 /** Soldes (débit − crédit) de la société de test après la simulation d'octobre 2026. */
 const soldesSimulation = () =>
@@ -68,5 +68,33 @@ describe("repartirSoldes — un compte dans une seule ligne", () => {
     expect(t).toEqual({ CA: -500_000, CB: 100_000, DQ: -30_000, DR: -20_000 });
     // La somme des lignes ne compte aucun solde deux fois
     expect(Object.values(t).reduce((a, b) => a + b, 0)).toBe(sommePrefixes(s, ["10", "56"]));
+  });
+});
+
+describe("fiscaliteDepuisEcritures — chiffres fiscaux du mois", () => {
+  const e = (lignes: [string, number, number][], statut = "valide") => ({
+    statut,
+    lignes: lignes.map(([compte, debit, credit]) => ({ compte, debit, credit })),
+  });
+
+  it("CA HT, TVA collectée et déductible de tous les journaux, résultat", () => {
+    const f = fiscaliteDepuisEcritures([
+      e([["4111", 1_770_000, 0], ["706", 0, 1_500_000], ["4431", 0, 270_000]]), // vente facturée
+      e([["521", 354_000, 0], ["706", 0, 300_000], ["4431", 0, 54_000]]), // recette avec TVA
+      e([["6055", 200_000, 0], ["4452", 36_000, 0], ["4011", 0, 236_000]]), // achat
+      e([["6281", 45_000, 0], ["4452", 8_100, 0], ["5211", 0, 53_100]]), // saisie guidée
+      e([["6222", 350_000, 0], ["521", 0, 350_000]], "brouillon"), // ignorée
+    ]);
+    expect(f.caHT).toBe(1_800_000);
+    expect(f.caService).toBe(1_800_000);
+    expect(f.caCommerce).toBe(0);
+    expect(f.tvaCollectee).toBe(324_000);
+    expect(f.tvaDeductible).toBe(44_100);
+    expect(f.resultat).toBe(1_800_000 - 245_000);
+  });
+
+  it("commerce (701) séparé du service pour la patente", () => {
+    const f = fiscaliteDepuisEcritures([e([["571", 100_000, 0], ["701", 0, 100_000]]), e([["571", 50_000, 0], ["706", 0, 50_000]])]);
+    expect([f.caCommerce, f.caService]).toEqual([100_000, 50_000]);
   });
 });

@@ -15,6 +15,7 @@ import {
   tvaDepuisTransactions,
 } from "@/lib/ebene-utils";
 import { calculerPaie } from "@/lib/paie";
+import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -182,12 +183,18 @@ export const Fiscalite = ({
     for (let m = 1; m <= 12; m++) {
       const md = donneesMensuelles[moisKey(annee, m)];
       if (!md) continue;
-      total += md.transactions
-        .filter(t => t.type === "r" && transactionComptabilisee(t))
-        .reduce((a, t) => a + t.m, 0);
+      // CA hors taxes : écritures validées du mois, à défaut les recettes
+      total += (md.ecritures ?? []).some(e => e.statut !== "brouillon")
+        ? fiscaliteDepuisEcritures(md.ecritures ?? []).caHT
+        : tvaDepuisTransactions(md.transactions, md.factures, taux.tva, md.ecritures ?? []).caHT;
     }
     return total;
-  }, [donneesMensuelles, annee]);
+  }, [donneesMensuelles, annee, taux.tva]);
+
+  // ── Chiffres fiscaux du mois lus dans les écritures validées (comme la
+  // déclaration TVA) ; les transactions ne servent qu'à défaut d'écritures.
+  const fiscEcritures = useMemo(() => fiscaliteDepuisEcritures(data.ecritures ?? []), [data.ecritures]);
+  const avecEcritures = useMemo(() => (data.ecritures ?? []).some(e => e.statut !== "brouillon"), [data.ecritures]);
 
   // ── Calculs du mois ────────────────────────────────────────────────────────
   const calc = useMemo(() => {
@@ -195,13 +202,22 @@ export const Fiscalite = ({
     const comptabilisees = data.transactions.filter(transactionComptabilisee);
     const recettes = comptabilisees.filter(t => t.type === "r");
     const depenses = comptabilisees.filter(t => t.type === "d");
-    const rec  = recettes.reduce((a, t) => a + t.m, 0);
     const dep  = Math.abs(depenses.reduce((a, t) => a + t.m, 0));
-    const ben  = Math.max(0, rec - dep);
 
-    // Patente par activité
-    const recService  = recettes.filter(t => (t.activite ?? taux.activiteDefaut) === "service").reduce((a,t)=>a+t.m,0);
-    const recCommerce = recettes.filter(t => (t.activite ?? taux.activiteDefaut) === "commerce").reduce((a,t)=>a+t.m,0);
+    // TVA et CA hors taxes
+    const parTransactions =
+      tvaDepuisTransactions(data.transactions, data.factures, taux.tva, data.ecritures ?? []);
+    const { caHT, tvaCollectee, tvaDeductible } = avecEcritures ? fiscEcritures : parTransactions;
+    const rec = caHT;
+    const ben = Math.max(0, avecEcritures ? fiscEcritures.resultat : caHT - dep);
+
+    // Patente par activité, sur le CA hors taxes
+    const totalTtc = recettes.reduce((a, x) => a + x.m, 0);
+    const partHT = (m: number) => (totalTtc > 0 ? (m / totalTtc) * parTransactions.caHT : 0);
+    const recService  = avecEcritures ? fiscEcritures.caService
+      : recettes.filter(t => (t.activite ?? taux.activiteDefaut) === "service").reduce((a, t) => a + partHT(t.m), 0);
+    const recCommerce = avecEcritures ? fiscEcritures.caCommerce
+      : recettes.filter(t => (t.activite ?? taux.activiteDefaut) === "commerce").reduce((a, t) => a + partHT(t.m), 0);
     const patService  = recService  * taux.patenteService;
     const patCommerce = recCommerce * taux.patenteCommerce;
     const pat = patService + patCommerce;
@@ -213,9 +229,6 @@ export const Fiscalite = ({
     const impot  = Math.max(is, imfMensuel);
     const regime = is >= imfMensuel ? "IS" : "IMF";
 
-    // TVA : HT et TVA réels des factures, déduction limitée aux achats fournisseurs
-    const { caHT, tvaCollectee, tvaDeductible } =
-      tvaDepuisTransactions(data.transactions, data.factures, taux.tva, data.ecritures ?? []);
     const tvaNette       = tvaCollectee - tvaDeductible;
     const tvaAPayer      = Math.max(0, tvaNette);
     const creditAReporter = Math.max(0, -tvaNette);
@@ -252,7 +265,7 @@ export const Fiscalite = ({
       totalFiscal: tvaAPayer + impot + pat + thDuMois + rslMensuel,
       totalSocial: cnssEmp + amuEmp,
     };
-  }, [data, employes, paramsAnnee, taux, caAnnuel, annee, mois]);
+  }, [data, employes, paramsAnnee, taux, caAnnuel, annee, mois, avecEcritures, fiscEcritures]);
 
   // IRPP total du mois depuis bulletins
   const irppTotal = useMemo(
@@ -260,63 +273,25 @@ export const Fiscalite = ({
     [bulletins],
   );
 
-  // ── Extraction des montants depuis les écritures SYSCOHADA validées ───────
-  // ligne 7 = ventes HT (comptes 701 / 706 / 707… côté crédit)
-  const ligne7 = useMemo(() => {
-    return (data.ecritures ?? [])
-      .filter(e => e.statut === "valide" && e.journal === "VE")
-      .reduce((sum, e) => {
-        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
-        return sum + lignes
-          .filter(l => l?.compte?.startsWith("70"))
-          .reduce((a, l) => a + (l.credit || 0), 0);
-      }, 0);
-  }, [data.ecritures]);
-
-  // ligne 13 = TVA collectée sur ventes (comptes 4431 / 4432)
-  const ligne13 = useMemo(() => {
-    return (data.ecritures ?? [])
-      .filter(e => e.statut === "valide")
-      .reduce((sum, e) => {
-        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
-        return sum + lignes
-          .filter(l => l?.compte?.startsWith("443"))
-          .reduce((a, l) => a + (l.credit || 0), 0);
-      }, 0);
-  }, [data.ecritures]);
-
-  // ligne 18 = TVA déductible sur achats (compte 4452)
-  const ligne18 = useMemo(() => {
-    return (data.ecritures ?? [])
-      .filter(e => e.statut === "valide" && e.journal === "AC")
-      .reduce((sum, e) => {
-        const lignes = Array.isArray(e.lignes) ? e.lignes : [];
-        return sum + lignes
-          .filter(l => l?.compte?.startsWith("4452"))
-          .reduce((a, l) => a + (l.debit || 0), 0);
-      }, 0);
-  }, [data.ecritures]);
-
   // ── Calcul formulaire TVA OTR ─────────────────────────────────────────────
   const tvaCalc = useMemo(() => {
-    const hasEcritures = ligne7 > 0 || ligne13 > 0 || ligne18 > 0;
 
     // Section II — CA HT
-    const l1  = hasEcritures ? ligne7 : calc.caHT;
+    const l1  = Math.round(calc.caHT);
     const l2  = tvaManuel.l3;   // exonérées
     const l3  = tvaManuel.l4;   // autres taux
     const l4  = tvaManuel.l5;   // LASM
     const l6  = l1 + l2 + l3 + l4;  // total CA HT
 
     // Section III — TVA Brute
-    const l7  = hasEcritures ? ligne13 : Math.round(calc.tvaCollectee);
+    const l7  = Math.round(calc.tvaCollectee);
     const l8  = tvaManuel.l8;   // TVA importations
     const l9  = tvaManuel.l9;   // TVA récupérable immo (Sect. III)
     const l10 = tvaManuel.l10;  // régularisations +
     const l11 = l7 + l8 + l9 + l10;  // TOTAL TVA BRUTE
 
     // Section IV — TVA Déductible (nouvelle numérotation)
-    const l12 = hasEcritures ? ligne18 : Math.round(calc.tvaDeductible);  // AUTO 4452
+    const l12 = Math.round(calc.tvaDeductible);  // AUTO 445x (tous journaux)
     const l13 = tvaManuel.l13;  // déductions immobilisations
     const l14 = tvaManuel.l14;  // régularisations +
     const l15 = tvaManuel.l15;  // reversements -
@@ -330,7 +305,7 @@ export const Fiscalite = ({
     const l21 = Math.max(0, -l19);   // CRÉDIT À REPORTER
 
     return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21 };
-  }, [calc, taux, tvaManuel, ligne7, ligne13, ligne18]);
+  }, [calc, tvaManuel]);
 
   // ── Labels TVA ───────────────────────────────────────────────────────────
   const estCloture    = statut === "cloture";
@@ -563,7 +538,7 @@ export const Fiscalite = ({
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              {(ligne7 > 0 || ligne13 > 0 || ligne18 > 0) && (
+              {avecEcritures && (
                 <Badge className="gap-1 text-xs bg-emerald-600 text-white">
                   <CheckCircle2 className="size-3" />Écritures SYSCOHADA
                 </Badge>
@@ -580,7 +555,7 @@ export const Fiscalite = ({
           </div>
 
           {/* ─ Info : données SYSCOHADA vs simplifié ─ */}
-          {ligne7 === 0 && ligne13 === 0 && ligne18 === 0 && (
+          {!avecEcritures && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md p-3 text-xs text-amber-800 dark:text-amber-300">
               <strong>Mode simplifié</strong> — aucune écriture SYSCOHADA validée ce mois.
               Les montants ci-dessous sont estimés depuis les transactions (recettes / dépenses).
@@ -610,7 +585,7 @@ export const Fiscalite = ({
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L1</td>
                   <td className="p-2.5">
                     Ventes / prestations taxables intérieures ({(taux.tva * 100).toFixed(0)}%)
-                    {ligne7 > 0 && <span className="ml-1 text-xs text-emerald-600">(≡ 70x crédit)</span>}
+                    {avecEcritures && <span className="ml-1 text-xs text-emerald-600">(≡ 70x crédit)</span>}
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold">{fmt(tvaCalc.l1)} FCFA</td>
                 </tr>
@@ -680,7 +655,7 @@ export const Fiscalite = ({
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L7</td>
                   <td className="p-2.5">
                     TVA sur ventes intérieures ({(taux.tva * 100).toFixed(0)}% × L1)
-                    {ligne13 > 0 && <span className="ml-1 text-xs text-emerald-600">(≡ 443x crédit)</span>}
+                    {avecEcritures && <span className="ml-1 text-xs text-emerald-600">(≡ 443x crédit)</span>}
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold text-amber-700 dark:text-amber-300">{fmt(tvaCalc.l7)} FCFA</td>
                 </tr>
@@ -750,7 +725,7 @@ export const Fiscalite = ({
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L12</td>
                   <td className="p-2.5">
                     TVA sur achats de biens et services locaux
-                    {ligne18 > 0 && <span className="ml-1 text-xs text-emerald-600">(≡ 4452 débit)</span>}
+                    {avecEcritures && <span className="ml-1 text-xs text-emerald-600">(≡ 445x débit)</span>}
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold">{fmt(tvaCalc.l12)} FCFA</td>
                 </tr>

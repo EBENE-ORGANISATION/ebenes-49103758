@@ -38,7 +38,8 @@ type EcritureGeneree = Omit<EcritureComptable, "id">;
  * Écritures d'une recette ou dépense de trésorerie (brouillon : validées avec
  * la transaction). Rien pour les sources facture et salaires, qui ont leurs
  * propres écritures.
- *  - Recette : Banque/Caisse au débit, produit au crédit.
+ *  - Recette : Banque/Caisse au débit, produit (HT) et TVA 4431 au crédit
+ *    si la recette est « avec TVA », sinon produit seul.
  *  - Dépense : charge au débit, Banque/Caisse au crédit.
  *  - Dépense fournisseur : achat AC (charge HT + TVA déductible / 4011 TTC)
  *    puis règlement TR (4011 / Banque ou Caisse).
@@ -72,6 +73,9 @@ export const ecrituresDeTransaction = (
 
   if (t.type === "r") {
     const compte = t.compte || COMPTE_RECETTE_DEFAUT;
+    // Recette « avec TVA » : montant TTC, TVA collectée en 4431
+    const ht = t.avecTva ? Math.round(montant / (1 + tauxTva)) : montant;
+    const tva = montant - ht;
     return [{
       ...commun,
       journal,
@@ -79,7 +83,8 @@ export const ecrituresDeTransaction = (
       libelle: t.desc,
       lignes: numeroter([
         ligneTreso(montant, 0),
-        { id: 0, compte, intitule: intituleCompte(compte), debit: 0, credit: montant },
+        { id: 0, compte, intitule: intituleCompte(compte), debit: 0, credit: ht },
+        ...(tva > 0 ? [{ id: 0, compte: "4431", intitule: "TVA facturée sur ventes", debit: 0, credit: tva }] : []),
       ]),
     }];
   }
