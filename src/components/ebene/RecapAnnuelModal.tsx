@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DonneesMensuelles, MOIS_NOMS, Immobilisation } from "@/types/ebene";
-import { formatMontant, moisKey } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, moisKey } from "@/lib/ebene-utils";
 import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,7 +110,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
               <StatCard label={t("recap.depenses")} value={formatMontant(moisData.dep)} tone="destructive" />
               <StatCard
                 label={t("recap.solde")}
-                value={formatMontant(moisData.solde)}
+                value={formatSolde(moisData.solde)}
                 tone={moisData.solde >= 0 ? "info" : "destructive"}
               />
             </div>
@@ -127,7 +127,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
               <StatCard label={t("recap.depenses_year", { annee })} value={formatMontant(totals.dep)} tone="destructive" />
               <StatCard
                 label={t("recap.solde_year", { annee })}
-                value={formatMontant(totals.solde)}
+                value={formatSolde(totals.solde)}
                 tone={totals.solde >= 0 ? "info" : "destructive"}
               />
             </div>
@@ -149,7 +149,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
                   <td className="py-2 px-2 text-right amount text-success">{formatMontant(l.rec)}</td>
                   <td className="py-2 px-2 text-right amount text-destructive">{formatMontant(l.dep)}</td>
                   <td className={`py-2 px-2 text-right amount ${l.solde >= 0 ? "text-info" : "text-destructive"}`}>
-                    {formatMontant(l.solde)}
+                    {formatSolde(l.solde)}
                   </td>
                   <td className="py-2 px-2 text-right text-xs text-muted-foreground">
                     {l.nbPayees}/{l.nbFactures}
@@ -161,7 +161,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
                 <td className="py-3 px-2 text-right amount text-success">{formatMontant(totals.rec)}</td>
                 <td className="py-3 px-2 text-right amount text-destructive">{formatMontant(totals.dep)}</td>
                 <td className={`py-3 px-2 text-right amount ${totals.solde >= 0 ? "text-info" : "text-destructive"}`}>
-                  {formatMontant(totals.solde)}
+                  {formatSolde(totals.solde)}
                 </td>
                 <td></td>
               </tr>

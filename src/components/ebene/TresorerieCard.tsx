@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp } from "lucide-react";
 import { DonneesMensuelles, Employe, MoisData, TAUX_DEFAUT, type TauxFiscaux } from "@/types/ebene";
 import { calculerPaie } from "@/lib/paie";
-import { formatMontant, moisKey } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, moisKey } from "@/lib/ebene-utils";
 import { sommePrefixes } from "@/lib/etatsFinanciers";
 import { useTranslation } from "react-i18next";
 
@@ -16,9 +16,6 @@ interface Props {
   /** Taux CNSS/AMU du mois (historique de la société). */
   taux?: TauxFiscaux;
 }
-
-/** Montant avec « - » s'il est négatif (formatMontant affiche la valeur absolue). */
-const fmtSigne = (n: number) => (Math.round(n) < 0 ? "-" : "") + formatMontant(n);
 
 const sumIfMois = (m: MoisData | undefined, type: "r" | "d") =>
   (m?.transactions || [])
@@ -165,8 +162,8 @@ export const TresorerieCard = ({
           <Tile
             icon={<TrendingUp className="size-5 text-primary" />}
             label={t("tresorerie.solde_label")}
-            value={fmtSigne(stats.soldeMois)}
-            sub={t("tresorerie.solde_sub", { value: fmtSigne(stats.tresorerie) })}
+            value={formatSolde(stats.soldeMois)}
+            sub={t("tresorerie.solde_sub", { value: formatSolde(stats.tresorerie) })}
             tone={stats.soldeMois >= 0 ? "success" : "destructive"}
           />
         </div>
@@ -177,7 +174,7 @@ export const TresorerieCard = ({
               {t("tresorerie.forecast_title")}
             </p>
             <span className={`amount text-lg font-bold whitespace-nowrap ${previsionTone}`}>
-              {fmtSigne(stats.previsionNette)}
+              {formatSolde(stats.previsionNette)}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -195,7 +192,7 @@ export const TresorerieCard = ({
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.starting_cash")}</span>
-              <span className="amount">{fmtSigne(stats.tresorerie)}</span>
+              <span className="amount">{formatSolde(stats.tresorerie)}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.taxes_due")}</span>
@@ -235,10 +232,10 @@ export const TresorerieCard = ({
               </div>
               <div className="flex justify-between text-[10px] font-mono mt-0.5">
                 <span className={stats.tresorerie >= 0 ? "text-success" : "text-destructive"}>
-                  {fmtSigne(stats.tresorerie)}
+                  {formatSolde(stats.tresorerie)}
                 </span>
                 <span className={stats.previsionNette >= 0 ? "text-success" : "text-destructive"}>
-                  {fmtSigne(stats.previsionNette)}
+                  {formatSolde(stats.previsionNette)}
                 </span>
               </div>
             </div>

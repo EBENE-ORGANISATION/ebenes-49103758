@@ -12,7 +12,7 @@ import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, 
 import { StatCard } from "./StatCard";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
-import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -678,7 +678,7 @@ const InventaireModal = ({
           <StatCard label="Ajustements" value={String(stats.aj)} tone="warning" />
           <StatCard
             label="Écart de valorisation"
-            value={formatMontant(stats.ecartTotal)}
+            value={formatSolde(stats.ecartTotal)}
             tone={stats.ecartTotal >= 0 ? "success" : "destructive"}
           />
         </div>

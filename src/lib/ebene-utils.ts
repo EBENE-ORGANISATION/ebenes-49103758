@@ -15,6 +15,10 @@ export const formatMontant = (n: number): string => {
 const ESPACES_SPECIALES = new RegExp("[" + String.fromCharCode(0x202f, 0x00a0) + "]", "g");
 export const textePdf = (s: string): string => s.replace(ESPACES_SPECIALES, " ");
 
+/** Montant avec « - » s'il est négatif (soldes, écarts), sans « + » s'il est positif. */
+export const formatSolde = (n: number): string =>
+  (Math.round(n) < 0 ? "-" : "") + formatMontant(n);
+
 export const formatMontantSigne = (n: number): string => {
   const sign = n >= 0 ? "+" : "-";
   return sign + " " + formatMontant(n);

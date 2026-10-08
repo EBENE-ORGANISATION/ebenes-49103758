@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTenant } from "@/hooks/useTenant";
 import type { ReglementImmo } from "@/lib/ecrituresTresorerie";
 import {
   EcritureComptable,
@@ -69,6 +70,7 @@ export const Immobilisations = ({
   onAddEcriture,
   moisDotation = 12,
 }: Props) => {
+  const { currentSociete } = useTenant();
   const [showForm, setShowForm] = useState(false);
   const [libelle, setLibelle] = useState("");
   const [categorie, setCategorie] = useState<CategorieImmo>("materiel_bureau");
@@ -279,7 +281,8 @@ export const Immobilisations = ({
     const blob = new Blob([buf], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `EBENE_Immobilisations_${annee}.xlsx`);
+    const prefixe = (currentSociete?.nom || "Societe").replace(/[^A-Za-z0-9_-]+/g, "_");
+    saveAs(blob, `${prefixe}_Immobilisations_${annee}.xlsx`);
     toast.success(`Plan d'amortissement ${annee} exporté`);
   };
 
