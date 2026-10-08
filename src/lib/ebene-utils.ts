@@ -1,8 +1,9 @@
-import { TauxFiscaux, TAUX_DEFAUT, Employe } from "@/types/ebene";
+import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture, EcritureComptable } from "@/types/ebene";
 
 export const formatMontant = (n: number): string => {
   const abs = Math.abs(Math.round(n));
-  return abs.toLocaleString("fr-FR") + " F";
+  // Espace insécable avant « F » : le montant ne se coupe jamais en fin de ligne.
+  return abs.toLocaleString("fr-FR") + "\u00a0F";
 };
 
 export const formatMontantSigne = (n: number): string => {
@@ -12,7 +13,15 @@ export const formatMontantSigne = (n: number): string => {
 
 export const moisKey = (annee: number, mois: number) => `${annee}-${mois}`;
 
-export const todayISO = () => new Date().toISOString().split("T")[0];
+/**
+ * Date au format AAAA-MM-JJ selon le fuseau LOCAL de l'appareil.
+ * (toISOString() donne la date UTC : en UTC+1, entre minuit et 1 h, ou pour
+ * une date créée à minuit local, elle tombe sur la veille.)
+ */
+export const isoLocal = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export const todayISO = () => isoLocal(new Date());
 
 export const escapeHtml = (str: string): string =>
   String(str)
@@ -24,6 +33,75 @@ export const escapeHtml = (str: string): string =>
 
 export const newId = () => Date.now() + Math.floor(Math.random() * 1000);
 
+// ─── TRANSACTIONS PRISES EN COMPTE ───────────────────────────────────────────
+/**
+ * Une transaction entre dans les totaux (comptabilité, fiscalité, tableau de
+ * bord) si elle n'est pas rejetée et :
+ *  - qu'elle est générée automatiquement (facture payée, salaires) — son
+ *    document d'origine a déjà été traité ;
+ *  - ou qu'elle a été validée par le chef comptable (ou est antérieure au
+ *    workflow de validation : statut absent).
+ * Les saisies manuelles « en validation » / « brouillon » n'y entrent pas.
+ */
+export const transactionComptabilisee = (t: Transaction): boolean => {
+  if (t.statut === "rejete") return false;
+  if (t.source === "facture" || t.source === "salaires") return true;
+  return t.statut === undefined || t.statut === "valide";
+};
+
+// ─── TVA DU MOIS À PARTIR DES TRANSACTIONS ───────────────────────────────────
+export interface TvaTransactions {
+  /** Chiffre d'affaires HT (factures : HT réel ; recettes manuelles : montant saisi). */
+  caHT: number;
+  tvaCollectee: number;
+  tvaDeductible: number;
+}
+
+/**
+ * Calcule la TVA à partir des transactions prises en compte du mois.
+ *  - Recette issue d'une facture : on reprend le HT et la TVA de la facture
+ *    (le montant de la transaction est TTC ; une facture sans TVA n'en génère pas).
+ *  - Recette manuelle : montant considéré HT, TVA au taux du mois (comportement historique).
+ *  - TVA déductible : uniquement sur les achats fournisseurs. On reprend la
+ *    ligne 4452 de l'écriture AC générée (`AC-<id>`) — absente si la facture
+ *    d'achat était sans TVA. Sans écriture trouvée, TVA extraite du TTC.
+ *    Salaires, charges sociales et autres dépenses n'ouvrent pas droit à déduction.
+ */
+export const tvaDepuisTransactions = (
+  transactions: Transaction[],
+  factures: Facture[],
+  tauxTva: number,
+  ecritures: EcritureComptable[] = [],
+): TvaTransactions => {
+  let caHT = 0;
+  let tvaCollectee = 0;
+  let tvaDeductible = 0;
+  for (const t of transactions) {
+    if (!transactionComptabilisee(t)) continue;
+    const montant = Math.abs(t.m);
+    if (t.type === "r") {
+      const f = t.source === "facture" && t.factureId
+        ? factures.find((x) => x.id === t.factureId)
+        : undefined;
+      if (f) {
+        caHT += f.totalHT;
+        tvaCollectee += f.avecTva ? f.totalTva : 0;
+      } else {
+        caHT += montant;
+        tvaCollectee += montant * tauxTva;
+      }
+    } else if (t.source === "fournisseur") {
+      const ac = ecritures.find((e) => e.journal === "AC" && e.numeroPiece === `AC-${t.id}`);
+      tvaDeductible += ac
+        ? (ac.lignes ?? [])
+            .filter((l) => l.compte.startsWith("4452"))
+            .reduce((s, l) => s + (l.debit || 0), 0)
+        : montant - Math.round(montant / (1 + tauxTva));
+    }
+  }
+  return { caHT, tvaCollectee, tvaDeductible };
+};
+
 // ─── PAIE TOGOLAISE ───────────────────────────────────────────────────────────
 // Code du travail togolais & Convention collective interprofessionnelle
 
@@ -31,13 +109,13 @@ export const newId = () => Date.now() + Math.floor(Math.random() * 1000);
 export const tauxHoraire = (salaireBase: number, sursalaire = 0): number =>
   (salaireBase + sursalaire) / 173.33;
 
-/** Prime d'ancienneté (Art. 36 convention) :
- * 2% après 2 ans, +1% par année au-delà, plafond 30% */
+/** Prime d'ancienneté (convention collective interprofessionnelle) :
+ * 2 % après 2 ans de présence, +1 % par année supplémentaire, plafond 25 %.
+ * Seules les années COMPLÈTES comptent (2 ans → 2 %, 3 ans → 3 %, 4 ans 11 mois → 4 %). */
 export const tauxAnciennete = (anneesPresence: number): number => {
-  if (anneesPresence < 2) return 0;
-  if (anneesPresence < 4) return 0.02;
-  const taux = 0.02 + (anneesPresence - 3) * 0.01;
-  return Math.min(taux, 0.3);
+  const annees = Math.floor(anneesPresence);
+  if (annees < 2) return 0;
+  return Math.min(0.02 + (annees - 2) * 0.01, 0.25);
 };
 
 export const calculerAnciennete = (dateEmbauche?: string, refDate = new Date()): number => {
@@ -106,6 +184,8 @@ const TRANCHES_IRPP_MENSUEL = [
  * @param interetPretImmobilier  VI  — intérêt mensuel prêt immo (défaut 0)
  * @param assuranceVie           VII — prime mensuelle assurance-vie (défaut 0)
  * @param retraiteComplementaire VIII— cotisation mensuelle retraite (défaut 0)
+ * @param cotisationsSalariales  CNSS + AMU réellement retenues sur le bulletin
+ *                               (défaut : 9 % du RB, soit 4 % + 5 %)
  */
 export const calculerIRPP = (
   revenuBrut: number,
@@ -114,15 +194,16 @@ export const calculerIRPP = (
   interetPretImmobilier = 0,
   assuranceVie = 0,
   retraiteComplementaire = 0,
+  cotisationsSalariales?: number,
 ): number => {
   if (revenuBrut <= 0) return 0;
 
   // ── 1. Cotisations sociales ──────────────────────────────────────────────
-  // CNSS salarié 4 % + AMU salarié 5 % = 9 % du RB (selon CGI Togo)
-  const cotisationsSociales = revenuBrut * 0.09;
+  // CNSS salarié + AMU salarié effectivement retenues (sinon 9 % du RB)
+  const cotisationsSociales = cotisationsSalariales ?? revenuBrut * 0.09;
 
   // ── 2. NDCS ─────────────────────────────────────────────────────────────
-  const ndcs = revenuBrut - cotisationsSociales; // = RB × 0,91
+  const ndcs = revenuBrut - cotisationsSociales;
 
   // ── 3. Déduction forfaitaire ─────────────────────────────────────────────
   // Plafond mensuel = 2 800 000 ÷ 12 = 233 333 F/mois
@@ -207,7 +288,7 @@ export const tauxPourMois = (
   mois: number
 ): TauxFiscaux => {
   // on prend le dernier jour du mois pour appliquer un changement intervenu en cours de mois
-  const ref = new Date(annee, mois, 0).toISOString().split("T")[0];
+  const ref = isoLocal(new Date(annee, mois, 0));
   return tauxApplicables(historique, ref);
 };
 

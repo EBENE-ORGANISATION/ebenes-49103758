@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { todayISO } from "@/lib/ebene-utils";
 
 interface Props {
   open: boolean;
@@ -31,7 +32,7 @@ export const TauxHistoriqueDialog = ({ open, onOpenChange, historique, onAjouter
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const last = historique[historique.length - 1] || TAUX_DEFAUT;
-  const [taux, setTaux] = useState<TauxFiscaux>({ ...last, dateEffet: new Date().toISOString().split("T")[0] });
+  const [taux, setTaux] = useState<TauxFiscaux>({ ...last, dateEffet: todayISO() });
 
   const submit = () => {
     if (!taux.dateEffet) return toast.error(t("taux.err_date"));

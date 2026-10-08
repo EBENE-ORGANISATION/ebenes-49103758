@@ -24,9 +24,16 @@ import {
   StatutValidation,
   EcritureComptable,
 } from "@/types/ebene";
-import { moisKey, genererMatricule } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, tauxPourMois } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
+import {
+  appliquerMouvement,
+  annulerMouvement,
+  ecartAjustement,
+  libelleEcart,
+  ErreurStock,
+} from "@/lib/stock";
 import { logAction } from "@/lib/audit";
 
 // ─── Hooks data relationnels ─────────────────────────────────────────────────
@@ -193,23 +200,23 @@ export const useEbeneStoreRemote = (
     [immobilisationsRaw, activiteId],
   );
   const fTransactions = useMemo(
-    () => filterMoisMap(tqTransactions.transactions, activiteId),
+    () => filterMoisMap<Transaction>(tqTransactions.transactions, activiteId),
     [tqTransactions.transactions, activiteId],
   );
   const fFactures = useMemo(
-    () => filterMoisMap(tqFactures.factures, activiteId),
+    () => filterMoisMap<Facture>(tqFactures.factures, activiteId),
     [tqFactures.factures, activiteId],
   );
   const fDevis = useMemo(
-    () => filterMoisMap(tqDevis.devis, activiteId),
+    () => filterMoisMap<Devis>(tqDevis.devis, activiteId),
     [tqDevis.devis, activiteId],
   );
   const fEcritures = useMemo(
-    () => filterMoisMap(tqEcritures.ecritures, activiteId),
+    () => filterMoisMap<EcritureComptable>(tqEcritures.ecritures, activiteId),
     [tqEcritures.ecritures, activiteId],
   );
   const fMouvements = useMemo(
-    () => filterMoisMap(tqMouvements.mouvementsStock, activiteId),
+    () => filterMoisMap<MouvementStock>(tqMouvements.mouvementsStock, activiteId),
     [tqMouvements.mouvementsStock, activiteId],
   );
 
@@ -316,9 +323,10 @@ export const useEbeneStoreRemote = (
       fournisseurs,
       categoriesStock,
       sanctions,
+      immobilisations,
       importerDonnees: () => { /* placeholder */ },
     };
-  }, [donneesMensuelles, employes, paramsAnnuels, tauxHistorique, articles, fournisseurs, categoriesStock, sanctions]);
+  }, [donneesMensuelles, employes, paramsAnnuels, tauxHistorique, articles, fournisseurs, categoriesStock, sanctions, immobilisations]);
 
   useEffect(() => {
     return () => {
@@ -370,19 +378,26 @@ export const useEbeneStoreRemote = (
 
           // Auto-générer une écriture AC si c'est une dépense fournisseur
           if (t.type === "d" && t.source === "fournisseur" && t.fournisseur) {
+            // Facture d'achat avec TVA (par défaut) : TTC = HT × (1 + taux du mois) ;
+            // sans TVA (fournisseur non assujetti) : aucune TVA récupérable.
+            const avecTva    = t.avecTva !== false;
+            const tauxTva    = tauxPourMois(tauxHistorique, annee, mois).tva;
             const montantTTC = Math.round(Math.abs(t.m));
-            const montantHT  = Math.round(montantTTC / 1.18);
+            const montantHT  = avecTva ? Math.round(montantTTC / (1 + tauxTva)) : montantTTC;
             const montantTVA = montantTTC - montantHT;
+            const lignesAchat = [
+              { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
+              ...(avecTva
+                ? [{ id: 2, compte: "4452", intitule: "TVA récupérable sur achats", debit: montantTVA, credit: 0 }]
+                : []),
+              { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
+            ];
 
             void tqEcritures.addEcriture(annee, mois, {
               journal: "AC",
               numeroPiece: `AC-${saved.id}`,
               libelle: t.desc || `Achat — ${t.fournisseur}`,
-              lignes: [
-                { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
-                { id: 2, compte: "4452", intitule: "TVA récupérable sur achats",        debit: montantTVA, credit: 0 },
-                { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
-              ],
+              lignes: lignesAchat,
               statut: "brouillon", // nécessite validation chef compta
               activiteId: aid,
               annee,
@@ -394,7 +409,28 @@ export const useEbeneStoreRemote = (
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId, tauxHistorique],
+  );
+
+  /**
+   * Supprime les écritures générées automatiquement pour une pièce (facture
+   * payée, achat fournisseur) quand la pièce elle-même est supprimée : évite
+   * les écritures orphelines et les doublons si la facture est re-réglée.
+   */
+  const supprimerEcrituresLiees = useCallback(
+    async (correspond: (e: EcritureComptable) => boolean) => {
+      const liees = (Object.values(tqEcritures.ecritures) as EcritureComptable[][])
+        .flat()
+        .filter(correspond);
+      await Promise.all(
+        liees.map((e) =>
+          tqEcritures.removeEcriture(e.id)
+            .then(() => log("DELETE", "ecritures_comptables", e.id, e, null))
+            .catch(() => toast.error(`Écriture ${e.numeroPiece} non supprimée`)),
+        ),
+      );
+    },
+    [tqEcritures, log],
   );
 
   const removeTransaction = useCallback(
@@ -404,17 +440,22 @@ export const useEbeneStoreRemote = (
       void tqTransactions.removeTransaction(id)
         .then(async () => {
           if (trans?.source === "facture" && trans.factureId) {
-            await tqFactures.updateFacture(trans.factureId, {
+            const factureId = trans.factureId;
+            await tqFactures.updateFacture(factureId, {
               statut: "en_attente",
               transactionId: null,
             }).catch(() => undefined);
+            // Vente + encaissement de cette facture : regénérés au prochain règlement
+            await supprimerEcrituresLiees((e) => e.factureId === factureId);
+          } else if (trans?.source === "fournisseur") {
+            await supprimerEcrituresLiees((e) => e.journal === "AC" && e.numeroPiece === `AC-${id}`);
           }
           log("DELETE", "transactions", id, trans ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la transaction"));
     },
-    [tqTransactions, tqFactures, markSignificantWrite],
+    [tqTransactions, tqFactures, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
   const validerTransaction = useCallback(
@@ -466,16 +507,24 @@ export const useEbeneStoreRemote = (
           if (f?.transactionId) {
             await tqTransactions.removeTransaction(f.transactionId).catch(() => undefined);
           }
+          await supprimerEcrituresLiees((e) => e.factureId === id);
           log("DELETE", "factures", id, f ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la facture"));
     },
-    [tqFactures, tqTransactions, markSignificantWrite],
+    [tqFactures, tqTransactions, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
+  /**
+   * Marque une facture comme payée :
+   *  - transaction de recette (TTC) ;
+   *  - écriture VE de constatation de la vente (Client 4111 / Produit / TVA 4431) ;
+   *  - écriture d'encaissement (Banque 521 ou Caisse 571 / Client 4111), qui
+   *    solde le compte client. `compteTresorerie` est choisi par l'utilisateur.
+   */
   const marquerPayee = useCallback(
-    (annee: number, mois: number, factureId: number) => {
+    (annee: number, mois: number, factureId: number, compteTresorerie: "521" | "571" = "521") => {
       const key = moisKey(annee, mois);
       const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
       if (!f || f.statut === "payee" || f.statut === "proforma") return;
@@ -497,6 +546,20 @@ export const useEbeneStoreRemote = (
             { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalHT),  credit: 0,                       tiers: f.client },
             { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
           ];
+
+      // Encaissement : Banque/Caisse au débit, Client au crédit (montant réglé)
+      const montantRegle = Math.round(f.avecTva ? f.totalTtc : f.totalHT);
+      const estBanque = compteTresorerie === "521";
+      const lignesEncaissement = [
+        {
+          id: 1,
+          compte: compteTresorerie,
+          intitule: estBanque ? "Banques" : "Caisse",
+          debit: montantRegle,
+          credit: 0,
+        },
+        { id: 2, compte: "4111", intitule: "Clients", debit: 0, credit: montantRegle, tiers: f.client },
+      ];
 
       const aid = f.activiteId ?? stampActiviteId;
       void tqTransactions.addTransaction(annee, mois, {
@@ -522,6 +585,19 @@ export const useEbeneStoreRemote = (
               numeroPiece: `VE-${f.numero}`,
               libelle: `Facture ${f.numero} — ${f.client}`,
               lignes: lignesEcriture,
+              statut: "valide",
+              factureId: f.id,
+              activiteId: aid,
+              annee,
+              mois,
+            }),
+            // Écriture d'encaissement (BQ ou CA), liée à la facture : le
+            // tableau de bord ne la recompte pas (la recette est déjà la transaction).
+            tqEcritures.addEcriture(annee, mois, {
+              journal: estBanque ? "BQ" : "CA",
+              numeroPiece: `${estBanque ? "BQ" : "CA"}-${f.numero}`,
+              libelle: `Règlement facture ${f.numero} — ${f.client}`,
+              lignes: lignesEncaissement,
               statut: "valide",
               factureId: f.id,
               activiteId: aid,
@@ -608,6 +684,13 @@ export const useEbeneStoreRemote = (
       const key = moisKey(annee, mois);
       const d = (tqDevis.devis[key] ?? []).find((x) => x.id === devisId);
       if (!d) return null;
+      // Garde-fou : un devis refusé ou déjà converti ne génère pas de facture
+      if (d.statut === "refuse" || d.statut === "converti") {
+        toast.error(d.statut === "refuse"
+          ? "Ce devis a été refusé : il ne peut pas être converti en facture."
+          : "Ce devis a déjà été converti en facture.");
+        return null;
+      }
       void tqFactures.createFacture(annee, mois, {
         numero: numeroFacture,
         client: d.client,
@@ -943,63 +1026,75 @@ export const useEbeneStoreRemote = (
   );
 
   // ─── Stock : mouvements → table relationnelle ────────────────────────────
+  /**
+   * Enregistre un mouvement de stock. Le stock de l'article est d'abord mis à
+   * jour en base de façon sûre (valeur relue, écriture conditionnelle) : une
+   * sortie supérieure au stock est refusée et rien n'est enregistré. Le
+   * mouvement n'est créé qu'ensuite ; s'il échoue, le stock est rétabli.
+   */
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      if (!societeId) return 0;
       // Estampille le mouvement avec l'activité de l'article, sinon l'activité courante.
       const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
-      void tqMouvements.createMouvement(annee, mois, {
+      let mvtFinal: Omit<MouvementStock, "id"> = {
         ...mvt,
         activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
+      };
+
+      void tqArticles.ajusterStock(mvt.articleId, (actuel) => {
+        // Ajustement : on inscrit l'écart dans le motif pour pouvoir l'annuler
+        if (mvt.type === "ajustement" && ecartAjustement(mvt.motif) === null) {
+          const ecart = libelleEcart(mvt.quantite - actuel.stock);
+          mvtFinal = { ...mvtFinal, motif: mvt.motif ? `${mvt.motif} ${ecart}` : `Ajustement ${ecart}` };
+        }
+        return appliquerMouvement(actuel, mvt);
       })
-        .then(() => {
-          const article = articles.find((a) => a.id === mvt.articleId);
-          if (article && societeId) {
-            let nouveauStock = article.stock;
-            let nouveauPMP = article.prixAchat;
-            if (mvt.type === "entree") {
-              const valAvant = article.stock * article.prixAchat;
-              const valEntree = mvt.quantite * (mvt.prixUnitaire ?? article.prixAchat);
-              nouveauStock = article.stock + mvt.quantite;
-              nouveauPMP =
-                nouveauStock > 0 ? (valAvant + valEntree) / nouveauStock : article.prixAchat;
-            } else if (mvt.type === "sortie") {
-              nouveauStock = Math.max(0, article.stock - mvt.quantite);
-            } else if (mvt.type === "ajustement") {
-              nouveauStock = mvt.quantite;
-            }
-            void tqArticles.updateArticle(article.id, {
-              stock: nouveauStock,
-              prixAchat: nouveauPMP,
-            }).catch(() => toast.error("Erreur lors de la mise à jour du stock"));
-          }
-        })
-        .catch(() => toast.error("Erreur lors de l'ajout du mouvement de stock"));
+        .then(() =>
+          tqMouvements.createMouvement(annee, mois, mvtFinal).catch(async (err) => {
+            // Mouvement non enregistré : on remet le stock comme avant
+            await tqArticles.ajusterStock(mvt.articleId, (a) => annulerMouvement(a, mvtFinal))
+              .catch(() => undefined);
+            throw err;
+          }),
+        )
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors de l'ajout du mouvement de stock"),
+        );
       return 0; // ID définitif disponible après invalidation TQ
     },
     [tqMouvements, articles, societeId, tqArticles, stampActiviteId],
   );
 
+  /**
+   * Supprime un mouvement et retire son effet du stock actuel (voir
+   * annulerMouvement). Si l'annulation est impossible (entrée déjà consommée,
+   * ajustement sans écart connu), rien n'est supprimé.
+   */
   const removeMouvementStock = useCallback(
     (annee: number, mois: number, id: number) => {
       const key = moisKey(annee, mois);
       const mvt = (tqMouvements.mouvementsStock[key] ?? []).find((x) => x.id === id);
-      void tqMouvements.removeMouvement(id)
-        .then(() => {
-          if (mvt) {
-            const article = articles.find((a) => a.id === mvt.articleId);
-            if (article && societeId) {
-              let nouveauStock = article.stock;
-              if (mvt.type === "entree")
-                nouveauStock = Math.max(0, article.stock - mvt.quantite);
-              if (mvt.type === "sortie") nouveauStock = article.stock + mvt.quantite;
-              void tqArticles.updateArticle(article.id, { stock: nouveauStock })
-                .catch(() => toast.error("Erreur lors de la mise à jour du stock"));
-            }
-          }
-        })
-        .catch(() => toast.error("Erreur lors de la suppression du mouvement de stock"));
+      if (!mvt || !societeId) return;
+
+      void tqArticles.ajusterStock(mvt.articleId, (actuel) => annulerMouvement(actuel, mvt))
+        .then(() =>
+          tqMouvements.removeMouvement(id).catch(async (err) => {
+            // Suppression échouée : on réapplique le mouvement
+            await tqArticles.ajusterStock(mvt.articleId, (a) => appliquerMouvement(a, mvt))
+              .catch(() => undefined);
+            throw err;
+          }),
+        )
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors de la suppression du mouvement de stock"),
+        );
     },
-    [tqMouvements, articles, societeId, tqArticles],
+    [tqMouvements, societeId, tqArticles],
   );
 
   // ─── Sanctions → table relationnelle ─────────────────────────────────────
@@ -1098,10 +1193,11 @@ export const useEbeneStoreRemote = (
           .catch(() => toast.error("Erreur lors de l'import des taux fiscaux"));
       }
 
-      toast.info(
-        "Import partiel : seul tauxHistorique est importé. " +
-        "Toutes les entités métier (factures, devis, stock, employés…) " +
-        "sont stockées dans Supabase et doivent être importées via leur module respectif.",
+      toast.warning(
+        "Restauration partielle : seuls les taux fiscaux ont été importés. " +
+        "Les factures, devis, employés, stock et immobilisations n'ont pas été modifiés : " +
+        "ils restent ceux de la base actuelle.",
+        { duration: 10_000 },
       );
     },
     [tqTaux],

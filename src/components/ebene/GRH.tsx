@@ -31,7 +31,7 @@ import {
   IdCard,
 } from "lucide-react";
 import { StatCard } from "./StatCard";
-import { formatMontant, calculerAnciennete, tauxAnciennete } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { EmployeForm } from "./grh/EmployeForm";
 import { BulletinPaie, calculerPaie } from "./grh/BulletinPaie";
 import { ContratGenerator } from "./grh/ContratGenerator";
@@ -49,6 +49,7 @@ import { useTenant } from "@/hooks/useTenant";
 import { BulletinsPaie } from "./BulletinsPaie";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 interface Props {
   employes: Employe[];
@@ -129,6 +130,8 @@ export const GRH = ({
   const [primeLib, setPrimeLib] = useState("");
   const [primeMnt, setPrimeMnt] = useState("");
   const { currentSociete, societeConfig } = useTenant();
+  const historiqueTaux = useTauxHistoriqueCourant();
+  const tauxMois = useMemo(() => tauxPourMois(historiqueTaux, annee, mois), [historiqueTaux, annee, mois]);
   const societeInfo = currentSociete && societeConfig
     ? { ...societeConfig, nom: currentSociete.nom }
     : null;
@@ -140,13 +143,13 @@ export const GRH = ({
     employes.forEach((e) => {
       // Exclure les employés non validés de la masse salariale
       if (e.statutValidation && e.statutValidation !== "valide") return;
-      const c = calculerPaie(e, data);
+      const c = calculerPaie(e, data, annee, mois, tauxMois);
       masseBrute += c.brut;
       coutTotal += c.coutEmployeur;
       netTotal += c.net;
     });
     return { masseBrute, coutTotal, netTotal };
-  }, [employes, data]);
+  }, [employes, data, annee, mois, tauxMois]);
 
   const submitPrime = (employeId: number) => {
     if (!primeLib.trim()) return alert("Libellé requis");
@@ -245,7 +248,7 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full mb-5 h-auto">
+        <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-8 w-full mb-4 sm:mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="liste">📋 Liste du personnel</TabsTrigger>
           <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>
@@ -300,9 +303,9 @@ export const GRH = ({
           ) : (
             <div className="space-y-2">
               {employes.map((e) => {
-                const c = calculerPaie(e, data);
-                const anc = calculerAnciennete(e.dateEmbauche);
-                const tx = tauxAnciennete(anc);
+                const c = calculerPaie(e, data, annee, mois, tauxMois);
+                const anc = c.anciennete;
+                const tx = c.tauxAnc;
                 const sv = e.statutValidation;
                 const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (
@@ -376,7 +379,7 @@ export const GRH = ({
                           size="sm"
                           variant="outline"
                           className="gap-1 h-8 text-xs"
-                          onClick={() => generateBulletin(e, data, annee, mois, societeInfo)}
+                          onClick={() => generateBulletin(e, data, annee, mois, societeInfo, tauxMois)}
                           title="Télécharger le bulletin PDF"
                         >
                           📄 PDF

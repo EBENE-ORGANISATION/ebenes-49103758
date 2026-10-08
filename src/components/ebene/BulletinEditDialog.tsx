@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatMontant } from "@/lib/ebene-utils";
+import { sansSoldeEnregistre } from "@/lib/paie";
 import { MOIS_NOMS, type BulletinPaieRecord } from "@/types/ebene";
 
 type EditableKeys =
@@ -66,7 +67,9 @@ export const BulletinEditDialog = ({ bulletin, onClose, onSave }: Props) => {
   const brut =
     values.salaire_base + values.sursalaire + values.prime_anciennete +
     values.hs_montant + values.primes_diverses + values.indemnites;
-  const totalRet = values.cnss_sal + values.amu_sal + values.irpp + values.retenues_diverses;
+  // Congés sans solde : inclus dans les retenues enregistrées, conservés à l'édition
+  const sansSolde = sansSoldeEnregistre(bulletin);
+  const totalRet = values.cnss_sal + values.amu_sal + values.irpp + values.retenues_diverses + sansSolde;
   const net = brut - totalRet;
 
   const handleSave = async () => {

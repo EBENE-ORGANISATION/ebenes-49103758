@@ -50,6 +50,15 @@ export const useArticles = (societeId: string | null) => {
     updateArticle: (id: number, patch: Partial<Omit<Article, "id">>) =>
       updateMutation.mutateAsync({ id, patch }),
     removeArticle: (id: number) => removeMutation.mutateAsync(id),
+    /** Mise à jour sûre du stock/PMP (voir repo.ajusterStock), puis rafraîchissement. */
+    ajusterStock: async (
+      id: number,
+      calcul: Parameters<typeof repo.ajusterStock>[2],
+    ): Promise<Article> => {
+      const a = await repo.ajusterStock(id, societeId!, calcul);
+      await invalidate();
+      return a;
+    },
     mutations: { add: addMutation, update: updateMutation, remove: removeMutation },
   };
 };

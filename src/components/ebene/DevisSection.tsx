@@ -27,7 +27,7 @@ import { DevisPreview } from "./DevisPreview";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
-  incrementerCompteur,
+  reserverNumero,
 } from "@/lib/numerotation";
 
 interface Props {
@@ -136,7 +136,24 @@ export const DevisSection = ({
     setNumeroEdited(false);
   };
 
-  const submit = () => {
+  /**
+   * Numéro définitif : le numéro proposé est réservé en base (compteur avancé
+   * atomiquement) ; un numéro saisi à la main est conservé tel quel.
+   */
+  const numeroDefinitif = async (
+    type: "facture" | "devis",
+    apercu: string,
+    saisi: string,
+  ): Promise<string> => {
+    if (saisi && saisi !== apercu) return saisi;
+    if (!currentSociete?.id || !societeConfig) return apercu;
+    const reserve = await reserverNumero(currentSociete.id, type, annee);
+    if (!reserve) return apercu;
+    void refreshTenant();
+    return reserve;
+  };
+
+  const submit = async () => {
     if (!client.trim()) return alert(t("devis.err_client"));
     if (!date) return alert(t("devis.err_date"));
     const lignesNet = lignes
@@ -168,7 +185,7 @@ export const DevisSection = ({
       return;
     }
 
-    const numeroFinal = numero.trim() || numeroAuto;
+    const numeroFinal = await numeroDefinitif("devis", numeroAuto, numero.trim());
     onAdd({
       numero: numeroFinal,
       client: client.trim(),
@@ -184,13 +201,6 @@ export const DevisSection = ({
       activite,
       activiteId,
     });
-    if (currentSociete?.id && societeConfig && numeroFinal === numeroAuto) {
-      void incrementerCompteur(
-        currentSociete.id,
-        "devis",
-        Number(societeConfig.compteur_devis ?? 1),
-      ).then((ok) => { if (ok) void refreshTenant(); });
-    }
     reset();
     setOpen(false);
   };
@@ -446,24 +456,18 @@ export const DevisSection = ({
                         <Pencil className="size-4" />
                       </Button>
                     )}
-                    {d.statut !== "converti" && (
+                    {/* Un devis refusé par le client ne peut pas devenir une facture */}
+                    {d.statut !== "converti" && d.statut !== "refuse" && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="gap-1 text-success border-success/30 hover:bg-success/10"
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(t("devis.confirm_convert"))) {
-                            const num = societeConfig
+                            const apercu = societeConfig
                               ? genererNumeroFactureFmt(societeConfig, annee)
                               : prochainNumeroFactureFallback(annee, donneesMensuelles);
-                            onConvertir(d.id, num);
-                            if (currentSociete?.id && societeConfig) {
-                              void incrementerCompteur(
-                                currentSociete.id,
-                                "facture",
-                                Number(societeConfig.compteur_facture ?? 1),
-                              ).then((ok) => { if (ok) void refreshTenant(); });
-                            }
+                            onConvertir(d.id, await numeroDefinitif("facture", apercu, ""));
                           }
                         }}
                       >

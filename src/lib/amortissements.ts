@@ -41,7 +41,8 @@ export const planAmortissement = (immo: Immobilisation): PlanAmortissement => {
     return { immobilisation: immo, baseAmortissable: base, lignes };
   }
 
-  const dateAcq = new Date(immo.dateAcquisition);
+  // Date lue à minuit LOCAL (new Date("AAAA-MM-JJ") serait minuit UTC)
+  const dateAcq = new Date(`${String(immo.dateAcquisition).slice(0, 10)}T00:00:00`);
   const anneeAcq = dateAcq.getFullYear();
   // Prorata SYSCOHADA : nombre de jours entre acquisition et 31/12.
   const finAnneeAcq = new Date(anneeAcq, 11, 31);

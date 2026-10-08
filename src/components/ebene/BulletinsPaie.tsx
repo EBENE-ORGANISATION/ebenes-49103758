@@ -28,9 +28,10 @@ import { FileText, RefreshCw, CheckCircle, CreditCard, Trash2, Download, Plus, U
 import { toast } from "sonner";
 import { generateBulletin, type BulletinSocieteInfo } from "@/lib/bulletinPDF";
 import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { MOIS_NOMS, type Employe, type BulletinPaieRecord } from "@/types/ebene";
 import { BulletinEditDialog } from "./BulletinEditDialog";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 interface Props {
   employes: Employe[];
@@ -53,6 +54,7 @@ const statutBadge = (s: BulletinPaieRecord["statut"]) => {
 
 export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }: Props) => {
   const { currentSociete } = useTenant();
+  const historiqueTaux = useTauxHistoriqueCourant();
   const sid = currentSociete?.id ?? null;
   const store = useEbeneStore(sid);
   const {
@@ -142,7 +144,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
     }
     const moisData = store.getMois(b.annee, b.mois);
     try {
-      generateBulletin(emp, moisData, b.annee, b.mois, societeInfo);
+      generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois), b);
     } catch {
       toast.error("Impossible de générer le PDF");
     }
@@ -384,7 +386,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
               </TableHeader>
               <TableBody>
                 {sansBulletin.map((e) => {
-                  const c = calculerPaie(e, store.getMois(annee, mois));
+                  const c = calculerPaie(e, store.getMois(annee, mois), annee, mois, tauxPourMois(historiqueTaux, annee, mois));
                   return (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nom}</TableCell>

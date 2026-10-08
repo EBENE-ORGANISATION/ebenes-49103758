@@ -192,12 +192,20 @@ jobs:
             --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --key-pass "pass:$ANDROID_KEY_PASSWORD" \
-            --out $OUT/ebenes-signed.apk \
+            --out $OUT/Ebene-Suite.apk \
             "$APK_IN"
           rm -f /tmp/keystore.jks
+          # Copie sous l'ancien nom : le lien court /apk du site (public/_redirects)
+          # y pointe tant que la dernière release publiée ne contient pas Ebene-Suite.apk.
+          # À retirer une fois _redirects basculé sur Ebene-Suite.apk.
+          cp $OUT/Ebene-Suite.apk $OUT/ebenes-signed.apk
 
+      # Nom stable et lisible pour l'utilisateur (sans espace ni accent, sans
+      # version : les liens .../releases/latest/download/Ebene-Suite.apk restent valides)
       - name: Envoyer dans la release
-        run: gh release upload "$TAG" android/app/build/outputs/apk/release/ebenes-signed.apk --repo "$GITHUB_REPOSITORY" --clobber
+        run: |
+          OUT=android/app/build/outputs/apk/release
+          gh release upload "$TAG" $OUT/Ebene-Suite.apk $OUT/ebenes-signed.apk --repo "$GITHUB_REPOSITORY" --clobber
 
   # ── 4. Publier la release (seulement si Windows ET Android ont réussi) ────
   publish:

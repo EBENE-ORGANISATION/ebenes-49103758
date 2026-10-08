@@ -7,7 +7,14 @@ import {
   EcritureComptable,
 } from "@/types/ebene";
 import { StatCard } from "./StatCard";
-import { formatMontant, tauxPourMois, moisKey } from "@/lib/ebene-utils";
+import {
+  formatMontant,
+  tauxPourMois,
+  moisKey,
+  transactionComptabilisee,
+  tvaDepuisTransactions,
+} from "@/lib/ebene-utils";
+import { calculerPaie } from "@/lib/paie";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -175,15 +182,19 @@ export const Fiscalite = ({
     for (let m = 1; m <= 12; m++) {
       const md = donneesMensuelles[moisKey(annee, m)];
       if (!md) continue;
-      total += md.transactions.filter(t => t.type === "r").reduce((a, t) => a + t.m, 0);
+      total += md.transactions
+        .filter(t => t.type === "r" && transactionComptabilisee(t))
+        .reduce((a, t) => a + t.m, 0);
     }
     return total;
   }, [donneesMensuelles, annee]);
 
   // ── Calculs du mois ────────────────────────────────────────────────────────
   const calc = useMemo(() => {
-    const recettes = data.transactions.filter(t => t.type === "r");
-    const depenses = data.transactions.filter(t => t.type === "d");
+    // Seules les transactions prises en compte (ni rejetées, ni en attente de validation)
+    const comptabilisees = data.transactions.filter(transactionComptabilisee);
+    const recettes = comptabilisees.filter(t => t.type === "r");
+    const depenses = comptabilisees.filter(t => t.type === "d");
     const rec  = recettes.reduce((a, t) => a + t.m, 0);
     const dep  = Math.abs(depenses.reduce((a, t) => a + t.m, 0));
     const ben  = Math.max(0, rec - dep);
@@ -202,9 +213,9 @@ export const Fiscalite = ({
     const impot  = Math.max(is, imfMensuel);
     const regime = is >= imfMensuel ? "IS" : "IMF";
 
-    // TVA
-    const tvaCollectee   = rec * taux.tva;
-    const tvaDeductible  = dep * taux.tva;
+    // TVA : HT et TVA réels des factures, déduction limitée aux achats fournisseurs
+    const { caHT, tvaCollectee, tvaDeductible } =
+      tvaDepuisTransactions(data.transactions, data.factures, taux.tva, data.ecritures ?? []);
     const tvaNette       = tvaCollectee - tvaDeductible;
     const tvaAPayer      = Math.max(0, tvaNette);
     const creditAReporter = Math.max(0, -tvaNette);
@@ -218,29 +229,30 @@ export const Fiscalite = ({
     const rslAnnuel   = loyerAnnuel * 0.0875;
     const rslMensuel  = rslAnnuel / 12;
 
-    // Social
-    let masse = 0;
+    // Social : mêmes calculs que les bulletins (base cotisable, primes validées,
+    // heures sup, ancienneté, congés sans solde, taux du mois)
+    let masse = 0, cnssEmp = 0, amuEmp = 0, cnssSal = 0, amuSal = 0;
     employes.forEach(e => {
-      masse += e.salaire + (e.sursalaire || 0);
-      (data.primes[e.id] || []).forEach(p => (masse += p.montant || 0));
+      const p = calculerPaie(e, data, annee, mois, taux);
+      masse   += p.baseCotisable;
+      cnssEmp += p.cnssEmp;
+      amuEmp  += p.amuEmp;
+      cnssSal += p.cnssSal;
+      amuSal  += p.amuSal;
     });
-    const cnssEmp = masse * taux.cnssEmp;
-    const amuEmp  = masse * taux.amuEmp;
-    const cnssSal = masse * taux.cnssSal;
-    const amuSal  = masse * taux.amuSal;
 
     return {
       rec, dep, ben,
       recService, recCommerce,
       is, imfMensuel, imfAnnuel, impot, regime,
-      tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
+      caHT, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
       patService, patCommerce, pat,
       thAnnuel, thDuMois, loyerAnnuel, rslAnnuel, rslMensuel,
       masse, cnssEmp, amuEmp, cnssSal, amuSal,
       totalFiscal: tvaAPayer + impot + pat + thDuMois + rslMensuel,
       totalSocial: cnssEmp + amuEmp,
     };
-  }, [data, employes, paramsAnnee, taux, caAnnuel, mois]);
+  }, [data, employes, paramsAnnee, taux, caAnnuel, annee, mois]);
 
   // IRPP total du mois depuis bulletins
   const irppTotal = useMemo(
@@ -290,21 +302,21 @@ export const Fiscalite = ({
     const hasEcritures = ligne7 > 0 || ligne13 > 0 || ligne18 > 0;
 
     // Section II — CA HT
-    const l1  = hasEcritures ? ligne7 : calc.rec;
+    const l1  = hasEcritures ? ligne7 : calc.caHT;
     const l2  = tvaManuel.l3;   // exonérées
     const l3  = tvaManuel.l4;   // autres taux
     const l4  = tvaManuel.l5;   // LASM
     const l6  = l1 + l2 + l3 + l4;  // total CA HT
 
     // Section III — TVA Brute
-    const l7  = hasEcritures ? ligne13 : Math.round(calc.rec * taux.tva);
+    const l7  = hasEcritures ? ligne13 : Math.round(calc.tvaCollectee);
     const l8  = tvaManuel.l8;   // TVA importations
     const l9  = tvaManuel.l9;   // TVA récupérable immo (Sect. III)
     const l10 = tvaManuel.l10;  // régularisations +
     const l11 = l7 + l8 + l9 + l10;  // TOTAL TVA BRUTE
 
     // Section IV — TVA Déductible (nouvelle numérotation)
-    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);  // AUTO 4452
+    const l12 = hasEcritures ? ligne18 : Math.round(calc.tvaDeductible);  // AUTO 4452
     const l13 = tvaManuel.l13;  // déductions immobilisations
     const l14 = tvaManuel.l14;  // régularisations +
     const l15 = tvaManuel.l15;  // reversements -
@@ -379,7 +391,7 @@ export const Fiscalite = ({
   // ── Données CNSS pour exports ──────────────────────────────────────────────
   const cnssHead = [["Libellé", "Base", "Taux", "Montant (FCFA)"]];
   const cnssBody: (string | number)[][] = [
-    ["Masse salariale brute",        fmt(calc.masse), "—",                           fmt(calc.masse)],
+    ["Masse salariale cotisable",    fmt(calc.masse), "—",                           fmt(calc.masse)],
     ["CNSS patronale",               fmt(calc.masse), `${(taux.cnssEmp*100).toFixed(1)}%`, fmt(calc.cnssEmp)],
     ["AMU patronale",                fmt(calc.masse), `${(taux.amuEmp*100).toFixed(0)}%`,  fmt(calc.amuEmp)],
     ["CNSS salariale (retenue)",     fmt(calc.masse), `${(taux.cnssSal*100).toFixed(0)}%`, fmt(calc.cnssSal)],
@@ -435,7 +447,7 @@ export const Fiscalite = ({
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="dashboard">
-        <TabsList className="flex-wrap h-auto gap-1">
+        <TabsList className="tabs-scroll justify-start w-full sm:w-auto sm:flex-wrap h-auto gap-1">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="tva" className="gap-1.5">
             TVA
@@ -486,7 +498,7 @@ export const Fiscalite = ({
             </div>
             <div className="card-elevated p-5">
               <h3 className="font-bold mb-3">👥 Total Social (mois)</h3>
-              <Row label="Masse salariale"               value={`${fmt(calc.masse)} FCFA`} />
+              <Row label="Masse salariale cotisable"     value={`${fmt(calc.masse)} FCFA`} />
               <Row label={`CNSS patronal ${(taux.cnssEmp*100).toFixed(1)}%`} value={`${fmt(calc.cnssEmp)} FCFA`} />
               <Row label={`AMU patronal ${(taux.amuEmp*100).toFixed(0)}%`}   value={`${fmt(calc.amuEmp)} FCFA`} />
               <Row label="IRPP (bulletins)"              value={irppTotal > 0 ? `${fmt(irppTotal)} FCFA` : "—"} />
@@ -938,7 +950,7 @@ export const Fiscalite = ({
                 onWord={() => dlWord(`CNSS_${annee}_${mois}`, cnssTitre, cnssTableHtml)}
               />
             </div>
-            <Row label="Masse salariale brute"                    value={`${fmt(calc.masse)} FCFA`} />
+            <Row label="Masse salariale cotisable"                value={`${fmt(calc.masse)} FCFA`} />
             <Row label={`CNSS patronale ${(taux.cnssEmp*100).toFixed(1)}%`}  value={`${fmt(calc.cnssEmp)} FCFA`} />
             <Row label={`AMU patronale ${(taux.amuEmp*100).toFixed(0)}%`}    value={`${fmt(calc.amuEmp)} FCFA`} />
             <Row label="TOTAL CHARGES PATRONALES"                 value={`${fmt(calc.cnssEmp + calc.amuEmp)} FCFA`} strong />

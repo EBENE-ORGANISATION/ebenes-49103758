@@ -17,8 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle, BookOpen } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, formatMontantSigne, todayISO, transactionComptabilisee } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -92,6 +93,8 @@ export const Comptabilite = ({
   const [montant, setMontant]       = useState("");
   const [fournisseur, setFournisseur] = useState("");
   const [piece, setPiece]           = useState<{ nom: string; type: string; data: string } | null>(null);
+  /** Facture d'achat avec TVA (fournisseur assujetti) — coché par défaut. */
+  const [achatAvecTva, setAchatAvecTva] = useState(true);
   const [previewPiece, setPreviewPiece] = useState<typeof piece>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -107,15 +110,18 @@ export const Comptabilite = ({
   // est marqué comme PAYÉ (payerBulletin ajoute alors une transaction
   // source="salaires"). Aucune ligne auto n'est plus injectée ici.
   const totals = useMemo(() => {
-    const rec = data.transactions.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
-    const recFact = data.transactions
+    // Les transactions rejetées ou en attente de validation restent listées
+    // mais n'entrent pas dans les totaux.
+    const comptabilisees = data.transactions.filter(transactionComptabilisee);
+    const rec = comptabilisees.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
+    const recFact = comptabilisees
       .filter((t) => t.type === "r" && t.source === "facture")
       .reduce((a, t) => a + t.m, 0);
     const dep = Math.abs(
-      data.transactions.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0)
+      comptabilisees.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0)
     );
     const depSalaires = Math.abs(
-      data.transactions
+      comptabilisees
         .filter((t) => t.type === "d" && t.source === "salaires")
         .reduce((a, t) => a + t.m, 0)
     );
@@ -175,6 +181,7 @@ export const Comptabilite = ({
     setMontant("");
     setFournisseur("");
     setPiece(null);
+    setAchatAvecTva(true);
     setActivite("service");
     setActiviteId(currentActiviteId);
     if (fileRef.current) fileRef.current.value = "";
@@ -192,6 +199,7 @@ export const Comptabilite = ({
       m: type === "d" ? -m : m,
       source: type === "d" && piece ? "fournisseur" : "manuelle",
       fournisseur: fournisseur.trim() || null,
+      avecTva: type === "d" && piece ? achatAvecTva : undefined,
       activite: type === "r" ? activite : undefined,
       activiteId,
       pieceJointe: piece?.data || null,
@@ -241,7 +249,7 @@ export const Comptabilite = ({
       {!isLoading && (
         <>
       <Tabs defaultValue="tresorerie" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-4 h-auto">
+        <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-7 w-full mb-4 h-auto">
           <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
             📒 Saisie
           </TabsTrigger>
@@ -470,6 +478,21 @@ export const Comptabilite = ({
                     <p className="text-xs text-muted-foreground mt-2">
                       PDF ou image (max 3 Mo). La pièce sera attachée à la dépense.
                     </p>
+                    {piece && (
+                      <label className="flex items-start gap-2 mt-3 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={achatAvecTva}
+                          onCheckedChange={(v) => setAchatAvecTva(v === true)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Facture avec TVA (18 % incluse dans le montant)
+                          <span className="block text-xs text-muted-foreground">
+                            Décochez si le fournisseur n'est pas assujetti : aucune TVA ne sera déduite.
+                          </span>
+                        </span>
+                      </label>
+                    )}
                   </div>
                 )}
 

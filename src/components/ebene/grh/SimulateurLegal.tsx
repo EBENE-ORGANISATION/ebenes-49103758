@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { todayISO } from "@/lib/ebene-utils";
 
 // ─── Section A — Période d'essai ─────────────────────────────────────────────
 
@@ -51,11 +52,11 @@ function formatDate(d: Date) {
 
 const PeriodeEssaiSection = () => {
   const [categorie, setCategorie] = useState<CategorieEssai>("ouvrier");
-  const [debut, setDebut] = useState(new Date().toISOString().split("T")[0]);
+  const [debut, setDebut] = useState(todayISO());
   const [renouvele, setRenouvele] = useState(false);
 
   const b = BAREME_ESSAI[categorie];
-  const debutDate = new Date(debut);
+  const debutDate = new Date(`${debut}T00:00:00`); // minuit local
 
   let finInitiale: Date;
   let finMax: Date;

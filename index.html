@@ -50,6 +50,9 @@
 
           var host = window.location.hostname || "";
           var isPreviewHost =
+            // Développement local : pas de cache, sinon Vite sert du code périmé
+            host === "localhost" ||
+            host === "127.0.0.1" ||
             host.indexOf("id-preview--") !== -1 ||
             host.indexOf("lovableproject.com") !== -1 ||
             host.indexOf("lovable.app") !== -1;

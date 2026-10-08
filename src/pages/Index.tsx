@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +16,7 @@ import { OfflineBanner } from "@/components/ebene/OfflineBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
-import { tauxPourMois } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
@@ -146,16 +146,8 @@ const Index = () => {
     [store.donneesMensuelles, employesPaie, store.articles]
   );
 
-  // Compte 'employe' pur → portail self-service uniquement
-  // (placé après tous les hooks pour respecter les Rules of Hooks)
-  if (isEmployeOnly) {
-    return (
-      <Suspense fallback={<PortalFallback />}>
-        <PortailEmploye />
-      </Suspense>
-    );
-  }
-
+  // (La redirection des comptes 'employe' purs vers le portail se fait plus bas,
+  //  après le dernier hook — voir juste avant le return principal.)
   const exportJSON = () => {
     const payload = {
       version: "1.3",
@@ -176,7 +168,7 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = t("index_page.archive_filename", { date: new Date().toISOString().split("T")[0] });
+    a.download = t("index_page.archive_filename", { date: todayISO() });
     a.click();
     URL.revokeObjectURL(url);
     toast.success(t("index_page.archive_exported"));
@@ -189,8 +181,8 @@ const Index = () => {
         const data = JSON.parse(String(e.target?.result || ""));
         if (!data || typeof data !== "object") throw new Error("invalide");
         if (!confirm(t("index_page.confirm_import"))) return;
+        // importerDonnees indique lui-même ce qui a été importé (import partiel)
         store.importerDonnees(data);
-        toast.success(t("index_page.import_success"));
       } catch {
         toast.error(t("index_page.import_invalid"));
       }
@@ -253,14 +245,14 @@ const Index = () => {
     : showGrh ? "grh"
     : showFisc ? "fisc"
     : "compta";
-  const gridCols = visibleTabs >= 8 ? "sm:grid-cols-8"
-    : visibleTabs === 7 ? "sm:grid-cols-7"
-    : visibleTabs === 6 ? "sm:grid-cols-6"
-    : visibleTabs === 5 ? "sm:grid-cols-5"
-    : visibleTabs === 4 ? "sm:grid-cols-4"
-    : visibleTabs === 3 ? "sm:grid-cols-3"
-    : visibleTabs === 2 ? "sm:grid-cols-2"
-    : "sm:grid-cols-1";
+  const gridCols = visibleTabs >= 8 ? "lg:grid-cols-8"
+    : visibleTabs === 7 ? "lg:grid-cols-7"
+    : visibleTabs === 6 ? "lg:grid-cols-6"
+    : visibleTabs === 5 ? "lg:grid-cols-5"
+    : visibleTabs === 4 ? "lg:grid-cols-4"
+    : visibleTabs === 3 ? "lg:grid-cols-3"
+    : visibleTabs === 2 ? "lg:grid-cols-2"
+    : "lg:grid-cols-1";
 
   // ── Onglet actif piloté par les search params React Router ──────────────
   // useLocation() est réactif : se met à jour automatiquement sur Back/Forward.
@@ -269,11 +261,12 @@ const Index = () => {
   const tabFromUrl = searchParams.get("tab");
   const effectiveTab = tabFromUrl || defaultTab;
 
-  const handleTabChange = (value: string) => {
+  // Stable entre les rendus : évite de réinstaller l'écouteur clavier à chaque rendu
+  const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(location.search);
     params.set("tab", value);
     navigate({ search: params.toString() });
-  };
+  }, [location.search, navigate]);
 
   // P7 — Raccourcis clavier globaux (Ctrl+1..8 → changer d'onglet)
   useEffect(() => {
@@ -306,6 +299,17 @@ const Index = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showDashboard, showCompta, showFisc, showCommercial, showStock, showImmo, showGrh, showPortail, handleTabChange]);
 
+  // Compte 'employe' pur → portail self-service uniquement.
+  // Placé après TOUS les hooks : les rôles arrivent après le premier rendu,
+  // isEmployeOnly peut donc passer de false à true sans changer l'ordre des hooks.
+  if (isEmployeOnly) {
+    return (
+      <Suspense fallback={<PortalFallback />}>
+        <PortailEmploye />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -317,7 +321,7 @@ const Index = () => {
         alertes={alertes}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-5">
         <MoisNav
           mois={mois}
           annee={annee}
@@ -326,9 +330,9 @@ const Index = () => {
           onAnnee={setAnnee}
         />
 
-        <div className="card-elevated p-4 sm:p-6 no-print">
+        <div className="card-elevated p-3 sm:p-6 no-print">
           <Tabs value={effectiveTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className={`grid grid-cols-2 ${gridCols} w-full mb-5 h-auto`}>
+            <TabsList className={`tabs-scroll justify-start lg:grid ${gridCols} w-full mb-4 sm:mb-5 h-auto`}>
               {showDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
                   📊 {t("tabs.dashboard")}
@@ -452,7 +456,7 @@ const Index = () => {
                   ? (id) => store.removeFacture(annee, mois, id)
                   : blockedId(tp("compta_delete"))}
                 onMarquerPayee={factWrite
-                  ? (id) => store.marquerPayee(annee, mois, id)
+                  ? (id, compte) => store.marquerPayee(annee, mois, id, compte)
                   : blockedId(tp("fact_action"))}
                 onConvertir={factWrite
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)

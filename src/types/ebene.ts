@@ -40,6 +40,12 @@ export interface Transaction {
   fournisseur?: string | null;
   /** marque les transactions auto (salaires mensuels) — non supprimables manuellement */
   auto?: boolean;
+  /**
+   * Dépense fournisseur : la facture d'achat comporte-t-elle de la TVA ?
+   * Non stocké en base : sert uniquement à générer l'écriture AC (avec ou sans
+   * ligne 4452). La TVA déductible est ensuite relue dans cette écriture.
+   */
+  avecTva?: boolean;
   /** Statut du workflow de validation (par défaut: 'en_validation' à la saisie). */
   statut?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */

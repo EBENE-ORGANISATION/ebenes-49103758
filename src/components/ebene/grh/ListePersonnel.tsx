@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Eye, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMontant, calculerAnciennete } from "@/lib/ebene-utils";
+import { formatMontant, calculerAnciennete, todayISO } from "@/lib/ebene-utils";
 import { FichePersonnel } from "./FichePersonnel";
 import type { Employe } from "@/types/ebene";
 
@@ -127,7 +127,7 @@ export const ListePersonnel = ({ employes, societeId }: Props) => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Liste personnel");
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = todayISO();
     XLSX.writeFile(wb, `Liste_personnel_${stamp}.xlsx`);
   };
 

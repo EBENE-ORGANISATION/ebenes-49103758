@@ -113,7 +113,10 @@ export const Header = ({
 
   const handleRestore = async (fileId: string) => {
     if (!store) { toast.error("Restauration impossible : store indisponible"); return; }
-    if (!confirm("Restaurer cette sauvegarde ? Les données actuelles seront remplacées.")) return;
+    if (!confirm(
+      "Restaurer cette sauvegarde ?\n\nSeuls les taux fiscaux sont restaurés automatiquement. " +
+      "Les autres données (factures, employés, stock…) restent celles de la base actuelle et ne sont pas modifiées."
+    )) return;
     setRestoringId(fileId);
     try {
       const ok = await restoreFromDrive(fileId, store);

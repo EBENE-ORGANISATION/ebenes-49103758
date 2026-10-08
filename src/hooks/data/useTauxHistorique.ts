@@ -10,6 +10,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tauxHistorique as repo } from "@/data/tauxHistorique.repo";
 import type { TauxFiscaux } from "@/types/ebene";
 import { TAUX_DEFAUT } from "@/types/ebene";
+import { useTenant } from "@/hooks/useTenant";
+
+/**
+ * Historique des taux de la société active (lecture seule). Pratique pour les
+ * écrans de paie qui doivent appliquer les taux CNSS/AMU du mois payé :
+ * `calculerPaie(e, data, a, m, tauxPourMois(historique, a, m))`.
+ */
+export const useTauxHistoriqueCourant = (): TauxFiscaux[] => {
+  const { currentSociete } = useTenant();
+  return useTauxHistorique(currentSociete?.id ?? null).tauxHistorique;
+};
 
 export const QK_TAUX_HISTORIQUE = (societeId: string | null) =>
   ["taux_historique", societeId] as const;

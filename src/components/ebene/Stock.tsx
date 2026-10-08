@@ -63,7 +63,7 @@ export const Stock = (props: Props) => {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard label="Articles" value={String(stats.nb)} tone="info" />
         <StatCard label="Valeur stock (PMP)" value={formatMontant(stats.valeur)} tone="success" />
         <StatCard label="En alerte (≤ seuil)" value={String(stats.enAlerte)} tone={stats.enAlerte > 0 ? "warning" : "info"} />
@@ -79,7 +79,7 @@ export const Stock = (props: Props) => {
       </div>
 
       <Tabs defaultValue="articles" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-5">
+        <TabsList className="tabs-scroll justify-start sm:grid sm:grid-cols-4 w-full mb-4 sm:mb-5 h-auto">
           <TabsTrigger value="articles">📦 Articles</TabsTrigger>
           <TabsTrigger value="mouvements">🔁 Mouvements</TabsTrigger>
           <TabsTrigger value="fournisseurs">🚚 Fournisseurs</TabsTrigger>
@@ -294,6 +294,11 @@ const MouvementsPanel = ({
     if (!aId) return toast.error("Article obligatoire");
     if (isNaN(q) || q < 0) return toast.error("Quantité invalide");
     if (type !== "ajustement" && q <= 0) return toast.error("Quantité doit être > 0");
+    // Contrôle immédiat (le stock est revérifié en base à l'enregistrement)
+    const art = articles.find((a) => a.id === aId);
+    if (type === "sortie" && art && q > art.stock) {
+      return toast.error(`Stock insuffisant : ${art.stock} ${art.unite} disponible(s).`);
+    }
     onAdd(annee, mois, {
       date, articleId: aId, type, quantite: q,
       prixUnitaire: type === "entree" ? parseFloat(pu) || 0 : undefined,

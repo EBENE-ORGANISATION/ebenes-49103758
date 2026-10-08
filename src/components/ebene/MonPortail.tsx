@@ -68,6 +68,8 @@ import {
 } from "@/types/ebene";
 import { useTranslation } from "react-i18next";
 import { generateBulletin } from "@/lib/bulletinPDF";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const BASE_CONGES_ANNUEL = 30;
@@ -98,6 +100,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
+  const historiqueTaux = useTauxHistoriqueCourant();
   const store = useEbeneStore(societeId);
   const annee = new Date().getFullYear();
 
@@ -193,8 +196,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
   // Formulaire demande de congé
   const [demande, setDemande] = useState({
     type: "conges_payes" as TypeAbsence,
-    dateDebut: new Date().toISOString().split("T")[0],
-    dateFin: new Date().toISOString().split("T")[0],
+    dateDebut: todayISO(),
+    dateFin: todayISO(),
     motif: "",
   });
   // Si on modifie une demande rejetée → id de l'ancienne à supprimer
@@ -389,6 +392,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                                   b.annee,
                                   b.mois,
                                   societeInfo,
+                                  tauxPourMois(historiqueTaux, b.annee, b.mois),
+                                  b,
                                 );
                               } catch {
                                 toast.error("Impossible de générer le bulletin");
@@ -475,8 +480,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                     setEditId(null);
                     setDemande({
                       type: "conges_payes",
-                      dateDebut: new Date().toISOString().split("T")[0],
-                      dateFin: new Date().toISOString().split("T")[0],
+                      dateDebut: todayISO(),
+                      dateFin: todayISO(),
                       motif: "",
                     });
                   }}

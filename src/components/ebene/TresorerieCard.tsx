@@ -12,6 +12,9 @@ interface Props {
   mois: number;
 }
 
+/** Montant avec « - » s'il est négatif (formatMontant affiche la valeur absolue). */
+const fmtSigne = (n: number) => (Math.round(n) < 0 ? "-" : "") + formatMontant(n);
+
 const sumIfMois = (m: MoisData | undefined, type: "r" | "d") =>
   (m?.transactions || [])
     .filter((t) => t.type === type)
@@ -147,39 +150,39 @@ export const TresorerieCard = ({
           <Tile
             icon={<TrendingUp className="size-5 text-primary" />}
             label={t("tresorerie.solde_label")}
-            value={formatMontant(stats.soldeMois)}
-            sub={t("tresorerie.solde_sub", { value: formatMontant(stats.tresorerie) })}
+            value={fmtSigne(stats.soldeMois)}
+            sub={t("tresorerie.solde_sub", { value: fmtSigne(stats.tresorerie) })}
             tone={stats.soldeMois >= 0 ? "success" : "destructive"}
           />
         </div>
 
         <div className="rounded-lg border-2 border-dashed border-border p-4 bg-muted/30">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
               {t("tresorerie.forecast_title")}
             </p>
-            <span className={`amount text-lg font-bold ${previsionTone}`}>
-              {formatMontant(stats.previsionNette)}
+            <span className={`amount text-lg font-bold whitespace-nowrap ${previsionTone}`}>
+              {fmtSigne(stats.previsionNette)}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.pending_invoices")}</span>
               <span className="amount text-success">
                 {formatMontant(stats.facturesEnAttente)}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.payroll_loaded")}</span>
               <span className="amount text-destructive">
                 {formatMontant(stats.chargesSalariales)}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.starting_cash")}</span>
-              <span className="amount">{formatMontant(stats.tresorerie)}</span>
+              <span className="amount">{fmtSigne(stats.tresorerie)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.recurring_expenses")}</span>
               <span className="amount text-destructive">
                 {formatMontant(stats.depensesRecurrentes)}
@@ -211,10 +214,10 @@ export const TresorerieCard = ({
               </div>
               <div className="flex justify-between text-[10px] font-mono mt-0.5">
                 <span className={stats.tresorerie >= 0 ? "text-success" : "text-destructive"}>
-                  {formatMontant(stats.tresorerie)}
+                  {fmtSigne(stats.tresorerie)}
                 </span>
                 <span className={stats.previsionNette >= 0 ? "text-success" : "text-destructive"}>
-                  {formatMontant(stats.previsionNette)}
+                  {fmtSigne(stats.previsionNette)}
                 </span>
               </div>
             </div>

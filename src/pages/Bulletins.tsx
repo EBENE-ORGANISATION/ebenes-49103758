@@ -24,13 +24,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
 import { BulletinsPaie } from "@/components/ebene/BulletinsPaie";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import {
   MOIS_NOMS,
   type BulletinPaieRecord,
   type Employe,
 } from "@/types/ebene";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 const statutLabel = (s: BulletinPaieRecord["statut"]) =>
   s === "paye" ? "Payé" : s === "valide" ? "Validé" : "Brouillon";
@@ -50,6 +51,7 @@ const Bulletins = () => {
   const [employeId, setEmployeId] = useState<string>("all");
 
   const { currentSociete, societeConfig } = useTenant();
+  const historiqueTaux = useTauxHistoriqueCourant();
   const { isChefGrh } = useAuth();
   const sid = currentSociete?.id ?? null;
   const store = useEbeneStore(sid);
@@ -88,7 +90,7 @@ const Bulletins = () => {
     const emp = employes.find((e) => e.id === b.employe_id);
     if (!emp) return;
     const moisData = store.getMois(b.annee, b.mois);
-    try { generateBulletin(emp, moisData, b.annee, b.mois, societeInfo); } catch { /* noop */ }
+    try { generateBulletin(emp, moisData, b.annee, b.mois, societeInfo, tauxPourMois(historiqueTaux, b.annee, b.mois), b); } catch { /* noop */ }
   };
 
   return (

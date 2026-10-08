@@ -2,9 +2,9 @@
 // Réutilise calculerPaie() et les utilitaires fiscaux ; ne réécrit aucune logique de paie.
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Employe, MoisData, MOIS_NOMS } from "@/types/ebene";
+import { Employe, MoisData, MOIS_NOMS, TauxFiscaux, TAUX_DEFAUT } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
-import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
+import { calculerPaie, contenuBulletin, type MontantsEnregistres } from "@/lib/paie";
 
 /** Sous-ensemble de societe_config + societes utilisé pour la mise en forme du bulletin. */
 export interface BulletinSocieteInfo {
@@ -25,15 +25,23 @@ export interface BulletinSocieteInfo {
  * - Tableau retenues : CNSS 4%, AMU 5%, IRPP (barème progressif togolais)
  * - Net à payer
  * - Mention légale SYSCOHADA
+ *
+ * Pour un bulletin enregistré, passer `enregistre` : le PDF reprend alors ses
+ * montants (ceux validés/payés), pas un recalcul sur les données actuelles.
  */
 export const generateBulletin = (
   employe: Employe,
   moisData: MoisData,
   annee: number,
   mois: number,
-  societe?: BulletinSocieteInfo | null
+  societe?: BulletinSocieteInfo | null,
+  /** Taux CNSS/AMU du mois (tauxPourMois sur l'historique de la société). */
+  taux: TauxFiscaux = TAUX_DEFAUT,
+  /** Montants du bulletin enregistré, qui font foi s'ils sont fournis. */
+  enregistre?: MontantsEnregistres | null,
 ): void => {
-  const c = calculerPaie(employe, moisData);
+  const c = calculerPaie(employe, moisData, annee, mois, taux);
+  const b = contenuBulletin(c, employe, enregistre);
   const periode = `${MOIS_NOMS[mois - 1]} ${annee}`;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -94,30 +102,13 @@ export const generateBulletin = (
   y += 6;
 
   // ─── Tableau Gains ───────────────────────────────────────────────
-  const gainsRows: Array<[string, string]> = [];
-  gainsRows.push(["Salaire de base", formatMontant(c.base)]);
-  if (c.sursalaire > 0) gainsRows.push(["Sursalaire", formatMontant(c.sursalaire)]);
-  if (c.primeAnciennete > 0)
-    gainsRows.push([
-      `Prime d'ancienneté (${(c.tauxAnc * 100).toFixed(0)}%)`,
-      formatMontant(c.primeAnciennete),
-    ]);
-  if (c.hsMontant > 0) gainsRows.push(["Heures supplémentaires", formatMontant(c.hsMontant)]);
-  c.primes.forEach((p) =>
-    gainsRows.push([`Prime : ${p.libelle}`, formatMontant(p.montant)])
-  );
-  if ((employe.indemniteTransport || 0) > 0)
-    gainsRows.push(["Indemnité transport", formatMontant(employe.indemniteTransport!)]);
-  if ((employe.indemniteLogement || 0) > 0)
-    gainsRows.push(["Indemnité logement", formatMontant(employe.indemniteLogement!)]);
-  if ((employe.indemniteFonction || 0) > 0)
-    gainsRows.push(["Indemnité fonction", formatMontant(employe.indemniteFonction!)]);
+  const gainsRows: Array<[string, string]> = b.gains.map((l) => [l.libelle, formatMontant(l.montant)]);
 
   autoTable(doc, {
     startY: y,
     head: [["GAINS", "Montant"]],
     body: gainsRows,
-    foot: [["SALAIRE BRUT", formatMontant(c.brut)]],
+    foot: [["SALAIRE BRUT", formatMontant(b.brut)]],
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 1.6 },
     headStyles: { fillColor: [76, 81, 191], textColor: 255, halign: "left" },
@@ -127,18 +118,7 @@ export const generateBulletin = (
   });
 
   // ─── Tableau Retenues ────────────────────────────────────────────
-  const retenuesRows: Array<[string, string]> = [
-    ["CNSS salarié (4%)", formatMontant(c.cnssSal)],
-    ["AMU salarié (5%)", formatMontant(c.amuSal)],
-    ["IRPP (barème progressif Togo)", formatMontant(c.irpp)],
-  ];
-  if (c.deductionSansSolde > 0)
-    retenuesRows.push([
-      `Congés sans solde (${c.joursSansSolde} j)`,
-      formatMontant(c.deductionSansSolde),
-    ]);
-  if (c.retenuesDiverses > 0)
-    retenuesRows.push(["Retenues diverses", formatMontant(c.retenuesDiverses)]);
+  const retenuesRows: Array<[string, string]> = b.retenues.map((l) => [l.libelle, formatMontant(l.montant)]);
 
   // @ts-expect-error lastAutoTable est ajouté par jspdf-autotable
   const yAfterGains = (doc.lastAutoTable?.finalY ?? y) + 4;
@@ -147,7 +127,7 @@ export const generateBulletin = (
     startY: yAfterGains,
     head: [["RETENUES", "Montant"]],
     body: retenuesRows,
-    foot: [["TOTAL RETENUES", formatMontant(c.totalRetenues)]],
+    foot: [["TOTAL RETENUES", formatMontant(b.totalRetenues)]],
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 1.6 },
     headStyles: { fillColor: [192, 86, 86], textColor: 255, halign: "left" },
@@ -161,7 +141,7 @@ export const generateBulletin = (
   const yAfterRet = (doc.lastAutoTable?.finalY ?? yAfterGains) + 4;
   autoTable(doc, {
     startY: yAfterRet,
-    body: [["NET À PAYER", formatMontant(c.net)]],
+    body: [["NET À PAYER", formatMontant(b.net)]],
     theme: "grid",
     styles: { fontSize: 12, cellPadding: 3, fontStyle: "bold" },
     bodyStyles: { fillColor: [220, 245, 220], textColor: 0 },
@@ -178,9 +158,9 @@ export const generateBulletin = (
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(
-    `CNSS employeur (17,5%) : ${formatMontant(c.cnssEmp)}  •  AMU employeur (5%) : ${formatMontant(
-      c.amuEmp
-    )}  •  Coût total employeur : ${formatMontant(c.coutEmployeur)}`,
+    `${b.libelleCnssEmp} : ${formatMontant(b.cnssEmp)}  •  ${b.libelleAmuEmp} : ${formatMontant(
+      b.amuEmp
+    )}  •  Coût total employeur : ${formatMontant(b.coutEmployeur)}`,
     14,
     yAfterNet + 4
   );

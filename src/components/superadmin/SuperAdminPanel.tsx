@@ -309,10 +309,10 @@ export const SuperAdminPanel = () => {
       // séparément dans l'onglet "Défauts globaux".
       setSocietes(((socs ?? []) as SocieteRow[]).filter((s) => s.slug !== "_modele"));
       const cfgMap: Record<string, SocieteConfigRow> = {};
-      (cfgs ?? []).forEach((c: any) => { cfgMap[c.societe_id] = c; });
+      ((cfgs ?? []) as SocieteConfigRow[]).forEach((c) => { cfgMap[c.societe_id] = c; });
       setConfigs(cfgMap);
       const cnt: Record<string, number> = {};
-      (links ?? []).forEach((l: any) => { cnt[l.societe_id] = (cnt[l.societe_id] ?? 0) + 1; });
+      ((links ?? []) as { societe_id: string }[]).forEach((l) => { cnt[l.societe_id] = (cnt[l.societe_id] ?? 0) + 1; });
       setCounts(cnt);
 
       const [usersRes, statsRes] = await Promise.all([
@@ -426,7 +426,7 @@ export const SuperAdminPanel = () => {
           </div>
         ) : (
           <Tabs defaultValue="societes" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-5 h-auto">
+            <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-7 w-full mb-5 h-auto">
               <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> {t("superadmin.tab_societies")}</TabsTrigger>
               <TabsTrigger value="parametres" className="py-2.5">
                 <Settings2 className="size-4 mr-1.5" /> Paramètres
