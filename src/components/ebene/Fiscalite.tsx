@@ -215,7 +215,7 @@ export const Fiscalite = ({
 
     // TVA : HT et TVA réels des factures, déduction limitée aux achats fournisseurs
     const { caHT, tvaCollectee, tvaDeductible } =
-      tvaDepuisTransactions(data.transactions, data.factures, taux.tva);
+      tvaDepuisTransactions(data.transactions, data.factures, taux.tva, data.ecritures ?? []);
     const tvaNette       = tvaCollectee - tvaDeductible;
     const tvaAPayer      = Math.max(0, tvaNette);
     const creditAReporter = Math.max(0, -tvaNette);

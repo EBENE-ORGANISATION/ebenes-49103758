@@ -1,4 +1,4 @@
-import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture } from "@/types/ebene";
+import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture, EcritureComptable } from "@/types/ebene";
 
 export const formatMontant = (n: number): string => {
   const abs = Math.abs(Math.round(n));
@@ -53,14 +53,16 @@ export interface TvaTransactions {
  *  - Recette issue d'une facture : on reprend le HT et la TVA de la facture
  *    (le montant de la transaction est TTC ; une facture sans TVA n'en génère pas).
  *  - Recette manuelle : montant considéré HT, TVA au taux du mois (comportement historique).
- *  - TVA déductible : uniquement sur les achats fournisseurs, extraite du TTC
- *    (même règle que l'écriture AC générée automatiquement). Salaires, charges
- *    sociales et autres dépenses n'ouvrent pas droit à déduction.
+ *  - TVA déductible : uniquement sur les achats fournisseurs. On reprend la
+ *    ligne 4452 de l'écriture AC générée (`AC-<id>`) — absente si la facture
+ *    d'achat était sans TVA. Sans écriture trouvée, TVA extraite du TTC.
+ *    Salaires, charges sociales et autres dépenses n'ouvrent pas droit à déduction.
  */
 export const tvaDepuisTransactions = (
   transactions: Transaction[],
   factures: Facture[],
   tauxTva: number,
+  ecritures: EcritureComptable[] = [],
 ): TvaTransactions => {
   let caHT = 0;
   let tvaCollectee = 0;
@@ -80,7 +82,12 @@ export const tvaDepuisTransactions = (
         tvaCollectee += montant * tauxTva;
       }
     } else if (t.source === "fournisseur") {
-      tvaDeductible += montant - Math.round(montant / (1 + tauxTva));
+      const ac = ecritures.find((e) => e.journal === "AC" && e.numeroPiece === `AC-${t.id}`);
+      tvaDeductible += ac
+        ? (ac.lignes ?? [])
+            .filter((l) => l.compte.startsWith("4452"))
+            .reduce((s, l) => s + (l.debit || 0), 0)
+        : montant - Math.round(montant / (1 + tauxTva));
     }
   }
   return { caHT, tvaCollectee, tvaDeductible };

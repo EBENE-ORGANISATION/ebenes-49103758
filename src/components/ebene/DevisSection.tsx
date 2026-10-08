@@ -456,7 +456,8 @@ export const DevisSection = ({
                         <Pencil className="size-4" />
                       </Button>
                     )}
-                    {d.statut !== "converti" && (
+                    {/* Un devis refusé par le client ne peut pas devenir une facture */}
+                    {d.statut !== "converti" && d.statut !== "refuse" && (
                       <Button
                         size="sm"
                         variant="outline"

@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil, Wallet, Landmark } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
@@ -26,7 +27,8 @@ interface Props {
   data: MoisData;
   onAdd: (f: Omit<Facture, "id">) => number;
   onRemove: (id: number) => void;
-  onMarquerPayee: (id: number) => void;
+  /** `compte` : 571 Caisse ou 521 Banque — compte d'encaissement du règlement. */
+  onMarquerPayee: (id: number, compte: "521" | "571") => void;
   onConvertir: (id: number, num: string) => void;
   onPreview: (f: Facture) => void;
   /** Si true, affiche les boutons Valider / Rejeter (chef compta). */
@@ -105,6 +107,7 @@ export const Factures = ({
   const [ocrOpen, setOcrOpen] = useState(false);
   const [numero, setNumero] = useState("");
   const [numeroEdited, setNumeroEdited] = useState(false);
+  const [paiementFacture, setPaiementFacture] = useState<Facture | null>(null);
 
   const { currentSociete, societeConfig, refresh: refreshTenant } = useTenant();
 
@@ -584,7 +587,7 @@ export const Factures = ({
                       <Button
                         size="sm"
                         className="gap-1 bg-success text-success-foreground hover:bg-success/90"
-                        onClick={() => onMarquerPayee(f.id)}
+                        onClick={() => setPaiementFacture(f)}
                       >
                         <Check className="size-3.5" /> Marquer payée
                       </Button>
@@ -610,6 +613,43 @@ export const Factures = ({
       </div>
 
       <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} />
+
+      {/* Choix du compte d'encaissement au règlement d'une facture */}
+      <Dialog open={paiementFacture != null} onOpenChange={(o) => { if (!o) setPaiementFacture(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Règlement de la facture {paiementFacture?.numero}</DialogTitle>
+            <DialogDescription>
+              {paiementFacture && (
+                <>
+                  {formatMontant(paiementFacture.avecTva ? paiementFacture.totalTtc : paiementFacture.totalHT)} reçus
+                  de {paiementFacture.client}. Où l'argent a-t-il été encaissé ?
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              ["571", "Caisse", "Espèces (compte 571)", Wallet],
+              ["521", "Banque", "Virement, chèque, mobile money (compte 521)", Landmark],
+            ] as const).map(([compte, titre, detail, Icone]) => (
+              <Button
+                key={compte}
+                variant="outline"
+                className="h-auto flex-col gap-1 py-4"
+                onClick={() => {
+                  if (paiementFacture) onMarquerPayee(paiementFacture.id, compte);
+                  setPaiementFacture(null);
+                }}
+              >
+                <Icone className="size-5" />
+                <span className="font-semibold">{titre}</span>
+                <span className="text-xs text-muted-foreground font-normal whitespace-normal text-center">{detail}</span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

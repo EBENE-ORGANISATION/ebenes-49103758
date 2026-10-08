@@ -24,7 +24,7 @@ import {
   StatutValidation,
   EcritureComptable,
 } from "@/types/ebene";
-import { moisKey, genererMatricule } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, tauxPourMois } from "@/lib/ebene-utils";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
 import { logAction } from "@/lib/audit";
@@ -371,19 +371,26 @@ export const useEbeneStoreRemote = (
 
           // Auto-générer une écriture AC si c'est une dépense fournisseur
           if (t.type === "d" && t.source === "fournisseur" && t.fournisseur) {
+            // Facture d'achat avec TVA (par défaut) : TTC = HT × (1 + taux du mois) ;
+            // sans TVA (fournisseur non assujetti) : aucune TVA récupérable.
+            const avecTva    = t.avecTva !== false;
+            const tauxTva    = tauxPourMois(tauxHistorique, annee, mois).tva;
             const montantTTC = Math.round(Math.abs(t.m));
-            const montantHT  = Math.round(montantTTC / 1.18);
+            const montantHT  = avecTva ? Math.round(montantTTC / (1 + tauxTva)) : montantTTC;
             const montantTVA = montantTTC - montantHT;
+            const lignesAchat = [
+              { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
+              ...(avecTva
+                ? [{ id: 2, compte: "4452", intitule: "TVA récupérable sur achats", debit: montantTVA, credit: 0 }]
+                : []),
+              { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
+            ];
 
             void tqEcritures.addEcriture(annee, mois, {
               journal: "AC",
               numeroPiece: `AC-${saved.id}`,
               libelle: t.desc || `Achat — ${t.fournisseur}`,
-              lignes: [
-                { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
-                { id: 2, compte: "4452", intitule: "TVA récupérable sur achats",        debit: montantTVA, credit: 0 },
-                { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
-              ],
+              lignes: lignesAchat,
               statut: "brouillon", // nécessite validation chef compta
               activiteId: aid,
               annee,
@@ -395,7 +402,28 @@ export const useEbeneStoreRemote = (
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId, tauxHistorique],
+  );
+
+  /**
+   * Supprime les écritures générées automatiquement pour une pièce (facture
+   * payée, achat fournisseur) quand la pièce elle-même est supprimée : évite
+   * les écritures orphelines et les doublons si la facture est re-réglée.
+   */
+  const supprimerEcrituresLiees = useCallback(
+    async (correspond: (e: EcritureComptable) => boolean) => {
+      const liees = (Object.values(tqEcritures.ecritures) as EcritureComptable[][])
+        .flat()
+        .filter(correspond);
+      await Promise.all(
+        liees.map((e) =>
+          tqEcritures.removeEcriture(e.id)
+            .then(() => log("DELETE", "ecritures_comptables", e.id, e, null))
+            .catch(() => toast.error(`Écriture ${e.numeroPiece} non supprimée`)),
+        ),
+      );
+    },
+    [tqEcritures, log],
   );
 
   const removeTransaction = useCallback(
@@ -405,17 +433,22 @@ export const useEbeneStoreRemote = (
       void tqTransactions.removeTransaction(id)
         .then(async () => {
           if (trans?.source === "facture" && trans.factureId) {
-            await tqFactures.updateFacture(trans.factureId, {
+            const factureId = trans.factureId;
+            await tqFactures.updateFacture(factureId, {
               statut: "en_attente",
               transactionId: null,
             }).catch(() => undefined);
+            // Vente + encaissement de cette facture : regénérés au prochain règlement
+            await supprimerEcrituresLiees((e) => e.factureId === factureId);
+          } else if (trans?.source === "fournisseur") {
+            await supprimerEcrituresLiees((e) => e.journal === "AC" && e.numeroPiece === `AC-${id}`);
           }
           log("DELETE", "transactions", id, trans ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la transaction"));
     },
-    [tqTransactions, tqFactures, markSignificantWrite],
+    [tqTransactions, tqFactures, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
   const validerTransaction = useCallback(
@@ -467,16 +500,24 @@ export const useEbeneStoreRemote = (
           if (f?.transactionId) {
             await tqTransactions.removeTransaction(f.transactionId).catch(() => undefined);
           }
+          await supprimerEcrituresLiees((e) => e.factureId === id);
           log("DELETE", "factures", id, f ?? null, null);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de la suppression de la facture"));
     },
-    [tqFactures, tqTransactions, markSignificantWrite],
+    [tqFactures, tqTransactions, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
+  /**
+   * Marque une facture comme payée :
+   *  - transaction de recette (TTC) ;
+   *  - écriture VE de constatation de la vente (Client 4111 / Produit / TVA 4431) ;
+   *  - écriture d'encaissement (Banque 521 ou Caisse 571 / Client 4111), qui
+   *    solde le compte client. `compteTresorerie` est choisi par l'utilisateur.
+   */
   const marquerPayee = useCallback(
-    (annee: number, mois: number, factureId: number) => {
+    (annee: number, mois: number, factureId: number, compteTresorerie: "521" | "571" = "521") => {
       const key = moisKey(annee, mois);
       const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
       if (!f || f.statut === "payee" || f.statut === "proforma") return;
@@ -498,6 +539,20 @@ export const useEbeneStoreRemote = (
             { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalHT),  credit: 0,                       tiers: f.client },
             { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
           ];
+
+      // Encaissement : Banque/Caisse au débit, Client au crédit (montant réglé)
+      const montantRegle = Math.round(f.avecTva ? f.totalTtc : f.totalHT);
+      const estBanque = compteTresorerie === "521";
+      const lignesEncaissement = [
+        {
+          id: 1,
+          compte: compteTresorerie,
+          intitule: estBanque ? "Banques" : "Caisse",
+          debit: montantRegle,
+          credit: 0,
+        },
+        { id: 2, compte: "4111", intitule: "Clients", debit: 0, credit: montantRegle, tiers: f.client },
+      ];
 
       const aid = f.activiteId ?? stampActiviteId;
       void tqTransactions.addTransaction(annee, mois, {
@@ -523,6 +578,19 @@ export const useEbeneStoreRemote = (
               numeroPiece: `VE-${f.numero}`,
               libelle: `Facture ${f.numero} — ${f.client}`,
               lignes: lignesEcriture,
+              statut: "valide",
+              factureId: f.id,
+              activiteId: aid,
+              annee,
+              mois,
+            }),
+            // Écriture d'encaissement (BQ ou CA), liée à la facture : le
+            // tableau de bord ne la recompte pas (la recette est déjà la transaction).
+            tqEcritures.addEcriture(annee, mois, {
+              journal: estBanque ? "BQ" : "CA",
+              numeroPiece: `${estBanque ? "BQ" : "CA"}-${f.numero}`,
+              libelle: `Règlement facture ${f.numero} — ${f.client}`,
+              lignes: lignesEncaissement,
               statut: "valide",
               factureId: f.id,
               activiteId: aid,
@@ -609,6 +677,13 @@ export const useEbeneStoreRemote = (
       const key = moisKey(annee, mois);
       const d = (tqDevis.devis[key] ?? []).find((x) => x.id === devisId);
       if (!d) return null;
+      // Garde-fou : un devis refusé ou déjà converti ne génère pas de facture
+      if (d.statut === "refuse" || d.statut === "converti") {
+        toast.error(d.statut === "refuse"
+          ? "Ce devis a été refusé : il ne peut pas être converti en facture."
+          : "Ce devis a déjà été converti en facture.");
+        return null;
+      }
       void tqFactures.createFacture(annee, mois, {
         numero: numeroFacture,
         client: d.client,

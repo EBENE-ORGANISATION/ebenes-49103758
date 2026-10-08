@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Facture, Transaction } from "@/types/ebene";
+import type { EcritureComptable, Facture, Transaction } from "@/types/ebene";
 import { transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
 
 const tx = (p: Partial<Transaction>): Transaction => ({
@@ -80,6 +80,18 @@ describe("tvaDepuisTransactions", () => {
       0.18,
     );
     expect(r.tvaDeductible).toBe(18_000);
+  });
+
+  it("reprend la TVA de l'écriture d'achat : rien si la facture fournisseur était sans TVA", () => {
+    const achat = tx({ id: 7, type: "d", source: "fournisseur", statut: "valide", m: -100_000 });
+    const sansTva = {
+      id: 1, journal: "AC", numeroPiece: "AC-7", libelle: "", statut: "brouillon",
+      lignes: [
+        { id: 1, compte: "6057", intitule: "", debit: 100_000, credit: 0 },
+        { id: 3, compte: "4011", intitule: "", debit: 0, credit: 100_000 },
+      ],
+    } as unknown as EcritureComptable;
+    expect(tvaDepuisTransactions([achat], [], 0.18, [sansTva]).tvaDeductible).toBe(0);
   });
 
   it("ignore les transactions rejetées ou en attente", () => {

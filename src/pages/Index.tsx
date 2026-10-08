@@ -455,7 +455,7 @@ const Index = () => {
                   ? (id) => store.removeFacture(annee, mois, id)
                   : blockedId(tp("compta_delete"))}
                 onMarquerPayee={factWrite
-                  ? (id) => store.marquerPayee(annee, mois, id)
+                  ? (id, compte) => store.marquerPayee(annee, mois, id, compte)
                   : blockedId(tp("fact_action"))}
                 onConvertir={factWrite
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)
