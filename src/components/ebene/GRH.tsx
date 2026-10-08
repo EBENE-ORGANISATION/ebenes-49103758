@@ -310,8 +310,10 @@ export const GRH = ({
                 const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (
                   <div key={e.id} className={`list-item border-l-4 border-l-purple ${dim}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
+                    {/* En ligne seulement sur grand écran : les boutons d'action prennent
+                        plus de 500 px et écraseraient les informations sur tablette. */}
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         {/* G1 — Avatar initiales coloré */}
                         <div className="w-10 h-10 rounded-xl bg-purple/15 border border-purple/20 flex items-center justify-center shrink-0 text-purple font-bold text-sm select-none">
                           {e.nom.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
@@ -343,7 +345,7 @@ export const GRH = ({
                         </p>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1 lg:shrink-0">
                         {isChefGrh && sv && sv !== "valide" && (
                           <Button
                             size="sm"
