@@ -22,6 +22,9 @@ export const HeuresSupPanel = ({ employe, data, onSave }: Props) => {
     nuitDimancheFerie: 0,
   };
   const [hs, setHs] = useState<HeuresSup>(current);
+  // Texte saisi, conservé tel quel (champ texte, pas « number » : celui-ci
+  // renvoie « 10 » pour « 10. » et effacerait la virgule) : on peut taper 10,5 h.
+  const [saisie, setSaisie] = useState<Partial<Record<keyof HeuresSup, string>>>({});
   const th = tauxHoraire(employe.salaire, employe.sursalaire || 0);
 
   const total =
@@ -31,17 +34,22 @@ export const HeuresSupPanel = ({ employe, data, onSave }: Props) => {
     hs.nuitSemaine * th * HS_TAUX.nuitSemaine +
     hs.nuitDimancheFerie * th * HS_TAUX.nuitDimancheFerie;
 
-  const Field = ({ k, label, taux }: { k: keyof HeuresSup; label: string; taux: number }) => (
-    <div>
+  // Fonction de rendu (et non composant défini ici) : un composant recréé à
+  // chaque rendu remonterait l'input et lui ferait perdre le focus à chaque frappe.
+  const field = (k: keyof HeuresSup, label: string, taux: number) => (
+    <div key={k}>
       <Label className="text-xs font-bold uppercase text-muted-foreground">
         {label} <span className="text-info">×{taux}</span>
       </Label>
       <Input
-        type="number"
-        min={0}
-        step={0.5}
-        value={hs[k]}
-        onChange={(e) => setHs({ ...hs, [k]: parseFloat(e.target.value) || 0 })}
+        type="text"
+        inputMode="decimal"
+        value={saisie[k] ?? String(hs[k] ?? 0)}
+        onChange={(e) => {
+          const brut = e.target.value;
+          setSaisie((prev) => ({ ...prev, [k]: brut }));
+          setHs((prev) => ({ ...prev, [k]: parseFloat(brut.replace(",", ".")) || 0 }));
+        }}
         className="mt-1 h-9"
       />
     </div>
@@ -53,11 +61,11 @@ export const HeuresSupPanel = ({ employe, data, onSave }: Props) => {
         <Trans i18nKey="grh_hs.th_info" values={{ val: formatMontant(th) }} components={[<span key="0" />, <strong key="1" className="amount" />]} />
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <Field k="jourSemaine" label={t("grh_hs.jour_semaine")} taux={HS_TAUX.jourSemaine} />
-        <Field k="jourSup" label={t("grh_hs.jour_sup")} taux={HS_TAUX.jourSup} />
-        <Field k="dimancheFerie" label={t("grh_hs.dim_ferie")} taux={HS_TAUX.dimancheFerie} />
-        <Field k="nuitSemaine" label={t("grh_hs.nuit_semaine")} taux={HS_TAUX.nuitSemaine} />
-        <Field k="nuitDimancheFerie" label={t("grh_hs.nuit_dim_ferie")} taux={HS_TAUX.nuitDimancheFerie} />
+        {field("jourSemaine", t("grh_hs.jour_semaine"), HS_TAUX.jourSemaine)}
+        {field("jourSup", t("grh_hs.jour_sup"), HS_TAUX.jourSup)}
+        {field("dimancheFerie", t("grh_hs.dim_ferie"), HS_TAUX.dimancheFerie)}
+        {field("nuitSemaine", t("grh_hs.nuit_semaine"), HS_TAUX.nuitSemaine)}
+        {field("nuitDimancheFerie", t("grh_hs.nuit_dim_ferie"), HS_TAUX.nuitDimancheFerie)}
       </div>
       <div className="flex items-center justify-between pt-2 border-t border-border">
         <span className="text-sm">
