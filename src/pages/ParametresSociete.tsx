@@ -76,6 +76,15 @@ const ParametresSociete = () => {
     format_devis: DEFAULT_FORMAT_DEVIS,
   });
   const [resetting, setResetting] = useState<null | "facture" | "devis">(null);
+  // Représentant légal : stocké sur la fiche société (table societes), repris sur les contrats.
+  const [representant, setRepresentant] = useState({ nom: "", fonction: "" });
+
+  useEffect(() => {
+    setRepresentant({
+      nom: currentSociete?.representant ?? "",
+      fonction: currentSociete?.fonction_representant ?? "",
+    });
+  }, [currentSociete]);
 
   useEffect(() => {
     if (!societeConfig) return;
@@ -158,6 +167,14 @@ const ParametresSociete = () => {
         })
         .eq("societe_id", currentSociete.id);
       if (error) throw error;
+      const { error: errSociete } = await supabase
+        .from("societes")
+        .update({
+          representant: representant.nom.trim(),
+          fonction_representant: representant.fonction.trim(),
+        })
+        .eq("id", currentSociete.id);
+      if (errSociete) throw errSociete;
       await refresh();
       toast.success(t("params.save_done"));
     } catch (e) {
@@ -322,6 +339,22 @@ const ParametresSociete = () => {
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs">{t("params.rccm")}</Label>
                   <Input value={draft.rccm} onChange={(e) => setDraft((d) => ({ ...d, rccm: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t("params.representant")}</Label>
+                  <Input
+                    value={representant.nom}
+                    placeholder={t("params.representant_ph")}
+                    onChange={(e) => setRepresentant((r) => ({ ...r, nom: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t("params.fonction_representant")}</Label>
+                  <Input
+                    value={representant.fonction}
+                    placeholder={t("params.fonction_representant_ph")}
+                    onChange={(e) => setRepresentant((r) => ({ ...r, fonction: e.target.value }))}
+                  />
                 </div>
               </div>
             </Card>

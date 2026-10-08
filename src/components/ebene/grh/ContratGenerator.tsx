@@ -1,9 +1,12 @@
 import { Employe, MOIS_NOMS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
+import { pctTaux } from "@/lib/paie";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { printElementById } from "@/lib/print";
 import { Trans, useTranslation } from "react-i18next";
+import { useEmployeur } from "@/hooks/useEmployeur";
 
 interface Props {
   employe: Employe;
@@ -12,7 +15,11 @@ interface Props {
 
 export const ContratGenerator = ({ employe, onClose }: Props) => {
   const { t } = useTranslation();
+  const employeur = useEmployeur();
+  const historiqueTaux = useTauxHistoriqueCourant();
   const today = new Date();
+  // Taux de cotisation en vigueur à la date du contrat (historique de la société)
+  const taux = tauxPourMois(historiqueTaux, today.getFullYear(), today.getMonth() + 1);
   const dateStr = `${today.getDate()} ${MOIS_NOMS[today.getMonth()]} ${today.getFullYear()}`;
 
   const typeLabel: Record<string, string> = {
@@ -53,7 +60,19 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
 
           <p><strong>{t("grh_contrat.parties")}</strong></p>
           <p>
-            <Trans i18nKey="grh_contrat.employer" components={[<strong key="0" />, <span key="1" />, <strong key="2" />]} />
+            <Trans
+              i18nKey="grh_contrat.employer"
+              values={{
+                nom: employeur.nom,
+                nif: employeur.nif ? t("grh_contrat.employer_nif", { nif: employeur.nif }) : "",
+                representant: !employeur.representant
+                  ? ""
+                  : employeur.fonctionRepresentant
+                    ? t("grh_contrat.employer_rep_fonction", { nom: employeur.representant, fonction: employeur.fonctionRepresentant })
+                    : t("grh_contrat.employer_rep", { nom: employeur.representant }),
+              }}
+              components={[<strong key="0" />, <span key="1" />, <strong key="2" />]}
+            />
           </p>
           <p className="text-center">{t("grh_contrat.one_part")}</p>
           <p><strong>{t("grh_contrat.and")}</strong></p>
@@ -122,7 +141,13 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
           <p>
             <Trans
               i18nKey="grh_contrat.art6_body"
-              values={{ num: employe.numCnss || t("grh_contrat.cnss_to_assign") }}
+              values={{
+                num: employe.numCnss || t("grh_contrat.cnss_to_assign"),
+                cnssSal: pctTaux(taux.cnssSal),
+                cnssEmp: pctTaux(taux.cnssEmp),
+                amuSal: pctTaux(taux.amuSal),
+                amuEmp: pctTaux(taux.amuEmp),
+              }}
               components={[<span key="0" />, <strong key="1" />]}
             />
           </p>
@@ -135,7 +160,7 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
           <div className="grid grid-cols-2 gap-8 mt-12">
             <div className="text-center">
               <p className="border-t border-foreground pt-2">{t("grh_contrat.sign_employer")}</p>
-              <p className="text-xs italic">BITHO SIMBAYA</p>
+              {employeur.representant && <p className="text-xs italic">{employeur.representant}</p>}
             </div>
             <div className="text-center">
               <p className="border-t border-foreground pt-2">{t("grh_contrat.sign_worker")}</p>

@@ -7,6 +7,7 @@ import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { printElementById } from "@/lib/print";
 import { Trans, useTranslation } from "react-i18next";
+import { useEmployeur } from "@/hooks/useEmployeur";
 
 interface Props {
   employe: Employe;
@@ -21,6 +22,7 @@ export { calculerPaie, type CalculPaie } from "@/lib/paie";
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
   const { t } = useTranslation();
+  const employeur = useEmployeur();
   const historique = useTauxHistoriqueCourant();
   const c = calculerPaie(employe, data, annee, mois, tauxPourMois(historique, annee, mois));
   const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
@@ -58,8 +60,9 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
           {/* En-tête société + titre bulletin */}
           <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-4">
             <div>
-              <p className="font-bold text-base uppercase tracking-wide">{t("grh_bulletin.company")}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t("grh_bulletin.nif")}</p>
+              <p className="font-bold text-base uppercase tracking-wide">{employeur.nom}</p>
+              {employeur.nif && <p className="text-xs text-gray-500 mt-0.5">{t("grh_bulletin.nif", { nif: employeur.nif })}</p>}
+              {employeur.adresse && <p className="text-xs text-gray-500">{employeur.adresse}</p>}
             </div>
             <div className="text-right">
               <p className="font-bold text-base uppercase">BULLETIN DE PAIE</p>

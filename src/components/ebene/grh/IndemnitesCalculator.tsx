@@ -23,6 +23,7 @@ import {
 import { Calculator, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { Trans, useTranslation } from "react-i18next";
+import { useEmployeur } from "@/hooks/useEmployeur";
 
 interface Props {
   employes: Employe[];
@@ -32,6 +33,7 @@ type Motif = "licenciement_simple" | "licenciement_grave" | "licenciement_lourde
 
 export const IndemnitesCalculator = ({ employes }: Props) => {
   const { t } = useTranslation();
+  const employeur = useEmployeur();
   const MOTIF_LABELS: Record<Motif, string> = {
     licenciement_simple: t("grh_indemnites.motif_lic_simple"),
     licenciement_grave: t("grh_indemnites.motif_lic_grave"),
@@ -202,7 +204,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
 
           <div id="indemnites-print" className="card-elevated p-6 bg-card">
             <div className="text-center border-b-2 border-foreground pb-3 mb-4">
-              <p className="font-bold text-lg">{t("grh_indemnites.company")}</p>
+              <p className="font-bold text-lg">{employeur.nom}</p>
               <h3 className="text-base font-bold mt-2">
                 {t("grh_indemnites.title_decompte", { nom: employe.nom })}
               </h3>
