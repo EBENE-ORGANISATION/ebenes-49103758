@@ -32,6 +32,18 @@ export interface PlanAmortissement {
  *
  * Les terrains et tout actif dont la durée est ≤ 0 ne génèrent aucune dotation.
  */
+/**
+ * Prorata temporis en base 30/360 (décision du 8 octobre 2026) : chaque mois
+ * compte 30 jours, l'année 360. Jours de `d` (inclus) au 31 décembre :
+ * acquisition le 1er octobre → 90 jours.
+ */
+export const joursRestants30360 = (d: Date): number =>
+  (11 - d.getMonth()) * 30 + (30 - Math.min(d.getDate(), 30)) + 1;
+
+/** Jours du 1er janvier à `d` (inclus), en base 30/360 : cession le 31 mars → 90 jours. */
+export const joursEcoules30360 = (d: Date): number =>
+  d.getMonth() * 30 + Math.min(d.getDate(), 30);
+
 export const planAmortissement = (immo: Immobilisation): PlanAmortissement => {
   const base = Math.max(0, immo.valeurOrigine - (immo.valeurResiduelle || 0));
   const duree = Math.max(0, Math.floor(immo.dureeAmortissement || 0));
@@ -44,13 +56,8 @@ export const planAmortissement = (immo: Immobilisation): PlanAmortissement => {
   // Date lue à minuit LOCAL (new Date("AAAA-MM-JJ") serait minuit UTC)
   const dateAcq = new Date(`${String(immo.dateAcquisition).slice(0, 10)}T00:00:00`);
   const anneeAcq = dateAcq.getFullYear();
-  // Prorata SYSCOHADA : nombre de jours entre acquisition et 31/12.
-  const finAnneeAcq = new Date(anneeAcq, 11, 31);
-  const joursAnneeAcq = Math.max(
-    0,
-    Math.floor((finAnneeAcq.getTime() - dateAcq.getTime()) / 86400000) + 1
-  );
-  const prorataDebut = Math.min(1, joursAnneeAcq / 360); // base 360 SYSCOHADA
+  // Prorata de l'année d'acquisition : jours restants jusqu'au 31/12, base 30/360
+  const prorataDebut = Math.min(1, joursRestants30360(dateAcq) / 360);
 
   if (immo.methode === "lineaire") {
     const annuite = base / duree;

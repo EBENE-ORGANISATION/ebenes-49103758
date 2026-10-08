@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { EcritureComptable, Facture, Transaction } from "@/types/ebene";
-import { dateFr, isoLocal, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+import { dateFr, isoLocal, salaireReferenceFinContrat, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
 
 describe("dates locales", () => {
@@ -135,5 +135,13 @@ describe("dateFr", () => {
     expect(dateFr("2026-10-05T14:30:00Z")).toBe("05/10/2026");
     expect(dateFr(null)).toBe("—");
     expect(dateFr("octobre 2026")).toBe("octobre 2026");
+  });
+});
+
+describe("salaireReferenceFinContrat", () => {
+  it("base + sursalaire + prime d'ancienneté à la date de rupture", () => {
+    // 6 ans : 2 % + 4 × 1 % = 6 % de la base
+    expect(salaireReferenceFinContrat({ salaire: 200_000, sursalaire: 20_000 }, 6.4)).toBeCloseTo(232_000, 6);
+    expect(salaireReferenceFinContrat({ salaire: 200_000 }, 1.5)).toBe(200_000);
   });
 });

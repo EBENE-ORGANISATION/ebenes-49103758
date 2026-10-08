@@ -344,9 +344,22 @@ export const dureePreavis = (categorie: string | undefined, anneesPresence: numb
   return 60;
 };
 
+/**
+ * Salaire mensuel de référence des indemnités de fin de contrat (décision du
+ * 8 octobre 2026) : salaire de base + sursalaire + prime d'ancienneté
+ * acquise à la date de rupture.
+ */
+export const salaireReferenceFinContrat = (
+  employe: Pick<Employe, "salaire" | "sursalaire">,
+  anneesPresence: number,
+): number => {
+  const base = employe.salaire || 0;
+  return base + (employe.sursalaire || 0) + base * tauxAnciennete(anneesPresence);
+};
+
 export const indemnitePreavis = (employe: Employe, anneesPresence: number): number => {
   const jours = dureePreavis(employe.categorie, anneesPresence);
-  const salaireJournalier = (employe.salaire + (employe.sursalaire || 0)) / 30;
+  const salaireJournalier = salaireReferenceFinContrat(employe, anneesPresence) / 30;
   return jours * salaireJournalier;
 };
 
@@ -447,6 +460,9 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   const msg = String((e as { message?: string })?.message ?? e ?? "");
   if (msg.includes("QUATRE_YEUX")) {
     return "Vous ne pouvez pas valider votre propre saisie : un autre responsable (ou l'administrateur) doit le faire.";
+  }
+  if (msg.includes("FACTURE_NON_VALIDEE")) {
+    return "La facture doit d'abord être validée par le chef comptable avant d'être encaissée.";
   }
   if (msg.includes("FACTURE_ENGAGEE")) {
     return "Une facture validée, payée ou annulée ne peut pas être supprimée : annulez-la.";

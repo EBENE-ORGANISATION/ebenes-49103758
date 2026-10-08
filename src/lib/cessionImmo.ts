@@ -1,32 +1,30 @@
 import type { Immobilisation } from "@/types/ebene";
-import { cumulAFin, vncAFin } from "@/lib/amortissements";
+import { cumulAFin, joursEcoules30360, vncAFin } from "@/lib/amortissements";
 
 /**
  * Calcul de la valeur nette comptable (VNC) à une date donnée pour une
  * cession SYSCOHADA. Convention pratique :
  *  - On prend la VNC à la fin de l'exercice précédent l'année de cession,
  *    puis on retranche la dotation prorata temporis de l'année courante
- *    jusqu'à la date de cession (base 360, mois plein si cession en
- *    cours de mois — cohérent avec la doctrine SYSCOHADA Révisé).
+ *    jusqu'à la date de cession (base 30/360, comme l'année d'acquisition).
  */
 export const vncADate = (
   immo: Immobilisation,
   dateCessionISO: string,
 ): number => {
-  const d = new Date(dateCessionISO);
+  // Date lue à minuit local (new Date("AAAA-MM-JJ") serait minuit UTC)
+  const d = new Date(`${String(dateCessionISO).slice(0, 10)}T00:00:00`);
   if (isNaN(d.getTime())) return immo.valeurOrigine;
   const annee = d.getFullYear();
   // VNC à la fin de l'exercice N-1
   const vncDebutAnnee = vncAFin(immo, annee - 1) || immo.valeurOrigine;
   const dotAnnee = cumulAFin(immo, annee) - cumulAFin(immo, annee - 1);
-  // Prorata temporis (base 360) de la dotation N
-  const debutAnnee = new Date(annee, 0, 1);
-  const finAnnee = new Date(annee, 11, 31);
-  const totalJours =
-    Math.floor((finAnnee.getTime() - debutAnnee.getTime()) / 86400000) + 1;
-  const joursEcoules =
-    Math.floor((d.getTime() - debutAnnee.getTime()) / 86400000) + 1;
-  const prorata = totalJours > 0 ? Math.min(1, Math.max(0, joursEcoules / totalJours)) : 0;
+  // Prorata temporis (base 30/360) de la dotation N. L'année d'acquisition,
+  // la dotation ne court que depuis l'acquisition.
+  const acq = new Date(`${String(immo.dateAcquisition).slice(0, 10)}T00:00:00`);
+  const debut = acq.getFullYear() === annee ? joursEcoules30360(acq) - 1 : 0;
+  const duree = 360 - debut;
+  const prorata = duree > 0 ? Math.min(1, Math.max(0, (joursEcoules30360(d) - debut) / duree)) : 0;
   const dotProrata = dotAnnee * prorata;
   return Math.max(0, vncDebutAnnee - dotProrata);
 };

@@ -447,6 +447,7 @@ const Index = () => {
             <TabsContent value="commercial">
               <Factures
                 annee={annee}
+                articles={store.articles}
                 donneesMensuelles={store.donneesMensuelles}
                 data={data}
                 onAdd={factWrite

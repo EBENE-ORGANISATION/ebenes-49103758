@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActiviteType, DonneesMensuelles, Facture, MoisData, StatutValidation } from "@/types/ebene";
+import { ActiviteType, Article, DonneesMensuelles, Facture, MoisData, StatutValidation } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,8 @@ interface Props {
   data: MoisData;
   onAdd: (f: Omit<Facture, "id">) => number;
   onRemove: (id: number) => void;
+  /** Articles du stock : une ligne peut vendre un article (sortie à la validation). */
+  articles?: Article[];
   /** Annule une facture validée ou payée (contre-passation de ses écritures). */
   onAnnuler?: (id: number) => void;
   /** `compte` : 571 Caisse ou 521 Banque — compte d'encaissement du règlement. */
@@ -81,6 +83,7 @@ export const Factures = ({
   data,
   onAdd,
   onRemove,
+  articles = [],
   onAnnuler,
   onMarquerPayee,
   onConvertir,
@@ -106,9 +109,23 @@ export const Factures = ({
   const { currentActiviteId } = useActiviteFilter();
   const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
   useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
-  const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
+  // Ligne en saisie ; articleId : article du stock vendu (montant = quantité × prix unitaire)
+  type LigneSaisie = { description: string; montant: string; articleId?: number | null; quantite?: string; prixUnitaire?: string };
+  const [lignes, setLignes] = useState<LigneSaisie[]>([
     { description: "", montant: "" },
   ]);
+  const majLigne = (idx: number, patch: Partial<LigneSaisie>) =>
+    setLignes((prev) => prev.map((l, i) => {
+      if (i !== idx) return l;
+      const n = { ...l, ...patch };
+      if (n.articleId) n.montant = String((parseFloat(n.quantite || "0") || 0) * (parseFloat(n.prixUnitaire || "0") || 0));
+      return n;
+    }));
+  const choisirArticle = (idx: number, articleId: number | null) => {
+    const a = articles.find((x) => x.id === articleId);
+    if (!a) return majLigne(idx, { articleId: null, quantite: undefined, prixUnitaire: undefined });
+    majLigne(idx, { articleId: a.id, description: a.designation, quantite: lignes[idx]?.quantite || "1", prixUnitaire: String(a.prixVente || 0) });
+  };
   const [ocrOpen, setOcrOpen] = useState(false);
   const [numero, setNumero] = useState("");
   const [numeroEdited, setNumeroEdited] = useState(false);
@@ -178,7 +195,13 @@ export const Factures = ({
     if (!client.trim()) return alert("Le nom du client est obligatoire.");
     if (!date) return alert("Date obligatoire.");
     const lignesNet = lignes
-      .map((l) => ({ description: l.description.trim(), montant: parseFloat(l.montant) || 0 }))
+      .map((l) => ({
+        description: l.description.trim(),
+        montant: parseFloat(l.montant) || 0,
+        ...(l.articleId
+          ? { articleId: l.articleId, quantite: parseFloat(l.quantite || "0") || 0, prixUnitaire: parseFloat(l.prixUnitaire || "0") || 0 }
+          : {}),
+      }))
       .filter((l) => l.description && l.montant > 0);
     if (lignesNet.length === 0) return alert("Au moins une prestation valide.");
     const red = Math.max(0, parseFloat(reduction) || 0);
@@ -239,7 +262,13 @@ export const Factures = ({
       (f.lignes && f.lignes.length > 0
         ? f.lignes
         : [{ description: "", montant: 0 }]
-      ).map((l) => ({ description: l.description, montant: String(l.montant) }))
+      ).map((l) => ({
+        description: l.description,
+        montant: String(l.montant),
+        articleId: l.articleId ?? null,
+        quantite: l.quantite != null ? String(l.quantite) : undefined,
+        prixUnitaire: l.prixUnitaire != null ? String(l.prixUnitaire) : undefined,
+      }))
     );
     setOpen(true);
   };
@@ -347,28 +376,63 @@ export const Factures = ({
               Prestations *
             </Label>
             <div className="space-y-2">
-              {lignes.map((l, idx) => (
-                <div key={idx} className="flex gap-2">
+              {lignes.map((l, idx) => {
+                const article = articles.find((a) => a.id === l.articleId);
+                const manque = !!article && (parseFloat(l.quantite || "0") || 0) > article.stock;
+                return (
+                <div key={idx} className="space-y-1.5">
+                {articles.length > 0 && (
+                  <select
+                    aria-label="Article du stock"
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    value={l.articleId ?? ""}
+                    onChange={(e) => choisirArticle(idx, e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Prestation (hors stock)</option>
+                    {articles.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.reference} — {a.designation} (stock : {a.stock} {a.unite})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                   <Input
                     placeholder="Description"
                     value={l.description}
-                    onChange={(e) => {
-                      const next = [...lignes];
-                      next[idx] = { ...next[idx], description: e.target.value };
-                      setLignes(next);
-                    }}
-                    className="flex-1"
+                    onChange={(e) => majLigne(idx, { description: e.target.value })}
+                    className="flex-1 min-w-[10rem]"
                   />
+                  {l.articleId && (
+                    <>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="any"
+                        aria-label="Quantité"
+                        placeholder="Qté"
+                        value={l.quantite ?? ""}
+                        onChange={(e) => majLigne(idx, { quantite: e.target.value })}
+                        className={`w-20 ${manque ? "border-destructive" : ""}`}
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        aria-label="Prix unitaire"
+                        placeholder="P.U."
+                        value={l.prixUnitaire ?? ""}
+                        onChange={(e) => majLigne(idx, { prixUnitaire: e.target.value })}
+                        className="w-28"
+                      />
+                    </>
+                  )}
                   <Input
                     type="number"
                     placeholder="Montant"
                     value={l.montant}
-                    onChange={(e) => {
-                      const next = [...lignes];
-                      next[idx] = { ...next[idx], montant: e.target.value };
-                      setLignes(next);
-                    }}
-                    className="w-32"
+                    readOnly={!!l.articleId}
+                    onChange={(e) => majLigne(idx, { montant: e.target.value })}
+                    className={`w-32 ${l.articleId ? "bg-muted" : ""}`}
                   />
                   <Button
                     variant="ghost"
@@ -380,7 +444,14 @@ export const Factures = ({
                     <X className="size-4" />
                   </Button>
                 </div>
-              ))}
+                {manque && article && (
+                  <p className="text-xs text-destructive">
+                    Stock disponible : {article.stock} {article.unite}. La facture ne pourra être validée qu&apos;après une entrée en stock.
+                  </p>
+                )}
+                </div>
+                );
+              })}
             </div>
             <Button
               variant="outline"
@@ -601,6 +672,9 @@ export const Factures = ({
                         size="sm"
                         className="gap-1 bg-success text-success-foreground hover:bg-success/90"
                         onClick={() => setPaiementFacture(f)}
+                        // Encaissement possible seulement après validation par le chef comptable
+                        disabled={sv !== undefined && sv !== "valide"}
+                        title={sv !== undefined && sv !== "valide" ? "La facture doit d'abord être validée par le chef comptable" : undefined}
                       >
                         <Check className="size-3.5" /> Marquer payée
                       </Button>

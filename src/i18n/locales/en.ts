@@ -481,7 +481,7 @@ const en: Translation = {
     employee_ph: "Choose an employee",
     motif: "Termination reason *",
     rupture_date: "Termination date *",
-    avg_salary: "Average monthly salary (XOF)",
+    avg_salary: "Average monthly salary incl. seniority bonus (XOF)",
     avg_salary_ph: "Auto = base + top-up",
     leave_balance: "Unused leave balance (days)",
     title_decompte: "FINAL SETTLEMENT — {{nom}}",

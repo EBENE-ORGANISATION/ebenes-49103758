@@ -66,6 +66,10 @@ export interface Transaction {
 export interface LignePrestation {
   description: string;
   montant: number;
+  /** Vente d'un article du stock : sortie de `quantite` à la validation de la facture. */
+  articleId?: number | null;
+  quantite?: number;
+  prixUnitaire?: number;
 }
 
 export type StatutFacture = "en_attente" | "payee" | "proforma" | "annulee";

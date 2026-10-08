@@ -479,7 +479,7 @@ const fr = {
     employee_ph: "Choisir un employé",
     motif: "Motif de rupture *",
     rupture_date: "Date de rupture *",
-    avg_salary: "Salaire moyen mensuel (FCFA)",
+    avg_salary: "Salaire moyen mensuel, ancienneté comprise (FCFA)",
     avg_salary_ph: "Auto = base + sursalaire",
     leave_balance: "Solde congés non pris (jours)",
     title_decompte: "DÉCOMPTE FINAL — {{nom}}",

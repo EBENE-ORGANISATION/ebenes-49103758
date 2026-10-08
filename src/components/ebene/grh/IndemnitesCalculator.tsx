@@ -21,6 +21,7 @@ import {
   indemniteRetraite,
   indemniteConges,
   todayISO,
+  salaireReferenceFinContrat,
 } from "@/lib/ebene-utils";
 import { Calculator, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
@@ -60,9 +61,9 @@ export const IndemnitesCalculator = ({ employes, absences = [] }: Props) => {
   const calcul = useMemo(() => {
     if (!employe) return null;
     const anc = calculerAnciennete(employe.dateEmbauche, new Date(dateRupture));
+    // Par défaut : base + sursalaire + prime d'ancienneté à la date de rupture
     const salaireMoyen =
-      parseFloat(salaireMoyenInput) ||
-      (employe.salaire || 0) + (employe.sursalaire || 0);
+      parseFloat(salaireMoyenInput) || salaireReferenceFinContrat(employe, anc);
     // Solde à la date de rupture (reprise + 2,5 j/mois − congés pris), sauf saisie
     const solde = soldeConges.trim() !== ""
       ? parseFloat(soldeConges) || 0
@@ -178,7 +179,7 @@ export const IndemnitesCalculator = ({ employes, absences = [] }: Props) => {
               type="number"
               placeholder={
                 employe
-                  ? String((employe.salaire || 0) + (employe.sursalaire || 0))
+                  ? String(Math.round(salaireReferenceFinContrat(employe, calculerAnciennete(employe.dateEmbauche, new Date(dateRupture)))))
                   : t("grh_indemnites.avg_salary_ph")
               }
               value={salaireMoyenInput}

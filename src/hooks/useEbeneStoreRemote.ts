@@ -27,6 +27,7 @@ import {
 import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant } from "@/lib/ebene-utils";
 import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
 import { depassementConges, messageDepassementConges } from "@/lib/conges";
+import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
 import {
   ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation, soldeCaisse,
   type ReglementImmo,
@@ -542,8 +543,11 @@ export const useEbeneStoreRemote = (
     (annee: number, mois: number, factureId: number, compteTresorerie: "521" | "571" = "521") => {
       const key = moisKey(annee, mois);
       const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
-      if (!f || f.statut === "payee" || f.statut === "proforma") return;
       if (!f || f.statut === "payee" || f.statut === "proforma" || f.statut === "annulee") return;
+      if (f.statutValidation !== undefined && f.statutValidation !== "valide") {
+        toast.error("La facture doit d'abord être validée par le chef comptable avant d'être encaissée.");
+        return;
+      }
 
       const aid = f.activiteId ?? stampActiviteId;
       void tqTransactions.addTransaction(annee, mois, {
@@ -557,20 +561,25 @@ export const useEbeneStoreRemote = (
         activiteId: aid,
         tresorerie: compteTresorerie,
       })
-        .then((trans) =>
-          Promise.all([
-            tqFactures.updateFacture(factureId, {
-              statut: "payee",
-              transactionId: trans.id,
-              compteTresorerie,
-            }),
-            // VE (constatation de la vente) et BQ/CA (encaissement), liées à la
-            // facture : le tableau de bord ne les recompte pas (la recette est
-            // déjà la transaction).
-            ...ecrituresFacturePayee(f, compteTresorerie, annee, mois, aid)
+        .then(async (trans) => {
+          // La base refuse l'encaissement d'une facture non validée : la recette
+          // créée est alors retirée.
+          await tqFactures.updateFacture(factureId, {
+            statut: "payee",
+            transactionId: trans.id,
+            compteTresorerie,
+          }).catch(async (e) => {
+            await tqTransactions.removeTransaction(trans.id).catch(() => undefined);
+            throw e;
+          });
+          // VE (constatation de la vente) et BQ/CA (encaissement), liées à la
+          // facture : le tableau de bord ne les recompte pas (la recette est
+          // déjà la transaction).
+          await Promise.all(
+            ecrituresFacturePayee(f, compteTresorerie, annee, mois, aid)
               .map((e) => tqEcritures.addEcriture(annee, mois, e)),
-          ])
-        )
+          );
+        })
         .then(() => {
           log("MARQUER_PAYEE", "factures", factureId, null, {
             factureId,
@@ -578,7 +587,7 @@ export const useEbeneStoreRemote = (
           });
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors du marquage comme payée"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du marquage comme payée")));
     },
     [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
   );
@@ -588,6 +597,56 @@ export const useEbeneStoreRemote = (
    * numéro, au statut « annulée ». Ses écritures sont contre-passées à la date
    * du jour et sa recette est retirée de la trésorerie.
    */
+  /**
+   * Enregistre un mouvement de stock. Le stock de l'article est d'abord mis à
+   * jour en base de façon sûre (valeur relue, écriture conditionnelle) : une
+   * sortie supérieure au stock est refusée et rien n'est enregistré. Le
+   * mouvement n'est créé qu'ensuite ; s'il échoue, le stock est rétabli.
+   */
+  const enregistrerMouvement = useCallback(
+    async (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
+      // Estampille le mouvement avec l'activité de l'article, sinon l'activité courante.
+      const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
+      let mvtFinal: Omit<MouvementStock, "id"> = {
+        ...mvt,
+        activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
+      };
+      await tqArticles.ajusterStock(mvt.articleId, (actuel) => {
+        // Ajustement : on inscrit l'écart dans le motif pour pouvoir l'annuler
+        if (mvt.type === "ajustement" && ecartAjustement(mvt.motif) === null) {
+          const ecart = libelleEcart(mvt.quantite - actuel.stock);
+          mvtFinal = { ...mvtFinal, motif: mvt.motif ? `${mvt.motif} ${ecart}` : `Ajustement ${ecart}` };
+        }
+        return appliquerMouvement(actuel, mvt);
+      });
+      await tqMouvements.createMouvement(annee, mois, mvtFinal).catch(async (err) => {
+        // Mouvement non enregistré : on remet le stock comme avant
+        await tqArticles.ajusterStock(mvt.articleId, (a) => annulerMouvement(a, mvtFinal))
+          .catch(() => undefined);
+        throw err;
+      });
+    },
+    [tqMouvements, articles, tqArticles, stampActiviteId],
+  );
+
+  /**
+   * Mouvements de stock d'une facture (sorties à la validation, retours à
+   * l'annulation), enregistrés un par un ; renvoie les erreurs rencontrées.
+   */
+  const mouvementsFacture = useCallback(
+    async (mvts: Omit<MouvementStock, "id">[]): Promise<string[]> => {
+      const erreurs: string[] = [];
+      for (const m of mvts) {
+        const [a, mo] = m.date.split("-").map(Number);
+        await enregistrerMouvement(a, mo, m).catch((err) => {
+          erreurs.push(err instanceof Error ? err.message : String(err));
+        });
+      }
+      return erreurs;
+    },
+    [enregistrerMouvement],
+  );
+
   const annulerFacture = useCallback(
     (annee: number, mois: number, factureId: number) => {
       const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === factureId);
@@ -600,13 +659,17 @@ export const useEbeneStoreRemote = (
         .then(async () => {
           await Promise.all(aContrePasser.map((e) => tqEcritures.addEcriture(aa, mm, contrePassation(e, date, aa, mm))));
           if (f.transactionId) await tqTransactions.removeTransaction(f.transactionId);
+          // Articles vendus remis en stock
+          const mouvements = (Object.values(tqMouvements.mouvementsStock) as MouvementStock[][]).flat();
+          const erreursStock = await mouvementsFacture(retoursFacture(f, mouvements, articles, date));
+          if (erreursStock.length) toast.error(`Retour en stock incomplet : ${erreursStock.join(" ; ")}`);
           log("ANNULER_FACTURE", "factures", factureId, f, { statut: "annulee", contrePassations: aContrePasser.length });
           markSignificantWrite();
           toast.success(`Facture ${f.numero} annulée`);
         })
         .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'annulation de la facture")));
     },
-    [tqFactures, tqEcritures, tqTransactions, markSignificantWrite, log],
+    [tqFactures, tqEcritures, tqTransactions, tqMouvements, articles, mouvementsFacture, markSignificantWrite, log],
   );
 
   const convertirProforma = useCallback(
@@ -620,12 +683,24 @@ export const useEbeneStoreRemote = (
   );
 
   const validerFacture = useCallback(
-    (_annee: number, _mois: number, id: number) => {
+    (annee: number, mois: number, id: number) => {
+      const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === id);
+      // Articles vendus : la facture n'est validée que si le stock les couvre
+      const manques = f ? manquesStock(f.lignes, articles) : [];
+      if (manques.length) {
+        toast.error(messageManques(manques));
+        return;
+      }
       void tqFactures.validerFacture(id)
-        .then(() => log("VALIDER_FACTURE", "factures", id, null, { id }))
+        .then(async () => {
+          log("VALIDER_FACTURE", "factures", id, null, { id });
+          if (!f) return;
+          const erreursStock = await mouvementsFacture(sortiesFacture(f, f.date));
+          if (erreursStock.length) toast.error(`Sortie de stock incomplète : ${erreursStock.join(" ; ")}`);
+        })
         .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de la facture")));
     },
-    [tqFactures],
+    [tqFactures, articles, mouvementsFacture, log],
   );
 
   const rejeterFacture = useCallback(
@@ -1029,45 +1104,20 @@ export const useEbeneStoreRemote = (
 
   // ─── Stock : mouvements → table relationnelle ────────────────────────────
   /**
-   * Enregistre un mouvement de stock. Le stock de l'article est d'abord mis à
-   * jour en base de façon sûre (valeur relue, écriture conditionnelle) : une
-   * sortie supérieure au stock est refusée et rien n'est enregistré. Le
-   * mouvement n'est créé qu'ensuite ; s'il échoue, le stock est rétabli.
+   * Enregistre un mouvement de stock (voir enregistrerMouvement) ; les
+   * erreurs sont affichées.
    */
   const addMouvementStock = useCallback(
     (annee: number, mois: number, mvt: Omit<MouvementStock, "id">) => {
       if (!societeId) return 0;
-      // Estampille le mouvement avec l'activité de l'article, sinon l'activité courante.
-      const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
-      let mvtFinal: Omit<MouvementStock, "id"> = {
-        ...mvt,
-        activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
-      };
-
-      void tqArticles.ajusterStock(mvt.articleId, (actuel) => {
-        // Ajustement : on inscrit l'écart dans le motif pour pouvoir l'annuler
-        if (mvt.type === "ajustement" && ecartAjustement(mvt.motif) === null) {
-          const ecart = libelleEcart(mvt.quantite - actuel.stock);
-          mvtFinal = { ...mvtFinal, motif: mvt.motif ? `${mvt.motif} ${ecart}` : `Ajustement ${ecart}` };
-        }
-        return appliquerMouvement(actuel, mvt);
-      })
-        .then(() =>
-          tqMouvements.createMouvement(annee, mois, mvtFinal).catch(async (err) => {
-            // Mouvement non enregistré : on remet le stock comme avant
-            await tqArticles.ajusterStock(mvt.articleId, (a) => annulerMouvement(a, mvtFinal))
-              .catch(() => undefined);
-            throw err;
-          }),
-        )
-        .catch((err) =>
-          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
-            ? err.message
-            : "Erreur lors de l'ajout du mouvement de stock"),
-        );
+      void enregistrerMouvement(annee, mois, mvt).catch((err) =>
+        toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+          ? err.message
+          : "Erreur lors de l'ajout du mouvement de stock"),
+      );
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqMouvements, articles, societeId, tqArticles, stampActiviteId],
+    [enregistrerMouvement, societeId],
   );
 
   /**
