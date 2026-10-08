@@ -46,6 +46,7 @@ import type {
   Activite,
 } from "@/types/ebene";
 import { formatMontant, moisKey, tauxPourMois, transactionComptabilisee } from "@/lib/ebene-utils";
+import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
 
@@ -74,6 +75,11 @@ const filterMoisByActivite = (m: MoisData, aid: string | null): MoisData => {
     factures: m.factures.filter(match),
     ecritures: (m.ecritures || []).filter(match),
   };
+};
+
+const MOIS_VIDE: MoisData = {
+  transactions: [], factures: [], absences: [], primes: {}, heuresSup: {},
+  retenues: {}, mouvementsStock: [], devis: [], ecritures: [],
 };
 
 const MOIS_COURTS = [
@@ -281,29 +287,35 @@ export const Dashboard = ({
 
   // ── Série charges fiscales 12 mois ───────────────────────────────────────
   const serieFiscale = useMemo(() => {
-    const masseSalariale = employes.reduce(
-      (s, e) => s + (e.salaire || 0) + (e.sursalaire || 0),
-      0,
-    );
-    const cnssMensuelle = masseSalariale * ((taux.cnssEmp || 0) + (taux.cnssSal || 0));
     const out: { label: string; TVA: number; CNSS: number; IRPP: number; total: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d    = new Date(annee, mois - 1 - i, 1);
       const a    = d.getFullYear();
       const mo   = d.getMonth() + 1;
-      const mm   = donneesMensuelles[moisKey(a, mo)];
-      const tva  = mm ? sumTvaCollectee(mm) : 0;
-      const irpp = masseSalariale * 0.1;
+      const mm   = donneesMensuelles[moisKey(a, mo)] ?? MOIS_VIDE;
+      const tva  = sumTvaCollectee(mm);
+      // CNSS/AMU (parts salariale + patronale) et IRPP calculés comme sur les
+      // bulletins, avec les taux du mois, pour les employés déjà embauchés.
+      const tauxMois = tauxPourMois(tauxHistorique, a, mo) || TAUX_DEFAUT;
+      const finMois  = new Date(a, mo, 0);
+      let cnss = 0;
+      let irpp = 0;
+      for (const e of employes) {
+        if (e.dateEmbauche && new Date(e.dateEmbauche) > finMois) continue;
+        const p = calculerPaie(e, mm, a, mo, tauxMois);
+        cnss += p.cnssSal + p.amuSal + p.cnssEmp + p.amuEmp;
+        irpp += p.irpp;
+      }
       out.push({
         label: `${MOIS_COURTS[d.getMonth()]} ${String(a).slice(2)}`,
         TVA:   Math.round(tva),
-        CNSS:  Math.round(cnssMensuelle),
+        CNSS:  Math.round(cnss),
         IRPP:  Math.round(irpp),
-        total: Math.round(tva + cnssMensuelle + irpp),
+        total: Math.round(tva + cnss + irpp),
       });
     }
     return out;
-  }, [donneesMensuelles, employes, taux, annee, mois]);
+  }, [donneesMensuelles, employes, tauxHistorique, annee, mois]);
 
   // ── Alertes internes dashboard ───────────────────────────────────────────
   const alertesDash = useMemo(() => {

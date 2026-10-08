@@ -1,11 +1,14 @@
 import { useCallback, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
+import { calculerPaie } from "@/lib/paie";
+import { tauxPourMois } from "@/lib/ebene-utils";
+import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import type { BulletinPaieRecord, Employe, EcritureComptable, MoisData, Transaction } from "@/types/ebene";
 
 export { type BulletinPaieRecord };
 
 export const useBulletinsPaie = (societeId: string | null) => {
+  const { tauxHistorique } = useTauxHistorique(societeId);
   const [bulletins, setBulletins] = useState<BulletinPaieRecord[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -50,7 +53,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
   const genererBulletin = useCallback(
     async (employe: Employe, moisData: MoisData, annee: number, mois: number): Promise<boolean> => {
       if (!societeId) return false;
-      const c = calculerPaie(employe, moisData, annee, mois);
+      const c = calculerPaie(employe, moisData, annee, mois, tauxPourMois(tauxHistorique, annee, mois));
       const row = {
         employe_id:       employe.id,
         employe_nom:      employe.nom,
@@ -114,7 +117,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
       }
       return !error;
     },
-    [societeId]
+    [societeId, tauxHistorique]
   );
 
   const genererTousBulletins = useCallback(

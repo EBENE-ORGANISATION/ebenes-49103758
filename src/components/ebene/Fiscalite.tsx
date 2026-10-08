@@ -14,6 +14,7 @@ import {
   transactionComptabilisee,
   tvaDepuisTransactions,
 } from "@/lib/ebene-utils";
+import { calculerPaie } from "@/lib/paie";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -228,16 +229,17 @@ export const Fiscalite = ({
     const rslAnnuel   = loyerAnnuel * 0.0875;
     const rslMensuel  = rslAnnuel / 12;
 
-    // Social
-    let masse = 0;
+    // Social : mêmes calculs que les bulletins (base cotisable, primes validées,
+    // heures sup, ancienneté, congés sans solde, taux du mois)
+    let masse = 0, cnssEmp = 0, amuEmp = 0, cnssSal = 0, amuSal = 0;
     employes.forEach(e => {
-      masse += e.salaire + (e.sursalaire || 0);
-      (data.primes[e.id] || []).forEach(p => (masse += p.montant || 0));
+      const p = calculerPaie(e, data, annee, mois, taux);
+      masse   += p.baseCotisable;
+      cnssEmp += p.cnssEmp;
+      amuEmp  += p.amuEmp;
+      cnssSal += p.cnssSal;
+      amuSal  += p.amuSal;
     });
-    const cnssEmp = masse * taux.cnssEmp;
-    const amuEmp  = masse * taux.amuEmp;
-    const cnssSal = masse * taux.cnssSal;
-    const amuSal  = masse * taux.amuSal;
 
     return {
       rec, dep, ben,
@@ -250,7 +252,7 @@ export const Fiscalite = ({
       totalFiscal: tvaAPayer + impot + pat + thDuMois + rslMensuel,
       totalSocial: cnssEmp + amuEmp,
     };
-  }, [data, employes, paramsAnnee, taux, caAnnuel, mois]);
+  }, [data, employes, paramsAnnee, taux, caAnnuel, annee, mois]);
 
   // IRPP total du mois depuis bulletins
   const irppTotal = useMemo(
@@ -389,7 +391,7 @@ export const Fiscalite = ({
   // ── Données CNSS pour exports ──────────────────────────────────────────────
   const cnssHead = [["Libellé", "Base", "Taux", "Montant (FCFA)"]];
   const cnssBody: (string | number)[][] = [
-    ["Masse salariale brute",        fmt(calc.masse), "—",                           fmt(calc.masse)],
+    ["Masse salariale cotisable",    fmt(calc.masse), "—",                           fmt(calc.masse)],
     ["CNSS patronale",               fmt(calc.masse), `${(taux.cnssEmp*100).toFixed(1)}%`, fmt(calc.cnssEmp)],
     ["AMU patronale",                fmt(calc.masse), `${(taux.amuEmp*100).toFixed(0)}%`,  fmt(calc.amuEmp)],
     ["CNSS salariale (retenue)",     fmt(calc.masse), `${(taux.cnssSal*100).toFixed(0)}%`, fmt(calc.cnssSal)],
@@ -496,7 +498,7 @@ export const Fiscalite = ({
             </div>
             <div className="card-elevated p-5">
               <h3 className="font-bold mb-3">👥 Total Social (mois)</h3>
-              <Row label="Masse salariale"               value={`${fmt(calc.masse)} FCFA`} />
+              <Row label="Masse salariale cotisable"     value={`${fmt(calc.masse)} FCFA`} />
               <Row label={`CNSS patronal ${(taux.cnssEmp*100).toFixed(1)}%`} value={`${fmt(calc.cnssEmp)} FCFA`} />
               <Row label={`AMU patronal ${(taux.amuEmp*100).toFixed(0)}%`}   value={`${fmt(calc.amuEmp)} FCFA`} />
               <Row label="IRPP (bulletins)"              value={irppTotal > 0 ? `${fmt(irppTotal)} FCFA` : "—"} />
@@ -948,7 +950,7 @@ export const Fiscalite = ({
                 onWord={() => dlWord(`CNSS_${annee}_${mois}`, cnssTitre, cnssTableHtml)}
               />
             </div>
-            <Row label="Masse salariale brute"                    value={`${fmt(calc.masse)} FCFA`} />
+            <Row label="Masse salariale cotisable"                value={`${fmt(calc.masse)} FCFA`} />
             <Row label={`CNSS patronale ${(taux.cnssEmp*100).toFixed(1)}%`}  value={`${fmt(calc.cnssEmp)} FCFA`} />
             <Row label={`AMU patronale ${(taux.amuEmp*100).toFixed(0)}%`}    value={`${fmt(calc.amuEmp)} FCFA`} />
             <Row label="TOTAL CHARGES PATRONALES"                 value={`${fmt(calc.cnssEmp + calc.amuEmp)} FCFA`} strong />

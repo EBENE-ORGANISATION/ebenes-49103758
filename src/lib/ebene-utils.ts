@@ -93,13 +93,13 @@ export const tvaDepuisTransactions = (
 export const tauxHoraire = (salaireBase: number, sursalaire = 0): number =>
   (salaireBase + sursalaire) / 173.33;
 
-/** Prime d'ancienneté (Art. 36 convention) :
- * 2% après 2 ans, +1% par année au-delà, plafond 30% */
+/** Prime d'ancienneté (convention collective interprofessionnelle) :
+ * 2 % après 2 ans de présence, +1 % par année supplémentaire, plafond 25 %.
+ * Seules les années COMPLÈTES comptent (2 ans → 2 %, 3 ans → 3 %, 4 ans 11 mois → 4 %). */
 export const tauxAnciennete = (anneesPresence: number): number => {
-  if (anneesPresence < 2) return 0;
-  if (anneesPresence < 4) return 0.02;
-  const taux = 0.02 + (anneesPresence - 3) * 0.01;
-  return Math.min(taux, 0.3);
+  const annees = Math.floor(anneesPresence);
+  if (annees < 2) return 0;
+  return Math.min(0.02 + (annees - 2) * 0.01, 0.25);
 };
 
 export const calculerAnciennete = (dateEmbauche?: string, refDate = new Date()): number => {
@@ -168,6 +168,8 @@ const TRANCHES_IRPP_MENSUEL = [
  * @param interetPretImmobilier  VI  — intérêt mensuel prêt immo (défaut 0)
  * @param assuranceVie           VII — prime mensuelle assurance-vie (défaut 0)
  * @param retraiteComplementaire VIII— cotisation mensuelle retraite (défaut 0)
+ * @param cotisationsSalariales  CNSS + AMU réellement retenues sur le bulletin
+ *                               (défaut : 9 % du RB, soit 4 % + 5 %)
  */
 export const calculerIRPP = (
   revenuBrut: number,
@@ -176,15 +178,16 @@ export const calculerIRPP = (
   interetPretImmobilier = 0,
   assuranceVie = 0,
   retraiteComplementaire = 0,
+  cotisationsSalariales?: number,
 ): number => {
   if (revenuBrut <= 0) return 0;
 
   // ── 1. Cotisations sociales ──────────────────────────────────────────────
-  // CNSS salarié 4 % + AMU salarié 5 % = 9 % du RB (selon CGI Togo)
-  const cotisationsSociales = revenuBrut * 0.09;
+  // CNSS salarié + AMU salarié effectivement retenues (sinon 9 % du RB)
+  const cotisationsSociales = cotisationsSalariales ?? revenuBrut * 0.09;
 
   // ── 2. NDCS ─────────────────────────────────────────────────────────────
-  const ndcs = revenuBrut - cotisationsSociales; // = RB × 0,91
+  const ndcs = revenuBrut - cotisationsSociales;
 
   // ── 3. Déduction forfaitaire ─────────────────────────────────────────────
   // Plafond mensuel = 2 800 000 ÷ 12 = 233 333 F/mois

@@ -2,9 +2,9 @@
 // Réutilise calculerPaie() et les utilitaires fiscaux ; ne réécrit aucune logique de paie.
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Employe, MoisData, MOIS_NOMS } from "@/types/ebene";
+import { Employe, MoisData, MOIS_NOMS, TauxFiscaux, TAUX_DEFAUT } from "@/types/ebene";
 import { formatMontant } from "@/lib/ebene-utils";
-import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
+import { calculerPaie, pctTaux } from "@/lib/paie";
 
 /** Sous-ensemble de societe_config + societes utilisé pour la mise en forme du bulletin. */
 export interface BulletinSocieteInfo {
@@ -31,9 +31,11 @@ export const generateBulletin = (
   moisData: MoisData,
   annee: number,
   mois: number,
-  societe?: BulletinSocieteInfo | null
+  societe?: BulletinSocieteInfo | null,
+  /** Taux CNSS/AMU du mois (tauxPourMois sur l'historique de la société). */
+  taux: TauxFiscaux = TAUX_DEFAUT,
 ): void => {
-  const c = calculerPaie(employe, moisData, annee, mois);
+  const c = calculerPaie(employe, moisData, annee, mois, taux);
   const periode = `${MOIS_NOMS[mois - 1]} ${annee}`;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -128,8 +130,8 @@ export const generateBulletin = (
 
   // ─── Tableau Retenues ────────────────────────────────────────────
   const retenuesRows: Array<[string, string]> = [
-    ["CNSS salarié (4%)", formatMontant(c.cnssSal)],
-    ["AMU salarié (5%)", formatMontant(c.amuSal)],
+    [`CNSS salarié (${pctTaux(c.taux.cnssSal)}%)`, formatMontant(c.cnssSal)],
+    [`AMU salarié (${pctTaux(c.taux.amuSal)}%)`, formatMontant(c.amuSal)],
     ["IRPP (barème progressif Togo)", formatMontant(c.irpp)],
   ];
   if (c.deductionSansSolde > 0)
@@ -178,7 +180,7 @@ export const generateBulletin = (
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(
-    `CNSS employeur (17,5%) : ${formatMontant(c.cnssEmp)}  •  AMU employeur (5%) : ${formatMontant(
+    `CNSS employeur (${pctTaux(c.taux.cnssEmp)}%) : ${formatMontant(c.cnssEmp)}  •  AMU employeur (${pctTaux(c.taux.amuEmp)}%) : ${formatMontant(
       c.amuEmp
     )}  •  Coût total employeur : ${formatMontant(c.coutEmployeur)}`,
     14,
