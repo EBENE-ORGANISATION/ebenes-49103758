@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Logo (anneaux) de l'écran de démarrage Android 12+.
+  Zone d'icône 288 × 288 dp, dont seul le cercle central de 192 dp est visible :
+  le logo (37 × 70 unités) est mis à l'échelle × 1,857 et centré.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:scaleX="1.857"
+        android:scaleY="1.857"
+        android:translateX="75.29"
+        android:translateY="41.86">
+        <path
+            android:pathData="M52,25 A30,30 0 0,0 52,85"
+            android:strokeColor="@color/ebene_creme"
+            android:strokeWidth="3" />
+        <path
+            android:pathData="M52,33 A22,22 0 0,0 52,77"
+            android:strokeColor="@color/ebene_creme"
+            android:strokeWidth="3" />
+        <path
+            android:pathData="M52,41 A14,14 0 0,0 52,69"
+            android:strokeColor="@color/ebene_creme"
+            android:strokeWidth="3" />
+        <path
+            android:pathData="M52,49 A6,6 0 0,0 52,61"
+            android:strokeColor="@color/ebene_creme"
+            android:strokeWidth="3" />
+        <path
+            android:pathData="M52,22 L52,88"
+            android:strokeColor="@color/ebene_creme"
+            android:strokeWidth="3" />
+    </group>
+</vector>

@@ -134,7 +134,30 @@
     transition: background-color 0.2s ease, color 0.2s ease;
     /* Android 15+ (edge-to-edge) : ne pas passer sous la barre d'état / l'encoche.
        Vaut 0 sur navigateur desktop et Electron. */
-    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+
+  /* Android 15+ : les barres système sont transparentes. On peint leur zone
+     en bordeaux (couleur de la marque) pour que les icônes blanches de la barre
+     d'état et de la barre de navigation restent lisibles, en thème clair comme
+     sombre. Hauteur 0 sur navigateur desktop, Electron et Android ≤ 14. */
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: #3D0000;
+    pointer-events: none;
+  }
+  body::before {
+    top: 0;
+    height: env(safe-area-inset-top, 0px);
+  }
+  body::after {
+    bottom: 0;
+    height: env(safe-area-inset-bottom, 0px);
   }
 
   /* P2 — Typographie monospace pour les montants */

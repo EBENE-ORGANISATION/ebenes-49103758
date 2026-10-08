@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icône monochrome (icônes à thème, Android 13+) : les anneaux seuls,
+  centrés dans la zone sûre de 66 dp de l'icône adaptative (108 dp).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.6286"
+        android:scaleY="0.6286"
+        android:translateX="30.74"
+        android:translateY="19.43">
+        <path android:pathData="M52,25 A30,30 0 0,0 52,85" android:strokeColor="#FFFFFFFF" android:strokeWidth="3" />
+        <path android:pathData="M52,33 A22,22 0 0,0 52,77" android:strokeColor="#FFFFFFFF" android:strokeWidth="3" />
+        <path android:pathData="M52,41 A14,14 0 0,0 52,69" android:strokeColor="#FFFFFFFF" android:strokeWidth="3" />
+        <path android:pathData="M52,49 A6,6 0 0,0 52,61" android:strokeColor="#FFFFFFFF" android:strokeWidth="3" />
+        <path android:pathData="M52,22 L52,88" android:strokeColor="#FFFFFFFF" android:strokeWidth="3" />
+    </group>
+</vector>

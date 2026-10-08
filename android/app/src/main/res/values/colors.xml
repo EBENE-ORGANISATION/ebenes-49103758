@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Couleurs de la marque Ébène Suite pour le thème Android natif. -->
+<resources>
+    <color name="colorPrimary">#3D0000</color>
+    <color name="colorPrimaryDark">#3D0000</color>
+    <color name="colorAccent">#9C6B4E</color>
+    <!-- Fond de l'écran de démarrage et des barres système -->
+    <color name="ebene_bordeaux">#3D0000</color>
+    <color name="ebene_creme">#FAF7F4</color>
+</resources>
