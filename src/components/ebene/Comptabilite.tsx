@@ -249,7 +249,7 @@ export const Comptabilite = ({
       {!isLoading && (
         <>
       <Tabs defaultValue="tresorerie" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full mb-4 h-auto">
+        <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-7 w-full mb-4 h-auto">
           <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
             📒 Saisie
           </TabsTrigger>

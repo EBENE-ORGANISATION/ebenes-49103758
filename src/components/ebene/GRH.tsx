@@ -248,7 +248,7 @@ export const GRH = ({
       </div>
 
       <Tabs defaultValue="effectif" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full mb-5 h-auto">
+        <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-8 w-full mb-4 sm:mb-5 h-auto">
           <TabsTrigger value="effectif">👥 Effectif & paie</TabsTrigger>
           <TabsTrigger value="liste">📋 Liste du personnel</TabsTrigger>
           <TabsTrigger value="bulletins">💰 Bulletins</TabsTrigger>

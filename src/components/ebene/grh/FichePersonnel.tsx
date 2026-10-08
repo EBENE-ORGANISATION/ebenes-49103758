@@ -155,7 +155,7 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
 
         <div ref={printRef}>
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto">
+          <TabsList className="tabs-scroll justify-start sm:grid sm:grid-cols-5 w-full h-auto">
             <TabsTrigger value="info">Identité</TabsTrigger>
             <TabsTrigger value="contrat">Contrat</TabsTrigger>
             <TabsTrigger value="bulletins">Bulletins ({bulletins.length})</TabsTrigger>

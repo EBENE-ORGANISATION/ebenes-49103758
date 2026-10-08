@@ -447,7 +447,7 @@ export const Fiscalite = ({
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="dashboard">
-        <TabsList className="flex-wrap h-auto gap-1">
+        <TabsList className="tabs-scroll justify-start w-full sm:w-auto sm:flex-wrap h-auto gap-1">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="tva" className="gap-1.5">
             TVA

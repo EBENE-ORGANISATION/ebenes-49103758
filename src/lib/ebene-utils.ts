@@ -2,7 +2,8 @@ import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture, EcritureCompta
 
 export const formatMontant = (n: number): string => {
   const abs = Math.abs(Math.round(n));
-  return abs.toLocaleString("fr-FR") + " F";
+  // Espace insécable avant « F » : le montant ne se coupe jamais en fin de ligne.
+  return abs.toLocaleString("fr-FR") + "\u00a0F";
 };
 
 export const formatMontantSigne = (n: number): string => {

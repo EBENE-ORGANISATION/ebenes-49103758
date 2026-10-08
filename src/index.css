@@ -304,6 +304,20 @@
     }
   }
 
+  /* Barre d'onglets sur une ligne qu'on fait glisser du doigt (téléphone).
+     À partir de sm, la liste repasse en grille via sm:grid. */
+  .tabs-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .tabs-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs-scroll > [role="tab"] {
+    flex-shrink: 0;
+  }
+
   /* Modal overlay */
   .modal-overlay {
     @apply fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4;

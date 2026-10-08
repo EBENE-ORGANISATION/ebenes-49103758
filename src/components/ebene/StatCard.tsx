@@ -32,7 +32,7 @@ export const StatCard = ({ label, value, tone, hint, icon }: Props) => (
       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{label}</p>
       {icon}
     </div>
-    <p className={`amount text-xl sm:text-2xl mt-1 ${valueColor[tone]}`}>{value}</p>
+    <p className={`amount text-lg sm:text-2xl leading-tight mt-1 break-words ${valueColor[tone]}`}>{value}</p>
     {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
   </div>
 );

@@ -415,7 +415,7 @@ export const Dashboard = ({
       )}
 
       {/* ── D1 / D2 / D3 : KPI Cards ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
         {/* D1 : CA Mois avec tendance */}
         <KpiCard
@@ -716,7 +716,7 @@ const KpiCard = ({ icon, label, value, tendance, comparaison, tone }: KpiCardPro
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground font-medium mb-0.5 truncate">{label}</p>
+        <p className="text-xs text-muted-foreground font-medium mb-0.5 line-clamp-2">{label}</p>
         <p className="text-xl font-bold tabular-nums leading-tight truncate">{value}</p>
         {comparaison && (
           <p className="text-[10px] text-muted-foreground mt-1 truncate">{comparaison}</p>
@@ -758,7 +758,7 @@ const KpiCardSparkline = ({ icon, label, value, tendance, tone, sparkData }: Kpi
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground font-medium mb-0.5 truncate">{label}</p>
+        <p className="text-xs text-muted-foreground font-medium mb-0.5 line-clamp-2">{label}</p>
         <p className="text-xl font-bold tabular-nums leading-tight truncate">{value}</p>
         {/* Sparkline 6 mois — sans axes ni grille */}
         <div className="h-10 mt-2 -mx-1">

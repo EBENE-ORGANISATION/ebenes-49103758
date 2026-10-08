@@ -245,14 +245,14 @@ const Index = () => {
     : showGrh ? "grh"
     : showFisc ? "fisc"
     : "compta";
-  const gridCols = visibleTabs >= 8 ? "sm:grid-cols-8"
-    : visibleTabs === 7 ? "sm:grid-cols-7"
-    : visibleTabs === 6 ? "sm:grid-cols-6"
-    : visibleTabs === 5 ? "sm:grid-cols-5"
-    : visibleTabs === 4 ? "sm:grid-cols-4"
-    : visibleTabs === 3 ? "sm:grid-cols-3"
-    : visibleTabs === 2 ? "sm:grid-cols-2"
-    : "sm:grid-cols-1";
+  const gridCols = visibleTabs >= 8 ? "lg:grid-cols-8"
+    : visibleTabs === 7 ? "lg:grid-cols-7"
+    : visibleTabs === 6 ? "lg:grid-cols-6"
+    : visibleTabs === 5 ? "lg:grid-cols-5"
+    : visibleTabs === 4 ? "lg:grid-cols-4"
+    : visibleTabs === 3 ? "lg:grid-cols-3"
+    : visibleTabs === 2 ? "lg:grid-cols-2"
+    : "lg:grid-cols-1";
 
   // ── Onglet actif piloté par les search params React Router ──────────────
   // useLocation() est réactif : se met à jour automatiquement sur Back/Forward.
@@ -321,7 +321,7 @@ const Index = () => {
         alertes={alertes}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-5">
         <MoisNav
           mois={mois}
           annee={annee}
@@ -330,9 +330,9 @@ const Index = () => {
           onAnnee={setAnnee}
         />
 
-        <div className="card-elevated p-4 sm:p-6 no-print">
+        <div className="card-elevated p-3 sm:p-6 no-print">
           <Tabs value={effectiveTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className={`grid grid-cols-2 ${gridCols} w-full mb-5 h-auto`}>
+            <TabsList className={`tabs-scroll justify-start lg:grid ${gridCols} w-full mb-4 sm:mb-5 h-auto`}>
               {showDashboard && (
                 <TabsTrigger value="dashboard" className="py-2.5 text-sm font-semibold">
                   📊 {t("tabs.dashboard")}

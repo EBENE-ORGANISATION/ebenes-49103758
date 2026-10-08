@@ -63,7 +63,7 @@ export const Stock = (props: Props) => {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard label="Articles" value={String(stats.nb)} tone="info" />
         <StatCard label="Valeur stock (PMP)" value={formatMontant(stats.valeur)} tone="success" />
         <StatCard label="En alerte (≤ seuil)" value={String(stats.enAlerte)} tone={stats.enAlerte > 0 ? "warning" : "info"} />
@@ -79,7 +79,7 @@ export const Stock = (props: Props) => {
       </div>
 
       <Tabs defaultValue="articles" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-5">
+        <TabsList className="tabs-scroll justify-start sm:grid sm:grid-cols-4 w-full mb-4 sm:mb-5 h-auto">
           <TabsTrigger value="articles">📦 Articles</TabsTrigger>
           <TabsTrigger value="mouvements">🔁 Mouvements</TabsTrigger>
           <TabsTrigger value="fournisseurs">🚚 Fournisseurs</TabsTrigger>
