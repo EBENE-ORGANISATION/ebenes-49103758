@@ -42,11 +42,28 @@ function sendToRenderer(channel, payload) {
   }
 }
 
+// L'application reste souvent ouverte toute la journée : on revérifie
+// régulièrement et au retour sur la fenêtre, pas seulement au démarrage.
+const UPDATE_INTERVAL_MS = 60 * 60 * 1000;      // toutes les heures
+const UPDATE_MIN_GAP_MS = 15 * 60 * 1000;       // au plus une fois / 15 min
+let dernierCheck = 0;
+let versionTrouvee = null; // une fois trouvée, inutile de redemander (ni de rouvrir la fenêtre)
+
+function verifierMiseAJour() {
+  if (isDev || versionTrouvee) return;
+  if (Date.now() - dernierCheck < UPDATE_MIN_GAP_MS) return;
+  dernierCheck = Date.now();
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    log.error("checkForUpdatesAndNotify failed:", err);
+  });
+}
+
 autoUpdater.on("checking-for-update", () => {
   log.info("Checking for update...");
 });
 autoUpdater.on("update-available", (info) => {
   log.info("Update available:", info && info.version);
+  versionTrouvee = (info && info.version) || "?";
   sendToRenderer("update-available", { version: info && info.version });
   dialog.showMessageBox({
     type: "info",
@@ -77,6 +94,7 @@ autoUpdater.on("update-downloaded", (info) => {
   }).catch((err) => log.error("dialog update-downloaded error:", err));
 });
 autoUpdater.on("error", (err) => {
+  versionTrouvee = null; // téléchargement échoué : la prochaine vérification réessaiera
   const msg = String(err && err.message ? err.message : err);
   // Erreurs silencieuses : hors ligne, repo privé (404), timeout réseau.
   // On log mais on n'affiche RIEN à l'utilisateur pour ces cas normaux.
@@ -265,13 +283,12 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 
-  // Vérifie les mises à jour 3s après le démarrage pour ne pas bloquer.
+  // Vérifie les mises à jour 3s après le démarrage pour ne pas bloquer,
+  // puis toutes les heures et quand l'utilisateur revient sur la fenêtre.
   if (!isDev) {
-    setTimeout(() => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-        log.error("checkForUpdatesAndNotify failed:", err);
-      });
-    }, 3000);
+    setTimeout(verifierMiseAJour, 3000);
+    setInterval(verifierMiseAJour, UPDATE_INTERVAL_MS);
+    app.on("browser-window-focus", verifierMiseAJour);
   }
 });
 

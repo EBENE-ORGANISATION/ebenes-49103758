@@ -4,13 +4,14 @@
  * Vérifie si une nouvelle version est disponible sur GitHub Releases
  * et affiche une bannière de téléchargement sur Android uniquement.
  *
- * - Vérifie au démarrage (après 5s) et toutes les 6h.
+ * - Vérifie au démarrage (après 5s), toutes les heures et à chaque retour
+ *   de l'app au premier plan (au plus une fois toutes les 15 min).
  * - Compare la version GitHub avec la version embarquée dans package.json.
  * - Le bouton ouvre l'APK signé dans le navigateur externe → le gestionnaire
  *   de téléchargement Android récupère le fichier puis propose l'installation.
  * - Entièrement silencieux en cas d'erreur réseau.
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { isAndroid } from "@/lib/platform";
 import APP_VERSION from "@/lib/appVersion";
 
@@ -19,7 +20,10 @@ const GITHUB_REPO  = "ebenes-49103758";
 const API_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 // Lien court à la marque (redirection Cloudflare → dernier APK signé).
 const APK_SHORT_URL = "https://ebnservicess.com/apk";
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 heures
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;   // 1 heure
+// Écart minimal entre deux vérifications (l'API GitHub sans compte est
+// limitée à 60 requêtes par heure et par adresse IP).
+const MIN_GAP_MS = 15 * 60 * 1000;
 
 interface ReleaseInfo {
   version: string;
@@ -60,21 +64,35 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
 export function AndroidUpdateChecker() {
   const [update, setUpdate] = useState<ReleaseInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const dernierCheck = useRef(0);
 
   const check = useCallback(async () => {
     if (!isAndroid()) return;
+    if (Date.now() - dernierCheck.current < MIN_GAP_MS) return;
+    dernierCheck.current = Date.now();
     const release = await fetchLatestRelease();
     if (!release) return;
     if (semverGt(release.version, APP_VERSION)) {
-      setUpdate(release);
-      setDismissed(false);
+      // « Plus tard » reste respecté tant qu'aucune version plus récente ne sort
+      setUpdate((prev) => {
+        if (prev?.version !== release.version) setDismissed(false);
+        return release;
+      });
     }
   }, []);
 
   useEffect(() => {
     const t = setTimeout(check, 5_000);
     const i = setInterval(check, CHECK_INTERVAL_MS);
-    return () => { clearTimeout(t); clearInterval(i); };
+    // Android reprend souvent l'app depuis l'arrière-plan sans la relancer
+    // (et suspend le setInterval) : on revérifie à chaque retour au premier plan.
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(t);
+      clearInterval(i);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [check]);
 
   const handleDownload = () => {
@@ -110,7 +128,8 @@ export function AndroidUpdateChecker() {
         zIndex: 9998,
         backgroundColor: "#3D0000",
         color: "#fff",
-        padding: "12px 16px",
+        // Android 15+ (edge-to-edge) : rester au-dessus de la barre de navigation
+        padding: "12px 16px calc(12px + env(safe-area-inset-bottom, 0px))",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
