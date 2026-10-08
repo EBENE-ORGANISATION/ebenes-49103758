@@ -330,3 +330,49 @@ export const contenuBulletin = (
     libelleAmuEmp: avecTaux("AMU employeur", c.taux.amuEmp, concorde(c.amuEmp, v.amuEmp)),
   };
 };
+
+/**
+ * Congés sans solde d'un bulletin enregistré : ils ne sont pas stockés à part
+ * mais inclus dans total_retenues, en plus des cotisations, de l'IRPP et des
+ * retenues diverses.
+ */
+export const sansSoldeEnregistre = (
+  b: Pick<MontantsEnregistres, "total_retenues" | "cnss_sal" | "amu_sal" | "irpp" | "retenues_diverses">,
+): number => Math.max(0, Math.round(b.total_retenues - b.cnss_sal - b.amu_sal - b.irpp - b.retenues_diverses));
+
+/** Champs d'un bulletin modifiables à la main. */
+export type ChampsBulletinEditables = Pick<
+  MontantsEnregistres,
+  | "salaire_base" | "sursalaire" | "prime_anciennete" | "hs_montant" | "primes_diverses"
+  | "indemnites" | "cnss_sal" | "amu_sal" | "irpp" | "retenues_diverses"
+>;
+
+/**
+ * Totaux d'un bulletin modifié à la main, selon les mêmes règles que
+ * calculerPaie : base cotisable = brut hors indemnités moins congés sans
+ * solde, charges patronales aux taux du mois, congés sans solde conservés
+ * dans les retenues et retirés du coût employeur. Les cotisations salariales
+ * et l'IRPP restent ceux saisis.
+ */
+export const totauxBulletinEdite = (
+  v: ChampsBulletinEditables,
+  sansSolde: number,
+  taux: TauxFiscaux,
+) => {
+  const brut = v.salaire_base + v.sursalaire + v.prime_anciennete + v.hs_montant + v.primes_diverses + v.indemnites;
+  const total_retenues = v.cnss_sal + v.amu_sal + v.irpp + v.retenues_diverses + sansSolde;
+  const baseCotisable = Math.max(
+    0,
+    v.salaire_base + v.sursalaire + v.prime_anciennete + v.hs_montant + v.primes_diverses - sansSolde,
+  );
+  const cnss_pat = Math.round(baseCotisable * taux.cnssEmp);
+  const amu_pat = Math.round(baseCotisable * taux.amuEmp);
+  return {
+    brut: Math.round(brut),
+    total_retenues: Math.round(total_retenues),
+    net_a_payer: Math.round(brut - total_retenues),
+    cnss_pat,
+    amu_pat,
+    cout_employeur: Math.round(brut - sansSolde + cnss_pat + amu_pat),
+  };
+};

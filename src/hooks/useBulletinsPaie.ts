@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { calculerPaie } from "@/lib/paie";
+import { calculerPaie, sansSoldeEnregistre, totauxBulletinEdite } from "@/lib/paie";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import type { BulletinPaieRecord, Employe, EcritureComptable, MoisData, Transaction } from "@/types/ebene";
@@ -313,9 +313,9 @@ export const useBulletinsPaie = (societeId: string | null) => {
   }, [societeId]);
 
   // ─── Édition manuelle ──────────────────────────────────────────────────────
-  // Recalcule automatiquement brut, total_retenues, net_a_payer et coût employeur
-  // à partir des champs éditables. Charges patronales recalculées sur les
-  // bases (base + sursalaire + ancienneté + HS).
+  // Recalcule brut, total_retenues, net_a_payer, charges patronales et coût
+  // employeur à partir des champs éditables, avec les règles de calculerPaie
+  // (voir totauxBulletinEdite) et les taux du mois.
   const updateBulletin = useCallback(
     async (
       id: string,
@@ -341,24 +341,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
       if (current.statut !== "brouillon") return false;
 
       const next = { ...current, ...patch };
-      const brut =
-        next.salaire_base +
-        next.sursalaire +
-        next.prime_anciennete +
-        next.hs_montant +
-        next.primes_diverses +
-        next.indemnites;
-      const total_retenues =
-        next.cnss_sal + next.amu_sal + next.irpp + next.retenues_diverses;
-      const net_a_payer = brut - total_retenues;
-      const baseCotisable =
-        next.salaire_base + next.sursalaire + next.prime_anciennete + next.hs_montant;
-      const baseAmu = next.salaire_base + next.sursalaire;
-      const cnss_pat = Math.round(baseCotisable * 0.175);
-      const amu_pat = Math.round(baseAmu * 0.05);
-      const cout_employeur = Math.round(brut + cnss_pat + amu_pat);
-
-      const updated = {
+      const champs = {
         salaire_base: Math.round(next.salaire_base),
         sursalaire: Math.round(next.sursalaire),
         prime_anciennete: Math.round(next.prime_anciennete),
@@ -369,12 +352,14 @@ export const useBulletinsPaie = (societeId: string | null) => {
         amu_sal: Math.round(next.amu_sal),
         irpp: Math.round(next.irpp),
         retenues_diverses: Math.round(next.retenues_diverses),
-        brut: Math.round(brut),
-        total_retenues: Math.round(total_retenues),
-        net_a_payer: Math.round(net_a_payer),
-        cnss_pat,
-        amu_pat,
-        cout_employeur,
+      };
+      const updated = {
+        ...champs,
+        ...totauxBulletinEdite(
+          champs,
+          sansSoldeEnregistre(current),
+          tauxPourMois(tauxHistorique, current.annee, current.mois),
+        ),
       };
 
       const { error } = await supabase
@@ -386,7 +371,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
       setBulletins((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
       return true;
     },
-    [bulletins, societeId]
+    [bulletins, societeId, tauxHistorique]
   );
 
   return {
