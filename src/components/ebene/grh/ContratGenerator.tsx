@@ -1,7 +1,7 @@
 import { Employe, MOIS_NOMS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
-import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
+import { formatMontant, tauxPourMois, dateFr } from "@/lib/ebene-utils";
 import { pctTaux } from "@/lib/paie";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { printElementById } from "@/lib/print";
@@ -78,7 +78,7 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
           <p><strong>{t("grh_contrat.and")}</strong></p>
           <p>
             <strong>{employe.nom}</strong>
-            {employe.dateNaissance && t("grh_contrat.born_on", { date: employe.dateNaissance })}
+            {employe.dateNaissance && t("grh_contrat.born_on", { date: dateFr(employe.dateNaissance) })}
             {employe.lieuNaissance && t("grh_contrat.born_at", { lieu: employe.lieuNaissance })}
             {employe.nationalite && t("grh_contrat.of_nat", { nat: employe.nationalite })}
             {employe.cni && t("grh_contrat.holder", { num: employe.cni })}
@@ -106,11 +106,11 @@ export const ContratGenerator = ({ employe, onClose }: Props) => {
           <p><strong>{t("grh_contrat.art2")}</strong></p>
           <p>
             {ct === "cdd" && employe.dateFinContrat ? (
-              <Trans i18nKey="grh_contrat.art2_body_cdd" values={{ date: employe.dateEmbauche || "...", fin: employe.dateFinContrat }} components={[<span key="0" />, <strong key="1" />]} />
+              <Trans i18nKey="grh_contrat.art2_body_cdd" values={{ date: employe.dateEmbauche ? dateFr(employe.dateEmbauche) : "...", fin: dateFr(employe.dateFinContrat) }} components={[<span key="0" />, <strong key="1" />]} />
             ) : ct === "essai" ? (
-              <Trans i18nKey="grh_contrat.art2_body_essai" values={{ date: employe.dateEmbauche || "..." }} components={[<span key="0" />, <strong key="1" />]} />
+              <Trans i18nKey="grh_contrat.art2_body_essai" values={{ date: employe.dateEmbauche ? dateFr(employe.dateEmbauche) : "..." }} components={[<span key="0" />, <strong key="1" />]} />
             ) : (
-              <Trans i18nKey="grh_contrat.art2_body_cdi" values={{ date: employe.dateEmbauche || "..." }} components={[<span key="0" />, <strong key="1" />]} />
+              <Trans i18nKey="grh_contrat.art2_body_cdi" values={{ date: employe.dateEmbauche ? dateFr(employe.dateEmbauche) : "..." }} components={[<span key="0" />, <strong key="1" />]} />
             )}
           </p>
 

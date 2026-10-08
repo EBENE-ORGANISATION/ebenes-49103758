@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye } from "lucide-react";
-import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye, ThumbsUp, ThumbsDown, Undo2 } from "lucide-react";
+import { formatMontant, todayISO, dateFr } from "@/lib/ebene-utils";
 import { useTenant } from "@/hooks/useTenant";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -407,8 +407,8 @@ export const DevisSection = ({
                     </div>
                     <p className="font-semibold mt-0.5 truncate">{d.client}</p>
                     <p className="text-xs text-muted-foreground">
-                      {d.date}
-                      {d.dateValidite && ` • ${t("devis.valid_until", { date: d.dateValidite })}`}
+                      {dateFr(d.date)}
+                      {d.dateValidite && ` • ${t("devis.valid_until", { date: dateFr(d.dateValidite) })}`}
                       {" • "}
                       {d.lignes.length > 1
                         ? t("devis.lines_other", { count: d.lignes.length })
@@ -454,6 +454,42 @@ export const DevisSection = ({
                         }}
                       >
                         <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {/* Réponse du client : accepté ou refusé */}
+                    {onUpdate && (d.statut === "brouillon" || d.statut === "envoye") && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-success border-success/30 hover:bg-success/10"
+                          title={t("devis.mark_accepted_tooltip")}
+                          onClick={() => onUpdate(d.id, { statut: "accepte" })}
+                        >
+                          <ThumbsUp className="size-3.5" /> {t("devis.mark_accepted")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                          title={t("devis.mark_refused_tooltip")}
+                          onClick={() => {
+                            if (confirm(t("devis.confirm_refuse"))) onUpdate(d.id, { statut: "refuse" });
+                          }}
+                        >
+                          <ThumbsDown className="size-3.5" /> {t("devis.mark_refused")}
+                        </Button>
+                      </>
+                    )}
+                    {onUpdate && (d.statut === "accepte" || d.statut === "refuse") && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        title={t("devis.reopen_tooltip")}
+                        onClick={() => onUpdate(d.id, { statut: "envoye" })}
+                      >
+                        <Undo2 className="size-4" />
                       </Button>
                     )}
                     {/* Un devis refusé par le client ne peut pas devenir une facture */}

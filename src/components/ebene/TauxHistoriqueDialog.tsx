@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { todayISO } from "@/lib/ebene-utils";
+import { todayISO, dateFr } from "@/lib/ebene-utils";
 
 interface Props {
   open: boolean;
@@ -62,7 +62,7 @@ export const TauxHistoriqueDialog = ({ open, onOpenChange, historique, onAjouter
                 .map((x) => (
                   <div key={x.dateEffet} className="border-2 border-border rounded-lg p-3 text-xs space-y-1">
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm">{t("taux.in_force_since", { date: x.dateEffet })}</p>
+                      <p className="font-bold text-sm">{t("taux.in_force_since", { date: dateFr(x.dateEffet) })}</p>
                       <Button
                         size="icon" variant="ghost" className="size-7 text-destructive"
                         onClick={() => { if (confirm(t("taux.confirm_delete"))) onSupprimer(x.dateEffet); }}

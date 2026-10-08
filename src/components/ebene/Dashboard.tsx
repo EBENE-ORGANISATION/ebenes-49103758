@@ -51,6 +51,7 @@ import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
+import { caHTMois, sumDepenses, sumRecettes } from "@/lib/tableauDeBord";
 
 interface DashboardProps {
   donneesMensuelles: DonneesMensuelles;
@@ -89,49 +90,7 @@ const MOIS_COURTS = [
   "Juil", "Août", "Sep", "Oct", "Nov", "Déc",
 ];
 
-// ── Helpers consolidés (transactions + écritures SYSCOHADA) ──────────────────
-
-const sumRecettes = (m: MoisData): number => {
-  const recTrans = m.transactions
-    .filter((t) => t.type === "r" && transactionComptabilisee(t))
-    .reduce((s, t) => s + Math.abs(t.m), 0);
-  const recEcritures = (m.ecritures || [])
-    .filter((e) => e.statut === "valide" && ecritureTresorerieAutonome(e))
-    .reduce((total, e) => {
-      const lignes = Array.isArray(e.lignes) ? e.lignes : [];
-      const debit = lignes
-        .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
-        .reduce((s, l) => s + l.debit, 0);
-      return total + debit;
-    }, 0);
-  return recTrans + recEcritures;
-};
-
-/**
- * Chiffre d'affaires hors taxes du mois, comme l'onglet Fiscalité : comptes 70
- * des écritures validées, à défaut les recettes (factures en HT). Les apports,
- * emprunts et autres encaissements ne sont pas du chiffre d'affaires.
- */
-const caHTMois = (m: MoisData, tauxTva: number): number =>
-  (m.ecritures || []).some((e) => e.statut !== "brouillon")
-    ? fiscaliteDepuisEcritures(m.ecritures || []).caHT
-    : tvaDepuisTransactions(m.transactions, m.factures, tauxTva, m.ecritures || []).caHT;
-
-const sumDepenses = (m: MoisData): number => {
-  const depTrans = m.transactions
-    .filter((t) => t.type === "d" && transactionComptabilisee(t))
-    .reduce((s, t) => s + Math.abs(t.m), 0);
-  const depEcritures = (m.ecritures || [])
-    .filter((e) => e.statut === "valide" && ecritureTresorerieAutonome(e))
-    .reduce((total, e) => {
-      const lignes = Array.isArray(e.lignes) ? e.lignes : [];
-      const credit = lignes
-        .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
-        .reduce((s, l) => s + l.credit, 0);
-      return total + credit;
-    }, 0);
-  return depTrans + depEcritures;
-};
+// ── Helpers consolidés (transactions + écritures SYSCOHADA) : src/lib/tableauDeBord.ts
 
 const sumTvaCollectee = (m: MoisData): number => {
   // Depuis écritures validées (comptes 4431/4432) — fallback sur factures payées

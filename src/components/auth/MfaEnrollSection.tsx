@@ -103,7 +103,7 @@ export const MfaEnrollSection = () => {
     setEnrolling(true);
     setVerifyError(null);
     try {
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", issuer: "EBENE SERVICES" });
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", issuer: "Ébène Suite" });
       if (error) throw error;
       setQrCode(data.totp.qr_code);
       setSecret(data.totp.secret);

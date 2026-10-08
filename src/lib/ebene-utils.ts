@@ -19,6 +19,16 @@ export const textePdf = (s: string): string => s.replace(ESPACES_SPECIALES, " ")
 export const formatSolde = (n: number): string =>
   (Math.round(n) < 0 ? "-" : "") + formatMontant(n);
 
+/**
+ * Date ISO (AAAA-MM-JJ, éventuellement suivie de l'heure) affichée à la
+ * française : « 05/10/2026 ». Valeur vide → « — » ; autre format : inchangé.
+ */
+export const dateFr = (iso?: string | null): string => {
+  if (!iso) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+};
+
 export const formatMontantSigne = (n: number): string => {
   const sign = n >= 0 ? "+" : "-";
   return sign + " " + formatMontant(n);
@@ -66,6 +76,8 @@ export const transactionComptabilisee = (t: Transaction): boolean => {
 export interface TvaTransactions {
   /** Chiffre d'affaires HT (factures : HT réel ; recettes manuelles : montant saisi). */
   caHT: number;
+  /** Part du CA soumise à la TVA (factures et recettes « avec TVA »). */
+  caTaxable: number;
   tvaCollectee: number;
   tvaDeductible: number;
 }
@@ -87,6 +99,7 @@ export const tvaDepuisTransactions = (
   ecritures: EcritureComptable[] = [],
 ): TvaTransactions => {
   let caHT = 0;
+  let caTaxable = 0;
   let tvaCollectee = 0;
   let tvaDeductible = 0;
   for (const t of transactions) {
@@ -98,11 +111,13 @@ export const tvaDepuisTransactions = (
         : undefined;
       if (f) {
         caHT += f.totalHT;
+        if (f.avecTva) caTaxable += f.totalHT;
         tvaCollectee += f.avecTva ? f.totalTva : 0;
       } else {
         // Recette manuelle : montant TTC si « avec TVA », sinon hors TVA
         const ht = t.avecTva ? montant / (1 + tauxTva) : montant;
         caHT += ht;
+        if (t.avecTva) caTaxable += ht;
         tvaCollectee += montant - ht;
       }
     } else if (t.source === "fournisseur") {
@@ -114,7 +129,7 @@ export const tvaDepuisTransactions = (
         : montant - Math.round(montant / (1 + tauxTva));
     }
   }
-  return { caHT, tvaCollectee, tvaDeductible };
+  return { caHT, caTaxable, tvaCollectee, tvaDeductible };
 };
 
 // ─── PAIE TOGOLAISE ───────────────────────────────────────────────────────────

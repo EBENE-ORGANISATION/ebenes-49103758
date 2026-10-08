@@ -1,7 +1,8 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Facture } from "@/types/ebene";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, dateFr } from "@/lib/ebene-utils";
+import { montantEnLettres } from "@/lib/montantEnLettres";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { printElementById } from "@/lib/print";
@@ -202,7 +203,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                   <span style={{ fontSize: "8.5pt", color: "#7a5a45", textTransform: "uppercase", letterSpacing: "1px" }}>
                     {t("facture_preview.date")}
                   </span>
-                  <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{facture.date}</span>
+                  <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{dateFr(facture.date)}</span>
                 </div>
               </div>
             </div>
@@ -399,7 +400,11 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                   {t("facture_preview.final_amount_intro")}
                 </p>
                 <p style={{ margin: "1.5mm 0 0", fontWeight: 700, color: "#3D0000", fontSize: "11pt" }}>
-                  {t("facture_preview.ttc_xof", { amount: formatMontant(facture.totalTtc) })}
+                  {t("facture_preview.ttc_xof", {
+                    lettres: montantEnLettres(facture.totalTtc),
+                    taxe: t(facture.avecTva ? "facture_preview.ttc" : "facture_preview.ht"),
+                    amount: Math.round(facture.totalTtc).toLocaleString("fr-FR"),
+                  })}
                 </p>
               </div>
               <div style={{ textAlign: "center", minWidth: "55mm" }}>

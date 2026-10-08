@@ -160,7 +160,7 @@ export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => 
                   {t("grh_bulletin.net")}
                 </td>
                 <td className="px-3 py-2.5 border border-gray-300 text-right text-lg font-bold text-green-800 font-mono" colSpan={2}>
-                  {formatMontant(c.net)} FCFA
+                  {formatMontant(c.net)}
                 </td>
               </tr>
             </tbody>

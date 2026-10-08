@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { debutDecompte, moisComplets, soldeConges } from "./conges";
+import { debutDecompte, depassementConges, moisComplets, soldeConges } from "./conges";
 
 const ref = new Date(2026, 9, 8); // 8 octobre 2026
 
@@ -54,5 +54,37 @@ describe("soldeConges — reprise + 2,5 j/mois − congés validés", () => {
   it("solde négatif possible (congés pris par anticipation)", () => {
     const e = { id: 1, dateEmbauche: "2026-09-01", createdAt: "2026-09-01T08:00:00Z" };
     expect(soldeConges(e, [conge("2026-09-21", 5)], ref).restants).toBe(2.5 - 5);
+  });
+});
+
+describe("depassementConges — une demande ne dépasse pas le solde", () => {
+  // Embauché le 1er janvier 2026, sans reprise : 22,5 j acquis au 8 octobre
+  const e = { id: 1, dateEmbauche: "2026-01-01", createdAt: "2026-01-01T08:00:00Z", soldeConges: 0 };
+  const avec = (id: number, a: ReturnType<typeof conge>) => ({ ...a, id });
+
+  it("demande dans le solde : aucun dépassement", () => {
+    expect(depassementConges(e, [], { dateDebut: "2026-10-08", jours: 20 }, { enAttente: true })).toBe(0);
+  });
+
+  it("solde à 0 : toute la demande dépasse", () => {
+    const sansDroit = { ...e, dateEmbauche: "2026-10-01", createdAt: "2026-10-01T08:00:00Z" };
+    expect(depassementConges(sansDroit, [], { dateDebut: "2026-10-08", jours: 3 }, { enAttente: true })).toBe(3);
+  });
+
+  it("à la saisie, les demandes en attente réservent le solde", () => {
+    const absences = [avec(1, conge("2026-09-01", 10, "valide")), avec(2, conge("2026-11-01", 10, "en_validation"))];
+    // 22,5 − 10 validés − 10 en attente = 2,5 disponibles
+    expect(depassementConges(e, absences, { dateDebut: "2026-10-08", jours: 5 }, { enAttente: true })).toBe(2.5);
+  });
+
+  it("à la validation, la demande elle-même et les autres demandes en attente ne comptent pas", () => {
+    const absences = [avec(1, conge("2026-10-08", 20, "en_validation")), avec(2, conge("2026-11-01", 10, "en_validation"))];
+    expect(depassementConges(e, absences, { dateDebut: "2026-10-08", jours: 20 }, { enAttente: false, ignorerId: 1 })).toBe(0);
+    expect(depassementConges(e, absences, { dateDebut: "2026-10-08", jours: 25 }, { enAttente: false, ignorerId: 1 })).toBe(2.5);
+  });
+
+  it("une demande rejetée ne réserve rien", () => {
+    const absences = [avec(1, conge("2026-11-01", 20, "rejete"))];
+    expect(depassementConges(e, absences, { dateDebut: "2026-10-08", jours: 20 }, { enAttente: true })).toBe(0);
   });
 });

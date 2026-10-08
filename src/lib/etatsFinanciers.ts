@@ -148,6 +148,13 @@ export const repartirSoldes = (
 export interface FiscalitePeriode {
   /** Chiffre d'affaires hors taxes (crédits nets des comptes 70). */
   caHT: number;
+  /**
+   * Part du CA soumise à la TVA (ventes dont l'écriture porte de la TVA
+   * collectée 443) et part hors champ / sans TVA : lignes L1 et L2 de la
+   * déclaration.
+   */
+  caTaxable: number;
+  caNonTaxable: number;
   /** Part commerce (701) et part service (autres 70x), pour la patente. */
   caCommerce: number;
   caService: number;
@@ -169,8 +176,15 @@ export const fiscaliteDepuisEcritures = (
     }));
   const caCommerce = 0 - sommePrefixes(soldes, ["701"]);
   const caHT = 0 - sommePrefixes(soldes, ["70"]);
+  const caTaxable = ecritures
+    .filter((e) => e.statut !== "brouillon" && Array.isArray(e.lignes) && e.lignes.some((l) => l.compte.startsWith("443")))
+    .flatMap((e) => e.lignes ?? [])
+    .filter((l) => l.compte.startsWith("70"))
+    .reduce((s, l) => s + (l.credit || 0) - (l.debit || 0), 0);
   return {
     caHT,
+    caTaxable,
+    caNonTaxable: caHT - caTaxable,
     caCommerce,
     caService: caHT - caCommerce,
     tvaCollectee: 0 - sommePrefixes(soldes, ["443"]),

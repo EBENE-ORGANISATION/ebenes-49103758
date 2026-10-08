@@ -24,10 +24,11 @@ import {
   StatutValidation,
   EcritureComptable,
 } from "@/types/ebene";
-import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant } from "@/lib/ebene-utils";
 import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
+import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import {
-  ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation,
+  ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation, soldeCaisse,
   type ReglementImmo,
 } from "@/lib/ecrituresTresorerie";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
@@ -376,6 +377,13 @@ export const useEbeneStoreRemote = (
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
       const aid = t.activiteId ?? stampActiviteId;
+      // Une caisse ne peut pas être négative : on prévient dès la saisie
+      if (t.tresorerie === "571" && t.m < 0) {
+        const apres = soldeCaisse(donneesMensuelles) + t.m;
+        if (apres < 0) {
+          toast.warning(`Caisse insuffisante : après cette dépense, la caisse sera à ${formatMontant(apres)}. Vérifiez le mode de règlement (Banque ?) ou enregistrez d'abord l'approvisionnement de la caisse.`);
+        }
+      }
       void tqTransactions.addTransaction(annee, mois, { ...t, activiteId: aid })
         .then((saved) => {
           log("INSERT", "transactions", saved.id, null, saved);
@@ -392,7 +400,7 @@ export const useEbeneStoreRemote = (
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId, tauxHistorique],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId, tauxHistorique, donneesMensuelles],
   );
 
   /**
@@ -763,11 +771,22 @@ export const useEbeneStoreRemote = (
 
   const validerAbsence = useCallback(
     (_annee: number, _mois: number, id: number) => {
+      // Congé payé : refusé s'il dépasse le solde (congés validés seulement)
+      const toutes = (Object.values(tqAbsences.absences) as Absence[][]).flat();
+      const a = toutes.find((x) => x.id === id);
+      const emp = a && employes.find((e) => e.id === a.employeId);
+      if (a?.type === "conges_payes" && emp) {
+        const depassement = depassementConges(emp, toutes, a, { enAttente: false, ignorerId: id });
+        if (depassement > 0) {
+          toast.error(messageDepassementConges(depassement, a.jours));
+          return;
+        }
+      }
       void tqAbsences.validerAbsence(id)
         .then(() => log("VALIDER_ABSENCE", "absences", id, null, { id }))
         .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de l'absence")));
     },
-    [tqAbsences],
+    [tqAbsences, employes],
   );
 
   const rejeterAbsence = useCallback(

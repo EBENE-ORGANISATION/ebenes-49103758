@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Devis } from "@/types/ebene";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, dateFr } from "@/lib/ebene-utils";
 import { Printer, X, FileDown, FileText } from "lucide-react";
 import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { printElementById } from "@/lib/print";
@@ -107,12 +107,12 @@ export const DevisPreview = ({ devis, onClose }: Props) => {
                 <div style={{ borderTop: "1px dashed #c9b29a", margin: "1mm 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2mm" }}>
                   <span style={{ fontSize: "8.5pt", color: "#7a5a45", textTransform: "uppercase", letterSpacing: "1px" }}>Date</span>
-                  <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{devis.date}</span>
+                  <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{dateFr(devis.date)}</span>
                 </div>
                 {devis.dateValidite && (
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2mm" }}>
                     <span style={{ fontSize: "8.5pt", color: "#7a5a45", textTransform: "uppercase", letterSpacing: "1px" }}>Validité</span>
-                    <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{devis.dateValidite}</span>
+                    <span style={{ fontSize: "10.5pt", fontWeight: 600, color: "#3D0000" }}>{dateFr(devis.dateValidite)}</span>
                   </div>
                 )}
               </div>

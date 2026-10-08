@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, X, AlertTriangle, ShieldAlert, Check, XCircle } from "lucide-react";
-import { todayISO } from "@/lib/ebene-utils";
+import { todayISO, dateFr } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
 import { Trans, useTranslation } from "react-i18next";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
@@ -211,7 +211,7 @@ export const DisciplinePanel = ({
                       <StatutValidationBadge statut={statut} motifRejet={s.motifRejet} />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {s.date} • <strong>{t(`type_sanction.${s.type}`, { defaultValue: TYPE_SANCTION_LABELS[s.type] ?? s.type })}</strong>
+                      {dateFr(s.date)} • <strong>{t(`type_sanction.${s.type}`, { defaultValue: TYPE_SANCTION_LABELS[s.type] ?? s.type })}</strong>
                       {s.joursMiseAPied ? ` (${t("grh_discipline.days_short", { n: s.joursMiseAPied })})` : ""}
                     </p>
                     <p className="text-sm mt-1 whitespace-pre-wrap">{s.motif}</p>

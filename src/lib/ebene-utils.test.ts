@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { EcritureComptable, Facture, Transaction } from "@/types/ebene";
-import { isoLocal, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+import { dateFr, isoLocal, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
 
 describe("dates locales", () => {
@@ -116,7 +116,7 @@ describe("tvaDepuisTransactions", () => {
       [],
       0.18,
     );
-    expect(r).toEqual({ caHT: 0, tvaCollectee: 0, tvaDeductible: 0 });
+    expect(r).toEqual({ caHT: 0, caTaxable: 0, tvaCollectee: 0, tvaDeductible: 0 });
   });
 });
 
@@ -126,5 +126,14 @@ describe("textePdf", () => {
     const s = textePdf(formatMontant(216808));
     expect(s).toBe("216 808 F");
     expect([...s].every((c) => c.charCodeAt(0) < 256)).toBe(true);
+  });
+});
+
+describe("dateFr", () => {
+  it("date ISO affichée jj/mm/aaaa, vide → tiret, autre format inchangé", () => {
+    expect(dateFr("2026-10-05")).toBe("05/10/2026");
+    expect(dateFr("2026-10-05T14:30:00Z")).toBe("05/10/2026");
+    expect(dateFr(null)).toBe("—");
+    expect(dateFr("octobre 2026")).toBe("octobre 2026");
   });
 });

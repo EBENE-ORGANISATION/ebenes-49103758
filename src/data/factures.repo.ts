@@ -139,6 +139,9 @@ export const factures = {
         | "totalTtc"
         | "activiteId"
         | "compteTresorerie"
+        | "client"
+        | "date"
+        | "activite"
       >
     >,
     societeId: string,
@@ -167,6 +170,9 @@ export const factures = {
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
         ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
         ...(patch.compteTresorerie !== undefined && { compte_tresorerie: patch.compteTresorerie ?? null }),
+        ...(patch.client !== undefined && { client: patch.client }),
+        ...(patch.date !== undefined && { date: patch.date }),
+        ...(patch.activite !== undefined && { activite: patch.activite ?? null }),
       })
       .eq("id", id)
       .eq("societe_id", societeId);

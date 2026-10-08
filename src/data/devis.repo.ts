@@ -121,7 +121,8 @@ export const devis = {
   async update(
     id: number,
     patch: Partial<
-      Pick<Devis, "statut" | "factureId" | "notes" | "lignes" | "reduction" | "totalHT" | "totalTva" | "totalTtc" | "activiteId">
+      Pick<Devis, "statut" | "factureId" | "notes" | "lignes" | "reduction" | "totalHT" | "totalTva" | "totalTtc" | "activiteId"
+        | "client" | "date" | "dateValidite" | "avecTva" | "activite">
     >,
     societeId: string,
   ): Promise<void> {
@@ -139,6 +140,11 @@ export const devis = {
         ...(patch.totalTva !== undefined && { total_tva: patch.totalTva }),
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
         ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
+        ...(patch.client !== undefined && { client: patch.client }),
+        ...(patch.date !== undefined && { date: patch.date }),
+        ...(patch.dateValidite !== undefined && { date_validite: patch.dateValidite ?? null }),
+        ...(patch.avecTva !== undefined && { avec_tva: patch.avecTva }),
+        ...(patch.activite !== undefined && { activite: patch.activite ?? null }),
       })
       .eq("id", id)
       .eq("societe_id", societeId);

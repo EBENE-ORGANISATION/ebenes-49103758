@@ -35,30 +35,31 @@ export interface ModuleFlags {
   module_multi_societes: boolean;
 }
 
+// Modules activés à la création selon le plan (ajustables dans l'assistant).
 export const DEFAULT_MODULES_BY_PLAN: Record<string, ModuleFlags> = {
   starter: {
     module_stock: false,
-    module_grh: false,
-    module_fiscalite: false,
+    module_grh: true,
+    module_fiscalite: true,
     module_immobilisations: false,
     module_ia: false,
     module_multi_societes: false,
   },
   pro: {
-    module_stock: false,
-    module_grh: false,
-    module_fiscalite: false,
-    module_immobilisations: false,
+    module_stock: true,
+    module_grh: true,
+    module_fiscalite: true,
+    module_immobilisations: true,
     module_ia: false,
     module_multi_societes: false,
   },
   enterprise: {
-    module_stock: false,
-    module_grh: false,
-    module_fiscalite: false,
-    module_immobilisations: false,
-    module_ia: false,
-    module_multi_societes: false,
+    module_stock: true,
+    module_grh: true,
+    module_fiscalite: true,
+    module_immobilisations: true,
+    module_ia: true,
+    module_multi_societes: true,
   },
 };
 

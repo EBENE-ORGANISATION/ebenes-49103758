@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DonneesMensuelles, MOIS_NOMS, Immobilisation } from "@/types/ebene";
-import { formatMontant, formatSolde, moisKey } from "@/lib/ebene-utils";
+import { DonneesMensuelles, MOIS_NOMS, Immobilisation, TauxFiscaux } from "@/types/ebene";
+import { formatMontant, formatSolde, moisKey, tauxPourMois } from "@/lib/ebene-utils";
+import { caHTMois, sumDepenses, sumRecettes } from "@/lib/tableauDeBord";
 import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,23 +19,27 @@ interface Props {
   annee: number;
   donneesMensuelles: DonneesMensuelles;
   immobilisations?: Immobilisation[];
+  tauxHistorique?: TauxFiscaux[];
 }
 
-export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [] }: Props) => {
+export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles, immobilisations = [], tauxHistorique }: Props) => {
   const { t } = useTranslation();
   const [moisSel, setMoisSel] = useState<number>(new Date().getMonth() + 1);
   const { currentSociete, societeConfig } = useTenant();
 
   const lignes = useMemo(() => {
     return MOIS_NOMS.map((nom, i) => {
+      // Mêmes calculs que le tableau de bord : opérations comptabilisées
+      // (ni rejetées, ni en attente) et écritures saisies sur Banque/Caisse
       const m = donneesMensuelles[moisKey(annee, i + 1)];
-      const trans = m?.transactions || [];
-      const rec = trans.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
-      const dep = Math.abs(trans.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0));
-      const factures = m?.factures || [];
+      const rec = m ? sumRecettes(m) : 0;
+      const dep = m ? sumDepenses(m) : 0;
+      const ca = m ? caHTMois(m, tauxPourMois(tauxHistorique, annee, i + 1).tva) : 0;
+      const factures = (m?.factures || []).filter((f) => f.statut !== "proforma" && f.statut !== "annulee");
       return {
         mois: nom,
         moisNum: i + 1,
+        ca,
         rec,
         dep,
         solde: rec - dep,
@@ -42,11 +47,11 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
         nbPayees: factures.filter((f) => f.statut === "payee").length,
       };
     });
-  }, [annee, donneesMensuelles]);
+  }, [annee, donneesMensuelles, tauxHistorique]);
 
   const totals = lignes.reduce(
-    (a, l) => ({ rec: a.rec + l.rec, dep: a.dep + l.dep, solde: a.solde + l.solde }),
-    { rec: 0, dep: 0, solde: 0 }
+    (a, l) => ({ ca: a.ca + l.ca, rec: a.rec + l.rec, dep: a.dep + l.dep, solde: a.solde + l.solde }),
+    { ca: 0, rec: 0, dep: 0, solde: 0 }
   );
 
   const moisData = lignes.find((l) => l.moisNum === moisSel)!;
@@ -105,7 +110,8 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard label={t("recap.ca_ht")} value={formatMontant(moisData.ca)} tone="info" />
               <StatCard label={t("recap.recettes")} value={formatMontant(moisData.rec)} tone="success" />
               <StatCard label={t("recap.depenses")} value={formatMontant(moisData.dep)} tone="destructive" />
               <StatCard
@@ -122,7 +128,8 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
           </TabsContent>
 
           <TabsContent value="annuel">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <StatCard label={t("recap.ca_ht_year", { annee })} value={formatMontant(totals.ca)} tone="info" />
               <StatCard label={t("recap.recettes_year", { annee })} value={formatMontant(totals.rec)} tone="success" />
               <StatCard label={t("recap.depenses_year", { annee })} value={formatMontant(totals.dep)} tone="destructive" />
               <StatCard
@@ -136,6 +143,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
             <thead>
               <tr className="border-b-2 border-border text-xs uppercase text-muted-foreground">
                 <th className="text-left py-2 px-2">{t("recap.month")}</th>
+                <th className="text-right py-2 px-2">{t("recap.ca_ht")}</th>
                 <th className="text-right py-2 px-2">{t("recap.recettes")}</th>
                 <th className="text-right py-2 px-2">{t("recap.depenses")}</th>
                 <th className="text-right py-2 px-2">{t("recap.solde")}</th>
@@ -146,6 +154,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
               {lignes.map((l) => (
                 <tr key={l.mois} className="border-b border-border hover:bg-muted/30">
                   <td className="py-2 px-2 font-semibold">{l.mois}</td>
+                  <td className="py-2 px-2 text-right amount">{formatMontant(l.ca)}</td>
                   <td className="py-2 px-2 text-right amount text-success">{formatMontant(l.rec)}</td>
                   <td className="py-2 px-2 text-right amount text-destructive">{formatMontant(l.dep)}</td>
                   <td className={`py-2 px-2 text-right amount ${l.solde >= 0 ? "text-info" : "text-destructive"}`}>
@@ -158,6 +167,7 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
               ))}
               <tr className="border-t-2 border-foreground font-bold">
                 <td className="py-3 px-2">{t("recap.total_year", { annee })}</td>
+                <td className="py-3 px-2 text-right amount">{formatMontant(totals.ca)}</td>
                 <td className="py-3 px-2 text-right amount text-success">{formatMontant(totals.rec)}</td>
                 <td className="py-3 px-2 text-right amount text-destructive">{formatMontant(totals.dep)}</td>
                 <td className={`py-3 px-2 text-right amount ${totals.solde >= 0 ? "text-info" : "text-destructive"}`}>

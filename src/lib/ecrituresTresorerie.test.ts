@@ -3,6 +3,7 @@ import {
   ecrituresDeTransaction,
   ecritureTresorerieAutonome,
   estEcritureDeTransaction,
+  soldeCaisse,
 } from "./ecrituresTresorerie";
 
 const equilibre = (lignes: { debit: number; credit: number }[]) =>
@@ -109,5 +110,37 @@ describe("recette avec TVA", () => {
     expect(e.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
       ["521", 354_000, 0], ["706", 0, 300_000], ["4431", 0, 54_000],
     ]);
+  });
+});
+
+describe("soldeCaisse", () => {
+  const t = (id: number, m: number, extra: Record<string, unknown> = {}) =>
+    ({ id, date: "2026-10-05", desc: "x", type: m > 0 ? "r" : "d", m, source: "manuelle", statut: "valide", ...extra });
+  const donnees = {
+    "2026-10": {
+      transactions: [
+        t(1, 50000, { tresorerie: "571" }),
+        t(2, -20000, { tresorerie: "571" }),
+        t(3, -999999, { tresorerie: "521" }), // banque : ignorée
+        t(4, -5000, { tresorerie: "571", statut: "en_validation" }), // pas encore validée
+        t(5, 118000, { source: "facture", factureId: 9, statut: undefined }), // facture encaissée en caisse
+        t(6, -30000, { tresorerie: "571", date: "2026-10-20" }),
+      ],
+      factures: [{ id: 9, compteTresorerie: "571" }],
+      ecritures: [
+        { id: 1, statut: "valide", numeroPiece: "CA-1", journal: "CA", libelle: "", date: "2026-10-06",
+          lignes: [{ id: 1, compte: "571", intitule: "", debit: 0, credit: 8000 }, { id: 2, compte: "6055", intitule: "", debit: 8000, credit: 0 }] },
+        { id: 2, statut: "valide", numeroPiece: "TR-1", journal: "CA", libelle: "", date: "2026-10-05",
+          lignes: [{ id: 1, compte: "571", intitule: "", debit: 50000, credit: 0 }] }, // déjà comptée par la transaction
+      ],
+    },
+  } as never;
+
+  it("recettes et dépenses en caisse, encaissements de factures, écritures saisies en caisse", () => {
+    expect(soldeCaisse(donnees)).toBe(50000 - 20000 + 118000 - 30000 - 8000);
+  });
+
+  it("à une date donnée", () => {
+    expect(soldeCaisse(donnees, "2026-10-10")).toBe(50000 - 20000 + 118000 - 8000);
   });
 });

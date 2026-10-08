@@ -76,3 +76,38 @@ export const soldeConges = (
 /** Nombre de jours à la française : « 22,5 », « 30 ». */
 export const nombreJours = (n: number): string =>
   n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+
+/**
+ * Jours de congés payés demandés au-delà du solde (0 : la demande tient dans
+ * le solde). Règle du 8 octobre 2026 : une demande qui dépasse le solde est
+ * refusée ; l'excédent se prend en congé sans solde.
+ *  - À la saisie (`enAttente: true`), les autres demandes en attente de
+ *    validation sont déduites, pour que deux demandes ne se partagent pas le
+ *    même solde.
+ *  - À la validation (`enAttente: false`), seuls les congés validés comptent.
+ * `ignorerId` : la demande elle-même (validation) ou celle qu'on remplace.
+ */
+export const depassementConges = (
+  e: Pick<Employe, "id" | "dateEmbauche" | "createdAt" | "soldeConges">,
+  absences: Pick<Absence, "id" | "employeId" | "type" | "statutValidation" | "dateDebut" | "jours">[],
+  demande: { dateDebut: string; jours: number },
+  options: { enAttente: boolean; ignorerId?: number },
+): number => {
+  const autres = absences.filter((a) => a.id !== options.ignorerId);
+  const solde = soldeConges(e, autres, dateLocale(demande.dateDebut));
+  const reserves = options.enAttente
+    ? autres
+        .filter((a) =>
+          a.employeId === e.id &&
+          a.type === "conges_payes" &&
+          (a.statutValidation === "en_validation" || a.statutValidation === "brouillon"),
+        )
+        .reduce((s, a) => s + (a.jours || 0), 0)
+    : 0;
+  return Math.max(0, demande.jours - (solde.restants - reserves));
+};
+
+/** Message de refus d'une demande qui dépasse le solde. */
+export const messageDepassementConges = (depassement: number, jours: number): string =>
+  `Solde de congés insuffisant : ${nombreJours(jours - depassement)} j disponible(s) pour ${nombreJours(jours)} j demandé(s). ` +
+  "Réduisez la demande ou prenez l'excédent en congé sans solde.";

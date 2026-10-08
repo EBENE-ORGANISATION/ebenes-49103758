@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMontant, calculerAnciennete } from "@/lib/ebene-utils";
+import { formatMontant, calculerAnciennete, dateFr } from "@/lib/ebene-utils";
 import { printElement } from "@/lib/print";
 import type { Employe } from "@/types/ebene";
 
@@ -172,7 +172,7 @@ export const FichePersonnel = ({ employe: e, societeId, absences: absencesPeriod
           <TabsContent value="info" className="space-y-2 text-sm">
             <Field label="Matricule" value={e.matricule} />
             <Field label="Nom complet" value={e.nom} />
-            <Field label="Date de naissance" value={e.dateNaissance} />
+            <Field label="Date de naissance" value={dateFr(e.dateNaissance)} />
             <Field label="Lieu de naissance" value={e.lieuNaissance} />
             <Field label="Sexe" value={e.sexe === "M" ? "Masculin" : e.sexe === "F" ? "Féminin" : "—"} />
             <Field label="Nationalité" value={e.nationalite} />
@@ -189,8 +189,8 @@ export const FichePersonnel = ({ employe: e, societeId, absences: absencesPeriod
             <Field label="Qualification" value={e.qualification} />
             <Field label="Catégorie / Échelon" value={`${e.categorie ?? "—"} / ${e.echelon ?? "—"}`} />
             <Field label="Type de contrat" value={(e.typeContrat ?? "—").toUpperCase()} />
-            <Field label="Date d'embauche" value={e.dateEmbauche} />
-            <Field label="Date fin contrat" value={e.dateFinContrat ?? "—"} />
+            <Field label="Date d'embauche" value={dateFr(e.dateEmbauche)} />
+            <Field label="Date fin contrat" value={dateFr(e.dateFinContrat)} />
             <Field label="Ancienneté" value={`${anc.toFixed(1)} ans`} />
             <Field label="Salaire de base" value={formatMontant(e.salaire)} />
             <Field label="Sursalaire" value={formatMontant(e.sursalaire ?? 0)} />

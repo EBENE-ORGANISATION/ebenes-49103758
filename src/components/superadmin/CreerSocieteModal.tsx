@@ -365,7 +365,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>{t("creer.regime_fiscal") ?? "Régime fiscal"} *</Label>
+                    <Label>{t("creer.regime_fiscal")} *</Label>
                     <Select value={regime} onValueChange={(v) => setRegime(v as RegimeFiscal)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -377,7 +377,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                     <p className="text-xs text-muted-foreground italic">{REGIME_DESCRIPTIONS[regime]}</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("creer.secteur_activite") ?? "Secteur d'activité"} *</Label>
+                    <Label>{t("creer.secteur_activite")} *</Label>
                     <Select value={secteur} onValueChange={(v) => setSecteur(v as SecteurActivite)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -388,7 +388,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("creer.ca_estime") ?? "CA annuel estimé (FCFA)"}</Label>
+                    <Label>{t("creer.ca_estime")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -408,7 +408,7 @@ export const CreerSocieteModal = ({ open, onOpenChange, onCreated }: Props) => {
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("creer.assujetti_tva") ?? "Assujetti TVA 18%"}</Label>
+                    <Label>{t("creer.assujetti_tva")}</Label>
                     <div className="flex items-center gap-2 mt-2">
                       <Switch checked={assujettiTva} onCheckedChange={setAssujettiTva} />
                       <span className="text-sm">{assujettiTva ? "Oui" : "Non"}</span>

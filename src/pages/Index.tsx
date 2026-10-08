@@ -591,6 +591,7 @@ const Index = () => {
         annee={annee}
         donneesMensuelles={store.donneesMensuelles}
         immobilisations={store.immobilisations}
+        tauxHistorique={store.tauxHistorique}
       />
       <ArchivesModal
         open={showArchives}

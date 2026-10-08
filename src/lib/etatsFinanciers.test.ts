@@ -97,4 +97,16 @@ describe("fiscaliteDepuisEcritures — chiffres fiscaux du mois", () => {
     const f = fiscaliteDepuisEcritures([e([["571", 100_000, 0], ["701", 0, 100_000]]), e([["571", 50_000, 0], ["706", 0, 50_000]])]);
     expect([f.caCommerce, f.caService]).toEqual([100_000, 50_000]);
   });
+
+  it("déclaration TVA : ventes avec TVA (L1) séparées des ventes sans TVA (L2)", () => {
+    const f = fiscaliteDepuisEcritures([
+      e([["4111", 118_000, 0], ["706", 0, 100_000], ["4431", 0, 18_000]]), // facture avec TVA
+      e([["521", 300_000, 0], ["706", 0, 300_000]]), // recette sans TVA
+      e([["4111", 0, 118_000], ["706", 100_000, 0], ["4431", 18_000, 0]]), // facture annulée (contre-passation)
+      e([["4111", 59_000, 0], ["701", 0, 50_000], ["4431", 0, 9_000]]),
+    ]);
+    expect(f.caTaxable).toBe(50_000);
+    expect(f.caNonTaxable).toBe(300_000);
+    expect(f.caHT).toBe(350_000);
+  });
 });

@@ -11,7 +11,7 @@
  *    assurée par l'auth principale de l'application.
  */
 import { useState, useMemo, useEffect, useRef } from "react";
-import { nombreJours, soldeConges as calculerSoldeConges } from "@/lib/conges";
+import { depassementConges, messageDepassementConges, nombreJours, soldeConges as calculerSoldeConges } from "@/lib/conges";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useAuth } from "@/hooks/useAuth";
 import { usePortailEmploye } from "@/hooks/usePortailEmploye";
@@ -69,7 +69,7 @@ import {
 } from "@/types/ebene";
 import { useTranslation } from "react-i18next";
 import { generateBulletin } from "@/lib/bulletinPDF";
-import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO, dateFr } from "@/lib/ebene-utils";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -210,6 +210,17 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
       return;
     }
     const jours = diffJours(demande.dateDebut, demande.dateFin);
+    if (demande.type === "conges_payes") {
+      const toutes = Object.values(store.donneesMensuelles).flatMap((md) => md?.absences || []);
+      const depassement = depassementConges(employe, toutes, { dateDebut: demande.dateDebut, jours }, {
+        enAttente: true,
+        ignorerId: editId ?? undefined,
+      });
+      if (depassement > 0) {
+        toast.error(messageDepassementConges(depassement, jours));
+        return;
+      }
+    }
     const moisD = new Date(demande.dateDebut).getMonth() + 1;
     const anneeD = new Date(demande.dateDebut).getFullYear();
     if (editId != null) {
@@ -280,7 +291,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
             {employe.matricule && <InfoCell icon={<Hash />} label="Matricule" value={employe.matricule} />}
             {employe.email && <InfoCell icon={<Mail />} label="Email" value={employe.email} />}
             {employe.telephone && <InfoCell icon={<Phone />} label="Téléphone" value={employe.telephone} />}
-            {employe.dateEmbauche && <InfoCell icon={<Calendar />} label="Embauche" value={employe.dateEmbauche} />}
+            {employe.dateEmbauche && <InfoCell icon={<Calendar />} label="Embauche" value={dateFr(employe.dateEmbauche)} />}
             {employe.categorie && <InfoCell icon={<FileText />} label="Catégorie" value={employe.categorie} />}
             {!!employe.salaire && (
               <InfoCell
@@ -542,8 +553,8 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                       <TableCell className="text-xs">
                         {TYPE_ABSENCE_LABELS[abs.type as TypeAbsence]?.label ?? abs.type}
                       </TableCell>
-                      <TableCell className="text-xs">{abs.dateDebut}</TableCell>
-                      <TableCell className="text-xs">{abs.dateFin}</TableCell>
+                      <TableCell className="text-xs">{dateFr(abs.dateDebut)}</TableCell>
+                      <TableCell className="text-xs">{dateFr(abs.dateFin)}</TableCell>
                       <TableCell className="text-right text-xs">{abs.jours}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {abs.motif || "—"}
@@ -637,7 +648,7 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
                   .sort((a, b) => (a.date < b.date ? 1 : -1))
                   .map((s) => (
                     <TableRow key={s.id}>
-                      <TableCell className="text-xs">{s.date}</TableCell>
+                      <TableCell className="text-xs">{dateFr(s.date)}</TableCell>
                       <TableCell className="text-xs">
                         {TYPE_SANCTION_LABELS[s.type as keyof typeof TYPE_SANCTION_LABELS] ?? s.type}
                       </TableCell>

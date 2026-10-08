@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { nombreJours, soldeConges } from "@/lib/conges";
+import { depassementConges, messageDepassementConges, nombreJours, soldeConges } from "@/lib/conges";
+import { toast } from "sonner";
 import { Absence, Employe, TypeAbsence, TYPE_ABSENCE_LABELS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, X, Check, XCircle } from "lucide-react";
-import { formatJours, todayISO, isoLocal } from "@/lib/ebene-utils";
+import { formatJours, todayISO, isoLocal, dateFr } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
 import { Trans, useTranslation } from "react-i18next";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
@@ -89,6 +90,11 @@ export const AbsencesPanel = ({
     if (!employeId) return alert(t("grh_absences.err_employee"));
     const eid = parseInt(employeId, 10);
     const jours = calcJours(debut, fin);
+    if (type === "conges_payes") {
+      const emp = employes.find((e) => e.id === eid);
+      const depassement = emp ? depassementConges(emp, absences, { dateDebut: debut, jours }, { enAttente: true }) : 0;
+      if (depassement > 0) return void toast.error(messageDepassementConges(depassement, jours));
+    }
     const motifFinal = motifLegal
       ? `[${MOTIFS_LEGAUX.find((m) => m.value === motifLegal)?.label ?? motifLegal}]${motif ? " — " + motif : ""}`
       : motif;
@@ -178,8 +184,8 @@ export const AbsencesPanel = ({
             const demande = calcJours(debut, fin);
             return (
               <p className={`text-xs ${demande > solde.restants ? "text-warning font-medium" : "text-muted-foreground"}`}>
-                Solde de congés au {debut} : {nombreJours(solde.restants)} j
-                {demande > solde.restants && " — la demande dépasse le solde (congé pris par anticipation)."}
+                Solde de congés au {dateFr(debut)} : {nombreJours(solde.restants)} j
+                {demande > solde.restants && " — la demande dépasse le solde : réduisez-la ou prenez l'excédent en congé sans solde."}
               </p>
             );
           })()}
@@ -211,7 +217,7 @@ export const AbsencesPanel = ({
                     <StatutValidationBadge statut={statut} motifRejet={a.motifRejet} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {t(`type_absence.${a.type}`, { defaultValue: TYPE_ABSENCE_LABELS[a.type]?.label ?? a.type })} • {a.dateDebut} → {a.dateFin} • {formatJours(a.jours)}
+                    {t(`type_absence.${a.type}`, { defaultValue: TYPE_ABSENCE_LABELS[a.type]?.label ?? a.type })} • {dateFr(a.dateDebut)} → {dateFr(a.dateFin)} • {formatJours(a.jours)}
                   </p>
                   {a.motif && <p className="text-xs italic mt-0.5">{a.motif}</p>}
                   {statut === "rejete" && a.motifRejet && (

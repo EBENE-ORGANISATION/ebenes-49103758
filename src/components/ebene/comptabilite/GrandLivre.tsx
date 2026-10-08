@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Search, Printer, BookMarked } from "lucide-react";
 import { type DonneesMensuelles, type EcritureComptable } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant, dateFr } from "@/lib/ebene-utils";
 import { printElement } from "@/lib/print";
 
 interface Props {
@@ -203,7 +203,7 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
                               i % 2 === 0 ? "bg-background" : "bg-muted/10"
                             }`}
                           >
-                            <td className="px-3 py-1.5 tabular-nums">{m.date}</td>
+                            <td className="px-3 py-1.5 tabular-nums">{dateFr(m.date)}</td>
                             <td className="px-2 py-1.5">
                               <span className="text-[10px] font-mono font-bold text-muted-foreground">{m.journal}</span>
                             </td>

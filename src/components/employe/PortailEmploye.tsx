@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { nombreJours, soldeConges as calculerSoldeConges } from "@/lib/conges";
+import { depassementConges, messageDepassementConges, nombreJours, soldeConges as calculerSoldeConges } from "@/lib/conges";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useAuth } from "@/hooks/useAuth";
 import { usePortailEmploye } from "@/hooks/usePortailEmploye";
@@ -34,7 +34,7 @@ import { useTranslation } from "react-i18next";
 import { generateBulletin } from "@/lib/bulletinPDF";
 import { useTenant } from "@/hooks/useTenant";
 import { supabase } from "@/lib/supabase";
-import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO, dateFr } from "@/lib/ebene-utils";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 /** Construit l'objet societeInfo passé aux générateurs PDF / en-têtes. */
@@ -276,6 +276,17 @@ export const PortailEmploye = () => {
     if (jours <= 0) {
       toast.error("Dates invalides");
       return;
+    }
+    if (demande.type === "conges_payes") {
+      const toutes = Object.values(store.donneesMensuelles).flatMap((md) => md?.absences || []);
+      const depassement = depassementConges(employe, toutes, { dateDebut: demande.dateDebut, jours }, {
+        enAttente: true,
+        ignorerId: editId ?? undefined,
+      });
+      if (depassement > 0) {
+        toast.error(messageDepassementConges(depassement, jours));
+        return;
+      }
     }
     const moisDemande = new Date(demande.dateDebut).getMonth() + 1;
     const anneeDemande = new Date(demande.dateDebut).getFullYear();
@@ -529,7 +540,7 @@ export const PortailEmploye = () => {
                   <Calendar className="size-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-semibold">Date d'embauche</p>
-                    <p className="font-medium">{employe.dateEmbauche}</p>
+                    <p className="font-medium">{dateFr(employe.dateEmbauche)}</p>
                   </div>
                 </div>
               )}
@@ -770,8 +781,8 @@ export const PortailEmploye = () => {
                     .map(({ abs }) => (
                       <TableRow key={abs.id}>
                         <TableCell>{t(`type_absence.${abs.type}`, { defaultValue: TYPE_ABSENCE_LABELS[abs.type as TypeAbsence]?.label ?? abs.type })}</TableCell>
-                        <TableCell>{abs.dateDebut}</TableCell>
-                        <TableCell>{abs.dateFin}</TableCell>
+                        <TableCell>{dateFr(abs.dateDebut)}</TableCell>
+                        <TableCell>{dateFr(abs.dateFin)}</TableCell>
                         <TableCell className="text-right">{abs.jours}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {abs.motif || "-"}
@@ -871,7 +882,7 @@ export const PortailEmploye = () => {
                     .sort((a, b) => (a.date < b.date ? 1 : -1))
                     .map((s) => (
                       <TableRow key={s.id}>
-                        <TableCell>{s.date}</TableCell>
+                        <TableCell>{dateFr(s.date)}</TableCell>
                         <TableCell>{t(`type_sanction.${s.type}`, { defaultValue: TYPE_SANCTION_LABELS[s.type as keyof typeof TYPE_SANCTION_LABELS] ?? s.type })}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {s.motif || "-"}

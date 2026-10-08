@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil, Wallet, Landmark, Ban } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, todayISO, dateFr } from "@/lib/ebene-utils";
 import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
 import { OCRFacture, type OCRDraft } from "./OCRFacture";
@@ -525,7 +525,7 @@ export const Factures = ({
                     </div>
                     <p className="font-semibold mt-0.5 truncate">{f.client}</p>
                     <p className="text-xs text-muted-foreground">
-                      {f.date} • {f.lignes.length} ligne{f.lignes.length > 1 ? "s" : ""}
+                      {dateFr(f.date)} • {f.lignes.length} ligne{f.lignes.length > 1 ? "s" : ""}
                       {f.avecTva && " • TVA 18%"}
                       {f.activite && ` • ${f.activite === "service" ? "Service" : "Commerce"}`}
                     </p>

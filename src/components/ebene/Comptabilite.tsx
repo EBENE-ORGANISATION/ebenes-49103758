@@ -23,7 +23,7 @@ import { StatCard } from "./StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMontant, formatMontantSigne, todayISO, transactionComptabilisee } from "@/lib/ebene-utils";
+import { formatMontant, formatMontantSigne, todayISO, transactionComptabilisee, dateFr } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -635,7 +635,7 @@ export const Comptabilite = ({
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {t.date} • {t.type === "r" ? "Recette" : "Dépense"}
+                          {dateFr(t.date)} • {t.type === "r" ? "Recette" : "Dépense"}
                           {t.fournisseur && ` • ${t.fournisseur}`}
                         </p>
                         {t.statut === "rejete" && t.motifRejet && (

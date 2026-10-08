@@ -219,9 +219,11 @@ export const Fiscalite = ({
     // TVA et CA hors taxes
     const parTransactions =
       tvaDepuisTransactions(data.transactions, data.factures, taux.tva, data.ecritures ?? []);
-    const { caHT, tvaCollectee, tvaDeductible } = avecEcritures ? fiscEcritures : parTransactions;
+    const { caHT, caTaxable, tvaCollectee, tvaDeductible } = avecEcritures ? fiscEcritures : parTransactions;
     const rec = caHT;
-    const ben = Math.max(0, avecEcritures ? fiscEcritures.resultat : caHT - dep);
+    // Résultat signé (perte négative) ; l'IS ne porte que sur un bénéfice
+    const resultat = avecEcritures ? fiscEcritures.resultat : caHT - dep;
+    const ben = Math.max(0, resultat);
 
     // Patente par activité, sur le CA hors taxes
     const totalTtc = recettes.reduce((a, x) => a + x.m, 0);
@@ -267,10 +269,10 @@ export const Fiscalite = ({
     });
 
     return {
-      rec, dep, ben,
+      rec, dep, ben, resultat,
       recService, recCommerce,
       is, imfMensuel, imfAnnuel, impot, regime,
-      caHT, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
+      caHT, caTaxable, caNonTaxable: caHT - caTaxable, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
       patService, patCommerce, pat,
       thAnnuel, thDuMois, loyerAnnuel, rslAnnuel, rslMensuel,
       masse, cnssEmp, amuEmp, cnssSal, amuSal,
@@ -289,8 +291,9 @@ export const Fiscalite = ({
   const tvaCalc = useMemo(() => {
 
     // Section II — CA HT
-    const l1  = Math.round(calc.caHT);
-    const l2  = tvaManuel.l3;   // exonérées
+    // L1 : ventes soumises à la TVA ; L2 : ventes sans TVA (calculées) + saisie manuelle
+    const l1  = Math.round(calc.caTaxable);
+    const l2  = Math.round(calc.caNonTaxable) + tvaManuel.l3;   // exonérées / hors champ
     const l3  = tvaManuel.l4;   // autres taux
     const l4  = tvaManuel.l5;   // LASM
     const l6  = l1 + l2 + l3 + l4;  // total CA HT
@@ -454,7 +457,9 @@ export const Fiscalite = ({
         <TabsContent value="dashboard" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <StatCard label="CA (mois)"        value={`${fmt(calc.rec)} FCFA`}         tone="info" />
-            <StatCard label="Bénéfice"          value={`${fmt(calc.ben)} FCFA`}         tone="success" />
+            <StatCard label={calc.resultat < 0 ? "Perte" : "Bénéfice"}
+                            value={`${calc.resultat < 0 ? "−" : ""}${fmt(Math.abs(calc.resultat))} FCFA`}
+                            tone={calc.resultat < 0 ? "destructive" : "success"} />
             <StatCard label={`TVA (${(taux.tva*100).toFixed(0)}%)`}
                             value={calc.tvaAPayer > 0 ? `${fmt(calc.tvaAPayer)} FCFA` : "Crédit"}
                             tone={calc.tvaAPayer > 0 ? "destructive" : "success"}
@@ -597,15 +602,20 @@ export const Fiscalite = ({
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L1</td>
                   <td className="p-2.5">
                     Ventes / prestations taxables intérieures ({(taux.tva * 100).toFixed(0)}%)
-                    {avecEcritures && <span className="ml-1 text-xs text-emerald-600">(≡ 70x crédit)</span>}
+                    {avecEcritures && <span className="ml-1 text-xs text-emerald-600">(≡ ventes 70x avec TVA 443)</span>}
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold">{fmt(tvaCalc.l1)} FCFA</td>
                 </tr>
-                {/* L2 — exonérées (saisie manuelle) */}
+                {/* L2 — ventes sans TVA (calculées) + complément saisi */}
                 <tr>
                   <td className="p-2.5 text-muted-foreground font-bold text-xs">L2</td>
                   <td className="p-2.5 flex items-center gap-2">
-                    <span>Ventes exonérées / hors champ TVA</span>
+                    <span>
+                      Ventes exonérées / hors champ TVA
+                      {calc.caNonTaxable > 0 && (
+                        <span className="ml-1 text-xs text-muted-foreground">({fmt(Math.round(calc.caNonTaxable))} sans TVA + complément)</span>
+                      )}
+                    </span>
                     <Input
                       type="number" min={0}
                       value={tvaManuel.l3 || ""}
@@ -893,7 +903,8 @@ export const Fiscalite = ({
               <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Calcul mensuel</p>
               <Row label="CA (mois)"              value={`${fmt(calc.rec)} FCFA`} />
               <Row label="Dépenses (mois)"        value={`${fmt(calc.dep)} FCFA`} />
-              <Row label="Bénéfice net (mois)"    value={`${fmt(calc.ben)} FCFA`} />
+              <Row label={calc.resultat < 0 ? "Perte nette (mois)" : "Bénéfice net (mois)"}
+                   value={`${calc.resultat < 0 ? "−" : ""}${fmt(Math.abs(calc.resultat))} FCFA`} />
               <Row label={`IS ${(taux.is*100).toFixed(0)}% × bénéfice`} value={`${fmt(calc.is)} FCFA`} />
               <Row label={`IMF mensuel (${fmt(calc.imfAnnuel)} ÷ 12)`}  value={`${fmt(calc.imfMensuel)} FCFA`} />
               <Row label={`Régime appliqué : ${calc.regime}`}

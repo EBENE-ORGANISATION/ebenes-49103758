@@ -61,6 +61,10 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     if (!form.nom.trim())                   errs.nom     = t("grh_form.err_name");
     if (!form.poste.trim())                 errs.poste   = t("grh_form.err_job");
     if (!form.salaire || form.salaire <= 0) errs.salaire = t("grh_form.err_salary");
+    if (form.typeContrat === "cdd") {
+      if (!form.dateFinContrat) errs.dateFinContrat = t("grh_form.err_cdd_end");
+      else if (form.dateEmbauche && form.dateFinContrat <= form.dateEmbauche) errs.dateFinContrat = t("grh_form.err_cdd_end_before");
+    }
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setSaving(true);
@@ -196,8 +200,9 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
             <Input type="date" value={form.dateEmbauche || ""} onChange={(e) => update("dateEmbauche", e.target.value)} />
           </Field>
           {form.typeContrat === "cdd" && (
-            <Field label={t("grh_form.end_date")}>
-              <Input type="date" value={form.dateFinContrat || ""} onChange={(e) => update("dateFinContrat", e.target.value)} />
+            <Field label={`${t("grh_form.end_date")} *`} error={errors.dateFinContrat}>
+              <Input type="date" value={form.dateFinContrat || ""}
+                onChange={(e) => { update("dateFinContrat", e.target.value); setErrors((p) => ({ ...p, dateFinContrat: "" })); }} />
             </Field>
           )}
           <Field label="Congés restants à la reprise (jours)">

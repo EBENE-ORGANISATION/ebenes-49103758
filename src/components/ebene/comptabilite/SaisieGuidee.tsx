@@ -327,9 +327,11 @@ export const SaisieGuidee = ({
             </p>
           )}
         </div>
-        {/* Montant HT */}
+        {/* Montant (HT si l'opération porte de la TVA) */}
         <div className="space-y-1.5">
-          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Montant HT (FCFA) *</Label>
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            {OPS_SANS_TVA.includes(typeOp) || !avecTva ? "Montant (FCFA) *" : "Montant HT (FCFA) *"}
+          </Label>
           <Input
             type="number"
             min="0"

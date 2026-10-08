@@ -1,6 +1,7 @@
 // Écritures générées pour les recettes / dépenses saisies en trésorerie — module pur.
-import type { EcritureComptable, LigneEcriture, Transaction } from "@/types/ebene";
+import type { DonneesMensuelles, EcritureComptable, LigneEcriture, Transaction } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
+import { transactionComptabilisee } from "@/lib/ebene-utils";
 
 export type CompteTresorerie = "521" | "571";
 
@@ -164,4 +165,29 @@ export const ecritureAcquisitionImmo = (
     annee,
     mois,
   };
+};
+
+/**
+ * Solde de la caisse (comptes 57) à une date, toutes périodes confondues :
+ * recettes et dépenses comptabilisées réglées en caisse, plus les écritures
+ * saisies directement en comptabilité qui mouvementent un compte 57.
+ * Une recette de facture suit le compte d'encaissement de sa facture ; les
+ * salaires et les opérations sans compte enregistré sont réputés en banque.
+ */
+export const soldeCaisse = (donnees: DonneesMensuelles, jusquau?: string): number => {
+  const mois = Object.values(donnees || {});
+  const factures = new Map(mois.flatMap((m) => m?.factures || []).map((f) => [f.id, f]));
+  let solde = 0;
+  for (const m of mois) {
+    for (const t of m?.transactions || []) {
+      if (!transactionComptabilisee(t) || (jusquau && t.date > jusquau)) continue;
+      const compte = t.tresorerie ?? (t.factureId ? factures.get(t.factureId)?.compteTresorerie : undefined);
+      if (compte === "571") solde += t.m;
+    }
+    for (const e of m?.ecritures || []) {
+      if (!ecritureTresorerieAutonome(e) || (jusquau && e.date && e.date > jusquau)) continue;
+      for (const l of e.lignes || []) if (l.compte.startsWith("57")) solde += l.debit - l.credit;
+    }
+  }
+  return Math.round(solde);
 };

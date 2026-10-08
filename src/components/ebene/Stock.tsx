@@ -12,7 +12,7 @@ import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, 
 import { StatCard } from "./StatCard";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
-import { formatMontant, formatSolde, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, todayISO, dateFr } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -385,7 +385,7 @@ const MouvementsPanel = ({
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{a?.designation || "Article supprimé"} <span className="text-xs text-muted-foreground">({a?.reference || "-"})</span></p>
                     <p className="text-xs text-muted-foreground">
-                      {m.date} • {TYPE_MVT_LABEL[m.type]} • Qté : <strong>{m.quantite}</strong>
+                      {dateFr(m.date)} • {TYPE_MVT_LABEL[m.type]} • Qté : <strong>{m.quantite}</strong>
                       {m.prixUnitaire ? ` • PU : ${formatMontant(m.prixUnitaire)}` : ""}
                       {m.reference ? ` • Réf : ${m.reference}` : ""}
                     </p>

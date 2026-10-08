@@ -19,7 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Plus, Trash2, FileSpreadsheet, Building2, ArrowRightLeft, BookOpen, Loader2 } from "lucide-react";
-import { formatMontant, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, todayISO, dateFr } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { StatCard } from "./StatCard";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -457,7 +457,7 @@ export const Immobilisations = ({
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs">{i.dateAcquisition}</TableCell>
+                  <TableCell className="text-xs">{dateFr(i.dateAcquisition)}</TableCell>
                   <TableCell className="text-xs">
                     {i.methode === "lineaire" ? "Linéaire" : "Dégressif"} · {i.dureeAmortissement} ans
                   </TableCell>

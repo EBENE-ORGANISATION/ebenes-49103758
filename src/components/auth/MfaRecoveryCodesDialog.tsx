@@ -34,7 +34,7 @@ export const MfaRecoveryCodesDialog = ({ open, codes, onClose }: Props) => {
 
   const handleDownload = () => {
     const content = [
-      "Codes de récupération 2FA — EBENE SERVICES",
+      "Codes de récupération 2FA — Ébène Suite",
       `Générés le : ${new Date().toLocaleString("fr-FR")}`,
       "",
       "⚠️ Chaque code ne peut être utilisé qu'une seule fois.",
@@ -62,7 +62,7 @@ export const MfaRecoveryCodesDialog = ({ open, codes, onClose }: Props) => {
         ul { font-family: monospace; font-size: 1.1rem; line-height: 2; list-style: none; padding: 0; }
         li { border-bottom: 1px dashed #ccc; padding: 0.25rem 0; }
       </style></head><body>
-        <h1>Codes de récupération 2FA — EBENE SERVICES</h1>
+        <h1>Codes de récupération 2FA — Ébène Suite</h1>
         <p>Généré le ${new Date().toLocaleString("fr-FR")}</p>
         <p><strong>⚠️ Chaque code ne peut être utilisé qu'une seule fois.</strong></p>
         <ul>${codes.map((c) => `<li>${c}</li>`).join("")}</ul>

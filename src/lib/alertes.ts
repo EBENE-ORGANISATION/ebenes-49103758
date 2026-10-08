@@ -5,11 +5,12 @@ import type {
   Facture,
   MoisData,
 } from "@/types/ebene";
-import { moisKey, isoLocal } from "@/lib/ebene-utils";
+import { moisKey, isoLocal, formatMontant } from "@/lib/ebene-utils";
+import { soldeCaisse } from "@/lib/ecrituresTresorerie";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AlerteSeverite = "info" | "warning" | "danger";
-export type AlerteCategorie = "facture" | "fiscal" | "rh" | "stock";
+export type AlerteCategorie = "facture" | "fiscal" | "rh" | "stock" | "tresorerie";
 
 export interface Alerte {
   id: string;
@@ -30,6 +31,46 @@ const MS_PAR_JOUR = 1000 * 60 * 60 * 24;
 
 const joursEntre = (a: Date, b: Date) =>
   Math.floor((b.getTime() - a.getTime()) / MS_PAR_JOUR);
+
+/** Cotisations et IRPP retenus sur les salaires et non encore reversés. */
+export interface DettesPaie {
+  cnss: number; // 431
+  amu: number;  // 433
+  irpp: number; // 447
+}
+
+/**
+ * Montants dus aux organismes : solde créditeur des comptes 431, 433 et 447.
+ * Avec `avant`, seules les retenues comptabilisées avant cette date sont
+ * comptées (les reversements, eux, sont tous déduits) : c'est ce qui aurait
+ * déjà dû être reversé.
+ */
+export const dettesPaie = (donnees: DonneesMensuelles, avant?: string): DettesPaie => {
+  const credit: DettesPaie = { cnss: 0, amu: 0, irpp: 0 };
+  const debit: DettesPaie = { cnss: 0, amu: 0, irpp: 0 };
+  const cle = (compte: string): keyof DettesPaie | null =>
+    compte.startsWith("431") ? "cnss" : compte.startsWith("433") ? "amu" : compte.startsWith("447") ? "irpp" : null;
+  for (const m of Object.values(donnees || {})) {
+    for (const e of m?.ecritures || []) {
+      if (e.statut === "brouillon") continue;
+      for (const l of e.lignes || []) {
+        const k = cle(l.compte);
+        if (!k) continue;
+        debit[k] += l.debit;
+        if (!avant || (e.date ?? "") < avant) credit[k] += l.credit;
+      }
+    }
+  }
+  const du = (k: keyof DettesPaie) => Math.max(0, Math.round(credit[k] - debit[k]));
+  return { cnss: du("cnss"), amu: du("amu"), irpp: du("irpp") };
+};
+
+const detailDettes = (d: DettesPaie) =>
+  [
+    d.cnss > 0 && `CNSS (431) ${formatMontant(d.cnss)}`,
+    d.amu > 0 && `AMU (433) ${formatMontant(d.amu)}`,
+    d.irpp > 0 && `IRPP (447) ${formatMontant(d.irpp)}`,
+  ].filter(Boolean).join(" • ");
 
 /**
  * Détecte les alertes actives à partir du store.
@@ -90,13 +131,45 @@ export const getAlertes = (store: AlertesStoreInput): Alerte[] => {
       description: `Déclaration TVA — période ${periodeLabel} (échéance ${echeance.toLocaleDateString("fr-FR")})`,
       date: dateISO,
     });
+    // Retenues de la période (avant le 1er du mois de l'échéance) encore dues
+    const dues = dettesPaie(store.donneesMensuelles, isoLocal(new Date(echeance.getFullYear(), echeance.getMonth(), 1)));
+    const total = dues.cnss + dues.amu + dues.irpp;
     alertes.push({
       id: `cnss-${periodeKey}`,
       categorie: "fiscal",
       severite: sev,
-      titre: `Échéance CNSS dans ${jours} jour${jours > 1 ? "s" : ""}`,
-      description: `Cotisations CNSS — période ${periodeLabel} (échéance ${echeance.toLocaleDateString("fr-FR")})`,
+      titre: `Reversement cotisations et IRPP dans ${jours} jour${jours > 1 ? "s" : ""}`,
+      description: total > 0
+        ? `Période ${periodeLabel}, à reverser avant le ${echeance.toLocaleDateString("fr-FR")} : ${detailDettes(dues)}`
+        : `Cotisations CNSS / AMU et IRPP — période ${periodeLabel} (échéance ${echeance.toLocaleDateString("fr-FR")})`,
       date: dateISO,
+    });
+  }
+
+  // Retard : retenues des mois précédents toujours dues après le 15
+  if (now.getDate() > 15) {
+    const debutMois = isoLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+    const enRetard = dettesPaie(store.donneesMensuelles, debutMois);
+    if (enRetard.cnss + enRetard.amu + enRetard.irpp > 0) {
+      alertes.push({
+        id: `reversement-retard-${moisKey(now.getFullYear(), now.getMonth() + 1)}`,
+        categorie: "fiscal",
+        severite: "danger",
+        titre: "Cotisations et IRPP non reversés",
+        description: `Échéance du 15 dépassée : ${detailDettes(enRetard)}`,
+      });
+    }
+  }
+
+  // ─── Caisse négative ──────────────────────────────────────────────────────
+  const caisse = soldeCaisse(store.donneesMensuelles, isoLocal(now));
+  if (caisse < 0) {
+    alertes.push({
+      id: `caisse-negative-${isoLocal(now)}`,
+      categorie: "tresorerie",
+      severite: "danger",
+      titre: "Caisse négative",
+      description: `Solde de la caisse : ${formatMontant(caisse)}. Une caisse ne peut pas être négative : vérifiez les dépenses réglées en caisse (Banque au lieu de Caisse ?) ou enregistrez l'approvisionnement de la caisse.`,
     });
   }
 
