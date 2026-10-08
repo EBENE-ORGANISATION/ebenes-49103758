@@ -46,7 +46,8 @@ import type {
   MoisData,
   Activite,
 } from "@/types/ebene";
-import { formatMontant, moisKey, tauxPourMois, transactionComptabilisee } from "@/lib/ebene-utils";
+import { formatMontant, moisKey, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "@/lib/ebene-utils";
+import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
@@ -105,6 +106,16 @@ const sumRecettes = (m: MoisData): number => {
     }, 0);
   return recTrans + recEcritures;
 };
+
+/**
+ * Chiffre d'affaires hors taxes du mois, comme l'onglet Fiscalité : comptes 70
+ * des écritures validées, à défaut les recettes (factures en HT). Les apports,
+ * emprunts et autres encaissements ne sont pas du chiffre d'affaires.
+ */
+const caHTMois = (m: MoisData, tauxTva: number): number =>
+  (m.ecritures || []).some((e) => e.statut !== "brouillon")
+    ? fiscaliteDepuisEcritures(m.ecritures || []).caHT
+    : tvaDepuisTransactions(m.transactions, m.factures, tauxTva, m.ecritures || []).caHT;
 
 const sumDepenses = (m: MoisData): number => {
   const depTrans = m.transactions
@@ -207,16 +218,16 @@ export const Dashboard = ({
     const m: MoisData  = moisCourant  ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
     const mp: MoisData = moisPrecedent ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
 
-    const ca         = sumRecettes(m);
-    const caPrecedent = sumRecettes(mp);
+    const ca         = caHTMois(m, taux.tva);
+    const caPrecedent = caHTMois(mp, taux.tva);
     const tendanceCA = calcTendance(ca, caPrecedent);
 
-    const masseSalariale = employes.reduce(
-      (s, e) =>
-        s + (e.salaire || 0) + (e.indemniteTransport || 0) + (e.indemniteLogement || 0)
-          + (e.indemniteFonction || 0) + (e.sursalaire || 0),
-      0,
-    );
+    // Brut du mois calculé comme les bulletins (ancienneté, primes et HS
+    // validées, congés sans solde déduits)
+    const masseSalariale = employes.reduce((s, e) => {
+      const p = calculerPaie(e, m, annee, mois, taux);
+      return s + p.brut - p.deductionSansSolde;
+    }, 0);
 
     const facturesImpayees = m.factures.filter((f) => f.statut === "en_attente");
     const montantImpaye    = facturesImpayees.reduce((s, f) => s + f.totalTtc, 0);
@@ -245,7 +256,7 @@ export const Dashboard = ({
       montantImpaye,
       tresorerie, tresoreriePrecedente, tendanceTresorerie,
     };
-  }, [moisCourant, moisPrecedent, employes, donneesMensuelles, annee, mois]);
+  }, [moisCourant, moisPrecedent, employes, donneesMensuelles, annee, mois, taux]);
 
   // ── Sparkline trésorerie 6 mois ──────────────────────────────────────────
   const sparklineTresorerie = useMemo(() => {
@@ -270,11 +281,11 @@ export const Dashboard = ({
       const mm = donneesMensuelles[moisKey(a, mo)];
       out.push({
         label: `${MOIS_COURTS[d.getMonth()]} ${String(a).slice(2)}`,
-        ca: mm ? sumRecettes(mm) : 0,
+        ca: mm ? caHTMois(mm, tauxPourMois(tauxHistorique, a, mo).tva) : 0,
       });
     }
     return out;
-  }, [donneesMensuelles, annee, mois]);
+  }, [donneesMensuelles, annee, mois, tauxHistorique]);
 
   const moyenneCA = useMemo(() => {
     const vals = serieCA.map((d) => d.ca).filter((v) => v > 0);
@@ -347,13 +358,13 @@ export const Dashboard = ({
     if (!showRepartition || !moisCourant) return [];
     const rows = activites.map((a) => {
       const sub = filterMoisByActivite(moisCourant, a.id);
-      const ca = sumRecettes(sub);
+      const ca = caHTMois(sub, taux.tva);
       const dep = sumDepenses(sub);
       return { id: a.id, nom: a.nom, couleur: a.couleur, ca, dep, solde: ca - dep };
     });
     // Lignes sans activité (repli), affichées seulement si elles portent des montants.
     const sub0 = filterMoisByActivite(moisCourant, null);
-    const ca0 = sumRecettes(sub0);
+    const ca0 = caHTMois(sub0, taux.tva);
     const dep0 = sumDepenses(sub0);
     if (ca0 !== 0 || dep0 !== 0) {
       rows.push({ id: "__none__", nom: "Sans activité", couleur: "#94a3b8", ca: ca0, dep: dep0, solde: ca0 - dep0 });
@@ -361,7 +372,7 @@ export const Dashboard = ({
     return rows
       .filter((r) => r.ca !== 0 || r.dep !== 0)
       .sort((x, y) => y.ca - x.ca);
-  }, [showRepartition, moisCourant, activites]);
+  }, [showRepartition, moisCourant, activites, taux.tva]);
 
   const totalRepartitionCA = useMemo(
     () => repartition.reduce((s, r) => s + r.ca, 0),
@@ -555,6 +566,7 @@ export const Dashboard = ({
         employes={employes}
         annee={annee}
         mois={mois}
+        taux={taux}
       />
 
       {/* ── D4 : Graphique CA 12 mois avec moyenne + annotation pic ──────── */}

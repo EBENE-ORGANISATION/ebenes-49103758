@@ -783,9 +783,10 @@ const en: Translation = {
     pending_invoices: "+ Pending invoices:",
     payroll_loaded: "− Loaded payroll cost:",
     starting_cash: "+ Starting cash:",
+    taxes_due: "− Taxes and contributions due:",
     recurring_expenses: "− Recurring expenses (3-mo avg):",
     note:
-      "Estimate based on pending invoices, loaded payroll (~22.5% employer charges) and the average of non-payroll expenses over the last 3 months.",
+      "Estimate based on pending invoices, the month's employer cost (computed like payslips), taxes and contributions due and the average of non-payroll expenses over the last 3 months.",
   },
   recap: {
     title: "📊 {{annee}} Summary",

@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import { ecritureTresorerieAutonome } from "@/lib/ecrituresTresorerie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp } from "lucide-react";
-import { DonneesMensuelles, Employe, MoisData } from "@/types/ebene";
+import { DonneesMensuelles, Employe, MoisData, TAUX_DEFAUT, type TauxFiscaux } from "@/types/ebene";
+import { calculerPaie } from "@/lib/paie";
 import { formatMontant, moisKey } from "@/lib/ebene-utils";
+import { sommePrefixes } from "@/lib/etatsFinanciers";
 import { useTranslation } from "react-i18next";
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   employes: Employe[];
   annee: number;
   mois: number;
+  /** Taux CNSS/AMU du mois (historique de la société). */
+  taux?: TauxFiscaux;
 }
 
 /** Montant avec « - » s'il est négatif (formatMontant affiche la valeur absolue). */
@@ -40,12 +44,14 @@ const sumEcrituresMois = (m: MoisData | undefined, type: "r" | "d"): number => {
  *  - Prévision 30 j  = trésorerie nette + factures en_attente du mois
  *                       − charges récurrentes estimées (masse salariale chargée
  *                       + moyenne des dépenses des 3 derniers mois)
+ *                       − impôts et cotisations dus (CNSS/AMU, IRPP, TVA)
  */
 export const TresorerieCard = ({
   donneesMensuelles,
   employes,
   annee,
   mois,
+  taux = TAUX_DEFAUT,
 }: Props) => {
   const { t } = useTranslation();
   const k = moisKey(annee, mois);
@@ -70,19 +76,13 @@ export const TresorerieCard = ({
       .filter((f) => f.statut === "en_attente")
       .reduce((s, f) => s + f.totalTtc, 0);
 
-    // Charges récurrentes mensuelles estimées
-    //  - masse salariale brute + ~22.5% de charges patronales
-    const masseBrute = employes.reduce(
-      (s, e) =>
-        s +
-        (e.salaire || 0) +
-        (e.sursalaire || 0) +
-        (e.indemniteTransport || 0) +
-        (e.indemniteLogement || 0) +
-        (e.indemniteFonction || 0),
-      0
+    // Charges salariales du mois : coût employeur calculé comme les bulletins
+    // (ancienneté, primes et HS validées, congés sans solde, taux du mois)
+    const moisData = m ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
+    const chargesSalariales = employes.reduce(
+      (s, e) => s + calculerPaie(e, moisData, annee, mois, taux).coutEmployeur,
+      0,
     );
-    const chargesSalariales = masseBrute * 1.225;
 
     //  - moyenne des dépenses (hors salaires auto) sur les 3 derniers mois clos
     let totalDepRecur = 0;
@@ -99,9 +99,22 @@ export const TresorerieCard = ({
     }
     const depensesRecurrentes = nbMois > 0 ? totalDepRecur / nbMois : 0;
 
+    // Impôts et cotisations déjà dus, à reverser (écritures validées) :
+    // CNSS/AMU (43), IRPP retenu (447), TVA due (443 − 445 si positive)
+    const soldes = new Map<string, number>();
+    Object.values(donneesMensuelles).forEach((mm) => {
+      (mm?.ecritures || [])
+        .filter((e) => e.statut !== "brouillon")
+        .forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
+          soldes.set(l.compte, (soldes.get(l.compte) || 0) + l.debit - l.credit);
+        }));
+    });
+    const dette = (prefixes: string[]) => Math.max(0, -sommePrefixes(soldes, prefixes));
+    const aReverser = dette(["43"]) + dette(["447"]) + dette(["443", "445"]);
+
     // Prévision sur 30 jours
     const previsionEntrees = facturesEnAttente;
-    const previsionSorties = chargesSalariales + depensesRecurrentes;
+    const previsionSorties = chargesSalariales + depensesRecurrentes + aReverser;
     const previsionNette = tresorerie + previsionEntrees - previsionSorties;
 
     return {
@@ -112,11 +125,12 @@ export const TresorerieCard = ({
       facturesEnAttente,
       chargesSalariales,
       depensesRecurrentes,
+      aReverser,
       previsionEntrees,
       previsionSorties,
       previsionNette,
     };
-  }, [m, donneesMensuelles, employes, annee, mois]);
+  }, [m, donneesMensuelles, employes, annee, mois, taux]);
 
   const previsionTone =
     stats.previsionNette > stats.tresorerie
@@ -182,6 +196,12 @@ export const TresorerieCard = ({
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.starting_cash")}</span>
               <span className="amount">{fmtSigne(stats.tresorerie)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">{t("tresorerie.taxes_due")}</span>
+              <span className="amount text-destructive">
+                {formatMontant(stats.aReverser)}
+              </span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t("tresorerie.recurring_expenses")}</span>

@@ -781,9 +781,10 @@ const fr = {
     pending_invoices: "+ Factures en attente :",
     payroll_loaded: "− Masse salariale chargée :",
     starting_cash: "+ Trésorerie de départ :",
+    taxes_due: "− Impôts et cotisations à reverser :",
     recurring_expenses: "− Dépenses récurrentes (moy. 3 mois) :",
     note:
-      "Estimation basée sur les factures en attente, la masse salariale chargée (~22,5% de charges patronales) et la moyenne des dépenses non salariales des 3 derniers mois.",
+      "Estimation basée sur les factures en attente, le coût employeur du mois (calculé comme les bulletins), les impôts et cotisations à reverser et la moyenne des dépenses non salariales des 3 derniers mois.",
   },
   recap: {
     title: "📊 Récapitulatifs {{annee}}",
