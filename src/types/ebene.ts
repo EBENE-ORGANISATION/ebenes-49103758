@@ -46,6 +46,13 @@ export interface Transaction {
    * ligne 4452). La TVA déductible est ensuite relue dans cette écriture.
    */
   avecTva?: boolean;
+  /**
+   * Compte de charge ou de produit et compte de trésorerie (521 Banque, 571
+   * Caisse) de l'écriture générée. Non stockés en base : ils servent à créer
+   * l'écriture, qui les conserve.
+   */
+  compte?: string;
+  tresorerie?: "521" | "571";
   /** Statut du workflow de validation (par défaut: 'en_validation' à la saisie). */
   statut?: StatutValidation;
   /** Motif renseigné lors d'un rejet par le chef de service. */

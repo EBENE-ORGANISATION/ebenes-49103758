@@ -1,5 +1,9 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import {
+  COMPTES_DEPENSE, COMPTES_RECETTE, COMPTE_DEPENSE_DEFAUT, COMPTE_RECETTE_DEFAUT,
+  ecritureTresorerieAutonome, intituleCompte, type CompteTresorerie,
+} from "@/lib/ecrituresTresorerie";
+import {
   ActiviteType,
   DonneesMensuelles,
   Employe,
@@ -95,6 +99,10 @@ export const Comptabilite = ({
   const [piece, setPiece]           = useState<{ nom: string; type: string; data: string } | null>(null);
   /** Facture d'achat avec TVA (fournisseur assujetti) — coché par défaut. */
   const [achatAvecTva, setAchatAvecTva] = useState(true);
+  /** Comptes de l'écriture générée : charge ou produit, et Banque (521) ou Caisse (571). */
+  const [compteDepense, setCompteDepense] = useState<string>(COMPTE_DEPENSE_DEFAUT);
+  const [compteRecette, setCompteRecette] = useState<string>(COMPTE_RECETTE_DEFAUT);
+  const [tresorerie, setTresorerie] = useState<CompteTresorerie>("521");
   const [previewPiece, setPreviewPiece] = useState<typeof piece>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -129,7 +137,7 @@ export const Comptabilite = ({
     // Consolidation SYSCOHADA : comptes 52x (Banque) / 57x (Caisse), écritures validées,
     // hors écritures liées à une facture (déjà comptées via transactions).
     const lignesEcr = ecritures
-      .filter((e) => e.statut !== "brouillon" && !e.factureId)
+      .filter(ecritureTresorerieAutonome)
       .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
       .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"));
     const recEcritures = lignesEcr.reduce((s, l) => s + l.debit,  0);
@@ -182,6 +190,9 @@ export const Comptabilite = ({
     setFournisseur("");
     setPiece(null);
     setAchatAvecTva(true);
+    setCompteDepense(COMPTE_DEPENSE_DEFAUT);
+    setCompteRecette(COMPTE_RECETTE_DEFAUT);
+    setTresorerie("521");
     setActivite("service");
     setActiviteId(currentActiviteId);
     if (fileRef.current) fileRef.current.value = "";
@@ -200,6 +211,8 @@ export const Comptabilite = ({
       source: type === "d" && piece ? "fournisseur" : "manuelle",
       fournisseur: fournisseur.trim() || null,
       avecTva: type === "d" && piece ? achatAvecTva : undefined,
+      compte: type === "d" ? compteDepense : compteRecette,
+      tresorerie,
       activite: type === "r" ? activite : undefined,
       activiteId,
       pieceJointe: piece?.data || null,
@@ -436,6 +449,34 @@ export const Comptabilite = ({
                   <div>
                     <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Montant (FCFA) *</Label>
                     <Input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      {type === "d" ? "Compte de charge *" : "Compte de produit *"}
+                    </Label>
+                    <Select
+                      value={type === "d" ? compteDepense : compteRecette}
+                      onValueChange={(v) => (type === "d" ? setCompteDepense(v) : setCompteRecette(v))}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(type === "d" ? COMPTES_DEPENSE : COMPTES_RECETTE).map((c) => (
+                          <SelectItem key={c} value={c}>{c} — {intituleCompte(c)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      {type === "d" ? "Payé par *" : "Encaissé sur *"}
+                    </Label>
+                    <Select value={tresorerie} onValueChange={(v) => setTresorerie(v as CompteTresorerie)}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="521">Banque (521) — virement, chèque, mobile money</SelectItem>
+                        <SelectItem value="571">Caisse (571) — espèces</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   {type === "d" && (
                     <div>

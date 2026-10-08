@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ecritureTresorerieAutonome } from "@/lib/ecrituresTresorerie";
 import {
   ResponsiveContainer,
   LineChart,
@@ -94,7 +95,7 @@ const sumRecettes = (m: MoisData): number => {
     .filter((t) => t.type === "r" && transactionComptabilisee(t))
     .reduce((s, t) => s + Math.abs(t.m), 0);
   const recEcritures = (m.ecritures || [])
-    .filter((e) => e.statut === "valide" && !e.factureId)
+    .filter((e) => e.statut === "valide" && ecritureTresorerieAutonome(e))
     .reduce((total, e) => {
       const lignes = Array.isArray(e.lignes) ? e.lignes : [];
       const debit = lignes
@@ -110,7 +111,7 @@ const sumDepenses = (m: MoisData): number => {
     .filter((t) => t.type === "d" && transactionComptabilisee(t))
     .reduce((s, t) => s + Math.abs(t.m), 0);
   const depEcritures = (m.ecritures || [])
-    .filter((e) => e.statut === "valide" && !e.factureId)
+    .filter((e) => e.statut === "valide" && ecritureTresorerieAutonome(e))
     .reduce((total, e) => {
       const lignes = Array.isArray(e.lignes) ? e.lignes : [];
       const credit = lignes

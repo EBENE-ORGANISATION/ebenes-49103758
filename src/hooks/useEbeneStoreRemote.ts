@@ -25,6 +25,10 @@ import {
   EcritureComptable,
 } from "@/types/ebene";
 import { moisKey, genererMatricule, tauxPourMois } from "@/lib/ebene-utils";
+import {
+  ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation,
+  type ReglementImmo,
+} from "@/lib/ecrituresTresorerie";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
 import { amortissementsAnnee } from "@/lib/amortissements";
 import {
@@ -376,36 +380,14 @@ export const useEbeneStoreRemote = (
           log("INSERT", "transactions", saved.id, null, saved);
           markSignificantWrite();
 
-          // Auto-générer une écriture AC si c'est une dépense fournisseur
-          if (t.type === "d" && t.source === "fournisseur" && t.fournisseur) {
-            // Facture d'achat avec TVA (par défaut) : TTC = HT × (1 + taux du mois) ;
-            // sans TVA (fournisseur non assujetti) : aucune TVA récupérable.
-            const avecTva    = t.avecTva !== false;
-            const tauxTva    = tauxPourMois(tauxHistorique, annee, mois).tva;
-            const montantTTC = Math.round(Math.abs(t.m));
-            const montantHT  = avecTva ? Math.round(montantTTC / (1 + tauxTva)) : montantTTC;
-            const montantTVA = montantTTC - montantHT;
-            const lignesAchat = [
-              { id: 1, compte: "6057", intitule: "Achats de services et prestations", debit: montantHT,  credit: 0,          tiers: t.fournisseur },
-              ...(avecTva
-                ? [{ id: 2, compte: "4452", intitule: "TVA récupérable sur achats", debit: montantTVA, credit: 0 }]
-                : []),
-              { id: 3, compte: "4011", intitule: "Fournisseurs",                      debit: 0,          credit: montantTTC, tiers: t.fournisseur },
-            ];
-
-            void tqEcritures.addEcriture(annee, mois, {
-              journal: "AC",
-              numeroPiece: `AC-${saved.id}`,
-              libelle: t.desc || `Achat — ${t.fournisseur}`,
-              lignes: lignesAchat,
-              statut: "brouillon", // nécessite validation chef compta
-              activiteId: aid,
-              annee,
-              mois,
-            }).catch(() => {
-              console.warn("[EBENE] Écriture AC auto non créée pour transaction", saved.id);
+          // Écritures de la recette / dépense (achat AC + règlement TR pour un
+          // fournisseur), en brouillon : validées en même temps que la transaction.
+          const tauxTva = tauxPourMois(tauxHistorique, annee, mois).tva;
+          ecrituresDeTransaction({ ...t, activiteId: aid }, saved.id, tauxTva, annee, mois).forEach((e) => {
+            void tqEcritures.addEcriture(annee, mois, e).catch(() => {
+              console.warn("[EBENE] Écriture auto non créée pour transaction", saved.id, e.numeroPiece);
             });
-          }
+          });
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
@@ -447,8 +429,8 @@ export const useEbeneStoreRemote = (
             }).catch(() => undefined);
             // Vente + encaissement de cette facture : regénérés au prochain règlement
             await supprimerEcrituresLiees((e) => e.factureId === factureId);
-          } else if (trans?.source === "fournisseur") {
-            await supprimerEcrituresLiees((e) => e.journal === "AC" && e.numeroPiece === `AC-${id}`);
+          } else {
+            await supprimerEcrituresLiees((e) => estEcritureDeTransaction(e, id));
           }
           log("DELETE", "transactions", id, trans ?? null, null);
           markSignificantWrite();
@@ -458,22 +440,46 @@ export const useEbeneStoreRemote = (
     [tqTransactions, tqFactures, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
+  /** Écritures générées depuis une transaction (achat AC-n, trésorerie TR-n). */
+  const ecrituresDe = useCallback(
+    (id: number) =>
+      (Object.values(tqEcritures.ecritures) as EcritureComptable[][])
+        .flat()
+        .filter((e) => estEcritureDeTransaction(e, id)),
+    [tqEcritures.ecritures],
+  );
+
   const validerTransaction = useCallback(
     (_annee: number, _mois: number, id: number) => {
       void tqTransactions.validerTransaction(id)
-        .then(() => log("VALIDER_TRANSACTION", "transactions", id, null, { id }))
+        .then(async () => {
+          log("VALIDER_TRANSACTION", "transactions", id, null, { id });
+          await Promise.all(
+            ecrituresDe(id)
+              .filter((e) => e.statut === "brouillon")
+              .map((e) => tqEcritures.validerEcriture(e.id).catch(() => toast.error(`Écriture ${e.numeroPiece} non validée`))),
+          );
+        })
         .catch(() => toast.error("Erreur lors de la validation de la transaction"));
     },
-    [tqTransactions],
+    [tqTransactions, tqEcritures, ecrituresDe, log],
   );
 
   const rejeterTransaction = useCallback(
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqTransactions.rejeterTransaction(id, motif)
-        .then(() => log("REJETER_TRANSACTION", "transactions", id, null, { id, motif }))
+        .then(async () => {
+          log("REJETER_TRANSACTION", "transactions", id, null, { id, motif });
+          // Une transaction rejetée ne compte plus : ses écritures repassent en brouillon
+          await Promise.all(
+            ecrituresDe(id)
+              .filter((e) => e.statut !== "brouillon")
+              .map((e) => tqEcritures.rejeterEcriture(e.id, motif).catch(() => undefined)),
+          );
+        })
         .catch(() => toast.error("Erreur lors du rejet de la transaction"));
     },
-    [tqTransactions],
+    [tqTransactions, tqEcritures, ecrituresDe, log],
   );
 
   // ─── Factures → table relationnelle ──────────────────────────────────────
@@ -588,6 +594,7 @@ export const useEbeneStoreRemote = (
               statut: "valide",
               factureId: f.id,
               activiteId: aid,
+              date: f.date,
               annee,
               mois,
             }),
@@ -601,6 +608,7 @@ export const useEbeneStoreRemote = (
               statut: "valide",
               factureId: f.id,
               activiteId: aid,
+              date: f.date,
               annee,
               mois,
             }),
@@ -1136,7 +1144,7 @@ export const useEbeneStoreRemote = (
 
   // ─── Immobilisations → table relationnelle ────────────────────────────────
   const addImmobilisation = useCallback(
-    (i: Omit<Immobilisation, "id">) => {
+    (i: Omit<Immobilisation, "id">, reglement: ReglementImmo = "521") => {
       const comptes =
         i.comptesSYSCOHADA?.actif
           ? i.comptesSYSCOHADA
@@ -1151,20 +1159,32 @@ export const useEbeneStoreRemote = (
         .then((saved) => {
           log("INSERT", "immobilisations", saved.id, null, saved);
           markSignificantWrite();
+          // Écriture d'acquisition (sans elle, l'immobilisation n'apparaît pas au bilan)
+          const e = ecritureAcquisitionImmo(
+            { ...i, compteActif: comptes.actif, activiteId: i.activiteId ?? stampActiviteId },
+            saved.id,
+            reglement,
+          );
+          void tqEcritures.addEcriture(e.annee!, e.mois!, e).catch(() =>
+            toast.error("Écriture d'acquisition non créée — à saisir dans le journal"),
+          );
         })
         .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqImmobilisations, markSignificantWrite, stampActiviteId],
+    [tqImmobilisations, markSignificantWrite, stampActiviteId, tqEcritures],
   );
 
   const removeImmobilisation = useCallback(
     (id: number) => {
       void tqImmobilisations.removeImmobilisation(id)
-        .then(() => log("DELETE", "immobilisations", id, null, null))
+        .then(async () => {
+          log("DELETE", "immobilisations", id, null, null);
+          await supprimerEcrituresLiees((e) => e.numeroPiece === pieceImmobilisation(id));
+        })
         .catch(() => toast.error("Erreur lors de la suppression de l'immobilisation"));
     },
-    [tqImmobilisations],
+    [tqImmobilisations, supprimerEcrituresLiees, log],
   );
 
   const updateImmobilisation = useCallback(

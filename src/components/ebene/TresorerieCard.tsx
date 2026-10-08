@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { ecritureTresorerieAutonome } from "@/lib/ecrituresTresorerie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp } from "lucide-react";
 import { DonneesMensuelles, Employe, MoisData } from "@/types/ebene";
@@ -26,7 +27,7 @@ const sumIfMois = (m: MoisData | undefined, type: "r" | "d") =>
 const sumEcrituresMois = (m: MoisData | undefined, type: "r" | "d"): number => {
   if (!m?.ecritures) return 0;
   return m.ecritures
-    .filter((e) => e.statut !== "brouillon" && !e.factureId)
+    .filter(ecritureTresorerieAutonome)
     .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
     .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
     .reduce((s, l) => s + (type === "r" ? l.debit : l.credit), 0);

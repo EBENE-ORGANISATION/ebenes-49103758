@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReglementImmo } from "@/lib/ecrituresTresorerie";
 import {
   EcritureComptable,
   Immobilisation,
@@ -41,7 +42,8 @@ import { saveAs } from "file-saver";
 interface Props {
   annee: number;
   immobilisations: Immobilisation[];
-  onAdd: (i: Omit<Immobilisation, "id">) => void;
+  /** reglement : contrepartie de l'écriture d'acquisition (Banque, Caisse ou fournisseur d'immobilisations). */
+  onAdd: (i: Omit<Immobilisation, "id">, reglement: ReglementImmo) => void;
   onRemove: (id: number) => void;
   /** Mise à jour partielle (utilisée pour la cession). Optionnel. */
   onUpdate?: (id: number, patch: Partial<Immobilisation>) => void;
@@ -74,6 +76,7 @@ export const Immobilisations = ({
   const [valeur, setValeur] = useState("");
   const [duree, setDuree] = useState("5");
   const [methode, setMethode] = useState<MethodeAmortissement>("lineaire");
+  const [reglement, setReglement] = useState<ReglementImmo>("521");
   const { currentActiviteId } = useActiviteFilter();
   const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
   useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
@@ -200,7 +203,7 @@ export const Immobilisations = ({
 
   const reset = () => {
     setLibelle(""); setValeur(""); setDuree("5");
-    setCategorie("materiel_bureau"); setMethode("lineaire");
+    setCategorie("materiel_bureau"); setMethode("lineaire"); setReglement("521");
     setActiviteId(currentActiviteId);
     setDateAcq(todayISO()); setShowForm(false);
   };
@@ -220,7 +223,7 @@ export const Immobilisations = ({
       methode: categorie === "terrain" ? "lineaire" : methode,
       comptesSYSCOHADA: COMPTES_IMMO_DEFAUT[categorie],
       activiteId,
-    });
+    }, reglement);
     toast.success("Immobilisation ajoutée");
     reset();
   };
@@ -364,6 +367,17 @@ export const Immobilisations = ({
                 {METHODES.map((m) => (
                   <SelectItem key={m.v} value={m.v}>{m.label}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Acquis par</Label>
+            <Select value={reglement} onValueChange={(v) => setReglement(v as ReglementImmo)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="521">Banque (521)</SelectItem>
+                <SelectItem value="571">Caisse (571)</SelectItem>
+                <SelectItem value="481">À payer au fournisseur (481)</SelectItem>
               </SelectContent>
             </Select>
           </div>
