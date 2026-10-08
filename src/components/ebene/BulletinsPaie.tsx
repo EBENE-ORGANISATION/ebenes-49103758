@@ -319,12 +319,11 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                                   </p>
                                   <p>Cela va générer automatiquement :</p>
                                   <ul className="list-disc pl-4 space-y-0.5 text-xs">
-                                    <li>Une <strong>transaction de dépense</strong> de {formatMontant(b.cout_employeur)} (Trésorerie)</li>
-                                    <li>Une <strong>écriture SYSCOHADA</strong> dans le journal OD :
-                                      <br />→ Débit 661 Rémunérations ({formatMontant(b.brut)})
-                                      <br />→ Crédit 4221 Net à payer ({formatMontant(b.net_a_payer)})
-                                      <br />→ Crédit 4311/4471/4421 Charges sociales &amp; IRPP
-                                    </li>
+                                    <li>Une <strong>dépense de trésorerie</strong> de {formatMontant(b.net_a_payer)} : le salaire net versé</li>
+                                    <li>L'<strong>écriture de paie</strong> (journal OD) : salaire 661, charges patronales 6641,
+                                      net à payer 422, CNSS 431, AMU 433, IRPP 447</li>
+                                    <li>Le <strong>règlement du net</strong> (journal BQ) : 422 → Banque 521</li>
+                                    <li className="text-muted-foreground">Cotisations et IRPP restent à reverser (saisie guidée).</li>
                                   </ul>
                                   <p className="text-destructive font-medium text-xs">Cette action est irréversible.</p>
                                 </AlertDialogDescription>

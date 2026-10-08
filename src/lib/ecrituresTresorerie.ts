@@ -24,11 +24,13 @@ export const estEcritureDeTransaction = (e: Pick<EcritureComptable, "numeroPiece
 
 /**
  * Écriture à ajouter aux totaux de trésorerie (comptes 52/57) en plus des
- * transactions : validée, ni liée à une facture, ni générée depuis une
- * transaction — sinon le même encaissement serait compté deux fois.
+ * transactions : validée, ni liée à une facture ou à un bulletin de paie, ni
+ * générée depuis une transaction — sinon le même montant serait compté deux fois.
  */
-export const ecritureTresorerieAutonome = (e: Pick<EcritureComptable, "statut" | "factureId" | "numeroPiece">): boolean =>
-  e.statut !== "brouillon" && !e.factureId && !/^TR-\d+$/.test(e.numeroPiece);
+export const ecritureTresorerieAutonome = (
+  e: Pick<EcritureComptable, "statut" | "factureId" | "numeroPiece"> & { bulletinId?: string | null },
+): boolean =>
+  e.statut !== "brouillon" && !e.factureId && !e.bulletinId && !/^TR-\d+$/.test(e.numeroPiece);
 
 type EcritureGeneree = Omit<EcritureComptable, "id">;
 

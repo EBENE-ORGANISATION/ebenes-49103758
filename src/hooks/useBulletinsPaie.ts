@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
+import { ecrituresPaie } from "@/lib/ecrituresPaie";
 import { supabase } from "@/lib/supabase";
 import { calculerPaie, sansSoldeEnregistre, totauxBulletinEdite } from "@/lib/paie";
-import { tauxPourMois } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import type { BulletinPaieRecord, Employe, EcritureComptable, MoisData, Transaction } from "@/types/ebene";
 
@@ -54,6 +55,9 @@ export const useBulletinsPaie = (societeId: string | null) => {
     async (employe: Employe, moisData: MoisData, annee: number, mois: number): Promise<boolean> => {
       if (!societeId) return false;
       const c = calculerPaie(employe, moisData, annee, mois, tauxPourMois(tauxHistorique, annee, mois));
+      const totalRetenues =
+        Math.round(c.cnssSal) + Math.round(c.amuSal) + Math.round(c.irpp)
+        + Math.round(c.retenuesDiverses) + Math.round(c.deductionSansSolde);
       const row = {
         employe_id:       employe.id,
         employe_nom:      employe.nom,
@@ -72,8 +76,10 @@ export const useBulletinsPaie = (societeId: string | null) => {
         amu_sal:          Math.round(c.amuSal),
         irpp:             Math.round(c.irpp),
         retenues_diverses:Math.round(c.retenuesDiverses),
-        total_retenues:   Math.round(c.totalRetenues),
-        net_a_payer:      Math.round(c.net),
+        // Total = somme des retenues arrondies : les congés sans solde, déduits
+        // de ce total à l'affichage et en comptabilité, tombent juste.
+        total_retenues:   totalRetenues,
+        net_a_payer:      Math.round(c.brut) - totalRetenues,
         cnss_pat:         Math.round(c.cnssEmp),
         amu_pat:          Math.round(c.amuEmp),
         cout_employeur:   Math.round(c.coutEmployeur),
@@ -181,102 +187,21 @@ export const useBulletinsPaie = (societeId: string | null) => {
         .eq("societe_id", societeId);
       if (error) return false;
 
-      // Intégration comptable : transaction simple (trésorerie)
-      const dateStr = `${bulletin.annee}-${String(bulletin.mois).padStart(2, "0")}-01`;
+      // Intégration comptable, à la date du paiement : la trésorerie ne voit
+      // sortir que le net versé ; cotisations et IRPP restent dus (431, 433,
+      // 447) jusqu'à leur reversement.
+      const datePaiement = todayISO();
       addTransaction(bulletin.annee, bulletin.mois, {
-        date: dateStr,
-        desc: `Charges salariales — ${bulletin.employe_nom} (${bulletin.mois}/${bulletin.annee})`,
+        date: datePaiement,
+        desc: `Salaire net — ${bulletin.employe_nom} (${bulletin.mois}/${bulletin.annee})`,
         type: "d",
-        m: -Math.abs(bulletin.cout_employeur),
+        m: -Math.abs(Math.round(bulletin.net_a_payer)),
         source: "salaires",
         auto: true,
         statut: "valide",
       });
-
-      // Écriture SYSCOHADA en partie double — Journal OD
       if (addEcriture) {
-        const cnssTotal = bulletin.cnss_sal + bulletin.cnss_pat;
-        const amuTotal  = bulletin.amu_sal  + bulletin.amu_pat;
-
-        const lignes = [
-          // ── DÉBITS ─────────────────────────────────────────────────────
-          {
-            id: 1,
-            compte: "661",
-            intitule: "Rémunérations du personnel",
-            debit: Math.round(bulletin.brut),
-            credit: 0,
-            tiers: bulletin.employe_nom,
-          },
-          {
-            id: 2,
-            compte: "6311",
-            intitule: "Cotisations CNSS patronales",
-            debit: Math.round(bulletin.cnss_pat),
-            credit: 0,
-          },
-          {
-            id: 3,
-            compte: "6312",
-            intitule: "Cotisations AMU patronales",
-            debit: Math.round(bulletin.amu_pat),
-            credit: 0,
-          },
-          // ── CRÉDITS ────────────────────────────────────────────────────
-          {
-            id: 4,
-            compte: "4221",
-            intitule: "Personnel — salaires nets à payer",
-            debit: 0,
-            credit: Math.round(bulletin.net_a_payer),
-            tiers: bulletin.employe_nom,
-          },
-          {
-            id: 5,
-            compte: "4311",
-            intitule: "CNSS à reverser",
-            debit: 0,
-            credit: Math.round(cnssTotal),
-          },
-          {
-            id: 6,
-            compte: "4471",
-            intitule: "AMU à reverser",
-            debit: 0,
-            credit: Math.round(amuTotal),
-          },
-          ...(bulletin.irpp > 0
-            ? [{
-                id: 7,
-                compte: "4421",
-                intitule: "IRPP à reverser à l'État",
-                debit: 0,
-                credit: Math.round(bulletin.irpp),
-              }]
-            : []),
-          ...(bulletin.retenues_diverses > 0
-            ? [{
-                id: 8,
-                compte: "4228",
-                intitule: "Autres retenues sur salaires",
-                debit: 0,
-                credit: Math.round(bulletin.retenues_diverses),
-              }]
-            : []),
-        ];
-
-        const numeroPiece = `OD-SAL-${bulletin.annee}${String(bulletin.mois).padStart(2, "0")}-${bulletin.employe_id}`;
-
-        addEcriture(bulletin.annee, bulletin.mois, {
-          journal: "OD",
-          numeroPiece,
-          libelle: `Paie ${bulletin.employe_nom} — ${bulletin.mois}/${bulletin.annee}`,
-          lignes,
-          statut: "valide",
-          bulletinId: id,
-          annee: bulletin.annee,
-          mois: bulletin.mois,
-        });
+        ecrituresPaie(bulletin, datePaiement).forEach((e) => addEcriture(bulletin.annee, bulletin.mois, e));
       }
 
       // Email via Edge Function (best-effort)
