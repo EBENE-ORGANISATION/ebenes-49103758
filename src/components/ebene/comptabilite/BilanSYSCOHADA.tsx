@@ -1,39 +1,11 @@
 import { useMemo } from "react";
 import { DonneesMensuelles } from "@/types/ebene";
 import { Badge } from "@/components/ui/badge";
+import { repartirSoldes, resultatExercice, soldesExercice } from "@/lib/etatsFinanciers";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
   annee: number;
-}
-
-/** Agrège les soldes de tous les comptes SYSCOHADA depuis les écritures validées. */
-function buildSoldes(donneesMensuelles: DonneesMensuelles, annee: number): Map<string, number> {
-  const soldes = new Map<string, number>();
-  Object.entries(donneesMensuelles).forEach(([key, moisData]) => {
-    const [a] = key.split("-");
-    if (parseInt(a) !== annee) return;
-    (moisData.ecritures || [])
-      .filter((e) => e.statut !== "brouillon")
-      .forEach((ecriture) => {
-        (Array.isArray(ecriture.lignes) ? ecriture.lignes : []).forEach((ligne) => {
-          const current = soldes.get(ligne.compte) || 0;
-          soldes.set(ligne.compte, current + ligne.debit - ligne.credit);
-        });
-      });
-  });
-  return soldes;
-}
-
-/** Somme les soldes de tous les comptes commençant par les préfixes donnés. */
-function sumComptes(soldes: Map<string, number>, prefixes: string[]): number {
-  let total = 0;
-  soldes.forEach((val, code) => {
-    if (prefixes.some((p) => code.startsWith(p))) {
-      total += val;
-    }
-  });
-  return total;
 }
 
 const fmt = (n: number) => Math.abs(Math.round(n)).toLocaleString("fr-FR");
@@ -51,7 +23,7 @@ interface LigneBilan {
 }
 
 export const BilanSYSCOHADA = ({ donneesMensuelles, annee }: Props) => {
-  const soldes = useMemo(() => buildSoldes(donneesMensuelles, annee), [donneesMensuelles, annee]);
+  const soldes = useMemo(() => soldesExercice(donneesMensuelles, annee), [donneesMensuelles, annee]);
 
   // ─── ACTIF ────────────────────────────────────────────────────────────────
 
@@ -90,10 +62,18 @@ export const BilanSYSCOHADA = ({ donneesMensuelles, annee }: Props) => {
   const actifData = useMemo(() => {
     const data: Record<string, { brut: number; amort: number; net: number }> = {};
 
+    // Chaque compte n'alimente qu'une ligne (préfixe le plus précis), même si
+    // les préfixes de deux lignes se recoupent (ex. 47 et 478).
+    const lignesBrut = actifLines.filter((l) => !l.isTotal && l.comptesPrefixes);
+    const bruts = repartirSoldes(soldes, lignesBrut.map((l) => ({ ref: l.ref, prefixes: l.comptesPrefixes! })));
+    const amorts = repartirSoldes(
+      soldes,
+      actifLines.filter((l) => l.comptesAmort).map((l) => ({ ref: l.ref, prefixes: l.comptesAmort! })),
+    );
     actifLines.forEach((l) => {
       if (l.isTotal || l.isSubTotal || !l.comptesPrefixes) return;
-      const brut  = sumComptes(soldes, l.comptesPrefixes);
-      const amort = l.comptesAmort ? Math.abs(sumComptes(soldes, l.comptesAmort)) : 0;
+      const brut  = bruts[l.ref] || 0;
+      const amort = l.comptesAmort ? Math.abs(amorts[l.ref] || 0) : 0;
       data[l.ref] = { brut: Math.max(0, brut), amort, net: Math.max(0, brut) - amort };
     });
 
@@ -116,7 +96,7 @@ export const BilanSYSCOHADA = ({ donneesMensuelles, annee }: Props) => {
     // AP n'a pas d'amort
     if (!data["AP"]) {
       const brut = actifLines.find((l) => l.ref === "AP")?.comptesPrefixes
-        ? sumComptes(soldes, ["25"]) : 0;
+        ? bruts["AP"] || 0 : 0;
       data["AP"] = { brut: Math.max(0, brut), amort: 0, net: Math.max(0, brut) };
     }
     // Total actif immobilisé
@@ -184,11 +164,15 @@ export const BilanSYSCOHADA = ({ donneesMensuelles, annee }: Props) => {
 
   const passifData = useMemo(() => {
     const data: Record<string, number> = {};
-    passifLines.forEach((l) => {
-      if (l.isTotal || !l.comptesPrefixes) return;
+    const lignesPassif = passifLines.filter((l) => !l.isTotal && l.comptesPrefixes);
+    const soldesPassif = repartirSoldes(soldes, lignesPassif.map((l) => ({ ref: l.ref, prefixes: l.comptesPrefixes! })));
+    lignesPassif.forEach((l) => {
       // Passif : solde créditeur = positif (on inverse le signe car solde = debit - credit)
-      data[l.ref] = -sumComptes(soldes, l.comptesPrefixes);
+      data[l.ref] = -(soldesPassif[l.ref] || 0);
     });
+    // Avant clôture, le résultat n'est pas encore viré au compte 13 : on
+    // reprend le résultat de l'exercice en cours (produits − charges).
+    data["CJ"] = (data["CJ"] || 0) + resultatExercice(soldes);
     data["CP"] = ["CA", "CB", "CD", "CE", "CF", "CG", "CH", "CJ", "CL", "CM"]
       .reduce((s, r) => s + (data[r] || 0), 0);
     data["DD"] = ["DA", "DB", "DC"].reduce((s, r) => s + (data[r] || 0), 0);
