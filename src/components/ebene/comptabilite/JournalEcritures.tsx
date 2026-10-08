@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { formatMontant } from "@/lib/ebene-utils";
 import { printElement } from "@/lib/print";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 
 interface Props {
   ecritures: EcritureComptable[];
@@ -42,6 +43,7 @@ const JOURNAL_COLORS: Record<string, string> = {
 export const JournalEcritures = ({
   ecritures, isChefCompta, onValider, onRejeter, onSupprimer,
 }: Props) => {
+  const peutValider = usePeutValider();
   const [expanded, setExpanded] = useState<number | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -170,7 +172,8 @@ export const JournalEcritures = ({
                       {onValider && (
                         <Button size="icon" variant="ghost"
                           className="size-7 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                          onClick={() => onValider(e.id)} title="Valider">
+                          onClick={() => onValider(e.id)} disabled={!peutValider(e.creePar)}
+                          title={peutValider(e.creePar) ? "Valider" : MESSAGE_QUATRE_YEUX}>
                           <Check className="size-3.5" />
                         </Button>
                       )}

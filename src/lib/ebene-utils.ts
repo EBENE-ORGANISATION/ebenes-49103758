@@ -424,3 +424,17 @@ export const genererMatricule = (employes: Employe[]): string => {
   }
   return `${String(n).padStart(4, "0")}-${lettre}`;
 };
+/**
+ * Message à afficher pour une erreur de la base : les contrôles de gestion
+ * (quatre yeux, facture engagée) ont un message explicite, sinon `defaut`.
+ */
+export const messageErreur = (e: unknown, defaut: string): string => {
+  const msg = String((e as { message?: string })?.message ?? e ?? "");
+  if (msg.includes("QUATRE_YEUX")) {
+    return "Vous ne pouvez pas valider votre propre saisie : un autre responsable (ou l'administrateur) doit le faire.";
+  }
+  if (msg.includes("FACTURE_ENGAGEE")) {
+    return "Une facture validée, payée ou annulée ne peut pas être supprimée : annulez-la.";
+  }
+  return defaut;
+};

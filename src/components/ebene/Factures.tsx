@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil, Wallet, Landmark } from "lucide-react";
+import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil, Wallet, Landmark, Ban } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO } from "@/lib/ebene-utils";
@@ -16,6 +16,7 @@ import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { useTenant } from "@/hooks/useTenant";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 import {
   genererNumeroFacture,
   reserverNumero,
@@ -27,6 +28,8 @@ interface Props {
   data: MoisData;
   onAdd: (f: Omit<Facture, "id">) => number;
   onRemove: (id: number) => void;
+  /** Annule une facture validée ou payée (contre-passation de ses écritures). */
+  onAnnuler?: (id: number) => void;
   /** `compte` : 571 Caisse ou 521 Banque — compte d'encaissement du règlement. */
   onMarquerPayee: (id: number, compte: "521" | "571") => void;
   onConvertir: (id: number, num: string) => void;
@@ -78,6 +81,7 @@ export const Factures = ({
   data,
   onAdd,
   onRemove,
+  onAnnuler,
   onMarquerPayee,
   onConvertir,
   onPreview,
@@ -90,6 +94,7 @@ export const Factures = ({
   onConvertirDevis,
   onUpdateDevis,
 }: Props) => {
+  const peutValider = usePeutValider();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");
@@ -452,17 +457,24 @@ export const Factures = ({
             const borderClass =
               f.statut === "payee"
                 ? "border-l-4 border-l-success"
+                : f.statut === "annulee"
+                ? "border-l-4 border-l-muted-foreground"
                 : f.statut === "proforma"
                 ? "border-l-4 border-l-warning"
                 : "border-l-4 border-l-info";
             const badge =
               f.statut === "payee"
                 ? { cls: "bg-success/15 text-success", label: "✓ Payée" }
+                : f.statut === "annulee"
+                ? { cls: "bg-muted text-muted-foreground", label: "⊘ Annulée" }
                 : f.statut === "proforma"
                 ? { cls: "bg-warning/15 text-warning", label: "📋 Proforma" }
                 : { cls: "bg-info/15 text-info", label: "⏳ En attente" };
             const sv = f.statutValidation;
-            const dim = sv === "brouillon" ? "opacity-50" : "";
+            const annulee = f.statut === "annulee";
+            const dim = sv === "brouillon" || annulee ? "opacity-50" : "";
+            // Validée, payée ou annulée : la facture est engagée, on ne la supprime plus
+            const engagee = sv === "valide" || f.statut === "payee" || annulee;
             const anomalies: Anomalie[] = anomaliesMap.factures.get(f.id) || [];
             return (
               <div key={f.id} className={`list-item ${borderClass} ${dim}`}>
@@ -530,7 +542,7 @@ export const Factures = ({
                     <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)}>
                       <Eye className="size-4" />
                     </Button>
-                    {onUpdateFacture && sv !== "valide" && f.statut !== "payee" && (
+                    {onUpdateFacture && !engagee && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -541,18 +553,19 @@ export const Factures = ({
                         <Pencil className="size-4" />
                       </Button>
                     )}
-                    {isChefCompta && sv !== "valide" && onValider && (
+                    {isChefCompta && sv !== "valide" && !annulee && onValider && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="size-8 text-success hover:text-success hover:bg-success/10"
                         onClick={() => onValider(f.id)}
-                        title="Valider"
+                        disabled={!peutValider(f.creePar)}
+                        title={peutValider(f.creePar) ? "Valider" : MESSAGE_QUATRE_YEUX}
                       >
                         <Check className="size-4" />
                       </Button>
                     )}
-                    {isChefCompta && sv !== "rejete" && onRejeter && (
+                    {isChefCompta && sv !== "rejete" && !engagee && onRejeter && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -592,18 +605,43 @@ export const Factures = ({
                         <Check className="size-3.5" /> Marquer payée
                       </Button>
                     )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm("Supprimer définitivement cette facture ?")) {
-                          onRemove(f.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {engagee ? (
+                      !annulee && onAnnuler && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => {
+                            if (confirm(
+                              `Annuler la facture ${f.numero} ?
+
+Elle restera dans la liste, au statut « annulée ». ` +
+                              "Ses écritures seront contre-passées à la date du jour" +
+                              (f.statut === "payee" ? " et sa recette retirée de la trésorerie." : "."),
+                            )) {
+                              onAnnuler(f.id);
+                            }
+                          }}
+                          title="Une facture validée ou payée ne se supprime pas : elle s'annule"
+                        >
+                          <Ban className="size-3.5" /> Annuler
+                        </Button>
+                      )
+                    ) : (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          if (confirm("Supprimer cette facture ?")) {
+                            onRemove(f.id);
+                          }
+                        }}
+                        title="Supprimer (facture non validée)"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

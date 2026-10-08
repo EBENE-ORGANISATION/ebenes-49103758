@@ -35,6 +35,7 @@ import { GrandLivre } from "./comptabilite/GrandLivre";
 import { Balance } from "./comptabilite/Balance";
 import { BilanSYSCOHADA } from "./comptabilite/BilanSYSCOHADA";
 import { CompteResultat } from "./comptabilite/CompteResultat";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 
 interface Props {
   data: MoisData;
@@ -83,6 +84,7 @@ export const Comptabilite = ({
   onRemoveEcriture,
   isLoading = false,
 }: Props) => {
+  const peutValider = usePeutValider();
   // ── États onglet Trésorerie (existants — inchangés) ─────────────────────────
   const [open, setOpen]             = useState(false);
   const [date, setDate]             = useState(todayISO());
@@ -652,7 +654,8 @@ export const Comptabilite = ({
                             size="icon"
                             className="size-8 text-success hover:text-success hover:bg-success/10"
                             onClick={() => onValider(t.id)}
-                            title="Valider"
+                            disabled={!peutValider(t.creePar)}
+                            title={peutValider(t.creePar) ? "Valider" : MESSAGE_QUATRE_YEUX}
                           >
                             <Check className="size-4" />
                           </Button>

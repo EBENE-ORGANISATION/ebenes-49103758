@@ -15,6 +15,7 @@ import { Plus, Trash2, X, AlertTriangle, ShieldAlert, Check, XCircle } from "luc
 import { todayISO } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
 import { Trans, useTranslation } from "react-i18next";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 
 interface Props {
   employes: Employe[];
@@ -35,6 +36,7 @@ export const DisciplinePanel = ({
   onValider,
   onRejeter,
 }: Props) => {
+  const peutValider = usePeutValider();
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
@@ -231,7 +233,8 @@ export const DisciplinePanel = ({
                         variant="ghost"
                         className="size-8 text-success hover:text-success hover:bg-success/10"
                         onClick={() => onValider(s.id)}
-                        title={t("grh_discipline.validate")}
+                        disabled={!peutValider(s.creePar)}
+                        title={peutValider(s.creePar) ? t("grh_discipline.validate") : MESSAGE_QUATRE_YEUX}
                       >
                         <Check className="size-4" />
                       </Button>

@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       absences: {
         Row: {
+          cree_par: string | null
           annee: number
           created_at: string
           date_debut: string
@@ -58,6 +59,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
           annee: number
           created_at?: string
           date_debut: string
@@ -75,6 +77,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
           annee?: number
           created_at?: string
           date_debut?: string
@@ -924,6 +927,7 @@ export type Database = {
       }
       employes: {
         Row: {
+          cree_par: string | null
           adresse: string | null
           assurance_vie: number | null
           categorie: string | null
@@ -963,6 +967,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          cree_par?: string | null
           adresse?: string | null
           assurance_vie?: number | null
           categorie?: string | null
@@ -1002,6 +1007,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          cree_par?: string | null
           adresse?: string | null
           assurance_vie?: number | null
           categorie?: string | null
@@ -1052,6 +1058,8 @@ export type Database = {
       }
       factures: {
         Row: {
+          cree_par: string | null
+          compte_tresorerie: string | null
           activite: string | null
           activite_id: string | null
           annee: number
@@ -1076,6 +1084,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
+          compte_tresorerie?: string | null
           activite?: string | null
           activite_id?: string | null
           annee: number
@@ -1100,6 +1110,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
+          compte_tresorerie?: string | null
           activite?: string | null
           activite_id?: string | null
           annee?: number
@@ -1230,6 +1242,7 @@ export type Database = {
       }
       heures_sup: {
         Row: {
+          cree_par: string | null
           annee: number
           created_at: string
           dimanche_ferie: number | null
@@ -1246,6 +1259,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
           annee: number
           created_at?: string
           dimanche_ferie?: number | null
@@ -1262,6 +1276,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
           annee?: number
           created_at?: string
           dimanche_ferie?: number | null
@@ -1575,6 +1590,7 @@ export type Database = {
       }
       primes: {
         Row: {
+          cree_par: string | null
           annee: number
           created_at: string
           deleted_at: string | null
@@ -1589,6 +1605,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
           annee: number
           created_at?: string
           deleted_at?: string | null
@@ -1603,6 +1620,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
           annee?: number
           created_at?: string
           deleted_at?: string | null
@@ -1702,6 +1720,7 @@ export type Database = {
       }
       sanctions: {
         Row: {
+          cree_par: string | null
           created_at: string
           date: string
           deleted_at: string | null
@@ -1717,6 +1736,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
           created_at?: string
           date: string
           deleted_at?: string | null
@@ -1732,6 +1752,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
           created_at?: string
           date?: string
           deleted_at?: string | null
@@ -2127,6 +2148,10 @@ export type Database = {
       }
       transactions: {
         Row: {
+          cree_par: string | null
+          compte: string | null
+          tresorerie: string | null
+          avec_tva: boolean | null
           activite: string | null
           activite_id: string | null
           annee: number
@@ -2151,6 +2176,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cree_par?: string | null
+          compte?: string | null
+          tresorerie?: string | null
+          avec_tva?: boolean | null
           activite?: string | null
           activite_id?: string | null
           annee: number
@@ -2175,6 +2204,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cree_par?: string | null
+          compte?: string | null
+          tresorerie?: string | null
+          avec_tva?: boolean | null
           activite?: string | null
           activite_id?: string | null
           annee?: number

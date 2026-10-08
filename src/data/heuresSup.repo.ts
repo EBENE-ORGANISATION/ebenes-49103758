@@ -22,6 +22,7 @@ export const toHeuresSup = (row: HeuresSupRow): HeuresSup => ({
   nuitDimancheFerie: row.nuit_dimanche_ferie ?? 0,
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
 });
 
 export const fromHeuresSup = (

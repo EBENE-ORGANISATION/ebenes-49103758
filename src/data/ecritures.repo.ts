@@ -62,7 +62,7 @@ export const fromEcriture = (
   facture_id: e.factureId ?? null,
   bulletin_id: e.bulletinId ?? null,
   activite_id: e.activiteId ?? null,
-  cree_par: e.creePar ?? null,
+  ...(e.creePar ? { cree_par: e.creePar } : {}),
   valide_par: e.validepar ?? null,
   motif_rejet: e.motifRejet ?? null,
   piece_jointe: e.pieceJointe ?? null,

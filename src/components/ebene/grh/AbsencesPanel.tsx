@@ -15,6 +15,7 @@ import { Plus, Trash2, X, Check, XCircle } from "lucide-react";
 import { formatJours, todayISO, isoLocal } from "@/lib/ebene-utils";
 import { StatutValidationBadge } from "./StatutValidationBadge";
 import { Trans, useTranslation } from "react-i18next";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 
 interface Props {
   employes: Employe[];
@@ -35,6 +36,7 @@ export const AbsencesPanel = ({
   onValider,
   onRejeter,
 }: Props) => {
+  const peutValider = usePeutValider();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");
@@ -225,7 +227,8 @@ export const AbsencesPanel = ({
                       variant="ghost"
                       className="size-8 text-success hover:text-success hover:bg-success/10"
                       onClick={() => onValider(a.id)}
-                      title={t("grh_absences.validate")}
+                      disabled={!peutValider(a.creePar)}
+                      title={peutValider(a.creePar) ? t("grh_absences.validate") : MESSAGE_QUATRE_YEUX}
                     >
                       <Check className="size-4" />
                     </Button>

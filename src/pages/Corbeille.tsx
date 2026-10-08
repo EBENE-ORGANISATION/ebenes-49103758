@@ -13,7 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
-import { fetchDeleted, softRestore, softPurge } from "@/lib/softDelete";
+import { fetchDeleted, softPurge } from "@/lib/softDelete";
+import { restaurerDepuisCorbeille, RestaurationRefusee } from "@/lib/restaurationCorbeille";
+import { QK_ECRITURES } from "@/hooks/data/useEcritures";
+import { QK_TRANSACTIONS } from "@/hooks/data/useTransactions";
+import { QK_FACTURES } from "@/hooks/data/useFactures";
 import { toast } from "sonner";
 
 // ─── Définition des entités gérées ──────────────────────────────────────────
@@ -183,15 +187,22 @@ export default function Corbeille() {
 
   const restoreMutation = useMutation({
     mutationFn: async ({ table, id }: { table: string; id: number | string }) => {
-      await softRestore(table, id, societeId);
+      // Opérations et factures payées : leurs écritures sont recréées
+      await restaurerDepuisCorbeille(table, id, societeId);
     },
     onSuccess: (_, { table }) => {
       invalidate();
       // Invalide aussi la liste active de l'entité (queryKey = [table, societeId])
       void qc.invalidateQueries({ queryKey: [table, societeId] });
+      if (table === "transactions" || table === "factures") {
+        void qc.invalidateQueries({ queryKey: QK_TRANSACTIONS(societeId) });
+        void qc.invalidateQueries({ queryKey: QK_FACTURES(societeId) });
+        void qc.invalidateQueries({ queryKey: QK_ECRITURES(societeId) });
+      }
       toast.success("Élément restauré");
     },
-    onError: (err) => toast.error(`Erreur : ${(err as Error).message}`),
+    onError: (err) =>
+      toast.error(err instanceof RestaurationRefusee ? err.message : `Erreur : ${(err as Error).message}`),
   });
 
   const purgeMutation = useMutation({

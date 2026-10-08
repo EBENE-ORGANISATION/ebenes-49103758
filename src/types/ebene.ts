@@ -22,6 +22,8 @@ export type StatutValidation =
   | "rejete";
 
 export interface Transaction {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   id: number;
   date: string;
   desc: string;
@@ -66,9 +68,13 @@ export interface LignePrestation {
   montant: number;
 }
 
-export type StatutFacture = "en_attente" | "payee" | "proforma";
+export type StatutFacture = "en_attente" | "payee" | "proforma" | "annulee";
 
 export interface Facture {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
+  /** Compte d'encaissement choisi au paiement (521 Banque, 571 Caisse). */
+  compteTresorerie?: "521" | "571";
   id: number;
   numero: string;
   client: string;
@@ -97,6 +103,8 @@ export interface Facture {
 }
 
 export interface Prime {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   id: number;
   libelle: string;
   montant: number;
@@ -150,6 +158,8 @@ export type CategorieProf =
   | "C1" | "C2" | "C3" | "C4";
 
 export interface Employe {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   id: number;
   nom: string;
   poste: string;
@@ -220,6 +230,8 @@ export type TypeAbsence =
   | "autre";
 
 export interface Absence {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   id: number;
   employeId: number;
   type: TypeAbsence;
@@ -236,6 +248,8 @@ export interface Absence {
 }
 
 export interface HeuresSup {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   jourSemaine: number; // heures 41-48 majorées 20% (montant déjà calculé sur taux horaire)
   jourSup: number; // > 48h majorées 40%
   dimancheFerie: number; // 65%
@@ -376,6 +390,8 @@ export type TypeSanction =
   | "licenciement_faute_lourde";
 
 export interface Sanction {
+  /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
+  creePar?: string;
   id: number;
   employeId: number;
   date: string;

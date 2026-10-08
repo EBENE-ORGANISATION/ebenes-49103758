@@ -39,6 +39,10 @@ export const toTransaction = (row: TransactionRow): Transaction => ({
   auto: row.auto ?? false,
   statut: n(row.statut) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
+  compte: n(row.compte),
+  tresorerie: (n(row.tresorerie) ?? undefined) as "521" | "571" | undefined,
+  avecTva: n(row.avec_tva),
   annee: row.annee,
   mois: row.mois,
 });
@@ -67,6 +71,10 @@ export const fromTransaction = (
   auto: t.auto ?? false,
   statut: t.statut ?? "en_validation",
   motif_rejet: t.motifRejet ?? null,
+  // Comptes de l'écriture : conservés pour la recréer à la restauration
+  compte: t.compte ?? null,
+  tresorerie: t.tresorerie ?? null,
+  avec_tva: t.avecTva ?? null,
 });
 
 export const transactions = {

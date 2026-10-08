@@ -17,6 +17,7 @@ export const toPrime = (row: PrimeRow): Prime => ({
   montant: row.montant,
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
   employeId: row.employe_id,
   annee: row.annee,
   mois: row.mois,

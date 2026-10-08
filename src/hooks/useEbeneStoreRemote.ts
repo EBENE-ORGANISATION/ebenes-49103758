@@ -24,7 +24,8 @@ import {
   StatutValidation,
   EcritureComptable,
 } from "@/types/ebene";
-import { moisKey, genererMatricule, tauxPourMois } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
 import {
   ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation,
   type ReglementImmo,
@@ -435,7 +436,7 @@ export const useEbeneStoreRemote = (
           log("DELETE", "transactions", id, trans ?? null, null);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la suppression de la transaction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de la transaction")));
     },
     [tqTransactions, tqFactures, markSignificantWrite, supprimerEcrituresLiees, log],
   );
@@ -460,7 +461,7 @@ export const useEbeneStoreRemote = (
               .map((e) => tqEcritures.validerEcriture(e.id).catch(() => toast.error(`Écriture ${e.numeroPiece} non validée`))),
           );
         })
-        .catch(() => toast.error("Erreur lors de la validation de la transaction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de la transaction")));
     },
     [tqTransactions, tqEcritures, ecrituresDe, log],
   );
@@ -517,7 +518,7 @@ export const useEbeneStoreRemote = (
           log("DELETE", "factures", id, f ?? null, null);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la suppression de la facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de la facture")));
     },
     [tqFactures, tqTransactions, markSignificantWrite, supprimerEcrituresLiees, log],
   );
@@ -534,38 +535,7 @@ export const useEbeneStoreRemote = (
       const key = moisKey(annee, mois);
       const f = (tqFactures.factures[key] ?? []).find((x) => x.id === factureId);
       if (!f || f.statut === "payee" || f.statut === "proforma") return;
-
-      // Compte produit selon activité
-      const compteVente  = f.activite === "commerce" ? "701" : "706";
-      const libelleVente = f.activite === "commerce"
-        ? "Ventes de marchandises"
-        : "Services vendus";
-
-      // Lignes SYSCOHADA journal VE
-      const lignesEcriture = f.avecTva
-        ? [
-            { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalTtc), credit: 0,                       tiers: f.client },
-            { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
-            { id: 3, compte: "4431",       intitule: "TVA facturée sur ventes",  debit: 0,                      credit: Math.round(f.totalTva) },
-          ]
-        : [
-            { id: 1, compte: "4111",       intitule: "Clients",                  debit: Math.round(f.totalHT),  credit: 0,                       tiers: f.client },
-            { id: 2, compte: compteVente,  intitule: libelleVente,               debit: 0,                      credit: Math.round(f.totalHT),   tiers: f.client },
-          ];
-
-      // Encaissement : Banque/Caisse au débit, Client au crédit (montant réglé)
-      const montantRegle = Math.round(f.avecTva ? f.totalTtc : f.totalHT);
-      const estBanque = compteTresorerie === "521";
-      const lignesEncaissement = [
-        {
-          id: 1,
-          compte: compteTresorerie,
-          intitule: estBanque ? "Banques" : "Caisse",
-          debit: montantRegle,
-          credit: 0,
-        },
-        { id: 2, compte: "4111", intitule: "Clients", debit: 0, credit: montantRegle, tiers: f.client },
-      ];
+      if (!f || f.statut === "payee" || f.statut === "proforma" || f.statut === "annulee") return;
 
       const aid = f.activiteId ?? stampActiviteId;
       void tqTransactions.addTransaction(annee, mois, {
@@ -577,41 +547,20 @@ export const useEbeneStoreRemote = (
         factureId: f.id,
         activite: f.activite,
         activiteId: aid,
+        tresorerie: compteTresorerie,
       })
         .then((trans) =>
           Promise.all([
-            // Mettre à jour statut facture
             tqFactures.updateFacture(factureId, {
               statut: "payee",
               transactionId: trans.id,
+              compteTresorerie,
             }),
-            // Créer l'écriture SYSCOHADA dans journal VE (auto-validée)
-            tqEcritures.addEcriture(annee, mois, {
-              journal: "VE",
-              numeroPiece: `VE-${f.numero}`,
-              libelle: `Facture ${f.numero} — ${f.client}`,
-              lignes: lignesEcriture,
-              statut: "valide",
-              factureId: f.id,
-              activiteId: aid,
-              date: f.date,
-              annee,
-              mois,
-            }),
-            // Écriture d'encaissement (BQ ou CA), liée à la facture : le
-            // tableau de bord ne la recompte pas (la recette est déjà la transaction).
-            tqEcritures.addEcriture(annee, mois, {
-              journal: estBanque ? "BQ" : "CA",
-              numeroPiece: `${estBanque ? "BQ" : "CA"}-${f.numero}`,
-              libelle: `Règlement facture ${f.numero} — ${f.client}`,
-              lignes: lignesEncaissement,
-              statut: "valide",
-              factureId: f.id,
-              activiteId: aid,
-              date: f.date,
-              annee,
-              mois,
-            }),
+            // VE (constatation de la vente) et BQ/CA (encaissement), liées à la
+            // facture : le tableau de bord ne les recompte pas (la recette est
+            // déjà la transaction).
+            ...ecrituresFacturePayee(f, compteTresorerie, annee, mois, aid)
+              .map((e) => tqEcritures.addEcriture(annee, mois, e)),
           ])
         )
         .then(() => {
@@ -624,6 +573,32 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors du marquage comme payée"));
     },
     [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
+  );
+
+  /**
+   * Annule une facture validée ou payée : elle reste dans la liste, avec son
+   * numéro, au statut « annulée ». Ses écritures sont contre-passées à la date
+   * du jour et sa recette est retirée de la trésorerie.
+   */
+  const annulerFacture = useCallback(
+    (annee: number, mois: number, factureId: number) => {
+      const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === factureId);
+      if (!f || f.statut === "annulee") return;
+      const date = todayISO();
+      const [aa, mm] = date.split("-").map(Number);
+      const aContrePasser = (Object.values(tqEcritures.ecritures) as EcritureComptable[][]).flat()
+        .filter((e) => e.factureId === factureId && e.statut !== "brouillon" && !estContrePassation(e));
+      void tqFactures.updateFacture(factureId, { statut: "annulee", transactionId: null })
+        .then(async () => {
+          await Promise.all(aContrePasser.map((e) => tqEcritures.addEcriture(aa, mm, contrePassation(e, date, aa, mm))));
+          if (f.transactionId) await tqTransactions.removeTransaction(f.transactionId);
+          log("ANNULER_FACTURE", "factures", factureId, f, { statut: "annulee", contrePassations: aContrePasser.length });
+          markSignificantWrite();
+          toast.success(`Facture ${f.numero} annulée`);
+        })
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'annulation de la facture")));
+    },
+    [tqFactures, tqEcritures, tqTransactions, markSignificantWrite, log],
   );
 
   const convertirProforma = useCallback(
@@ -640,7 +615,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number) => {
       void tqFactures.validerFacture(id)
         .then(() => log("VALIDER_FACTURE", "factures", id, null, { id }))
-        .catch(() => toast.error("Erreur lors de la validation de la facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de la facture")));
     },
     [tqFactures],
   );
@@ -673,7 +648,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number) => {
       void tqDevis.removeDevis(id)
         .then(() => log("DELETE", "devis", id, null, null))
-        .catch(() => toast.error("Erreur lors de la suppression du devis"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression du devis")));
     },
     [tqDevis],
   );
@@ -744,7 +719,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, _employeId: number, primeId: number) => {
       void tqPrimes.removePrime(primeId)
         .then(() => log("DELETE", "primes", primeId, null, null))
-        .catch(() => toast.error("Erreur lors de la suppression de la prime"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de la prime")));
     },
     [tqPrimes],
   );
@@ -753,7 +728,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, _employeId: number, primeId: number) => {
       void tqPrimes.validerPrime(primeId)
         .then(() => log("VALIDER_PRIME", "primes", primeId, null, { id: primeId }))
-        .catch(() => toast.error("Erreur lors de la validation de la prime"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de la prime")));
     },
     [tqPrimes],
   );
@@ -781,7 +756,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number) => {
       void tqAbsences.removeAbsence(id)
         .then(() => log("DELETE", "absences", id, null, null))
-        .catch(() => toast.error("Erreur lors de la suppression de l'absence"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de l'absence")));
     },
     [tqAbsences],
   );
@@ -790,7 +765,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number) => {
       void tqAbsences.validerAbsence(id)
         .then(() => log("VALIDER_ABSENCE", "absences", id, null, { id }))
-        .catch(() => toast.error("Erreur lors de la validation de l'absence"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de l'absence")));
     },
     [tqAbsences],
   );
@@ -817,7 +792,7 @@ export const useEbeneStoreRemote = (
     (annee: number, mois: number, employeId: number) => {
       void tqHeuresSup.validerHeuresSup(annee, mois, employeId)
         .then(() => log("VALIDER_HEURES_SUP", "heures_sup", employeId, null, { employeId }))
-        .catch(() => toast.error("Erreur lors de la validation des heures sup"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation des heures sup")));
     },
     [tqHeuresSup],
   );
@@ -852,7 +827,7 @@ export const useEbeneStoreRemote = (
   const supprimerTaux = useCallback(
     (dateEffet: string) => {
       void tqTaux.removeTaux(dateEffet)
-        .catch(() => toast.error("Erreur lors de la suppression du taux fiscal"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression du taux fiscal")));
     },
     [tqTaux],
   );
@@ -914,7 +889,7 @@ export const useEbeneStoreRemote = (
           log("DELETE", "employes", id, null, null);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la suppression de l'employé"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de l'employé")));
     },
     [societeId, tqEmployes, markSignificantWrite],
   );
@@ -934,7 +909,7 @@ export const useEbeneStoreRemote = (
       if (!societeId) return;
       void tqEmployes.purgeEmploye(id)
         .then(() => toast.success("Supprimé définitivement"))
-        .catch(() => toast.error("Erreur lors de la suppression définitive"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression définitive")));
     },
     [societeId, tqEmployes],
   );
@@ -952,7 +927,7 @@ export const useEbeneStoreRemote = (
     (id: number) => {
       void tqEmployes.validerEmploye(id)
         .then(() => log("VALIDER_EMPLOYE", "employes", id, null, { id }))
-        .catch(() => toast.error("Erreur lors de la validation"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation")));
     },
     [tqEmployes],
   );
@@ -978,7 +953,7 @@ export const useEbeneStoreRemote = (
   const removeCategorieStock = useCallback(
     (id: number) => {
       void tqCategories.removeCategorieStock(id)
-        .catch(() => toast.error("Erreur lors de la suppression de la catégorie"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de la catégorie")));
     },
     [tqCategories],
   );
@@ -1003,7 +978,7 @@ export const useEbeneStoreRemote = (
   const removeFournisseur = useCallback(
     (id: number) => {
       void tqFournisseurs.removeFournisseur(id)
-        .catch(() => toast.error("Erreur lors de la suppression du fournisseur"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression du fournisseur")));
     },
     [tqFournisseurs],
   );
@@ -1028,7 +1003,7 @@ export const useEbeneStoreRemote = (
   const removeArticle = useCallback(
     (id: number) => {
       void tqArticles.removeArticle(id)
-        .catch(() => toast.error("Erreur lors de la suppression de l'article"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de l'article")));
     },
     [tqArticles],
   );
@@ -1119,7 +1094,7 @@ export const useEbeneStoreRemote = (
     (id: number) => {
       void tqSanctions.removeSanction(id)
         .then(() => log("DELETE", "sanctions", id, null, null))
-        .catch(() => toast.error("Erreur lors de la suppression de la sanction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de la sanction")));
     },
     [tqSanctions],
   );
@@ -1128,7 +1103,7 @@ export const useEbeneStoreRemote = (
     (id: number) => {
       void tqSanctions.validerSanction(id)
         .then(() => log("VALIDER_SANCTION", "sanctions", id, null, { id }))
-        .catch(() => toast.error("Erreur lors de la validation"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation")));
     },
     [tqSanctions],
   );
@@ -1182,7 +1157,7 @@ export const useEbeneStoreRemote = (
           log("DELETE", "immobilisations", id, null, null);
           await supprimerEcrituresLiees((e) => e.numeroPiece === pieceImmobilisation(id));
         })
-        .catch(() => toast.error("Erreur lors de la suppression de l'immobilisation"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de l'immobilisation")));
     },
     [tqImmobilisations, supprimerEcrituresLiees, log],
   );
@@ -1266,7 +1241,7 @@ export const useEbeneStoreRemote = (
           log("DELETE", "ecritures_comptables", id, null, null);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la suppression de l'écriture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la suppression de l'écriture")));
     },
     [tqEcritures, markSignificantWrite, log],
   );
@@ -1275,7 +1250,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number) => {
       void tqEcritures.validerEcriture(id)
         .then(() => log("VALIDER_ECRITURE", "ecritures_comptables", id, null, { id }))
-        .catch(() => toast.error("Erreur lors de la validation de l'écriture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de l'écriture")));
     },
     [tqEcritures, log],
   );
@@ -1308,6 +1283,7 @@ export const useEbeneStoreRemote = (
     updateFacture,
     removeFacture,
     marquerPayee,
+    annulerFacture,
     convertirProforma,
     addDevis,
     removeDevis,

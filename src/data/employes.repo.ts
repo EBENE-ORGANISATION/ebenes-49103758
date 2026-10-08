@@ -53,6 +53,7 @@ export const toEmploye = (row: EmployeRow): Employe => ({
   userId: n(row.user_id),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
 });
 
 /** Convertit un objet `Employe` partiel en payload d'insertion Supabase. */

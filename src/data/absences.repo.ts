@@ -23,6 +23,7 @@ export const toAbsence = (row: AbsenceRow): Absence => ({
   motif: n(row.motif),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
 });
 
 export const fromAbsence = (

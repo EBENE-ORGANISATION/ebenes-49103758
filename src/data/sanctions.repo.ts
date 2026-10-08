@@ -18,6 +18,7 @@ interface SanctionRow {
   observations: string | null;
   statut_validation: string | null;
   motif_rejet: string | null;
+  cree_par?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export const toSanction = (row: SanctionRow): Sanction => ({
   observations: n(row.observations),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
+  creePar: n(row.cree_par),
 });
 
 export const fromSanction = (

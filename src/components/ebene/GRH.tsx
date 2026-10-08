@@ -50,6 +50,7 @@ import { BulletinsPaie } from "./BulletinsPaie";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
+import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 
 interface Props {
   employes: Employe[];
@@ -120,6 +121,7 @@ export const GRH = ({
   onPurgeEmploye,
   allAbsences,
 }: Props) => {
+  const peutValider = usePeutValider();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
   const [bulletin, setBulletin] = useState<Employe | null>(null);
@@ -352,7 +354,8 @@ export const GRH = ({
                             variant="outline"
                             className="gap-1 h-8 text-xs text-success border-success/30 hover:bg-success/10"
                             onClick={() => onValiderEmploye(e.id)}
-                            title="Valider cet employé"
+                            disabled={!peutValider(e.creePar)}
+                            title={peutValider(e.creePar) ? "Valider cet employé" : MESSAGE_QUATRE_YEUX}
                           >
                             <Check className="size-3" /> Valider
                           </Button>
@@ -473,7 +476,8 @@ export const GRH = ({
                                   variant="ghost"
                                   className="size-7 text-success hover:text-success hover:bg-success/10"
                                   onClick={() => onValiderHeuresSup(e.id)}
-                                  title="Valider"
+                                  disabled={!peutValider(hsCur.creePar)}
+                                  title={peutValider(hsCur.creePar) ? "Valider" : MESSAGE_QUATRE_YEUX}
                                 >
                                   <Check className="size-3.5" />
                                 </Button>
@@ -535,8 +539,9 @@ export const GRH = ({
                             <span className="amount">{formatMontant(p.montant)}</span>
                             {isChefGrh && p.statutValidation !== "valide" && (
                               <button
-                                className="text-success hover:underline"
-                                title="Valider"
+                                className="text-success hover:underline disabled:opacity-40 disabled:no-underline"
+                                disabled={!peutValider(p.creePar)}
+                                title={peutValider(p.creePar) ? "Valider" : MESSAGE_QUATRE_YEUX}
                                 onClick={() => onValiderPrime(e.id, p.id)}
                               >
                                 ✓
