@@ -13,6 +13,7 @@ import {
   moisKey,
   transactionComptabilisee,
   tvaDepuisTransactions,
+  textePdf,
 } from "@/lib/ebene-utils";
 import { calculerPaie } from "@/lib/paie";
 import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
@@ -83,9 +84,16 @@ const Row = ({ label, value, strong, sub }: { label: string; value: string; stro
 
 // ─── Export helpers ───────────────────────────────────────────────────────────
 
+/** Montant formaté (« 264 600 », « -1 500 ») → nombre, pour qu'Excel puisse calculer. */
+const enNombreSiMontant = (c: string | number): string | number => {
+  if (typeof c === "number") return c;
+  const brut = textePdf(c).trim();
+  return /^-?\d{1,3}( \d{3})*$/.test(brut) ? Number(brut.replace(/ /g, "")) : brut;
+};
+
 function dlExcel(filename: string, sheetName: string, rows: (string | number)[][]) {
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const ws = XLSX.utils.aoa_to_sheet(rows.map((r) => r.map(enNombreSiMontant)));
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
@@ -93,8 +101,12 @@ function dlExcel(filename: string, sheetName: string, rows: (string | number)[][
 function dlPDF(filename: string, title: string, head: string[][], body: (string | number)[][]) {
   const doc = new jsPDF();
   doc.setFontSize(14);
-  doc.text(title, 14, 18);
-  autoTable(doc, { head, body: body.map(r => r.map(String)), startY: 25 });
+  doc.text(textePdf(title), 14, 18);
+  autoTable(doc, {
+    head: head.map(r => r.map(textePdf)),
+    body: body.map(r => r.map(c => textePdf(String(c)))),
+    startY: 25,
+  });
   doc.save(`${filename}.pdf`);
 }
 

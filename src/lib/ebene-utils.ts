@@ -6,6 +6,15 @@ export const formatMontant = (n: number): string => {
   return abs.toLocaleString("fr-FR") + "\u00a0F";
 };
 
+/**
+ * Texte pour les PDF jsPDF : les polices standard (Helvetica, encodage
+ * WinAnsi) n'ont ni l'espace fine insécable (U+202F, séparateur de milliers
+ * du français) ni l'espace insécable (U+00A0) ; jsPDF bascule alors toute la
+ * chaîne en UTF-16 et le montant devient illisible (« 2 1 6 / 8 0 8 »).
+ */
+const ESPACES_SPECIALES = new RegExp("[" + String.fromCharCode(0x202f, 0x00a0) + "]", "g");
+export const textePdf = (s: string): string => s.replace(ESPACES_SPECIALES, " ");
+
 export const formatMontantSigne = (n: number): string => {
   const sign = n >= 0 ? "+" : "-";
   return sign + " " + formatMontant(n);

@@ -3,7 +3,10 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Employe, MoisData, MOIS_NOMS, TauxFiscaux, TAUX_DEFAUT } from "@/types/ebene";
-import { formatMontant } from "@/lib/ebene-utils";
+import { formatMontant as formatMontantEcran, textePdf } from "@/lib/ebene-utils";
+
+/** Montant lisible dans un PDF jsPDF (espaces ordinaires comme séparateur de milliers). */
+const formatMontant = (n: number) => textePdf(formatMontantEcran(n));
 import { calculerPaie, contenuBulletin, type MontantsEnregistres } from "@/lib/paie";
 
 /** Sous-ensemble de societe_config + societes utilisé pour la mise en forme du bulletin. */

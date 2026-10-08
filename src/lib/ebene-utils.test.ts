@@ -119,3 +119,12 @@ describe("tvaDepuisTransactions", () => {
     expect(r).toEqual({ caHT: 0, tvaCollectee: 0, tvaDeductible: 0 });
   });
 });
+
+describe("textePdf", () => {
+  it("remplace les espaces spéciales du français par des espaces ordinaires", async () => {
+    const { textePdf, formatMontant } = await import("./ebene-utils");
+    const s = textePdf(formatMontant(216808));
+    expect(s).toBe("216 808 F");
+    expect([...s].every((c) => c.charCodeAt(0) < 256)).toBe(true);
+  });
+});
