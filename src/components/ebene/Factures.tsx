@@ -17,7 +17,7 @@ import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
 import {
   genererNumeroFacture,
-  incrementerCompteur,
+  reserverNumero,
 } from "@/lib/numerotation";
 
 interface Props {
@@ -152,7 +152,21 @@ export const Factures = ({
     }
   };
 
-  const submit = () => {
+  /**
+   * Numéro définitif : si l'utilisateur garde le numéro proposé, on le réserve
+   * en base (le compteur avance atomiquement) ; sinon on respecte son choix
+   * manuel sans avancer la séquence.
+   */
+  const numeroDefinitif = async (apercu: string, saisi: string): Promise<string> => {
+    if (saisi && saisi !== apercu) return saisi;
+    if (!currentSociete?.id || !societeConfig) return apercu;
+    const reserve = await reserverNumero(currentSociete.id, "facture", annee);
+    if (!reserve) return apercu;
+    void refreshTenant();
+    return reserve;
+  };
+
+  const submit = async () => {
     if (!client.trim()) return alert("Le nom du client est obligatoire.");
     if (!date) return alert("Date obligatoire.");
     const lignesNet = lignes
@@ -184,7 +198,7 @@ export const Factures = ({
       return;
     }
 
-    const numeroFinal = (numero.trim() || numeroAuto);
+    const numeroFinal = await numeroDefinitif(numeroAuto, numero.trim());
     onAdd({
       numero: numeroFinal,
       client: client.trim(),
@@ -200,19 +214,6 @@ export const Factures = ({
       activite,
       activiteId,
     });
-    // Incrémente le compteur uniquement si on a utilisé le numéro auto
-    // (sinon on respecte le choix manuel sans avancer la séquence).
-    if (
-      currentSociete?.id &&
-      societeConfig &&
-      numeroFinal === numeroAuto
-    ) {
-      void incrementerCompteur(
-        currentSociete.id,
-        "facture",
-        Number(societeConfig.compteur_facture ?? 1),
-      ).then((ok) => { if (ok) void refreshTenant(); });
-    }
     reset();
     setOpen(false);
   };
@@ -567,19 +568,12 @@ export const Factures = ({
                         size="sm"
                         variant="outline"
                         className="gap-1 text-info border-info/30 hover:bg-info/10"
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm("Convertir cette proforma en facture définitive ?")) {
-                            const num = societeConfig
+                            const apercu = societeConfig
                               ? genererNumeroFacture(societeConfig, annee)
                               : prochainNumeroFallback(false, annee, donneesMensuelles);
-                            onConvertir(f.id, num);
-                            if (currentSociete?.id && societeConfig) {
-                              void incrementerCompteur(
-                                currentSociete.id,
-                                "facture",
-                                Number(societeConfig.compteur_facture ?? 1),
-                              ).then((ok) => { if (ok) void refreshTenant(); });
-                            }
+                            onConvertir(f.id, await numeroDefinitif(apercu, ""));
                           }
                         }}
                       >

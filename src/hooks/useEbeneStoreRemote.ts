@@ -316,9 +316,10 @@ export const useEbeneStoreRemote = (
       fournisseurs,
       categoriesStock,
       sanctions,
+      immobilisations,
       importerDonnees: () => { /* placeholder */ },
     };
-  }, [donneesMensuelles, employes, paramsAnnuels, tauxHistorique, articles, fournisseurs, categoriesStock, sanctions]);
+  }, [donneesMensuelles, employes, paramsAnnuels, tauxHistorique, articles, fournisseurs, categoriesStock, sanctions, immobilisations]);
 
   useEffect(() => {
     return () => {
@@ -1098,10 +1099,11 @@ export const useEbeneStoreRemote = (
           .catch(() => toast.error("Erreur lors de l'import des taux fiscaux"));
       }
 
-      toast.info(
-        "Import partiel : seul tauxHistorique est importé. " +
-        "Toutes les entités métier (factures, devis, stock, employés…) " +
-        "sont stockées dans Supabase et doivent être importées via leur module respectif.",
+      toast.warning(
+        "Restauration partielle : seuls les taux fiscaux ont été importés. " +
+        "Les factures, devis, employés, stock et immobilisations n'ont pas été modifiés : " +
+        "ils restent ceux de la base actuelle.",
+        { duration: 10_000 },
       );
     },
     [tqTaux],

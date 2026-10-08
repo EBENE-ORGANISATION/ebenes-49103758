@@ -62,32 +62,62 @@ export const genererNumeroDevis = (
 };
 
 /**
- * Incrémente le compteur correspondant en base.
- * Échoue silencieusement (retourne false) — la création du document ne
- * doit jamais être bloquée par un problème de compteur.
+ * Réserve atomiquement le prochain numéro (facture ou devis) et avance le
+ * compteur en base, AVANT la création du document.
+ *
+ * Lit le compteur à jour en base puis ne l'avance que s'il n'a pas changé
+ * entre-temps (mise à jour conditionnelle « compare-and-swap »). Si un autre
+ * utilisateur l'a avancé juste avant, on relit et on réessaie : deux créations
+ * simultanées ne peuvent donc pas obtenir le même numéro.
+ *
+ * Retourne null en cas d'échec (pas de config, droits, réseau) : l'appelant
+ * se rabat alors sur le numéro d'aperçu.
  */
-export const incrementerCompteur = async (
+export const reserverNumero = async (
   societeId: string,
   type: "facture" | "devis",
-  current: number,
-): Promise<boolean> => {
-  if (!societeId) return false;
-  const next = Math.max(1, Number(current || 1)) + 1;
-  const patch =
-    type === "facture" ? { compteur_facture: next } : { compteur_devis: next };
+  annee: number,
+  mois?: number,
+): Promise<string | null> => {
+  if (!societeId) return null;
+  const colCompteur = type === "facture" ? "compteur_facture" : "compteur_devis";
+  const colFormat = type === "facture" ? "format_facture" : "format_devis";
+  const formatDefaut = type === "facture" ? DEFAULT_FORMAT_FACTURE : DEFAULT_FORMAT_DEVIS;
+
   try {
-    const { error } = await supabase
-      .from("societe_config")
-      .update(patch)
-      .eq("societe_id", societeId);
-    if (error) {
-      console.warn("[numerotation] increment failed", error);
-      return false;
+    for (let essai = 0; essai < 5; essai++) {
+      const { data: cfg, error: readErr } = await supabase
+        .from("societe_config")
+        .select(`${colCompteur}, ${colFormat}`)
+        .eq("societe_id", societeId)
+        .maybeSingle();
+      if (readErr || !cfg) return null;
+
+      const row = cfg as Record<string, unknown>;
+      const brut = row[colCompteur] as number | null;
+      const courant = Math.max(1, Number(brut ?? 1));
+
+      const patch =
+        type === "facture" ? { compteur_facture: courant + 1 } : { compteur_devis: courant + 1 };
+      let maj = supabase
+        .from("societe_config")
+        .update(patch)
+        .eq("societe_id", societeId);
+      // Le compteur ne doit pas avoir bougé depuis la lecture
+      maj = brut == null ? maj.is(colCompteur, null) : maj.eq(colCompteur, brut);
+      const { data: updated, error: updErr } = await maj.select("societe_id");
+      if (updErr) return null;
+
+      if (updated && updated.length === 1) {
+        const fmt = (row[colFormat] as string | null) || formatDefaut;
+        return formaterNumero(fmt, annee, courant, mois);
+      }
+      // Compteur avancé par quelqu'un d'autre entre-temps → on réessaie
     }
-    return true;
+    return null;
   } catch (e) {
-    console.warn("[numerotation] increment error", e);
-    return false;
+    console.warn("[numerotation] reservation error", e);
+    return null;
   }
 };
 

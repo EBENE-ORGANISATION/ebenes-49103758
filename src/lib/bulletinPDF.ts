@@ -33,7 +33,7 @@ export const generateBulletin = (
   mois: number,
   societe?: BulletinSocieteInfo | null
 ): void => {
-  const c = calculerPaie(employe, moisData);
+  const c = calculerPaie(employe, moisData, annee, mois);
   const periode = `${MOIS_NOMS[mois - 1]} ${annee}`;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();

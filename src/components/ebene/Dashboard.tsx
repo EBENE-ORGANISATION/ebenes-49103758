@@ -45,7 +45,7 @@ import type {
   MoisData,
   Activite,
 } from "@/types/ebene";
-import { formatMontant, moisKey, tauxPourMois } from "@/lib/ebene-utils";
+import { formatMontant, moisKey, tauxPourMois, transactionComptabilisee } from "@/lib/ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
 
@@ -85,7 +85,7 @@ const MOIS_COURTS = [
 
 const sumRecettes = (m: MoisData): number => {
   const recTrans = m.transactions
-    .filter((t) => t.type === "r")
+    .filter((t) => t.type === "r" && transactionComptabilisee(t))
     .reduce((s, t) => s + Math.abs(t.m), 0);
   const recEcritures = (m.ecritures || [])
     .filter((e) => e.statut === "valide" && !e.factureId)
@@ -101,7 +101,7 @@ const sumRecettes = (m: MoisData): number => {
 
 const sumDepenses = (m: MoisData): number => {
   const depTrans = m.transactions
-    .filter((t) => t.type === "d")
+    .filter((t) => t.type === "d" && transactionComptabilisee(t))
     .reduce((s, t) => s + Math.abs(t.m), 0);
   const depEcritures = (m.ecritures || [])
     .filter((e) => e.statut === "valide" && !e.factureId)

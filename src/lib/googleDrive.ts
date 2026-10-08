@@ -39,6 +39,7 @@ export interface EbeneSnapshot {
   fournisseurs: unknown;
   categoriesStock: unknown;
   sanctions: unknown;
+  immobilisations: unknown;
   exportedAt: string;
   version: 1;
 }
@@ -53,6 +54,7 @@ export interface EbeneStoreLike {
   fournisseurs: unknown;
   categoriesStock: unknown;
   sanctions: unknown;
+  immobilisations: unknown;
   importerDonnees: (data: Record<string, unknown>) => void;
 }
 
@@ -82,6 +84,7 @@ export function snapshotFromStore(store: EbeneStoreLike): EbeneSnapshot {
     fournisseurs: store.fournisseurs,
     categoriesStock: store.categoriesStock,
     sanctions: store.sanctions,
+    immobilisations: store.immobilisations,
     exportedAt: new Date().toISOString(),
     version: 1,
   };
@@ -207,7 +210,11 @@ async function listViaFetch(): Promise<DriveFileInfo[]> {
   }
 }
 
-/** Télécharge un backup et le réinjecte dans le store via importerDonnees(). */
+/**
+ * Télécharge un backup et le réinjecte dans le store via importerDonnees().
+ * Restauration PARTIELLE : seuls les taux fiscaux sont réimportés (voir
+ * importerDonnees) ; c'est importerDonnees qui informe l'utilisateur.
+ */
 export async function restoreFromDrive(
   fileId: string,
   store: EbeneStoreLike
@@ -228,7 +235,6 @@ export async function restoreFromDrive(
     const snap = j.data as Record<string, unknown>;
     if (!snap || typeof snap !== "object") throw new Error("Snapshot invalide");
     store.importerDonnees(snap);
-    toast.success("Restauration depuis Drive réussie");
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

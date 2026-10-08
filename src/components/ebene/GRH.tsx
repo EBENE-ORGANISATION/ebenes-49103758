@@ -140,13 +140,13 @@ export const GRH = ({
     employes.forEach((e) => {
       // Exclure les employés non validés de la masse salariale
       if (e.statutValidation && e.statutValidation !== "valide") return;
-      const c = calculerPaie(e, data);
+      const c = calculerPaie(e, data, annee, mois);
       masseBrute += c.brut;
       coutTotal += c.coutEmployeur;
       netTotal += c.net;
     });
     return { masseBrute, coutTotal, netTotal };
-  }, [employes, data]);
+  }, [employes, data, annee, mois]);
 
   const submitPrime = (employeId: number) => {
     if (!primeLib.trim()) return alert("Libellé requis");
@@ -300,9 +300,9 @@ export const GRH = ({
           ) : (
             <div className="space-y-2">
               {employes.map((e) => {
-                const c = calculerPaie(e, data);
-                const anc = calculerAnciennete(e.dateEmbauche);
-                const tx = tauxAnciennete(anc);
+                const c = calculerPaie(e, data, annee, mois);
+                const anc = c.anciennete;
+                const tx = c.tauxAnc;
                 const sv = e.statutValidation;
                 const dim = sv && sv !== "valide" ? "opacity-60" : "";
                 return (

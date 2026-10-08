@@ -1,4 +1,4 @@
-import { TauxFiscaux, TAUX_DEFAUT, Employe } from "@/types/ebene";
+import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture } from "@/types/ebene";
 
 export const formatMontant = (n: number): string => {
   const abs = Math.abs(Math.round(n));
@@ -23,6 +23,68 @@ export const escapeHtml = (str: string): string =>
     .replace(/'/g, "&#39;");
 
 export const newId = () => Date.now() + Math.floor(Math.random() * 1000);
+
+// ─── TRANSACTIONS PRISES EN COMPTE ───────────────────────────────────────────
+/**
+ * Une transaction entre dans les totaux (comptabilité, fiscalité, tableau de
+ * bord) si elle n'est pas rejetée et :
+ *  - qu'elle est générée automatiquement (facture payée, salaires) — son
+ *    document d'origine a déjà été traité ;
+ *  - ou qu'elle a été validée par le chef comptable (ou est antérieure au
+ *    workflow de validation : statut absent).
+ * Les saisies manuelles « en validation » / « brouillon » n'y entrent pas.
+ */
+export const transactionComptabilisee = (t: Transaction): boolean => {
+  if (t.statut === "rejete") return false;
+  if (t.source === "facture" || t.source === "salaires") return true;
+  return t.statut === undefined || t.statut === "valide";
+};
+
+// ─── TVA DU MOIS À PARTIR DES TRANSACTIONS ───────────────────────────────────
+export interface TvaTransactions {
+  /** Chiffre d'affaires HT (factures : HT réel ; recettes manuelles : montant saisi). */
+  caHT: number;
+  tvaCollectee: number;
+  tvaDeductible: number;
+}
+
+/**
+ * Calcule la TVA à partir des transactions prises en compte du mois.
+ *  - Recette issue d'une facture : on reprend le HT et la TVA de la facture
+ *    (le montant de la transaction est TTC ; une facture sans TVA n'en génère pas).
+ *  - Recette manuelle : montant considéré HT, TVA au taux du mois (comportement historique).
+ *  - TVA déductible : uniquement sur les achats fournisseurs, extraite du TTC
+ *    (même règle que l'écriture AC générée automatiquement). Salaires, charges
+ *    sociales et autres dépenses n'ouvrent pas droit à déduction.
+ */
+export const tvaDepuisTransactions = (
+  transactions: Transaction[],
+  factures: Facture[],
+  tauxTva: number,
+): TvaTransactions => {
+  let caHT = 0;
+  let tvaCollectee = 0;
+  let tvaDeductible = 0;
+  for (const t of transactions) {
+    if (!transactionComptabilisee(t)) continue;
+    const montant = Math.abs(t.m);
+    if (t.type === "r") {
+      const f = t.source === "facture" && t.factureId
+        ? factures.find((x) => x.id === t.factureId)
+        : undefined;
+      if (f) {
+        caHT += f.totalHT;
+        tvaCollectee += f.avecTva ? f.totalTva : 0;
+      } else {
+        caHT += montant;
+        tvaCollectee += montant * tauxTva;
+      }
+    } else if (t.source === "fournisseur") {
+      tvaDeductible += montant - Math.round(montant / (1 + tauxTva));
+    }
+  }
+  return { caHT, tvaCollectee, tvaDeductible };
+};
 
 // ─── PAIE TOGOLAISE ───────────────────────────────────────────────────────────
 // Code du travail togolais & Convention collective interprofessionnelle

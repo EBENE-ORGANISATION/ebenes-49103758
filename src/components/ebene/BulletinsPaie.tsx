@@ -384,7 +384,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
               </TableHeader>
               <TableBody>
                 {sansBulletin.map((e) => {
-                  const c = calculerPaie(e, store.getMois(annee, mois));
+                  const c = calculerPaie(e, store.getMois(annee, mois), annee, mois);
                   return (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nom}</TableCell>

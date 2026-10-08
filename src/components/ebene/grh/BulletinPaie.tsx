@@ -51,12 +51,23 @@ export interface CalculPaie {
   th: number;
 }
 
-export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
+/**
+ * Calcule la paie d'un employé pour un mois. `annee`/`mois` fixent la date de
+ * référence de l'ancienneté (dernier jour du mois payé) : un bulletin passé
+ * doit garder l'ancienneté qu'avait l'employé à cette date, pas celle d'aujourd'hui.
+ */
+export const calculerPaie = (
+  employe: Employe,
+  data: MoisData,
+  annee?: number,
+  mois?: number,
+): CalculPaie => {
   const base = employe.salaire || 0;
   const sursalaire = employe.sursalaire || 0;
   const th = tauxHoraire(base, sursalaire);
 
-  const anciennete = calculerAnciennete(employe.dateEmbauche);
+  const refDate = annee && mois ? new Date(annee, mois, 0) : new Date();
+  const anciennete = calculerAnciennete(employe.dateEmbauche, refDate);
   const tauxAnc = tauxAnciennete(anciennete);
   const primeAnciennete = base * tauxAnc;
 
@@ -172,7 +183,7 @@ export const calculerPaie = (employe: Employe, data: MoisData): CalculPaie => {
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
   const { t } = useTranslation();
-  const c = calculerPaie(employe, data);
+  const c = calculerPaie(employe, data, annee, mois);
   const filename = `Bulletin_${employe.nom.replace(/\s+/g, "_")}_${MOIS_NOMS[mois - 1]}_${annee}`;
   const exportPDF = async () => {
     const el = document.getElementById("print-area");

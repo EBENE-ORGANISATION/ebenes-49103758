@@ -1,0 +1,97 @@
+import { describe, it, expect } from "vitest";
+import type { Facture, Transaction } from "@/types/ebene";
+import { transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+
+const tx = (p: Partial<Transaction>): Transaction => ({
+  id: 1,
+  date: "2026-03-10",
+  desc: "",
+  type: "r",
+  m: 0,
+  source: "manuelle",
+  ...p,
+});
+
+const facture = (p: Partial<Facture>): Facture => ({
+  id: 10,
+  numero: "FAC-2026-001",
+  client: "Client",
+  date: "2026-03-10",
+  lignes: [],
+  reduction: 0,
+  avecTva: true,
+  statut: "payee",
+  totalHT: 100_000,
+  totalTva: 18_000,
+  totalTtc: 118_000,
+  ...p,
+});
+
+describe("transactionComptabilisee", () => {
+  it("exclut les transactions rejetées, même automatiques", () => {
+    expect(transactionComptabilisee(tx({ statut: "rejete" }))).toBe(false);
+    expect(transactionComptabilisee(tx({ source: "facture", statut: "rejete" }))).toBe(false);
+  });
+
+  it("exclut les saisies manuelles non validées", () => {
+    expect(transactionComptabilisee(tx({ statut: "en_validation" }))).toBe(false);
+    expect(transactionComptabilisee(tx({ statut: "brouillon" }))).toBe(false);
+  });
+
+  it("compte les saisies validées et les anciennes sans statut", () => {
+    expect(transactionComptabilisee(tx({ statut: "valide" }))).toBe(true);
+    expect(transactionComptabilisee(tx({ statut: undefined }))).toBe(true);
+  });
+
+  it("compte les transactions générées (facture payée, salaires) en attente de validation", () => {
+    expect(transactionComptabilisee(tx({ source: "facture", statut: "en_validation" }))).toBe(true);
+    expect(transactionComptabilisee(tx({ source: "salaires", statut: "en_validation" }))).toBe(true);
+  });
+});
+
+describe("tvaDepuisTransactions", () => {
+  it("reprend le HT et la TVA de la facture au lieu de taxer le TTC", () => {
+    const r = tvaDepuisTransactions(
+      [tx({ source: "facture", factureId: 10, m: 118_000 })],
+      [facture({})],
+      0.18,
+    );
+    expect(r.caHT).toBe(100_000);
+    expect(r.tvaCollectee).toBe(18_000); // et non 118 000 × 18 % = 21 240
+  });
+
+  it("ne collecte pas de TVA sur une facture émise sans TVA", () => {
+    const r = tvaDepuisTransactions(
+      [tx({ source: "facture", factureId: 10, m: 100_000 })],
+      [facture({ avecTva: false, totalTva: 0, totalTtc: 100_000 })],
+      0.18,
+    );
+    expect(r.tvaCollectee).toBe(0);
+  });
+
+  it("ne déduit la TVA que sur les achats fournisseurs", () => {
+    const r = tvaDepuisTransactions(
+      [
+        tx({ type: "d", source: "salaires", m: -500_000 }),
+        tx({ type: "d", source: "manuelle", statut: "valide", m: -200_000 }), // loyer
+        tx({ type: "d", source: "fournisseur", statut: "valide", m: -118_000 }),
+      ],
+      [],
+      0.18,
+    );
+    expect(r.tvaDeductible).toBe(18_000);
+  });
+
+  it("ignore les transactions rejetées ou en attente", () => {
+    const r = tvaDepuisTransactions(
+      [
+        tx({ statut: "rejete", m: 50_000 }),
+        tx({ statut: "en_validation", m: 50_000 }),
+        tx({ type: "d", source: "fournisseur", statut: "rejete", m: -118_000 }),
+      ],
+      [],
+      0.18,
+    );
+    expect(r).toEqual({ caHT: 0, tvaCollectee: 0, tvaDeductible: 0 });
+  });
+});

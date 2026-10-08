@@ -146,16 +146,8 @@ const Index = () => {
     [store.donneesMensuelles, employesPaie, store.articles]
   );
 
-  // Compte 'employe' pur → portail self-service uniquement
-  // (placé après tous les hooks pour respecter les Rules of Hooks)
-  if (isEmployeOnly) {
-    return (
-      <Suspense fallback={<PortalFallback />}>
-        <PortailEmploye />
-      </Suspense>
-    );
-  }
-
+  // (La redirection des comptes 'employe' purs vers le portail se fait plus bas,
+  //  après le dernier hook — voir juste avant le return principal.)
   const exportJSON = () => {
     const payload = {
       version: "1.3",
@@ -189,8 +181,8 @@ const Index = () => {
         const data = JSON.parse(String(e.target?.result || ""));
         if (!data || typeof data !== "object") throw new Error("invalide");
         if (!confirm(t("index_page.confirm_import"))) return;
+        // importerDonnees indique lui-même ce qui a été importé (import partiel)
         store.importerDonnees(data);
-        toast.success(t("index_page.import_success"));
       } catch {
         toast.error(t("index_page.import_invalid"));
       }
@@ -305,6 +297,17 @@ const Index = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showDashboard, showCompta, showFisc, showCommercial, showStock, showImmo, showGrh, showPortail, handleTabChange]);
+
+  // Compte 'employe' pur → portail self-service uniquement.
+  // Placé après TOUS les hooks : les rôles arrivent après le premier rendu,
+  // isEmployeOnly peut donc passer de false à true sans changer l'ordre des hooks.
+  if (isEmployeOnly) {
+    return (
+      <Suspense fallback={<PortalFallback />}>
+        <PortailEmploye />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

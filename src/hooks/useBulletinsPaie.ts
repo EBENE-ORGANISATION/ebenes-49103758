@@ -50,7 +50,7 @@ export const useBulletinsPaie = (societeId: string | null) => {
   const genererBulletin = useCallback(
     async (employe: Employe, moisData: MoisData, annee: number, mois: number): Promise<boolean> => {
       if (!societeId) return false;
-      const c = calculerPaie(employe, moisData);
+      const c = calculerPaie(employe, moisData, annee, mois);
       const row = {
         employe_id:       employe.id,
         employe_nom:      employe.nom,

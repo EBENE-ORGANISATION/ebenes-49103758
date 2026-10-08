@@ -7,7 +7,13 @@ import {
   EcritureComptable,
 } from "@/types/ebene";
 import { StatCard } from "./StatCard";
-import { formatMontant, tauxPourMois, moisKey } from "@/lib/ebene-utils";
+import {
+  formatMontant,
+  tauxPourMois,
+  moisKey,
+  transactionComptabilisee,
+  tvaDepuisTransactions,
+} from "@/lib/ebene-utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -175,15 +181,19 @@ export const Fiscalite = ({
     for (let m = 1; m <= 12; m++) {
       const md = donneesMensuelles[moisKey(annee, m)];
       if (!md) continue;
-      total += md.transactions.filter(t => t.type === "r").reduce((a, t) => a + t.m, 0);
+      total += md.transactions
+        .filter(t => t.type === "r" && transactionComptabilisee(t))
+        .reduce((a, t) => a + t.m, 0);
     }
     return total;
   }, [donneesMensuelles, annee]);
 
   // ── Calculs du mois ────────────────────────────────────────────────────────
   const calc = useMemo(() => {
-    const recettes = data.transactions.filter(t => t.type === "r");
-    const depenses = data.transactions.filter(t => t.type === "d");
+    // Seules les transactions prises en compte (ni rejetées, ni en attente de validation)
+    const comptabilisees = data.transactions.filter(transactionComptabilisee);
+    const recettes = comptabilisees.filter(t => t.type === "r");
+    const depenses = comptabilisees.filter(t => t.type === "d");
     const rec  = recettes.reduce((a, t) => a + t.m, 0);
     const dep  = Math.abs(depenses.reduce((a, t) => a + t.m, 0));
     const ben  = Math.max(0, rec - dep);
@@ -202,9 +212,9 @@ export const Fiscalite = ({
     const impot  = Math.max(is, imfMensuel);
     const regime = is >= imfMensuel ? "IS" : "IMF";
 
-    // TVA
-    const tvaCollectee   = rec * taux.tva;
-    const tvaDeductible  = dep * taux.tva;
+    // TVA : HT et TVA réels des factures, déduction limitée aux achats fournisseurs
+    const { caHT, tvaCollectee, tvaDeductible } =
+      tvaDepuisTransactions(data.transactions, data.factures, taux.tva);
     const tvaNette       = tvaCollectee - tvaDeductible;
     const tvaAPayer      = Math.max(0, tvaNette);
     const creditAReporter = Math.max(0, -tvaNette);
@@ -233,7 +243,7 @@ export const Fiscalite = ({
       rec, dep, ben,
       recService, recCommerce,
       is, imfMensuel, imfAnnuel, impot, regime,
-      tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
+      caHT, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
       patService, patCommerce, pat,
       thAnnuel, thDuMois, loyerAnnuel, rslAnnuel, rslMensuel,
       masse, cnssEmp, amuEmp, cnssSal, amuSal,
@@ -290,21 +300,21 @@ export const Fiscalite = ({
     const hasEcritures = ligne7 > 0 || ligne13 > 0 || ligne18 > 0;
 
     // Section II — CA HT
-    const l1  = hasEcritures ? ligne7 : calc.rec;
+    const l1  = hasEcritures ? ligne7 : calc.caHT;
     const l2  = tvaManuel.l3;   // exonérées
     const l3  = tvaManuel.l4;   // autres taux
     const l4  = tvaManuel.l5;   // LASM
     const l6  = l1 + l2 + l3 + l4;  // total CA HT
 
     // Section III — TVA Brute
-    const l7  = hasEcritures ? ligne13 : Math.round(calc.rec * taux.tva);
+    const l7  = hasEcritures ? ligne13 : Math.round(calc.tvaCollectee);
     const l8  = tvaManuel.l8;   // TVA importations
     const l9  = tvaManuel.l9;   // TVA récupérable immo (Sect. III)
     const l10 = tvaManuel.l10;  // régularisations +
     const l11 = l7 + l8 + l9 + l10;  // TOTAL TVA BRUTE
 
     // Section IV — TVA Déductible (nouvelle numérotation)
-    const l12 = hasEcritures ? ligne18 : Math.round(calc.dep * taux.tva);  // AUTO 4452
+    const l12 = hasEcritures ? ligne18 : Math.round(calc.tvaDeductible);  // AUTO 4452
     const l13 = tvaManuel.l13;  // déductions immobilisations
     const l14 = tvaManuel.l14;  // régularisations +
     const l15 = tvaManuel.l15;  // reversements -

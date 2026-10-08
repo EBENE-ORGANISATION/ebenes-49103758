@@ -18,7 +18,7 @@ import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangl
 import { StatCard } from "./StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMontant, formatMontantSigne, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, formatMontantSigne, todayISO, transactionComptabilisee } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -107,15 +107,18 @@ export const Comptabilite = ({
   // est marqué comme PAYÉ (payerBulletin ajoute alors une transaction
   // source="salaires"). Aucune ligne auto n'est plus injectée ici.
   const totals = useMemo(() => {
-    const rec = data.transactions.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
-    const recFact = data.transactions
+    // Les transactions rejetées ou en attente de validation restent listées
+    // mais n'entrent pas dans les totaux.
+    const comptabilisees = data.transactions.filter(transactionComptabilisee);
+    const rec = comptabilisees.filter((t) => t.type === "r").reduce((a, t) => a + t.m, 0);
+    const recFact = comptabilisees
       .filter((t) => t.type === "r" && t.source === "facture")
       .reduce((a, t) => a + t.m, 0);
     const dep = Math.abs(
-      data.transactions.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0)
+      comptabilisees.filter((t) => t.type === "d").reduce((a, t) => a + t.m, 0)
     );
     const depSalaires = Math.abs(
-      data.transactions
+      comptabilisees
         .filter((t) => t.type === "d" && t.source === "salaires")
         .reduce((a, t) => a + t.m, 0)
     );
