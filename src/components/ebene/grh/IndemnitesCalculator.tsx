@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import type { Absence } from "@/types/ebene";
+import { nombreJours, soldeConges as soldeCongesEmploye } from "@/lib/conges";
 import { Employe } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +29,13 @@ import { useEmployeur } from "@/hooks/useEmployeur";
 
 interface Props {
   employes: Employe[];
+  /** Absences de toutes les périodes (solde de congés). */
+  absences?: Absence[];
 }
 
 type Motif = "licenciement_simple" | "licenciement_grave" | "licenciement_lourde" | "demission" | "retraite" | "fin_cdd";
 
-export const IndemnitesCalculator = ({ employes }: Props) => {
+export const IndemnitesCalculator = ({ employes, absences = [] }: Props) => {
   const { t } = useTranslation();
   const employeur = useEmployeur();
   const MOTIF_LABELS: Record<Motif, string> = {
@@ -59,7 +63,10 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
     const salaireMoyen =
       parseFloat(salaireMoyenInput) ||
       (employe.salaire || 0) + (employe.sursalaire || 0);
-    const solde = parseFloat(soldeConges) || employe.soldeConges || 0;
+    // Solde à la date de rupture (reprise + 2,5 j/mois − congés pris), sauf saisie
+    const solde = soldeConges.trim() !== ""
+      ? parseFloat(soldeConges) || 0
+      : Math.max(0, soldeCongesEmploye(employe, absences, new Date(`${dateRupture}T00:00:00`)).restants);
 
     const fauteLourde = motif === "licenciement_lourde";
     const fauteGrave = motif === "licenciement_grave";
@@ -101,7 +108,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
       fauteGrave,
       total,
     };
-  }, [employe, motif, dateRupture, salaireMoyenInput, soldeConges]);
+  }, [employe, motif, dateRupture, salaireMoyenInput, soldeConges, absences]);
 
   const exportPDF = async () => {
     const el = document.getElementById("indemnites-print");
@@ -183,7 +190,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
             <Input
               type="number"
               step="0.5"
-              placeholder={employe ? String(employe.soldeConges || 0) : "0"}
+              placeholder={employe ? String(Math.max(0, soldeCongesEmploye(employe, absences, new Date(`${dateRupture}T00:00:00`)).restants)) : "0"}
               value={soldeConges}
               onChange={(e) => setSoldeConges(e.target.value)}
             />
@@ -269,7 +276,7 @@ export const IndemnitesCalculator = ({ employes }: Props) => {
                 <tr>
                   <td className="p-2 border border-border">{t("grh_indemnites.ind_conges")}</td>
                   <td className="p-2 border border-border text-xs">
-                    {t("grh_indemnites.ind_conges_detail", { days: calcul.solde })}
+                    {t("grh_indemnites.ind_conges_detail", { days: nombreJours(calcul.solde) })}
                   </td>
                   <td className="p-2 border border-border text-right amount">
                     {formatMontant(calcul.indConges)}

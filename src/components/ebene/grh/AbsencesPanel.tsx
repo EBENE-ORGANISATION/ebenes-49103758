@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { nombreJours, soldeConges } from "@/lib/conges";
 import { Absence, Employe, TypeAbsence, TYPE_ABSENCE_LABELS } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,6 +169,18 @@ export const AbsencesPanel = ({
           <p className="text-xs text-muted-foreground">
             <Trans i18nKey="grh_absences.duration" values={{ n: calcJours(debut, fin) }} components={[<span key="0" />, <strong key="1" />]} />
           </p>
+          {type === "conges_payes" && employeId && (() => {
+            const emp = employes.find((e) => e.id === parseInt(employeId, 10));
+            if (!emp) return null;
+            const solde = soldeConges(emp, absences, new Date(`${debut}T00:00:00`));
+            const demande = calcJours(debut, fin);
+            return (
+              <p className={`text-xs ${demande > solde.restants ? "text-warning font-medium" : "text-muted-foreground"}`}>
+                Solde de congés au {debut} : {nombreJours(solde.restants)} j
+                {demande > solde.restants && " — la demande dépasse le solde (congé pris par anticipation)."}
+              </p>
+            );
+          })()}
           <div className="flex gap-2">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
               {t("grh_absences.save")}

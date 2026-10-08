@@ -3,6 +3,8 @@
  * (totaux bulletins, absences, sanctions) et export Excel.
  */
 import { useEffect, useMemo, useState } from "react";
+import type { Absence } from "@/types/ebene";
+import { soldeConges } from "@/lib/conges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Eye, Search } from "lucide-react";
@@ -14,6 +16,8 @@ import type { Employe } from "@/types/ebene";
 interface Props {
   employes: Employe[];
   societeId: string;
+  /** Absences de toutes les périodes (solde de congés). */
+  absences?: Absence[];
 }
 
 type CarriereSummary = {
@@ -26,7 +30,7 @@ type CarriereSummary = {
   nbSanctions: number;
 };
 
-export const ListePersonnel = ({ employes, societeId }: Props) => {
+export const ListePersonnel = ({ employes, societeId, absences = [] }: Props) => {
   const [carriere, setCarriere] = useState<Record<number, CarriereSummary>>({});
   const [filter, setFilter] = useState("");
   const [fiche, setFiche] = useState<Employe | null>(null);
@@ -113,7 +117,7 @@ export const ListePersonnel = ({ employes, societeId }: Props) => {
         "Ind. transport": e.indemniteTransport ?? 0,
         "Ind. logement": e.indemniteLogement ?? 0,
         "Ind. fonction": e.indemniteFonction ?? 0,
-        "Solde congés (j)": e.soldeConges ?? 0,
+        "Solde congés (j)": soldeConges(e, absences).restants,
         "Statut validation": e.statutValidation ?? "valide",
         "Bulletins (nb)": c.nbBulletins,
         "Total brut cumulé": c.totalBrut,

@@ -178,8 +178,14 @@ export interface Employe {
   indemniteLogement?: number;
   indemniteFonction?: number;
   sursalaire?: number;
-  // Solde congés (jours acquis non pris)
+  /**
+   * Solde de congés de reprise : jours restants au 1er janvier de l'année de
+   * création de la fiche (ou à l'embauche si plus tard). Le solde courant est
+   * calculé par soldeConges() (src/lib/conges.ts) : reprise + 2,5 j/mois − pris.
+   */
   soldeConges?: number;
+  /** Date de création de la fiche (lecture seule, base de données). */
+  createdAt?: string;
   /** UUID du compte auth.users lié (portail employé self-service). */
   userId?: string;
   /**

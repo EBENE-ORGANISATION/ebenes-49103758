@@ -11,6 +11,7 @@
  *    assurée par l'auth principale de l'application.
  */
 import { useState, useMemo, useEffect, useRef } from "react";
+import { nombreJours, soldeConges as calculerSoldeConges } from "@/lib/conges";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useAuth } from "@/hooks/useAuth";
 import { usePortailEmploye } from "@/hooks/usePortailEmploye";
@@ -72,7 +73,6 @@ import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-const BASE_CONGES_ANNUEL = 30;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statutBadge = (s?: StatutValidation) => {
@@ -142,14 +142,13 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
     return result;
   }, [employe, store, annee]);
 
-  // Solde de congés
+  // Solde de congés : reprise + 2,5 j/mois de service − congés payés validés,
+  // cumulé sur toutes les périodes (src/lib/conges.ts)
   const soldeConges = useMemo(() => {
-    if (!employe) return { restants: BASE_CONGES_ANNUEL, consommes: 0 };
-    const consommes = absences
-      .filter((x) => x.abs.type === "conges_payes" && x.abs.statutValidation === "valide")
-      .reduce((s, x) => s + (x.abs.jours || 0), 0);
-    return { restants: Math.max(0, BASE_CONGES_ANNUEL - consommes), consommes };
-  }, [employe, absences]);
+    if (!employe) return null;
+    const toutes = Object.values(store.donneesMensuelles).flatMap((m) => m?.absences || []);
+    return calculerSoldeConges(employe, toutes);
+  }, [employe, store.donneesMensuelles]);
 
   // Primes & sanctions (12 derniers mois)
   const historique = useMemo(() => {
@@ -303,12 +302,25 @@ const MonEspace = ({ societeId }: { societeId: string }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{soldeConges.restants}</p>
-            <p className="text-xs text-muted-foreground">jours restants / {BASE_CONGES_ANNUEL}</p>
-            <Progress value={(soldeConges.restants / BASE_CONGES_ANNUEL) * 100} className="mt-2 h-1.5" />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {soldeConges.consommes} consommé(s) cette année
-            </p>
+            {soldeConges ? (
+              <>
+                <p className="text-3xl font-bold">{nombreJours(soldeConges.restants)}</p>
+                <p className="text-xs text-muted-foreground">jours restants</p>
+                <Progress
+                  value={soldeConges.reprise + soldeConges.acquis > 0
+                    ? Math.max(0, (soldeConges.restants / (soldeConges.reprise + soldeConges.acquis)) * 100)
+                    : 0}
+                  className="mt-2 h-1.5"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {nombreJours(soldeConges.acquis)} j acquis depuis le {soldeConges.depuis}
+                  {soldeConges.reprise ? ` + ${nombreJours(soldeConges.reprise)} j de reprise` : ""} — {nombreJours(soldeConges.pris)} j pris
+                  ({nombreJours(soldeConges.prisAnnee)} cette année)
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">—</p>
+            )}
           </CardContent>
         </Card>
         <Card>

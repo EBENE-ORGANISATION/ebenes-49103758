@@ -4,6 +4,8 @@
  * absences, sanctions, heures sup, primes).
  */
 import { useEffect, useRef, useState } from "react";
+import type { Absence } from "@/types/ebene";
+import { nombreJours, soldeConges } from "@/lib/conges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +18,8 @@ import type { Employe } from "@/types/ebene";
 interface Props {
   employe: Employe;
   societeId: string;
+  /** Absences de toutes les périodes (solde de congés). */
+  absences?: Absence[];
   onClose: () => void;
 }
 
@@ -47,7 +51,8 @@ const SExport = (rows: Record<string, unknown>[], filename: string) => {
   });
 };
 
-export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
+export const FichePersonnel = ({ employe: e, societeId, absences: absencesPeriodes = [], onClose }: Props) => {
+  const solde = soldeConges(e, absencesPeriodes);
   const [bulletins, setBulletins] = useState<BulletinRow[]>([]);
   const [absences, setAbsences] = useState<AbsenceRow[]>([]);
   const [sanctions, setSanctions] = useState<SanctionRow[]>([]);
@@ -107,7 +112,8 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
       { Champ: "Ind. transport", Valeur: e.indemniteTransport ?? 0 },
       { Champ: "Ind. logement", Valeur: e.indemniteLogement ?? 0 },
       { Champ: "Ind. fonction", Valeur: e.indemniteFonction ?? 0 },
-      { Champ: "Solde congés", Valeur: e.soldeConges ?? 0 },
+      { Champ: "Solde congés (j)", Valeur: solde.restants },
+      { Champ: "dont reprise au " + solde.depuis, Valeur: solde.reprise },
     ];
     import("xlsx").then((XLSX) => {
       const wb = XLSX.utils.book_new();
@@ -191,7 +197,10 @@ export const FichePersonnel = ({ employe: e, societeId, onClose }: Props) => {
             <Field label="Indemnité transport" value={formatMontant(e.indemniteTransport ?? 0)} />
             <Field label="Indemnité logement" value={formatMontant(e.indemniteLogement ?? 0)} />
             <Field label="Indemnité fonction" value={formatMontant(e.indemniteFonction ?? 0)} />
-            <Field label="Solde congés" value={`${e.soldeConges ?? 0} jours`} />
+            <Field
+              label="Solde congés"
+              value={`${nombreJours(solde.restants)} jours (reprise ${nombreJours(solde.reprise)} + acquis ${nombreJours(solde.acquis)} − pris ${nombreJours(solde.pris)}, depuis le ${solde.depuis})`}
+            />
           </TabsContent>
 
           <TabsContent value="bulletins">

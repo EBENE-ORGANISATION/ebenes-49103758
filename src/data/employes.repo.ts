@@ -46,6 +46,7 @@ export const toEmploye = (row: EmployeRow): Employe => ({
   indemniteFonction: n(row.indemnite_fonction),
   sursalaire: n(row.sursalaire),
   soldeConges: n(row.solde_conges),
+  createdAt: n(row.created_at),
   interetPretImmobilier: n((row as never as Record<string, number | null>)["interet_pret_immobilier"]),
   assuranceVie: n((row as never as Record<string, number | null>)["assurance_vie"]),
   retraiteComplementaire: n((row as never as Record<string, number | null>)["retraite_complementaire"]),

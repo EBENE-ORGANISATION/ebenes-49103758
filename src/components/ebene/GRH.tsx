@@ -582,7 +582,7 @@ export const GRH = ({
 
         <TabsContent value="liste">
           {currentSociete?.id ? (
-            <ListePersonnel employes={employes} societeId={currentSociete.id} />
+            <ListePersonnel employes={employes} societeId={currentSociete.id} absences={allAbsences ?? data.absences ?? []} />
           ) : (
             <p className="text-sm text-muted-foreground">Société non sélectionnée.</p>
           )}
@@ -623,7 +623,7 @@ export const GRH = ({
         </TabsContent>
 
         <TabsContent value="indemnites">
-          <IndemnitesCalculator employes={employes} />
+          <IndemnitesCalculator employes={employes} absences={allAbsences ?? data.absences ?? []} />
         </TabsContent>
 
         <TabsContent value="simulateur">
@@ -690,7 +690,7 @@ export const GRH = ({
       )}
       {contrat && <ContratGenerator employe={contrat} onClose={() => setContrat(null)} />}
       {fiche && currentSociete?.id && (
-        <FichePersonnel employe={fiche} societeId={currentSociete.id} onClose={() => setFiche(null)} />
+        <FichePersonnel employe={fiche} societeId={currentSociete.id} absences={allAbsences ?? data.absences ?? []} onClose={() => setFiche(null)} />
       )}
     </div>
   );

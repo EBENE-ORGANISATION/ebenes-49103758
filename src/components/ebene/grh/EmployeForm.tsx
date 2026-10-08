@@ -200,6 +200,18 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
               <Input type="date" value={form.dateFinContrat || ""} onChange={(e) => update("dateFinContrat", e.target.value)} />
             </Field>
           )}
+          <Field label="Congés restants à la reprise (jours)">
+            <Input
+              type="number"
+              step="0.5"
+              value={form.soldeConges ?? 0}
+              onChange={(e) => update("soldeConges", parseFloat(e.target.value) || 0)}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Jours non pris au 1er janvier de l'année de création de la fiche (ou à l'embauche).
+              Ensuite, 2,5 jours s'ajoutent par mois de service.
+            </p>
+          </Field>
         </div>
       </div>
 
