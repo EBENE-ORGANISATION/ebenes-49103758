@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import type { Employe, MoisData, TauxFiscaux } from "@/types/ebene";
 import { TAUX_DEFAUT } from "@/types/ebene";
-import { calculerPaie, contenuBulletin, type MontantsEnregistres } from "./paie";
+import {
+  calculerPaie,
+  contenuBulletin,
+  sansSoldeEnregistre,
+  totauxBulletinEdite,
+  type ChampsBulletinEditables,
+  type MontantsEnregistres,
+} from "./paie";
 import { tauxAnciennete } from "./ebene-utils";
 
 const moisVide: MoisData = {
@@ -137,5 +144,64 @@ describe("contenuBulletin — le PDF d'un bulletin enregistré reprend ses monta
     const enr = { ...enregistrer(employe), total_retenues: enregistrer(employe).total_retenues + 9_000 };
     const b = contenuBulletin(calculerPaie(employe, moisVide, 2026, 3), employe, enr);
     expect(b.retenues).toContainEqual({ libelle: "Congés sans solde", montant: 9_000 });
+  });
+});
+
+describe("totauxBulletinEdite — modification manuelle d'un bulletin", () => {
+  const champs: ChampsBulletinEditables = {
+    salaire_base: 200_000, sursalaire: 0, prime_anciennete: 10_000, hs_montant: 5_000,
+    primes_diverses: 15_000, indemnites: 20_000,
+    cnss_sal: 9_200, amu_sal: 11_500, irpp: 7_000, retenues_diverses: 3_000,
+  };
+
+  it("brut, retenues et net sans congés sans solde", () => {
+    const t = totauxBulletinEdite(champs, 0, TAUX_DEFAUT);
+    expect(t.brut).toBe(250_000);
+    expect(t.total_retenues).toBe(30_700);
+    expect(t.net_a_payer).toBe(219_300);
+  });
+
+  it("charges patronales sur la base cotisable avec primes, hors indemnités", () => {
+    const t = totauxBulletinEdite(champs, 0, TAUX_DEFAUT);
+    const base = 230_000;
+    expect(t.cnss_pat).toBe(Math.round(base * TAUX_DEFAUT.cnssEmp));
+    expect(t.amu_pat).toBe(Math.round(base * TAUX_DEFAUT.amuEmp));
+    expect(t.cout_employeur).toBe(250_000 + t.cnss_pat + t.amu_pat);
+  });
+
+  it("utilise les taux du mois fournis, pas des taux fixes", () => {
+    const taux: TauxFiscaux = { ...TAUX_DEFAUT, cnssEmp: 0.2, amuEmp: 0.1 };
+    const t = totauxBulletinEdite(champs, 0, taux);
+    expect(t.cnss_pat).toBe(46_000);
+    expect(t.amu_pat).toBe(23_000);
+  });
+
+  it("congés sans solde : dans les retenues, hors base cotisable et hors coût employeur", () => {
+    const t = totauxBulletinEdite(champs, 10_000, TAUX_DEFAUT);
+    expect(t.total_retenues).toBe(40_700);
+    expect(t.net_a_payer).toBe(209_300);
+    expect(t.cnss_pat).toBe(Math.round(220_000 * TAUX_DEFAUT.cnssEmp));
+    expect(t.cout_employeur).toBe(240_000 + t.cnss_pat + t.amu_pat);
+  });
+
+  it("concorde avec calculerPaie pour un bulletin non modifié", () => {
+    const e = { ...employe, indemniteTransport: 20_000 } as Employe;
+    const data: MoisData = {
+      ...moisVide,
+      absences: [{ id: 1, employeId: 1, type: "sans_solde", jours: 3 } as MoisData["absences"][number]],
+    };
+    const c = calculerPaie(e, data, 2026, 3);
+    const enr = {
+      salaire_base: c.base, sursalaire: c.sursalaire, prime_anciennete: c.primeAnciennete,
+      hs_montant: c.hsMontant, primes_diverses: c.primesDiverses, indemnites: c.indemnites,
+      cnss_sal: c.cnssSal, amu_sal: c.amuSal, irpp: c.irpp, retenues_diverses: c.retenuesDiverses,
+      total_retenues: c.totalRetenues,
+    };
+    expect(c.deductionSansSolde).toBeGreaterThan(0);
+    expect(sansSoldeEnregistre(enr)).toBe(Math.round(c.deductionSansSolde));
+    const t = totauxBulletinEdite(enr, c.deductionSansSolde, TAUX_DEFAUT);
+    expect(t.net_a_payer).toBe(Math.round(c.net));
+    expect(t.cnss_pat).toBe(Math.round(c.cnssEmp));
+    expect(t.cout_employeur).toBe(Math.round(c.coutEmployeur));
   });
 });
