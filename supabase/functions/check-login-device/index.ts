@@ -10,6 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") ?? "https://ebnservicess.com";
+/** Nombre d'appareils actifs autorisés en même temps par compte. */
+const MAX_APPAREILS = 2;
 
 function randomToken() {
   const bytes = new Uint8Array(32);
@@ -26,13 +28,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Non authentifié" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
-      console.error("getClaims error:", claimsErr);
+    // getUser() (comme la version en service) : getClaims() n'existe pas dans
+    // supabase-js 2.45.0 importé ci-dessus.
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user?.id) {
+      console.error("getUser error:", userErr);
       return new Response(JSON.stringify({ error: "Session invalide" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const user = { id: claimsData.claims.sub as string, email: (claimsData.claims.email as string) ?? "" };
+    const user = { id: userData.user.id, email: userData.user.email ?? "" };
 
     const { device_id } = await req.json();
     if (!device_id || typeof device_id !== "string") {
@@ -45,29 +48,37 @@ Deno.serve(async (req) => {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
 
     // Existing active session for this device? Renew last_seen.
+    // limit(1) : un appareil peut avoir plusieurs lignes actives (anciens
+    // doublons) ; maybeSingle() seul échouait alors et l'appareil était pris
+    // pour un nouveau, puis déconnecté.
     const { data: existing } = await admin
       .from("device_sessions")
       .select("id, status")
       .eq("user_id", user.id)
       .eq("device_id", device_id)
       .eq("status", "active")
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .limit(1)
       .maybeSingle();
 
     if (existing) {
-      await admin.from("device_sessions").update({ last_seen_at: new Date().toISOString() }).eq("id", existing.id);
+      await admin.from("device_sessions").update({ last_seen_at: new Date().toISOString() })
+        .eq("user_id", user.id).eq("device_id", device_id).eq("status", "active");
       return new Response(JSON.stringify({ allowed: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Other active sessions on different devices?
-    const { count } = await admin
+    // Autres appareils actifs ces 5 dernières minutes (comptés une fois chacun).
+    const { data: autres } = await admin
       .from("device_sessions")
-      .select("id", { count: "exact", head: true })
+      .select("device_id")
       .eq("user_id", user.id)
       .eq("status", "active")
       .neq("device_id", device_id)
       .gt("last_seen_at", fiveMinAgo);
+    const autresAppareils = new Set((autres ?? []).map((r) => r.device_id)).size;
 
-    if (!count || count === 0) {
+    // Jusqu'à MAX_APPAREILS appareils actifs en même temps (ex. PC + téléphone).
+    if (autresAppareils < MAX_APPAREILS) {
       // Allow immediately, mark active
       await admin.from("device_sessions").insert({
         user_id: user.id,
