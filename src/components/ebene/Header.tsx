@@ -5,8 +5,12 @@ import {
   Bell, AlertTriangle, AlertCircle, Info, Smartphone, Settings2, Trash2,
   Menu,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Fragment, useEffect, useRef, useState, type ComponentType } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
 import { useAuth, ROLE_LABELS } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -29,6 +33,14 @@ import { listDriveBackups, restoreFromDrive, type DriveFileInfo, type EbeneStore
 import { toast } from "sonner";
 import type { Alerte } from "@/lib/alertes";
 
+interface ActionMenu {
+  cle: string;
+  icone: ComponentType<{ className?: string }>;
+  libelle: string;
+  onSelect?: () => void;
+  to?: string;
+  separe?: boolean;
+}
 
 interface HeaderProps {
   onExport: () => void;
@@ -71,6 +83,9 @@ export const Header = ({
   const showCorbeille = isAdmin || isChefCompta || isChefGrh;
   const showParamSociete = isAdmin;
 
+  const estMobile = useIsMobile();
+  const navigate = useNavigate();
+  const [menuMobileOuvert, setMenuMobileOuvert] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFiles, setHistoryFiles] = useState<DriveFileInfo[]>([]);
@@ -140,73 +155,88 @@ export const Header = ({
     return () => clearInterval(id);
   }, [lastSaved]);
 
-  // Actions secondaires regroupées dans le menu dropdown
-  const actionsSecondaires = (
-    <>
-      {showRecap && (
-        <DropdownMenuItem onClick={onShowRecap}>
-          <BarChart3 className="size-4 mr-2" /> Récap Annuel
-        </DropdownMenuItem>
-      )}
-      {showArchives && (
-        <DropdownMenuItem onClick={onShowArchives}>
-          <Archive className="size-4 mr-2" /> Archives
-        </DropdownMenuItem>
-      )}
-      {showJsonIO && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onExport}>
-            <Download className="size-4 mr-2" /> Exporter JSON
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => fileRef.current?.click()}>
-            <Upload className="size-4 mr-2" /> Importer JSON
-          </DropdownMenuItem>
-        </>
-      )}
-      {onDriveBackup && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => void onDriveBackup()}>
-            <CloudUpload className="size-4 mr-2" /> Sauvegarder Drive
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void openHistory()}>
-            <FolderOpen className="size-4 mr-2" /> Historique Drive
-          </DropdownMenuItem>
-        </>
-      )}
-      {showCorbeille && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link to={`/corbeille${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
-              <Trash2 className="size-4 mr-2" /> Corbeille
-            </Link>
-          </DropdownMenuItem>
-        </>
-      )}
-      {showUsersAdmin && (
+  // Actions secondaires du menu (menu déroulant sur ordinateur, panneau sur téléphone)
+  const sid = currentSociete ? `?sid=${currentSociete.id}` : "";
+  const actions: ActionMenu[] = [
+    showRecap && { cle: "recap", icone: BarChart3, libelle: "Récap Annuel", onSelect: onShowRecap },
+    showArchives && { cle: "archives", icone: Archive, libelle: "Archives", onSelect: onShowArchives },
+    showJsonIO && { cle: "export", icone: Download, libelle: "Exporter JSON", onSelect: onExport, separe: true },
+    showJsonIO && { cle: "import", icone: Upload, libelle: "Importer JSON", onSelect: () => fileRef.current?.click() },
+    onDriveBackup && { cle: "drive", icone: CloudUpload, libelle: "Sauvegarder Drive", onSelect: () => void onDriveBackup(), separe: true },
+    onDriveBackup && { cle: "historique", icone: FolderOpen, libelle: "Historique Drive", onSelect: () => void openHistory() },
+    showCorbeille && { cle: "corbeille", icone: Trash2, libelle: "Corbeille", to: `/corbeille${sid}`, separe: true },
+    showUsersAdmin && { cle: "users", icone: Users, libelle: "Utilisateurs", to: `/admin/users${sid}` },
+    showAuditLog && { cle: "audit", icone: History, libelle: "Audit", to: `/admin/audit${sid}` },
+    showParamSociete && { cle: "parametres", icone: Settings2, libelle: "Paramètres société", to: `/admin/societe${sid}` },
+  ].filter(Boolean) as ActionMenu[];
+
+  const actionsSecondaires = actions.map(({ cle, icone: Icone, libelle, onSelect, to, separe }) => (
+    <Fragment key={cle}>
+      {separe && <DropdownMenuSeparator />}
+      {to ? (
         <DropdownMenuItem asChild>
-          <Link to={`/admin/users${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
-            <Users className="size-4 mr-2" /> Utilisateurs
+          <Link to={to}>
+            <Icone className="size-4 mr-2" /> {libelle}
           </Link>
         </DropdownMenuItem>
-      )}
-      {showAuditLog && (
-        <DropdownMenuItem asChild>
-          <Link to={`/admin/audit${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
-            <History className="size-4 mr-2" /> Audit
-          </Link>
+      ) : (
+        <DropdownMenuItem onClick={onSelect}>
+          <Icone className="size-4 mr-2" /> {libelle}
         </DropdownMenuItem>
       )}
-      {showParamSociete && (
-        <DropdownMenuItem asChild>
-          <Link to={`/admin/societe${currentSociete ? `?sid=${currentSociete.id}` : ""}`}>
-            <Settings2 className="size-4 mr-2" /> Paramètres société
-          </Link>
-        </DropdownMenuItem>
-      )}
-    </>
+    </Fragment>
+  ));
+
+  // Téléphone : panneau latéral (fermeture par la croix, en touchant à côté ou
+  // avec le bouton retour) au lieu d'un menu déroulant contenant d'autres menus.
+  const choisir = (action: ActionMenu) => {
+    setMenuMobileOuvert(false);
+    if (action.to) navigate(action.to);
+    else action.onSelect?.();
+  };
+  const ligneMenu = "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm hover:bg-accent active:bg-accent";
+
+  const menuMobile = (
+    <Sheet open={menuMobileOuvert} onOpenChange={setMenuMobileOuvert}>
+      <SheetTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Menu"
+          className="h-10 w-10 p-0 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground border border-primary-foreground/20"
+        >
+          <Menu className="size-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="flex w-[85vw] max-w-sm flex-col gap-0 overflow-y-auto p-0">
+        <SheetHeader className="border-b p-4 pr-12 text-left">
+          <SheetTitle className="text-base">Menu</SheetTitle>
+          <SheetDescription className="truncate text-xs">{user?.email}</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-2 border-b p-4 empty:hidden">
+          <SocieteSwitcher />
+          <ActiviteSwitcher />
+        </div>
+        <nav className="flex flex-col p-2">
+          {actions.map((action) => (
+            <Fragment key={action.cle}>
+              {action.separe && <div className="my-1 h-px bg-border" />}
+              <button type="button" className={ligneMenu} onClick={() => choisir(action)}>
+                <action.icone className="size-5 shrink-0 text-muted-foreground" /> {action.libelle}
+              </button>
+            </Fragment>
+          ))}
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className={`${ligneMenu} text-destructive`}
+            onClick={() => { setMenuMobileOuvert(false); void signOut(); }}
+          >
+            <LogOut className="size-5 shrink-0" /> Déconnexion
+          </button>
+        </nav>
+      </SheetContent>
+    </Sheet>
   );
 
   return (
@@ -317,6 +347,7 @@ export const Header = ({
               )}
 
               {/* Menu actions secondaires */}
+              {estMobile ? menuMobile : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -332,13 +363,6 @@ export const Header = ({
                   <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate">
                     {user?.email}
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {/* Société sur mobile */}
-                  <div className="sm:hidden px-2 py-1.5 space-y-1.5">
-                    <SocieteSwitcher />
-                    <ActiviteSwitcher />
-                  </div>
-                  <DropdownMenuSeparator className="sm:hidden" />
                   {actionsSecondaires}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -349,6 +373,7 @@ export const Header = ({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
             </div>
           </div>
         </div>

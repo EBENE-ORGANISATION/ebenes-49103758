@@ -227,8 +227,13 @@ export default function Corbeille() {
 
   if (!societeId) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-4">
         <p className="text-muted-foreground">Aucune société sélectionnée.</p>
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link to="/">
+            <ArrowLeft className="size-4" /> Retour
+          </Link>
+        </Button>
       </div>
     );
   }

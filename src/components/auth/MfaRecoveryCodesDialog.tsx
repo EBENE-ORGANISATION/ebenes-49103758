@@ -15,6 +15,7 @@ import { Copy, Download, Printer, ShieldAlert, Check } from "lucide-react";
 import { toast } from "sonner";
 import { todayISO } from "@/lib/ebene-utils";
 import { enregistrerFichier } from "@/lib/fichiers";
+import { isNative } from "@/lib/platform";
 
 interface Props {
   open: boolean;
@@ -107,10 +108,13 @@ export const MfaRecoveryCodesDialog = ({ open, codes, onClose }: Props) => {
             <Download className="size-3.5 mr-1.5" />
             Télécharger
           </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1">
-            <Printer className="size-3.5 mr-1.5" />
-            Imprimer
-          </Button>
+          {/* Android : pas d'impression dans la WebView ; « Télécharger » passe par le partage */}
+          {!isNative() && (
+            <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1">
+              <Printer className="size-3.5 mr-1.5" />
+              Imprimer
+            </Button>
+          )}
         </div>
 
         <div className="flex items-start gap-2 p-3 bg-warning/10 rounded-lg text-sm">

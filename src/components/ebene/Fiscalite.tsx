@@ -597,7 +597,7 @@ export const Fiscalite = ({
             </div>
           )}
 
-          <div className="border rounded-lg overflow-hidden text-sm">
+          <div className="border rounded-lg overflow-x-auto text-sm">
             <table className="w-full">
               <thead className="bg-muted text-xs font-semibold">
                 <tr>
