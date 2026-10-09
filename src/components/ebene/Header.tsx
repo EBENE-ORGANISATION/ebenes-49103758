@@ -194,7 +194,7 @@ export const Header = ({
     if (action.to) navigate(action.to);
     else action.onSelect?.();
   };
-  const ligneMenu = "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm hover:bg-accent active:bg-accent";
+  const ligneMenu = "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-accent active:bg-accent";
 
   const menuMobile = (
     <Sheet open={menuMobileOuvert} onOpenChange={setMenuMobileOuvert}>
@@ -208,21 +208,25 @@ export const Header = ({
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-[85vw] max-w-sm flex-col gap-0 overflow-y-auto p-0">
-        <SheetHeader className="border-b p-4 pr-12 text-left">
-          <SheetTitle className="text-base">Menu</SheetTitle>
+      {/* Panneau compact ancré en haut à droite : hauteur selon le contenu */}
+      <SheetContent
+        side="right"
+        className="top-2 bottom-auto right-2 flex h-auto max-h-[calc(100dvh-1rem)] w-[min(16rem,80vw)] flex-col gap-0 overflow-y-auto rounded-xl border p-0 shadow-xl"
+      >
+        <SheetHeader className="space-y-0.5 border-b px-3 py-2.5 pr-12 text-left">
+          <SheetTitle className="text-sm">Menu</SheetTitle>
           <SheetDescription className="truncate text-xs">{user?.email}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col gap-2 border-b p-4 empty:hidden">
+        <div className="flex flex-col gap-2 border-b p-2.5 empty:hidden">
           <SocieteSwitcher />
           <ActiviteSwitcher />
         </div>
-        <nav className="flex flex-col p-2">
+        <nav className="flex flex-col p-1.5">
           {actions.map((action) => (
             <Fragment key={action.cle}>
               {action.separe && <div className="my-1 h-px bg-border" />}
               <button type="button" className={ligneMenu} onClick={() => choisir(action)}>
-                <action.icone className="size-5 shrink-0 text-muted-foreground" /> {action.libelle}
+                <action.icone className="size-4 shrink-0 text-muted-foreground" /> {action.libelle}
               </button>
             </Fragment>
           ))}
@@ -232,7 +236,7 @@ export const Header = ({
             className={`${ligneMenu} text-destructive`}
             onClick={() => { setMenuMobileOuvert(false); void signOut(); }}
           >
-            <LogOut className="size-5 shrink-0" /> Déconnexion
+            <LogOut className="size-4 shrink-0" /> Déconnexion
           </button>
         </nav>
       </SheetContent>
