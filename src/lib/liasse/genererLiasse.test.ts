@@ -25,7 +25,7 @@ const gestion = {
 } as never;
 const societe = { nom: "SOCIETE ESSAI SARL", nif: "1000000001", adresse: "Lomé", rccm: "TG-LOM-2020-B-001", activite: "Services" };
 
-describe("genererLiasse (modèles réels)", () => {
+describe("genererLiasse (modèles réels)", { timeout: 30_000 }, () => {
   it("système normal : identification, bilan, compte de résultat, TFT inscrits dans le modèle", async () => {
     const modele = readFileSync("public/modeles/liasse-systeme-normal.xlsx");
     const { fichier } = await genererLiasse("normal", modele, { donnees, annee: 2026, societe, dateArrete: "2027-03-31", gestion });

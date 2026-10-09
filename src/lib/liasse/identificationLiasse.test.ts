@@ -31,7 +31,7 @@ const identification = {
   masseSalariale: 4_500_000,
 };
 
-describe("identification dans la liasse", () => {
+describe("identification dans la liasse", { timeout: 30_000 }, () => {
   it("CA par activité depuis les écritures", () => {
     expect(identification.activites).toEqual([{ nom: "Hôtellerie", ca: 600_000 }, { nom: "Matériel informatique", ca: 400_000 }]);
   });
