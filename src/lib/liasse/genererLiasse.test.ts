@@ -18,14 +18,21 @@ const donnees = {
     factures: [],
   },
 } as never;
+const gestion = {
+  personnel: [{ sexe: "M", nationalite: "Togolaise", categorie: "E1", typeContrat: "cdi", masseAnnuelle: 900_000 }],
+  immobilisations: [{ id: 1, libelle: "Ordinateur", dateAcquisition: "2026-02-01", valeurOrigine: 600_000, dureeAmortissement: 3, methode: "lineaire", comptesSYSCOHADA: {} }],
+  articles: [{ id: 1, reference: "R1", designation: "Ramette", unite: "u", prixAchat: 3000, prixVente: 4000, stock: 10, seuilAlerte: 0 }],
+} as never;
 const societe = { nom: "SOCIETE ESSAI SARL", nif: "1000000001", adresse: "Lomé", rccm: "TG-LOM-2020-B-001", activite: "Services" };
 
 describe("genererLiasse (modèles réels)", () => {
   it("système normal : identification, bilan, compte de résultat, TFT inscrits dans le modèle", async () => {
     const modele = readFileSync("public/modeles/liasse-systeme-normal.xlsx");
-    const { fichier } = await genererLiasse("normal", modele, { donnees, annee: 2026, societe, dateArrete: "2027-03-31" });
+    const { fichier } = await genererLiasse("normal", modele, { donnees, annee: 2026, societe, dateArrete: "2027-03-31", gestion });
     const wb = XLSX.read(fichier, { type: "array" });
     expect(wb.SheetNames.length).toBe(88);
+    expect(wb.Sheets["NOTE 27 B"].I17.v).toBe(1);
+    expect(wb.Sheets["P85 Tableau des amort."].A16.v).toBe("Ordinateur");
     expect(wb.Sheets["FICHE DEPOT SYST NORM"].E28.v).toBe("SOCIETE ESSAI SARL");
     expect(wb.Sheets["BILAN PASSIF"].F11.v).toBe(1_000_000); // CA capital
     expect(wb.Sheets["BILAN PASSIF"].F18.v).toBe(100_000); // CJ résultat
@@ -36,9 +43,11 @@ describe("genererLiasse (modèles réels)", () => {
 
   it("SMT : bilan simplifié et compte de résultat en recettes / dépenses", async () => {
     const modele = readFileSync("public/modeles/liasse-smt.xlsx");
-    const { fichier } = await genererLiasse("smt", modele, { donnees, annee: 2026, societe, dateArrete: "2027-03-31" });
+    const { fichier } = await genererLiasse("smt", modele, { donnees, annee: 2026, societe, dateArrete: "2027-03-31", gestion });
     const wb = XLSX.read(fichier, { type: "array" });
     expect(wb.SheetNames.length).toBe(16);
+    expect(wb.Sheets.NOTE2.B11.v).toBe("Ramette");
+    expect(wb.Sheets.NOTE1.B11.v).toBe("Ordinateur");
     expect(wb.Sheets.BILAN.C4.v).toBe("SOCIETE ESSAI SARL");
     expect(wb.Sheets.BILAN.C16.v).toBe(118_000); // caisse
     expect(wb.Sheets.BILAN.C18.v).toBe(wb.Sheets.BILAN.H18.v); // total actif = total passif

@@ -418,6 +418,9 @@ const Index = () => {
                 taux={taux}
                 donneesMensuelles={store.donneesMensuelles}
                 donneesSociete={store.donneesConsolidees}
+                employesSociete={employesSociete}
+                immobilisationsSociete={store.immobilisationsSociete}
+                articlesSociete={store.articlesSociete}
                 onAdd={comptaWrite
                   ? (t) => store.addTransaction(annee, mois, t)
                   : blocked(tp("compta_read_only"))}

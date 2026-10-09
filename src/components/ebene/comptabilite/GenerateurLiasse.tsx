@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { DonneesMensuelles } from "@/types/ebene";
+import type { Article, DonneesMensuelles, Employe, Immobilisation, TauxFiscaux } from "@/types/ebene";
+import { calculerPaie } from "@/lib/paie";
+import { tauxPourMois } from "@/lib/ebene-utils";
+import type { Salarie } from "@/lib/liasse/etatsComplementaires";
 import { useTenant } from "@/hooks/useTenant";
+import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { saveFileViaElectron } from "@/lib/platform";
 import { todayISO } from "@/lib/ebene-utils";
 import { formatSolde } from "@/lib/ebene-utils";
@@ -19,7 +23,28 @@ interface Props {
   /** Données de toute la société (vue consolidée). */
   donneesMensuelles: DonneesMensuelles;
   annee: number;
+  employes?: Employe[];
+  immobilisations?: Immobilisation[];
+  articles?: Article[];
+  tauxHistorique?: TauxFiscaux[];
 }
+
+const MOIS_VIDE = { transactions: [], factures: [], absences: [], primes: {}, heuresSup: {}, retenues: {}, mouvementsStock: [], devis: [], ecritures: [] };
+
+/** Personnel de l'exercice avec son salaire brut annuel (calculé comme les bulletins). */
+const personnelExercice = (employes: Employe[], donnees: DonneesMensuelles, annee: number, historique?: TauxFiscaux[]): Salarie[] =>
+  employes
+    .filter((e) => !e.dateEmbauche || e.dateEmbauche.slice(0, 4) <= String(annee))
+    .map((e) => {
+      let masse = 0;
+      for (let mois = 1; mois <= 12; mois++) {
+        const finMois = new Date(annee, mois, 0);
+        if (e.dateEmbauche && new Date(e.dateEmbauche) > finMois) continue;
+        const p = calculerPaie(e, donnees[`${annee}-${mois}`] ?? MOIS_VIDE, annee, mois, tauxPourMois(historique, annee, mois));
+        masse += p.brut - p.deductionSansSolde;
+      }
+      return { sexe: e.sexe, nationalite: e.nationalite, categorie: e.categorie, typeContrat: e.typeContrat, masseAnnuelle: masse };
+    });
 
 const telecharger = async (nom: string, contenu: Uint8Array) => {
   const filtres = [{ name: "Classeur Excel", extensions: ["xlsx"] }];
@@ -35,8 +60,9 @@ const telecharger = async (nom: string, contenu: Uint8Array) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
-export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante }: Props) => {
+export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, employes = [], immobilisations = [], articles = [], tauxHistorique }: Props) => {
   const { currentSociete } = useTenant();
+  const historiqueTaux = useTauxHistoriqueCourant();
   const [annee, setAnnee] = useState(anneeCourante);
   const [systeme, setSysteme] = useState<SystemeLiasse>(systemeDuRegime(currentSociete?.regime_fiscal));
   const [enCours, setEnCours] = useState(false);
@@ -54,6 +80,11 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante }: Pr
         donnees: donneesMensuelles,
         annee,
         dateArrete: todayISO(),
+        gestion: {
+          immobilisations,
+          articles,
+          personnel: personnelExercice(employes, donneesMensuelles, annee, tauxHistorique ?? historiqueTaux),
+        },
         societe: {
           nom: currentSociete.nom,
           adresse: currentSociete.adresse,

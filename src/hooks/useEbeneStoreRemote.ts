@@ -1517,6 +1517,9 @@ export const useEbeneStoreRemote = (
     categoriesStock,
     sanctions,
     immobilisations,
+    /** Toute la société, quelle que soit l'activité affichée (états financiers). */
+    immobilisationsSociete: immobilisationsRaw,
+    articlesSociete: articles,
     lastSaved,
     getMois,
     addTransaction,

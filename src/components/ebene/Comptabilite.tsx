@@ -12,6 +12,7 @@ import {
   Transaction,
   TauxFiscaux,
   StatutValidation,
+  type Article, type Immobilisation,
 } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,10 @@ interface Props {
   donneesMensuelles?: DonneesMensuelles;
   /** Données de toute la société (états financiers). */
   donneesSociete?: DonneesMensuelles;
+  /** Toute la société : personnel, immobilisations, stock (états financiers). */
+  employesSociete?: Employe[];
+  immobilisationsSociete?: Immobilisation[];
+  articlesSociete?: Article[];
   /** Écritures comptables SYSCOHADA */
   onAddEcriture?: (e: Omit<EcritureComptable, "id">) => void;
   onValiderEcriture?: (id: number) => void;
@@ -82,6 +87,9 @@ export const Comptabilite = ({
   onRejeter,
   donneesMensuelles,
   donneesSociete,
+  employesSociete,
+  immobilisationsSociete,
+  articlesSociete,
   taux,
   onAddEcriture,
   onValiderEcriture,
@@ -764,7 +772,13 @@ export const Comptabilite = ({
 
         {/* ── Onglet Bilan SYSCOHADA ───────────────────────────────────────── */}
         <TabsContent value="bilan" className="space-y-4">
-          <GenerateurLiasse donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}} annee={annee} />
+          <GenerateurLiasse
+            donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}}
+            annee={annee}
+            employes={employesSociete}
+            immobilisations={immobilisationsSociete}
+            articles={articlesSociete}
+          />
           <BilanSYSCOHADA
             donneesMensuelles={donneesMensuelles ?? {}}
             annee={annee}

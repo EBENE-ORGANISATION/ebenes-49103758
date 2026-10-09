@@ -4,6 +4,7 @@ import { etatsFinanciersLiasse } from "./etatsLiasse";
 import { saisiesReel, type InfosSociete } from "./modeleReel";
 import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
+import { complementsReel, complementsSmt, type DonneesGestion } from "./etatsComplementaires";
 import { remplirModele, type Saisie } from "./xlsxPatch";
 
 export type SystemeLiasse = "normal" | "smt";
@@ -21,7 +22,9 @@ export interface DonneesLiasse {
   annee: number;
   societe: InfosSociete;
   dateArrete: string;
-  /** Saisies complémentaires (notes annexes, identification détaillée…). */
+  /** Immobilisations, stock et personnel (notes et états complémentaires). */
+  gestion?: DonneesGestion;
+  /** Saisies complémentaires (identification détaillée…). */
   complements?: Saisie[];
 }
 
@@ -29,8 +32,9 @@ export interface DonneesLiasse {
 export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
   const etats = etatsFinanciersLiasse(d.donnees, d.annee);
   const base = systeme === "smt"
-    ? saisiesSmt(d.donnees, etats, d.societe)
+    ? [...saisiesSmt(d.donnees, etats, d.societe), ...complementsSmt(d.donnees, d.annee, d.gestion ?? {})]
     : [
+        ...complementsReel(d.donnees, d.annee, d.gestion ?? {}),
         ...saisiesReel(etats, d.societe, d.dateArrete),
         ...saisiesNotesSoldes(d.donnees, d.annee),
         ...saisiesNotesImmobilisations(d.donnees, d.annee),
