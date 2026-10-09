@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type DonneesMensuelles } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
@@ -193,7 +193,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
                 );
 
                 return (
-                  <>
+                  <Fragment key={classe}>
                     {/* Séparateur de classe */}
                     <tr key={`classe-${classe}`} className="bg-primary/5 border-t-2 border-primary/15">
                       <td colSpan={6} className="px-3 py-1.5 text-xs font-bold text-primary">
@@ -244,7 +244,7 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
                         {classeTotal.solC.toLocaleString("fr-FR")}
                       </td>
                     </tr>
-                  </>
+                  </Fragment>
                 );
               })}
 

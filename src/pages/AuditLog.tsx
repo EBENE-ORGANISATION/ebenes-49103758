@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -136,7 +136,7 @@ const AuditLog = () => {
               </TableHeader>
               <TableBody>
                 {filtered.map((e) => (
-                  <>
+                  <Fragment key={e.id}>
                     <TableRow
                       key={e.id}
                       className="cursor-pointer hover:bg-muted/40"
@@ -182,7 +182,7 @@ const AuditLog = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
                 {filtered.length === 0 && !loading && (
                   <TableRow>
