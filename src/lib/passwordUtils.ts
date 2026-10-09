@@ -11,6 +11,7 @@
 
 export interface PasswordRules {
   minLength: boolean;   // ≥ 8 caractères
+  hasLower: boolean;    // au moins 1 minuscule (exigé aussi par Supabase)
   hasUpper: boolean;    // au moins 1 majuscule
   hasNumber: boolean;   // au moins 1 chiffre
   hasSpecial: boolean;  // au moins 1 caractère spécial
@@ -31,28 +32,30 @@ export function evaluatePassword(password: string): PasswordStrength {
     return {
       score: 0,
       label: "empty",
-      rules: { minLength: false, hasUpper: false, hasNumber: false, hasSpecial: false },
+      rules: { minLength: false, hasLower: false, hasUpper: false, hasNumber: false, hasSpecial: false },
       isValid: false,
     };
   }
 
   const rules: PasswordRules = {
     minLength: password.length >= 8,
+    hasLower:  /[a-z]/.test(password),
     hasUpper:  /[A-Z]/.test(password),
     hasNumber: /[0-9]/.test(password),
     hasSpecial: SPECIAL_RE.test(password),
   };
 
-  const passed = Object.values(rules).filter(Boolean).length; // 0-4
+  const passed = Object.values(rules).filter(Boolean).length; // 0-5
 
-  const score = (passed === 0 ? 1 : Math.min(passed, 4)) as 0 | 1 | 2 | 3 | 4;
+  // 5 règles → excellent, 4 → fort, 3 → moyen, 2 ou moins → faible
+  const score = (passed === 5 ? 4 : passed === 4 ? 3 : passed === 3 ? 2 : 1) as 0 | 1 | 2 | 3 | 4;
   const labels: PasswordStrength["label"][] = ["empty", "weak", "fair", "strong", "excellent"];
 
   return {
     score,
     label: labels[score],
     rules,
-    isValid: rules.minLength && rules.hasUpper && rules.hasNumber && rules.hasSpecial,
+    isValid: rules.minLength && rules.hasLower && rules.hasUpper && rules.hasNumber && rules.hasSpecial,
   };
 }
 

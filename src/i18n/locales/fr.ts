@@ -356,7 +356,7 @@ const fr = {
     pwd_updated: "Mot de passe mis à jour",
     err_all_required: "Tous les champs sont obligatoires",
     err_pwd_mismatch: "Les nouveaux mots de passe ne correspondent pas",
-    err_pwd_short: "Au moins 8 caractères",
+    err_pwd_short: "8 caractères minimum, avec une minuscule, une majuscule, un chiffre et un caractère spécial",
   },
   creer: {
     title: "Créer une nouvelle société",
@@ -1052,6 +1052,7 @@ const fr = {
     label_strong:    "Fort",
     label_excellent: "Excellent",
     rule_min8:    "Au moins 8 caractères",
+    rule_lower:   "Au moins 1 minuscule",
     rule_upper:   "Au moins 1 majuscule",
     rule_number:  "Au moins 1 chiffre",
     rule_special: "Au moins 1 caractère spécial",

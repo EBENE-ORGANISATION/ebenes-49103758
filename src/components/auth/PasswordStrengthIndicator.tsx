@@ -4,7 +4,7 @@
  * Composant réutilisable affiché sous un champ "nouveau mot de passe".
  * Montre :
  *  - Barre de force colorée (rouge → orange → jaune → vert)
- *  - 4 règles checkées en temps réel
+ *  - 5 règles checkées en temps réel
  *  - Avertissement HIBP (mot de passe compromis) — vérification asynchrone
  *    déclenchée après 600ms d'inactivité pour éviter de surcharger l'API.
  */
@@ -65,6 +65,7 @@ export const PasswordStrengthIndicator = ({ password, onHibpResult }: Props) => 
 
   const rules = [
     { ok: strength.rules.minLength, label: t("pwd_strength.rule_min8") },
+    { ok: strength.rules.hasLower,  label: t("pwd_strength.rule_lower") },
     { ok: strength.rules.hasUpper,  label: t("pwd_strength.rule_upper") },
     { ok: strength.rules.hasNumber, label: t("pwd_strength.rule_number") },
     { ok: strength.rules.hasSpecial,label: t("pwd_strength.rule_special") },

@@ -358,7 +358,7 @@ const en: Translation = {
     pwd_updated: "Password updated",
     err_all_required: "All fields are required",
     err_pwd_mismatch: "New passwords do not match",
-    err_pwd_short: "At least 8 characters",
+    err_pwd_short: "At least 8 characters, with a lowercase letter, an uppercase letter, a number and a special character",
   },
   creer: {
     title: "Create a new company",
@@ -1054,6 +1054,7 @@ const en: Translation = {
     label_strong:    "Strong",
     label_excellent: "Excellent",
     rule_min8:    "At least 8 characters",
+    rule_lower:   "At least 1 lowercase letter",
     rule_upper:   "At least 1 uppercase letter",
     rule_number:  "At least 1 number",
     rule_special: "At least 1 special character",
