@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { nomPrenoms } from "@/lib/nomAgent";
 import type { Session, User } from "@supabase/supabase-js";
 import { getDeviceId } from "@/lib/deviceId";
 import {
@@ -69,6 +70,8 @@ interface AuthContextValue {
   /** L'utilisateur n'a QUE le rôle employe (aucun rôle métier admin/chef/membre) */
   isEmployeOnly: boolean;
   refreshRoles: () => Promise<void>;
+  /** NOM et prénoms de l'agent (profil), null si non renseigné. */
+  nomAgent: string | null;
   /** TRUE si l'admin a (re)défini le mot de passe : l'utilisateur doit en choisir un nouveau. */
   mustChangePassword: boolean;
   /** Appelé par ForceChangePasswordModal après succès pour rafraîchir le flag. */
@@ -94,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [features, setFeatures] = useState<HeaderFeature[]>([]);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [nomAgent, setNomAgent] = useState<string | null>(null);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaRequired, setMfaRequired] = useState(false);
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -180,10 +184,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchMustChange = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("must_change_password")
+      .select("must_change_password, nom")
       .eq("user_id", uid)
       .maybeSingle();
     setMustChangePassword(data?.must_change_password === true);
+    setNomAgent(data?.nom?.trim() ? nomPrenoms(data.nom) : null);
   }, []);
 
   const fetchFeatures = useCallback(async (uid: string) => {
@@ -222,6 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setOverrides([]);
         setFeatures([]);
         setMustChangePassword(false);
+        setNomAgent(null);
         setMfaFactorId(null);
         setMfaRequired(false);
       }
@@ -375,7 +381,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin, isSuperAdmin,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
-        mustChangePassword, clearMustChangePassword,
+        nomAgent, mustChangePassword, clearMustChangePassword,
         mfaFactorId, mfaRequired, clearMfaRequired,
         refreshMfa,
       }}
@@ -425,6 +431,7 @@ export const useAuth = () => {
       isEmploye: false,
       isEmployeOnly: false,
       refreshRoles: async () => {},
+      nomAgent: null,
       mustChangePassword: false,
       clearMustChangePassword: () => {},
       mfaFactorId: null,

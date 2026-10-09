@@ -63,7 +63,7 @@ export const Header = ({
 }: HeaderProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
-  const { user, roles, isAdmin, isSuperAdmin, isChefCompta, isChefGrh, signOut } = useAuth();
+  const { user, nomAgent, roles, isAdmin, isSuperAdmin, isChefCompta, isChefGrh, signOut } = useAuth();
   const { canFeature } = useAuth();
   const { currentSociete, societeConfig } = useTenant();
 
@@ -215,6 +215,7 @@ export const Header = ({
       >
         <SheetHeader className="space-y-0.5 border-b px-3 py-2.5 pr-12 text-left">
           <SheetTitle className="text-sm">Menu</SheetTitle>
+          {nomAgent && <p className="truncate text-sm font-semibold text-foreground">{nomAgent}</p>}
           <SheetDescription className="truncate text-xs">{user?.email}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-2 border-b p-2.5 empty:hidden">
@@ -364,8 +365,9 @@ export const Header = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate">
-                    {user?.email}
+                  <DropdownMenuLabel className="font-normal">
+                    {nomAgent && <div className="truncate text-sm font-semibold">{nomAgent}</div>}
+                    <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
                   </DropdownMenuLabel>
                   {actionsSecondaires}
                   <DropdownMenuSeparator />
