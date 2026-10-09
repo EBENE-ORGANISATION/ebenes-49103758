@@ -2,3 +2,19 @@
 # on peut les mettre en cache un an sans risque de servir une vieille version.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Protections du navigateur pour tout le site web (sans effet sur l'APK et
+# l'application Windows, qui chargent leurs fichiers localement).
+#  - CSP : scripts uniquement depuis le site ; connexions limitées à Supabase
+#    (API + temps réel), à l'API GitHub (version) et à Have I Been Pwned
+#    (mots de passe divulgués) ; polices Google ; aucune intégration du site
+#    dans une page tierce.
+#  - Les styles en ligne restent permis : React et les composants les utilisent.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://yblucgmxofyelziwlvxu.supabase.co; connect-src 'self' https://yblucgmxofyelziwlvxu.supabase.co wss://yblucgmxofyelziwlvxu.supabase.co https://api.github.com https://api.pwnedpasswords.com; frame-src 'self' blob: data:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups

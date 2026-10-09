@@ -35,4 +35,5 @@ supabase/.temp/
 
 # Fichiers locaux à ne pas publier
 brag-output/
+brag-output-*/
 documents/

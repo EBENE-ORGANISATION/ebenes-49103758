@@ -122,6 +122,32 @@ ipcMain.on("install-update", () => {
   }
 });
 
+// ─── Sécurité de navigation ──────────────────────────────────────────────
+const HOTES_AUTORISES = new Set([
+  "yblucgmxofyelziwlvxu.supabase.co", // connexion (OAuth Supabase)
+  "accounts.google.com",              // connexion Google
+  "ebnservicess.com",                 // retour de connexion vers le site
+  "www.ebnservicess.com",
+]);
+
+function navigationAutorisee(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "file:") return true; // l'application elle-même
+    if (isDev && u.protocol === "http:" && u.hostname === "localhost") return true;
+    return u.protocol === "https:" && HOTES_AUTORISES.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Aucune balise <webview> ; permissions du navigateur refusées par défaut.
+app.on("web-contents-created", (_event, contents) => {
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+});
+
+const PERMISSIONS_ACCEPTEES = new Set(["clipboard-sanitized-write", "notifications", "fullscreen"]);
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -139,6 +165,12 @@ function createWindow() {
     },
   });
 
+  // Caméra, micro, localisation… : refusés (l'application n'en a pas besoin ;
+  // la photo d'une facture passe par le sélecteur de fichiers).
+  mainWindow.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(PERMISSIONS_ACCEPTEES.has(permission));
+  });
+
   if (isDev) {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
     mainWindow.webContents.openDevTools({ mode: "detach" });
@@ -147,12 +179,31 @@ function createWindow() {
   }
 
   // Liens externes → navigateur par défaut (jamais dans la fenêtre Electron).
+  // Seule exception : une fenêtre vierge (impression des codes 2FA), sans
+  // accès au pont de l'application. Tout autre type de lien est refusé.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http://") || url.startsWith("https://")) {
+    if (url.startsWith("https://") || url.startsWith("http://")) {
       shell.openExternal(url);
       return { action: "deny" };
     }
-    return { action: "allow" };
+    if (url === "" || url === "about:blank") {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+        },
+      };
+    }
+    return { action: "deny" };
+  });
+
+  // La fenêtre principale ne quitte pas l'application : seules les pages de
+  // connexion (Supabase, Google) et le site Ébène Suite sont admis ; tout autre
+  // lien s'ouvre dans le navigateur.
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (navigationAutorisee(url)) return;
+    event.preventDefault();
+    if (url.startsWith("https://") || url.startsWith("http://")) shell.openExternal(url);
   });
 
   mainWindow.on("closed", () => { mainWindow = null; });
