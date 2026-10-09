@@ -6,30 +6,46 @@ type EcritureGeneree = Omit<EcritureComptable, "id">;
 
 /**
  * Écritures d'une facture payée (validées, liées à la facture) :
- *  - VE : Client 4111 / Produit 701 ou 706 (HT) / TVA 4431 si « avec TVA » ;
+ *  - VE : Client 4111 / Produit (HT) / TVA 4431 si « avec TVA ». Les lignes
+ *    d'articles du stock vont en 701 (ventes de marchandises), les autres en
+ *    701 ou 706 selon l'activité de la facture ; la réduction est répartie
+ *    au prorata ;
  *  - BQ ou CA : Banque 521 ou Caisse 571 / Client 4111 (montant réglé).
  */
 export const ecrituresFacturePayee = (
-  f: Pick<Facture, "id" | "numero" | "client" | "date" | "activite" | "avecTva" | "totalHT" | "totalTva" | "totalTtc">,
+  f: Pick<Facture, "id" | "numero" | "client" | "date" | "activite" | "avecTva" | "totalHT" | "totalTva" | "totalTtc"> &
+    Partial<Pick<Facture, "lignes">>,
   compteTresorerie: CompteTresorerie,
   annee: number,
   mois: number,
   activiteId: string | null,
 ): EcritureGeneree[] => {
   const compteVente = f.activite === "commerce" ? "701" : "706";
-  const libelleVente = f.activite === "commerce" ? "Ventes de marchandises" : "Services vendus";
-  const montantRegle = Math.round(f.avecTva ? f.totalTtc : f.totalHT);
+  const libelle = (compte: string) => (compte === "701" ? "Ventes de marchandises" : "Services vendus");
 
-  const lignesVente: LigneEcriture[] = f.avecTva
-    ? [
-        { id: 1, compte: "4111", intitule: "Clients", debit: Math.round(f.totalTtc), credit: 0, tiers: f.client },
-        { id: 2, compte: compteVente, intitule: libelleVente, debit: 0, credit: Math.round(f.totalHT), tiers: f.client },
-        { id: 3, compte: "4431", intitule: "TVA facturée sur ventes", debit: 0, credit: Math.round(f.totalTva) },
-      ]
-    : [
-        { id: 1, compte: "4111", intitule: "Clients", debit: Math.round(f.totalHT), credit: 0, tiers: f.client },
-        { id: 2, compte: compteVente, intitule: libelleVente, debit: 0, credit: Math.round(f.totalHT), tiers: f.client },
-      ];
+  // Produits HT par compte : articles du stock en 701, le reste selon l'activité
+  const lignes = f.lignes ?? [];
+  const sousTotal = lignes.reduce((s, l) => s + (l.montant || 0), 0);
+  const marchandises = lignes.filter((l) => l.articleId).reduce((s, l) => s + (l.montant || 0), 0);
+  const ht = Math.round(f.totalHT);
+  // Montant dû par le client = HT + TVA arrondis : l'écriture est toujours équilibrée
+  const montantRegle = ht + (f.avecTva ? Math.round(f.totalTva) : 0);
+  const ht701 = compteVente === "701" ? ht : sousTotal > 0 ? Math.round((ht * marchandises) / sousTotal) : 0;
+  const produits = (
+    [[compteVente === "701" ? "701" : "706", ht - ht701], ["701", ht701]] as [string, number][]
+  )
+    .reduce<[string, number][]>((acc, [c, m]) => {
+      const i = acc.findIndex(([x]) => x === c);
+      if (i >= 0) acc[i][1] += m; else acc.push([c, m]);
+      return acc;
+    }, [])
+    .filter(([, m]) => m > 0);
+
+  const lignesVente: LigneEcriture[] = [
+    { id: 0, compte: "4111", intitule: "Clients", debit: montantRegle, credit: 0, tiers: f.client },
+    ...produits.map(([compte, m]) => ({ id: 0, compte, intitule: libelle(compte), debit: 0, credit: m, tiers: f.client })),
+    ...(f.avecTva ? [{ id: 0, compte: "4431", intitule: "TVA facturée sur ventes", debit: 0, credit: Math.round(f.totalTva) }] : []),
+  ].map((l, i) => ({ ...l, id: i + 1 }));
 
   const estBanque = compteTresorerie === "521";
   const journal = estBanque ? "BQ" : "CA";

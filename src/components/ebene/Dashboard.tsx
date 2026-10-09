@@ -46,7 +46,7 @@ import type {
   MoisData,
   Activite,
 } from "@/types/ebene";
-import { formatMontant, moisKey, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, moisKey, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "@/lib/ebene-utils";
 import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
@@ -114,7 +114,8 @@ const UNIT_DIV: Record<UnitMode, number> = { F: 1, kF: 1_000, "100kF": 100_000 }
 const UNIT_SUFFIX: Record<UnitMode, string> = { F: "F", kF: "k F", "100kF": "×100k F" };
 
 const formatUnit = (n: number, mode: UnitMode): string => {
-  if (mode === "F") return formatMontant(n);
+  // Montant signé : une trésorerie ou un solde négatif garde son « − »
+  if (mode === "F") return formatSolde(n);
   const v = n / UNIT_DIV[mode];
   const abs = Math.abs(v);
   const formatted = abs.toLocaleString("fr-FR", {
@@ -292,7 +293,7 @@ export const Dashboard = ({
   const alertesDash = useMemo(() => {
     const a: { type: "danger" | "warning" | "info"; msg: string }[] = [];
     if (kpis.tresorerie < 0)
-      a.push({ type: "danger", msg: `Trésorerie négative : ${formatMontant(kpis.tresorerie)}` });
+      a.push({ type: "danger", msg: `Trésorerie négative : ${formatSolde(kpis.tresorerie)}` });
     if (kpis.montantImpaye > 0)
       a.push({
         type: "warning",

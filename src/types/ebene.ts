@@ -164,6 +164,8 @@ export type CategorieProf =
 export interface Employe {
   /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
   creePar?: string;
+  /** Activité de rattachement : sa paie est comptée dans cette activité. */
+  activiteId?: string | null;
   id: number;
   nom: string;
   poste: string;

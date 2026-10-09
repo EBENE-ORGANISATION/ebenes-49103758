@@ -927,6 +927,7 @@ export type Database = {
       }
       employes: {
         Row: {
+          activite_id: string | null
           cree_par: string | null
           adresse: string | null
           assurance_vie: number | null
@@ -967,6 +968,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          activite_id?: string | null
           cree_par?: string | null
           adresse?: string | null
           assurance_vie?: number | null
@@ -1007,6 +1009,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          activite_id?: string | null
           cree_par?: string | null
           adresse?: string | null
           assurance_vie?: number | null

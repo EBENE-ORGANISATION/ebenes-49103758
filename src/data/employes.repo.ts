@@ -54,6 +54,7 @@ export const toEmploye = (row: EmployeRow): Employe => ({
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
   motifRejet: n(row.motif_rejet),
   creePar: n(row.cree_par),
+  activiteId: n(row.activite_id) ?? null,
 });
 
 /** Convertit un objet `Employe` partiel en payload d'insertion Supabase. */
@@ -88,6 +89,7 @@ export const fromEmploye = (
   indemnite_fonction: e.indemniteFonction ?? null,
   sursalaire: e.sursalaire ?? null,
   solde_conges: e.soldeConges ?? null,
+  activite_id: e.activiteId ?? null,
   interet_pret_immobilier: e.interetPretImmobilier ?? null,
   assurance_vie: e.assuranceVie ?? null,
   retraite_complementaire: e.retraiteComplementaire ?? null,
@@ -193,6 +195,7 @@ export const employes = {
       }),
       ...(patch.sursalaire !== undefined && { sursalaire: patch.sursalaire ?? null }),
       ...(patch.soldeConges !== undefined && { solde_conges: patch.soldeConges ?? null }),
+      ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
       ...(patch.userId !== undefined && { user_id: patch.userId ?? null }),
       ...(patch.statutValidation !== undefined && {
         statut_validation: patch.statutValidation ?? null,

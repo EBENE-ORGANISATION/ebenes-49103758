@@ -24,7 +24,7 @@ import {
   StatutValidation,
   EcritureComptable,
 } from "@/types/ebene";
-import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant, formatSolde } from "@/lib/ebene-utils";
 import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
 import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
@@ -113,11 +113,6 @@ const filterMoisMap = <T extends { activiteId?: string | null }>(
 export interface EbeneStoreOptions {
   /** Compartiment d'activité filtré. null = « Toutes les activités » (consolidé). */
   activiteId?: string | null;
-  /**
-   * Activité par défaut (« Général ») pour estampiller les nouvelles saisies
-   * lorsque la vue consolidée est active. Sert de repli quand `activiteId` null.
-   */
-  defaultActiviteId?: string | null;
 }
 
 export const useEbeneStoreRemote = (
@@ -126,9 +121,13 @@ export const useEbeneStoreRemote = (
 ) => {
   const qc = useQueryClient();
   const activiteId = options?.activiteId ?? null;
-  // Activité estampillée à la création : l'activité sélectionnée, sinon
-  // l'activité « Général » (repli), sinon rien (sociétés sans activités).
-  const stampActiviteId = activiteId ?? options?.defaultActiviteId ?? null;
+  // Activité d'une nouvelle saisie : celle choisie dans le formulaire (null =
+  // « Sans activité »), sinon l'activité affichée. En vue consolidée, rien
+  // n'est rattaché d'office à une activité.
+  const activiteSaisie = useCallback(
+    (choisie: string | null | undefined): string | null => (choisie !== undefined ? choisie : activiteId),
+    [activiteId],
+  );
 
   // ─── Purge du cache React Query lors d'un changement de société ────────────
   // Évite que les données d'une société précédente restent visibles pendant
@@ -230,44 +229,66 @@ export const useEbeneStoreRemote = (
   // ─── donneesMensuelles : calculé depuis tous les hooks TQ ─────────────────
   // Remplace complètement l'ancien useState. Toutes les entités mensuelles
   // proviennent des tables relationnelles Supabase via TanStack Query.
-  const donneesMensuelles = useMemo<DonneesMensuelles>(() => {
-    const allKeys = new Set<string>([
-      ...Object.keys(fTransactions),
-      ...Object.keys(fFactures),
-      ...Object.keys(tqAbsences.absences),
-      ...Object.keys(tqPrimes.primes),
-      ...Object.keys(tqHeuresSup.heuresSup),
-      ...Object.keys(tqRetenues.retenues),
-      ...Object.keys(fMouvements),
-      ...Object.keys(fDevis),
-      ...Object.keys(fEcritures),
-    ]);
-    const result: DonneesMensuelles = {};
-    for (const key of allKeys) {
-      result[key] = {
-        transactions: fTransactions[key] ?? [],
-        factures: fFactures[key] ?? [],
-        absences: tqAbsences.absences[key] ?? [],
-        primes: tqPrimes.primes[key] ?? {},
-        heuresSup: tqHeuresSup.heuresSup[key] ?? {},
-        retenues: tqRetenues.retenues[key] ?? {},
-        mouvementsStock: fMouvements[key] ?? [],
-        devis: fDevis[key] ?? [],
-        ecritures: fEcritures[key] ?? [],
-      };
-    }
-    return result;
-  }, [
-    fTransactions,
-    fFactures,
-    tqAbsences.absences,
-    tqPrimes.primes,
-    tqHeuresSup.heuresSup,
-    tqRetenues.retenues,
-    fMouvements,
-    fDevis,
-    fEcritures,
-  ]);
+  const assembler = useCallback(
+    (
+      transactions: Record<string, Transaction[]>,
+      factures: Record<string, Facture[]>,
+      mouvements: Record<string, MouvementStock[]>,
+      devis: Record<string, Devis[]>,
+      ecritures: Record<string, EcritureComptable[]>,
+    ): DonneesMensuelles => {
+      const allKeys = new Set<string>([
+        ...Object.keys(transactions),
+        ...Object.keys(factures),
+        ...Object.keys(tqAbsences.absences),
+        ...Object.keys(tqPrimes.primes),
+        ...Object.keys(tqHeuresSup.heuresSup),
+        ...Object.keys(tqRetenues.retenues),
+        ...Object.keys(mouvements),
+        ...Object.keys(devis),
+        ...Object.keys(ecritures),
+      ]);
+      const result: DonneesMensuelles = {};
+      for (const key of allKeys) {
+        result[key] = {
+          transactions: transactions[key] ?? [],
+          factures: factures[key] ?? [],
+          absences: tqAbsences.absences[key] ?? [],
+          primes: tqPrimes.primes[key] ?? {},
+          heuresSup: tqHeuresSup.heuresSup[key] ?? {},
+          retenues: tqRetenues.retenues[key] ?? {},
+          mouvementsStock: mouvements[key] ?? [],
+          devis: devis[key] ?? [],
+          ecritures: ecritures[key] ?? [],
+        };
+      }
+      return result;
+    },
+    [tqAbsences.absences, tqPrimes.primes, tqHeuresSup.heuresSup, tqRetenues.retenues],
+  );
+
+  // Données de l'activité affichée (toutes en vue consolidée)
+  const donneesMensuelles = useMemo<DonneesMensuelles>(
+    () => assembler(fTransactions, fFactures, fMouvements, fDevis, fEcritures),
+    [assembler, fTransactions, fFactures, fMouvements, fDevis, fEcritures],
+  );
+
+  // Données de toute la société, quelle que soit l'activité affichée : la
+  // caisse, les alertes et la fiscalité (déclarations) sont communes.
+  const donneesConsolidees = useMemo<DonneesMensuelles>(
+    () =>
+      activiteId
+        ? assembler(
+            tqTransactions.transactions,
+            tqFactures.factures,
+            tqMouvements.mouvementsStock,
+            tqDevis.devis,
+            tqEcritures.ecritures,
+          )
+        : donneesMensuelles,
+    [activiteId, assembler, donneesMensuelles, tqTransactions.transactions, tqFactures.factures,
+      tqMouvements.mouvementsStock, tqDevis.devis, tqEcritures.ecritures],
+  );
 
   // ─── Statut Google Drive ───────────────────────────────────────────────────
   const [driveStatus, setDriveStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
@@ -377,12 +398,12 @@ export const useEbeneStoreRemote = (
   // ─── Transactions → table relationnelle ──────────────────────────────────
   const addTransaction = useCallback(
     (annee: number, mois: number, t: Omit<Transaction, "id">) => {
-      const aid = t.activiteId ?? stampActiviteId;
+      const aid = activiteSaisie(t.activiteId);
       // Une caisse ne peut pas être négative : on prévient dès la saisie
       if (t.tresorerie === "571" && t.m < 0) {
-        const apres = soldeCaisse(donneesMensuelles) + t.m;
+        const apres = soldeCaisse(donneesConsolidees) + t.m;
         if (apres < 0) {
-          toast.warning(`Caisse insuffisante : après cette dépense, la caisse sera à ${formatMontant(apres)}. Vérifiez le mode de règlement (Banque ?) ou enregistrez d'abord l'approvisionnement de la caisse.`);
+          toast.warning(`Caisse insuffisante : après cette dépense, la caisse sera à ${formatSolde(apres)}. Vérifiez le mode de règlement (Banque ?) ou enregistrez d'abord l'approvisionnement de la caisse.`);
         }
       }
       void tqTransactions.addTransaction(annee, mois, { ...t, activiteId: aid })
@@ -401,7 +422,7 @@ export const useEbeneStoreRemote = (
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId, tauxHistorique, donneesMensuelles],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, tauxHistorique, donneesConsolidees],
   );
 
   /**
@@ -495,7 +516,7 @@ export const useEbeneStoreRemote = (
   // ─── Factures → table relationnelle ──────────────────────────────────────
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
-      void tqFactures.createFacture(annee, mois, { ...f, activiteId: f.activiteId ?? stampActiviteId })
+      void tqFactures.createFacture(annee, mois, { ...f, activiteId: activiteSaisie(f.activiteId) })
         .then((saved) => {
           log("INSERT", "factures", saved.id, null, saved);
           markSignificantWrite();
@@ -503,7 +524,7 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors de la création de la facture"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqFactures, markSignificantWrite, stampActiviteId],
+    [tqFactures, markSignificantWrite, activiteSaisie],
   );
 
   const updateFacture = useCallback(
@@ -549,7 +570,7 @@ export const useEbeneStoreRemote = (
         return;
       }
 
-      const aid = f.activiteId ?? stampActiviteId;
+      const aid = f.activiteId ?? null; // l'activité de la facture
       void tqTransactions.addTransaction(annee, mois, {
         date: f.date,
         desc: `Facture ${f.numero} — ${f.client}`,
@@ -589,7 +610,7 @@ export const useEbeneStoreRemote = (
         })
         .catch((e) => toast.error(messageErreur(e, "Erreur lors du marquage comme payée")));
     },
-    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, stampActiviteId],
+    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie],
   );
 
   /**
@@ -609,7 +630,7 @@ export const useEbeneStoreRemote = (
       const articleAid = articles.find((a) => a.id === mvt.articleId)?.activiteId;
       let mvtFinal: Omit<MouvementStock, "id"> = {
         ...mvt,
-        activiteId: mvt.activiteId ?? articleAid ?? stampActiviteId,
+        activiteId: activiteSaisie(mvt.activiteId ?? articleAid),
       };
       await tqArticles.ajusterStock(mvt.articleId, (actuel) => {
         // Ajustement : on inscrit l'écart dans le motif pour pouvoir l'annuler
@@ -626,7 +647,7 @@ export const useEbeneStoreRemote = (
         throw err;
       });
     },
-    [tqMouvements, articles, tqArticles, stampActiviteId],
+    [tqMouvements, articles, tqArticles, activiteSaisie],
   );
 
   /**
@@ -718,13 +739,13 @@ export const useEbeneStoreRemote = (
       void tqDevis.createDevis(annee, mois, {
         ...d,
         statut: d.statut || "envoye",
-        activiteId: d.activiteId ?? stampActiviteId,
+        activiteId: activiteSaisie(d.activiteId),
       })
         .then((saved) => log("INSERT", "devis", saved.id, null, saved))
         .catch(() => toast.error("Erreur lors de la création du devis"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqDevis, stampActiviteId],
+    [tqDevis, activiteSaisie],
   );
 
   const removeDevis = useCallback(
@@ -770,7 +791,7 @@ export const useEbeneStoreRemote = (
         totalTva: d.totalTva,
         totalTtc: d.totalTtc,
         activite: d.activite,
-        activiteId: d.activiteId ?? stampActiviteId,
+        activiteId: d.activiteId ?? null,
       })
         .then((facture) =>
           tqDevis.updateDevis(devisId, { statut: "converti", factureId: facture.id })
@@ -785,7 +806,7 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors de la conversion du devis en facture"));
       return null; // ID disponible après invalidation TQ
     },
-    [tqDevis, tqFactures, stampActiviteId],
+    [tqDevis, tqFactures, activiteSaisie],
   );
 
   // ─── GRH : Primes → table relationnelle ──────────────────────────────────
@@ -1080,10 +1101,10 @@ export const useEbeneStoreRemote = (
   // ─── Stock : articles → table relationnelle ───────────────────────────────
   const addArticle = useCallback(
     (a: Omit<Article, "id">) => {
-      void tqArticles.addArticle({ ...a, activiteId: a.activiteId ?? stampActiviteId })
+      void tqArticles.addArticle({ ...a, activiteId: activiteSaisie(a.activiteId) })
         .catch(() => toast.error("Erreur lors de l'ajout de l'article"));
     },
-    [tqArticles, stampActiviteId],
+    [tqArticles, activiteSaisie],
   );
 
   const updateArticle = useCallback(
@@ -1198,14 +1219,14 @@ export const useEbeneStoreRemote = (
       void tqImmobilisations.addImmobilisation({
         ...i,
         comptesSYSCOHADA: comptes,
-        activiteId: i.activiteId ?? stampActiviteId,
+        activiteId: activiteSaisie(i.activiteId),
       })
         .then((saved) => {
           log("INSERT", "immobilisations", saved.id, null, saved);
           markSignificantWrite();
           // Écriture d'acquisition (sans elle, l'immobilisation n'apparaît pas au bilan)
           const e = ecritureAcquisitionImmo(
-            { ...i, compteActif: comptes.actif, activiteId: i.activiteId ?? stampActiviteId },
+            { ...i, compteActif: comptes.actif, activiteId: activiteSaisie(i.activiteId) },
             saved.id,
             reglement,
           );
@@ -1216,7 +1237,7 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
       return 0; // ID définitif disponible après invalidation TQ
     },
-    [tqImmobilisations, markSignificantWrite, stampActiviteId, tqEcritures],
+    [tqImmobilisations, markSignificantWrite, activiteSaisie, tqEcritures],
   );
 
   const removeImmobilisation = useCallback(
@@ -1285,14 +1306,14 @@ export const useEbeneStoreRemote = (
   // ─── Écritures comptables SYSCOHADA → table relationnelle ────────────────
   const addEcriture = useCallback(
     (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => {
-      void tqEcritures.addEcriture(annee, mois, { ...e, activiteId: e.activiteId ?? stampActiviteId })
+      void tqEcritures.addEcriture(annee, mois, { ...e, activiteId: activiteSaisie(e.activiteId) })
         .then((saved) => {
           log("INSERT", "ecritures_comptables", saved.id, null, saved);
           markSignificantWrite();
         })
         .catch(() => toast.error("Erreur lors de l'ajout de l'écriture"));
     },
-    [tqEcritures, markSignificantWrite, log, stampActiviteId],
+    [tqEcritures, markSignificantWrite, log, activiteSaisie],
   );
 
   const updateEcriture = useCallback(
@@ -1336,6 +1357,7 @@ export const useEbeneStoreRemote = (
   // ─── Interface publique (identique à l'ancienne version) ─────────────────
   return {
     donneesMensuelles,
+    donneesConsolidees,
     employes,
     paramsAnnuels,
     tauxHistorique,

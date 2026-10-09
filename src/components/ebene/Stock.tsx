@@ -15,6 +15,7 @@ import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { formatMontant, formatSolde, todayISO, dateFr } from "@/lib/ebene-utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 
 interface Props {
   data: MoisData;
@@ -157,7 +158,9 @@ const ArticlesPanel = ({
     setOpen(true);
   };
 
+  const activiteObligatoire = useActiviteObligatoire();
   const submit = () => {
+    if (activiteObligatoire && !form.activiteId) return toast.error(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!form.reference.trim()) return toast.error("Référence obligatoire");
     if (!form.designation.trim()) return toast.error("Désignation obligatoire");
     if (editing) onUpdate(editing.id, form); else onAdd(form);

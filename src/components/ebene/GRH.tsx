@@ -134,6 +134,15 @@ export const GRH = ({
   const { currentSociete, societeConfig } = useTenant();
   const historiqueTaux = useTauxHistoriqueCourant();
   const tauxMois = useMemo(() => tauxPourMois(historiqueTaux, annee, mois), [historiqueTaux, annee, mois]);
+  // Absences et sanctions des seuls employés affichés (activité sélectionnée)
+  const absencesVisibles = useMemo(() => {
+    const ids = new Set(employes.map((e) => e.id));
+    return (allAbsences ?? data.absences ?? []).filter((a) => ids.has(a.employeId));
+  }, [employes, allAbsences, data.absences]);
+  const sanctionsVisibles = useMemo(() => {
+    const ids = new Set(employes.map((e) => e.id));
+    return sanctions.filter((x) => ids.has(x.employeId));
+  }, [employes, sanctions]);
   const societeInfo = currentSociete && societeConfig
     ? { ...societeConfig, nom: currentSociete.nom }
     : null;
@@ -587,7 +596,7 @@ export const GRH = ({
 
         <TabsContent value="liste">
           {currentSociete?.id ? (
-            <ListePersonnel employes={employes} societeId={currentSociete.id} absences={allAbsences ?? data.absences ?? []} />
+            <ListePersonnel employes={employes} societeId={currentSociete.id} absences={absencesVisibles} />
           ) : (
             <p className="text-sm text-muted-foreground">Société non sélectionnée.</p>
           )}
@@ -606,7 +615,7 @@ export const GRH = ({
         <TabsContent value="absences">
           <AbsencesPanel
             employes={employes}
-            absences={allAbsences ?? data.absences ?? []}
+            absences={absencesVisibles}
             onAdd={onAddAbsence}
             onRemove={onRemoveAbsence}
             isChefGrh={isChefGrh}
@@ -618,7 +627,7 @@ export const GRH = ({
         <TabsContent value="discipline">
           <DisciplinePanel
             employes={employes}
-            sanctions={sanctions}
+            sanctions={sanctionsVisibles}
             onAdd={onAddSanction}
             onRemove={onRemoveSanction}
             isChefGrh={isChefGrh}
@@ -628,7 +637,7 @@ export const GRH = ({
         </TabsContent>
 
         <TabsContent value="indemnites">
-          <IndemnitesCalculator employes={employes} absences={allAbsences ?? data.absences ?? []} />
+          <IndemnitesCalculator employes={employes} absences={absencesVisibles} />
         </TabsContent>
 
         <TabsContent value="simulateur">
@@ -695,7 +704,7 @@ export const GRH = ({
       )}
       {contrat && <ContratGenerator employe={contrat} onClose={() => setContrat(null)} />}
       {fiche && currentSociete?.id && (
-        <FichePersonnel employe={fiche} societeId={currentSociete.id} absences={allAbsences ?? data.absences ?? []} onClose={() => setFiche(null)} />
+        <FichePersonnel employe={fiche} societeId={currentSociete.id} absences={absencesVisibles} onClose={() => setFiche(null)} />
       )}
     </div>
   );

@@ -24,6 +24,7 @@ import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { useTranslation } from "react-i18next";
 import { DevisPreview } from "./DevisPreview";
+import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
@@ -153,7 +154,9 @@ export const DevisSection = ({
     return reserve;
   };
 
+  const activiteObligatoire = useActiviteObligatoire();
   const submit = async () => {
+    if (activiteObligatoire && !activiteId) return alert(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!client.trim()) return alert(t("devis.err_client"));
     if (!date) return alert(t("devis.err_date"));
     const lignesNet = lignes

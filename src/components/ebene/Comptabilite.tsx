@@ -36,6 +36,7 @@ import { Balance } from "./comptabilite/Balance";
 import { BilanSYSCOHADA } from "./comptabilite/BilanSYSCOHADA";
 import { CompteResultat } from "./comptabilite/CompteResultat";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
+import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 
 interface Props {
   data: MoisData;
@@ -203,7 +204,9 @@ export const Comptabilite = ({
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  const activiteObligatoire = useActiviteObligatoire();
   const submit = () => {
+    if (activiteObligatoire && !activiteId) return toast.error(MESSAGE_ACTIVITE_OBLIGATOIRE);
     const m = parseFloat(montant);
     if (!desc.trim()) return toast.error("La description est obligatoire.");
     if (isNaN(m) || m <= 0) return toast.error("Montant invalide.");
@@ -438,7 +441,7 @@ export const Comptabilite = ({
                 {type === "r" && (
                   <div>
                     <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                      Activité (impacte la patente) *
+                      Nature de l'activité (taux de patente) *
                     </Label>
                     <Select value={activite} onValueChange={(v) => setActivite(v as ActiviteType)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>

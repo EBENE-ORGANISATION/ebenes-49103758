@@ -47,6 +47,8 @@ interface Props {
   tauxHistorique: TauxFiscaux[];
   onAjouterTaux: (t: TauxFiscaux) => void;
   onSupprimerTaux: (dateEffet: string) => void;
+  /** Une activité est affichée : la fiscalité reste celle de toute la société. */
+  vueActivite?: boolean;
 }
 
 type StatutMois = "cloture" | "en_cours" | "futur";
@@ -141,7 +143,7 @@ const ExportBtns = ({ onExcel, onPdf, onWord }: {
 
 export const Fiscalite = ({
   data, employes, annee, mois, paramsAnnee, onUpdateParams,
-  donneesMensuelles, tauxHistorique, onAjouterTaux, onSupprimerTaux,
+  donneesMensuelles, tauxHistorique, onAjouterTaux, onSupprimerTaux, vueActivite = false,
 }: Props) => {
   const { can, user } = useAuth();
   const { currentSociete } = useTenant();
@@ -434,6 +436,13 @@ export const Fiscalite = ({
           )}
         </div>
       </div>
+
+      {vueActivite && (
+        <p className="text-xs rounded-lg border border-info/30 bg-info/10 text-info px-3 py-2">
+          Les impôts et cotisations se déclarent pour toute la société : cet onglet affiche
+          les chiffres de toutes les activités, quelle que soit l'activité sélectionnée.
+        </p>
+      )}
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="dashboard">

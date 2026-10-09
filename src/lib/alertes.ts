@@ -5,7 +5,7 @@ import type {
   Facture,
   MoisData,
 } from "@/types/ebene";
-import { moisKey, isoLocal, formatMontant } from "@/lib/ebene-utils";
+import { moisKey, isoLocal, formatMontant, formatSolde } from "@/lib/ebene-utils";
 import { soldeCaisse } from "@/lib/ecrituresTresorerie";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -169,7 +169,7 @@ export const getAlertes = (store: AlertesStoreInput): Alerte[] => {
       categorie: "tresorerie",
       severite: "danger",
       titre: "Caisse négative",
-      description: `Solde de la caisse : ${formatMontant(caisse)}. Une caisse ne peut pas être négative : vérifiez les dépenses réglées en caisse (Banque au lieu de Caisse ?) ou enregistrez l'approvisionnement de la caisse.`,
+      description: `Solde de la caisse : ${formatSolde(caisse)}. Une caisse ne peut pas être négative : vérifiez les dépenses réglées en caisse (Banque au lieu de Caisse ?) ou enregistrez l'approvisionnement de la caisse.`,
     });
   }
 

@@ -51,6 +51,31 @@ describe("ecrituresFacturePayee", () => {
   });
 });
 
+describe("ecrituresFacturePayee — articles du stock", () => {
+  it("facture d'hôtel avec nuitées et boissons : nuitées en 706, boissons en 701, réduction au prorata", () => {
+    const [ve] = ecrituresFacturePayee(
+      {
+        ...facture,
+        lignes: [
+          { description: "Nuitées", montant: 200000 },
+          { description: "Eau", montant: 50000, articleId: 3, quantite: 50, prixUnitaire: 1000 },
+        ],
+        totalHT: 225000, // réduction de 25 000
+        totalTva: 40500,
+        totalTtc: 265500,
+      },
+      "521", 2026, 10, null,
+    );
+    expect(ve.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
+      ["4111", 265500, 0],
+      ["706", 0, 180000],
+      ["701", 0, 45000],
+      ["4431", 0, 40500],
+    ]);
+    expect(equilibre(ve.lignes)).toBe(true);
+  });
+});
+
 describe("contrePassation", () => {
   it("inverse débit et crédit, à la date de l'annulation : les soldes reviennent à zéro", () => {
     const origine = ecrituresFacturePayee(facture, "521", 2026, 10, null);

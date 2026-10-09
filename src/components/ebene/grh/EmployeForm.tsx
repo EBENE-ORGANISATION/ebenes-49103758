@@ -13,6 +13,8 @@ import {
 import { X, UserCircle2, User, Briefcase, Banknote, Heart, Receipt, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { todayISO } from "@/lib/ebene-utils";
+import { ActiviteSelect } from "@/components/ebene/ActiviteSelect";
+import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 
 interface Props {
   initial?: Employe;
@@ -22,7 +24,10 @@ interface Props {
 
 export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
   const { t } = useTranslation();
+  const { currentActiviteId } = useActiviteFilter();
   const [form, setForm] = useState<Omit<Employe, "id">>({
+    // Nouvel employé : rattaché à l'activité affichée
+    activiteId: currentActiviteId ?? null,
     nom: "",
     poste: "",
     salaire: 0,
@@ -196,6 +201,11 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           <Field label={t("grh_form.echelon")}>
             <Input type="number" min={1} max={10} value={form.echelon || 1} onChange={(e) => update("echelon", parseInt(e.target.value, 10) || 1)} />
           </Field>
+          <ActiviteSelect
+            value={form.activiteId}
+            onChange={(v) => update("activiteId", v)}
+            label="Activité (paie comptée dans cette activité)"
+          />
           <Field label={t("grh_form.hire_date")}>
             <Input type="date" value={form.dateEmbauche || ""} onChange={(e) => update("dateEmbauche", e.target.value)} />
           </Field>

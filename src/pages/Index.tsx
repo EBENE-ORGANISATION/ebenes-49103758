@@ -74,11 +74,6 @@ const Index = () => {
     () => (activites.some((a) => a.id === currentActiviteId) ? currentActiviteId : null),
     [activites, currentActiviteId],
   );
-  // Activité « Général » (repli pour estampiller les saisies en vue consolidée).
-  const defaultActiviteId = useMemo(() => {
-    const general = activites.find((a) => a.nom === "Général");
-    return general?.id ?? activites[0]?.id ?? null;
-  }, [activites]);
 
   // ─── Purge globale du cache React Query au changement de société ──────────
   // • Quand l'ID change (null → A, A → B, B → A) : supprime le cache de
@@ -115,7 +110,6 @@ const Index = () => {
 
   const store = useEbeneStore(effectiveSocieteId, {
     activiteId: validActiviteId,
-    defaultActiviteId,
   });
   useEffect(() => {
     if (currentSociete?.id) {
@@ -128,22 +122,35 @@ const Index = () => {
   // Employés effectivement intégrés à la paie (validés ou créés avant le
   // workflow de validation — donc statutValidation absent). Les employés
   // 'en_validation' ou 'rejete' sont visibles uniquement côté GRH.
+  // Activité affichée : seuls ses employés (paie, GRH, masse salariale)
+  const employesActivite = useMemo(
+    () => (validActiviteId ? store.employes.filter((e) => e.activiteId === validActiviteId) : store.employes),
+    [store.employes, validActiviteId],
+  );
   const employesPaie = useMemo(
     () =>
-      store.employes.filter(
+      employesActivite.filter(
         (e) => !e.statutValidation || e.statutValidation === "valide"
       ),
-    [store.employes]
+    [employesActivite]
   );
+
+  // Toute la société, quelle que soit l'activité affichée : alertes (caisse,
+  // échéances) et fiscalité (déclarations) sont communes.
+  const employesSociete = useMemo(
+    () => store.employes.filter((e) => !e.statutValidation || e.statutValidation === "valide"),
+    [store.employes],
+  );
+  const dataSociete = store.donneesConsolidees[`${annee}-${mois}`] ?? data;
 
   const alertes = useMemo(
     () =>
       getAlertes({
-        donneesMensuelles: store.donneesMensuelles,
-        employes: employesPaie,
+        donneesMensuelles: store.donneesConsolidees,
+        employes: employesSociete,
         articles: store.articles,
       }),
-    [store.donneesMensuelles, employesPaie, store.articles]
+    [store.donneesConsolidees, employesSociete, store.articles]
   );
 
   // (La redirection des comptes 'employe' purs vers le portail se fait plus bas,
@@ -427,15 +434,16 @@ const Index = () => {
             {showFisc && (
             <TabsContent value="fisc">
               <Fiscalite
-                data={data}
-                employes={employesPaie}
+                data={dataSociete}
+                employes={employesSociete}
+                vueActivite={!!validActiviteId}
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}
                 onUpdateParams={fiscWrite
                   ? (p) => store.setParamAnnuel(annee, p)
                   : () => toast.error(tp("fisc_params"))}
-                donneesMensuelles={store.donneesMensuelles}
+                donneesMensuelles={store.donneesConsolidees}
                 tauxHistorique={store.tauxHistorique}
                 onAjouterTaux={fiscWrite ? store.ajouterTaux : () => toast.error(tp("fisc_taux_modify"))}
                 onSupprimerTaux={fiscWrite ? store.supprimerTaux : () => toast.error(tp("fisc_taux_delete"))}
@@ -515,7 +523,7 @@ const Index = () => {
             {showGrh && (
             <TabsContent value="grh">
               <GRH
-                employes={store.employes}
+                employes={employesActivite}
                 data={data}
                 annee={annee}
                 mois={mois}

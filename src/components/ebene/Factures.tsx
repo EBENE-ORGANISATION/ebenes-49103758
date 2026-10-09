@@ -17,6 +17,7 @@ import { useTenant } from "@/hooks/useTenant";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
+import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 import {
   genererNumeroFacture,
   reserverNumero,
@@ -191,7 +192,9 @@ export const Factures = ({
     return reserve;
   };
 
+  const activiteObligatoire = useActiviteObligatoire();
   const submit = async () => {
+    if (activiteObligatoire && !activiteId) return alert(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!client.trim()) return alert("Le nom du client est obligatoire.");
     if (!date) return alert("Date obligatoire.");
     const lignesNet = lignes

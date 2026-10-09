@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 
 interface Props {
   annee: number;
@@ -210,7 +211,9 @@ export const Immobilisations = ({
     setDateAcq(todayISO()); setShowForm(false);
   };
 
+  const activiteObligatoire = useActiviteObligatoire();
   const submit = () => {
+    if (activiteObligatoire && !activiteId) return toast.error(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!libelle.trim()) return toast.error("Libellé requis");
     const v = Number(valeur);
     const d = Number(duree);

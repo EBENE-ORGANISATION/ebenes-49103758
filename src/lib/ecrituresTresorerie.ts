@@ -6,7 +6,9 @@ import { transactionComptabilisee } from "@/lib/ebene-utils";
 export type CompteTresorerie = "521" | "571";
 
 /** Comptes proposés dans le formulaire de trésorerie (plan SYSCOHADA de l'application). */
-export const COMPTES_DEPENSE = ["6222", "6052", "6051", "6055", "6056", "624", "6281", "618", "625", "6324", "631", "6412", "6057", "658"] as const;
+// Achats (601 marchandises, 602 matières et denrées, 604 consommables : produits
+// d'entretien, d'accueil…) puis charges courantes.
+export const COMPTES_DEPENSE = ["601", "602", "604", "6222", "6052", "6051", "6055", "6056", "624", "6281", "618", "625", "6324", "631", "6412", "6057", "658"] as const;
 export const COMPTES_RECETTE = ["706", "707", "758"] as const;
 export const COMPTE_DEPENSE_DEFAUT = "6057";
 export const COMPTE_RECETTE_DEFAUT = "706";

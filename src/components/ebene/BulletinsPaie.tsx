@@ -32,6 +32,7 @@ import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { MOIS_NOMS, type Employe, type BulletinPaieRecord } from "@/types/ebene";
 import { BulletinEditDialog } from "./BulletinEditDialog";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
+import { useActivites } from "@/hooks/data/useActivites";
 
 interface Props {
   employes: Employe[];
@@ -57,6 +58,13 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
   const historiqueTaux = useTauxHistoriqueCourant();
   const sid = currentSociete?.id ?? null;
   const store = useEbeneStore(sid);
+  // Activité de l'employé (affichée quand la société en a plusieurs)
+  const { activitesActives } = useActivites(sid);
+  const activiteDe = (employeId: number): string | null => {
+    if (activitesActives.length < 2) return null;
+    const aid = store.employes.find((e) => e.id === employeId)?.activiteId;
+    return activitesActives.find((a) => a.id === aid)?.nom ?? "Sans activité";
+  };
   const {
     bulletins,
     loading,
@@ -120,7 +128,10 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
   // ─── Payer ───────────────────────────────────────────────────────────────
   const handlePayer = async (id: string, nom: string) => {
     setActioning(id);
-    const ok = await payerBulletin(id, store.addTransaction, store.addEcriture);
+    // La paie est comptée dans l'activité de l'employé
+    const b = bulletins.find((x) => x.id === id);
+    const activiteId = store.employes.find((e) => e.id === b?.employe_id)?.activiteId ?? null;
+    const ok = await payerBulletin(id, store.addTransaction, store.addEcriture, activiteId);
     if (ok) {
       toast.success(`Bulletin de ${nom} payé — écriture SYSCOHADA générée (OD)`);
     } else {
@@ -245,7 +256,10 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
               <TableBody>
                 {bulletins.map((b) => (
                   <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.employe_nom}</TableCell>
+                    <TableCell className="font-medium">
+                      {b.employe_nom}
+                      {activiteDe(b.employe_id) && <span className="block text-[11px] font-normal text-muted-foreground">{activiteDe(b.employe_id)}</span>}
+                    </TableCell>
                     <TableCell className="text-right text-xs">{formatMontant(b.brut)}</TableCell>
                     <TableCell className="text-right text-xs text-destructive">
                       {formatMontant(b.cnss_sal + b.amu_sal + b.irpp + b.retenues_diverses)}
@@ -388,7 +402,10 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                   const c = calculerPaie(e, store.getMois(annee, mois), annee, mois, tauxPourMois(historiqueTaux, annee, mois));
                   return (
                     <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.nom}</TableCell>
+                      <TableCell className="font-medium">
+                        {e.nom}
+                        {activiteDe(e.id) && <span className="block text-[11px] font-normal text-muted-foreground">{activiteDe(e.id)}</span>}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{e.poste}</TableCell>
                       <TableCell className="text-right text-xs">
                         {formatMontant(c.net)}

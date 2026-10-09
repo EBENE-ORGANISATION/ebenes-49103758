@@ -42,7 +42,8 @@ export const ActiviteSelect = ({
         {label}
       </Label>
       <Select
-        value={value ?? NONE}
+        // Sans « Sans activité » possible : valeur vide → libellé « Choisir une activité »
+        value={value ?? (allowNone ? NONE : "")}
         onValueChange={(v) => onChange(v === NONE ? null : v)}
       >
         <SelectTrigger>

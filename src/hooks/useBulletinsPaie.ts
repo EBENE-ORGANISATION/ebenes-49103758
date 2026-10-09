@@ -173,7 +173,9 @@ export const useBulletinsPaie = (societeId: string | null) => {
     async (
       id: string,
       addTransaction: (annee: number, mois: number, t: Omit<Transaction, "id">) => void,
-      addEcriture?: (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => void
+      addEcriture?: (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => void,
+      /** Activité de l'employé : la paie y est comptée (null : sans activité). */
+      activiteId: string | null = null,
     ): Promise<boolean> => {
       if (!societeId) return false;
       const bulletin = bulletins.find((b) => b.id === id);
@@ -199,9 +201,10 @@ export const useBulletinsPaie = (societeId: string | null) => {
         source: "salaires",
         auto: true,
         statut: "valide",
+        activiteId,
       });
       if (addEcriture) {
-        ecrituresPaie(bulletin, datePaiement).forEach((e) => addEcriture(bulletin.annee, bulletin.mois, e));
+        ecrituresPaie(bulletin, datePaiement).forEach((e) => addEcriture(bulletin.annee, bulletin.mois, { ...e, activiteId }));
       }
 
       // Email via Edge Function (best-effort)
