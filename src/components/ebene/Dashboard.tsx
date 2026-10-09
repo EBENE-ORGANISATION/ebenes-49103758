@@ -488,7 +488,7 @@ export const Dashboard = ({
                     <th className="text-left font-medium py-1.5 pr-3">Activité</th>
                     <th className="text-right font-medium py-1.5 px-3">CA HT</th>
                     <th className="text-right font-medium py-1.5 px-3">Charges directes</th>
-                    <th className="text-right font-medium py-1.5 px-3" title="Produits et charges sans activité, répartis au prorata du CA">Charges communes</th>
+                    <th className="text-right font-medium py-1.5 px-3" title="Effet sur le résultat des produits et charges sans activité, répartis au prorata du CA">Opérations communes</th>
                     <th className="text-right font-medium py-1.5 px-3">Résultat</th>
                     <th className="text-right font-medium py-1.5 pl-3 hidden sm:table-cell">% CA</th>
                   </tr>
@@ -504,7 +504,7 @@ export const Dashboard = ({
                       </td>
                       <td className="text-right tabular-nums py-2 px-3">{fmt(r.ca)}</td>
                       <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.charges - (r.produits - r.ca))}</td>
-                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.communs)}</td>
+                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{r.communs > 0 ? fmt(-r.communs) : r.communs < 0 ? `+${fmt(-r.communs)}` : fmt(0)}</td>
                       <td className={`text-right tabular-nums py-2 px-3 font-medium ${r.resultat >= 0 ? "text-success" : "text-destructive"}`}>
                         {fmt(r.resultat)}
                       </td>
@@ -517,8 +517,8 @@ export const Dashboard = ({
               </table>
               {resultatActivites && (resultatActivites.communCharges !== 0 || resultatActivites.communProduits !== 0) && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Charges communes : opérations sans activité ({fmt(resultatActivites.communCharges)} de charges,
-                  {" "}{fmt(resultatActivites.communProduits)} de produits) réparties au prorata du CA.
+                  Opérations communes : produits et charges sans activité ({fmt(resultatActivites.communProduits)} de produits,
+                  {" "}{fmt(resultatActivites.communCharges)} de charges), répartis au prorata du CA ; la colonne montre leur effet sur le résultat.
                   Les autres produits (hors CA) sont déduits des charges directes.
                 </p>
               )}

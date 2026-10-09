@@ -64,7 +64,7 @@ import { useEcritures } from "@/hooks/data/useEcritures";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import { transactionsReversement } from "@/lib/reversement";
 import type { DettesPaie } from "@/lib/alertes";
-import { ecrituresVariationStock, pieceInventaire } from "@/lib/variationStock";
+import { ecrituresVariationStock, pieceInventaire, pieceOuverture } from "@/lib/variationStock";
 import { mouvementsTransfert } from "@/lib/achatStock";
 import { useActivites } from "@/hooks/data/useActivites";
 
@@ -758,7 +758,8 @@ export const useEbeneStoreRemote = (
         mois,
       );
       void (async () => {
-        await supprimerEcrituresLiees((e) => e.numeroPiece === piece);
+        const ouverture = pieceOuverture(annee, mois);
+        await supprimerEcrituresLiees((e) => e.numeroPiece === piece || e.numeroPiece === ouverture);
         await Promise.all(nouvelles.map((e) => tqEcritures.addEcriture(annee, mois, e)));
         log("CONSTATER_STOCK", "ecritures_comptables", piece, null, { piece, ecritures: nouvelles.length });
         markSignificantWrite();

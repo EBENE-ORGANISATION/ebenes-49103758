@@ -22,6 +22,9 @@ export const NATURES_ARTICLE: { value: NatureArticle; label: string }[] = [
 /** Pièce de l'écriture de stock d'un mois : « INV-2026-10 ». */
 export const pieceInventaire = (annee: number, mois: number) => `INV-${annee}-${String(mois).padStart(2, "0")}`;
 
+/** Pièce du stock d'ouverture constaté le même mois : « INV-OUV-2026-10 ». */
+export const pieceOuverture = (annee: number, mois: number) => `INV-OUV-${annee}-${String(mois).padStart(2, "0")}`;
+
 const finDeMois = (annee: number, mois: number) => isoLocal(new Date(annee, mois, 0));
 
 /**
@@ -46,8 +49,13 @@ type EcritureGeneree = Omit<EcritureComptable, "id">;
 /**
  * Écritures de stock du mois, une par activité : pour chaque nature d'article,
  * l'écart entre la valeur du stock en fin de mois (quantité × coût moyen
- * actuel) et le solde du compte de stock à cette date. L'écriture du même
- * mois déjà passée est ignorée : elle est remplacée.
+ * actuel) et le solde du compte de stock à cette date. Les écritures du même
+ * mois déjà passées sont ignorées : elles sont remplacées.
+ *
+ * Première constatation (aucun stock en comptabilité avant le mois) : le
+ * stock présent au début du mois n'a pas été acheté pendant la période ; il
+ * est repris en à-nouveaux (journal AN, 31-33 / 121 Report à nouveau) pour ne
+ * pas gonfler le résultat, et seule la variation du mois touche le résultat.
  */
 export const ecrituresVariationStock = (
   articles: Pick<Article, "id" | "stock" | "prixAchat" | "nature" | "activiteId">[],
@@ -57,20 +65,26 @@ export const ecrituresVariationStock = (
   mois: number,
 ): EcritureGeneree[] => {
   const date = finDeMois(annee, mois);
+  const debut = isoLocal(new Date(annee, mois - 1, 1));
+  const veille = isoLocal(new Date(annee, mois - 1, 0));
   const piece = pieceInventaire(annee, mois);
+  const pieceOuv = pieceOuverture(annee, mois);
   const cle = (activiteId: string | null | undefined, nature: NatureArticle) => `${activiteId ?? ""}|${nature}`;
 
   // Valeur du stock en fin de mois par activité et nature
   const valeurs = new Map<string, number>();
+  const valeursDebut = new Map<string, number>();
   for (const a of articles) {
     const nature = a.nature ?? "marchandise";
-    const v = Math.max(0, quantiteALaDate(a, mouvements, date)) * (a.prixAchat || 0);
-    valeurs.set(cle(a.activiteId, nature), (valeurs.get(cle(a.activiteId, nature)) ?? 0) + v);
+    const k = cle(a.activiteId, nature);
+    valeurs.set(k, (valeurs.get(k) ?? 0) + Math.max(0, quantiteALaDate(a, mouvements, date)) * (a.prixAchat || 0));
+    valeursDebut.set(k, (valeursDebut.get(k) ?? 0) + Math.max(0, quantiteALaDate(a, mouvements, veille)) * (a.prixAchat || 0));
   }
   // Solde des comptes de stock à la même date (hors écriture du mois remplacée)
   const soldes = new Map<string, number>();
+  const dejaEnCompta = new Set<string>(); // stock déjà constaté avant le mois
   for (const e of ecritures) {
-    if (e.statut === "brouillon" || e.numeroPiece === piece) continue;
+    if (e.statut === "brouillon" || e.numeroPiece === piece || e.numeroPiece === pieceOuv) continue;
     const d = e.date ?? (e.annee && e.mois ? finDeMois(e.annee, e.mois) : "");
     if (!d || d > date) continue;
     for (const l of e.lignes ?? []) {
@@ -78,8 +92,26 @@ export const ecrituresVariationStock = (
       if (!nature) continue;
       const k = cle(e.activiteId, nature);
       soldes.set(k, (soldes.get(k) ?? 0) + l.debit - l.credit);
+      if (d < debut) dejaEnCompta.add(k);
       if (!valeurs.has(k)) valeurs.set(k, 0);
     }
+  }
+
+  // Stock d'ouverture (première constatation) : en à-nouveaux
+  const ouvertures = new Map<string, LigneEcriture[]>();
+  for (const [k, v] of valeursDebut) {
+    if (dejaEnCompta.has(k)) continue;
+    const montant = Math.round(v);
+    if (montant <= 0) continue;
+    const [activite, nature] = k.split("|") as [string, NatureArticle];
+    const c = COMPTES_STOCK[nature];
+    const lignes = ouvertures.get(activite) ?? [];
+    lignes.push(
+      { id: 0, compte: c.stock, intitule: c.libelle, debit: montant, credit: 0 },
+      { id: 0, compte: "121", intitule: "Report à nouveau (stock d'ouverture)", debit: 0, credit: montant },
+    );
+    ouvertures.set(activite, lignes);
+    soldes.set(k, (soldes.get(k) ?? 0) + montant);
   }
 
   // Une écriture par activité
@@ -96,7 +128,18 @@ export const ecrituresVariationStock = (
     );
     parActivite.set(activite, lignes);
   }
-  return [...parActivite].map(([activite, lignes]) => ({
+  const aNouveaux: EcritureGeneree[] = [...ouvertures].map(([activite, lignes]) => ({
+    journal: "AN",
+    numeroPiece: pieceOuv,
+    libelle: `Stock d'ouverture au ${debut.split("-").reverse().join("/")}`,
+    lignes: lignes.map((l, i) => ({ ...l, id: i + 1 })),
+    statut: "valide",
+    activiteId: activite || null,
+    date: debut,
+    annee,
+    mois,
+  }));
+  const variations: EcritureGeneree[] = [...parActivite].map(([activite, lignes]) => ({
     journal: "OD",
     numeroPiece: piece,
     libelle: `Stock au ${date.split("-").reverse().join("/")} (inventaire)`,
@@ -107,4 +150,5 @@ export const ecrituresVariationStock = (
     annee,
     mois,
   }));
+  return [...aNouveaux, ...variations];
 };
