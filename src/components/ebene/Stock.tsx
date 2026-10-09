@@ -20,6 +20,8 @@ import { COMPTES_ACHAT_STOCK, type AchatStock, type CompteAchatStock } from "@/l
 import { intituleCompte } from "@/lib/ecrituresTresorerie";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NATURES_ARTICLE } from "@/lib/variationStock";
+import { useTenant } from "@/hooks/useTenant";
+import { useActivites } from "@/hooks/data/useActivites";
 
 interface Props {
   data: MoisData;
@@ -40,6 +42,8 @@ interface Props {
   /** Entrée achetée : mouvement + dépense d'achat (et ses écritures). */
   onAddEntreeAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
   onRemoveMouvement: (annee: number, mois: number, id: number) => void;
+  /** Transfert de stock vers une autre activité. */
+  onTransferer?: (annee: number, mois: number, t: { articleId: number; quantite: number; activiteDestination: string; date: string; reference?: string }) => void;
   /** Constate la valeur du stock de fin de mois en comptabilité (chef compta). */
   onConstaterStock?: (annee: number, mois: number) => void;
   /** Seuls les chefs (compta ou admin) peuvent supprimer */
@@ -58,7 +62,7 @@ export const Stock = (props: Props) => {
     onAddArticle, onUpdateArticle, onRemoveArticle,
     onAddFournisseur, onUpdateFournisseur, onRemoveFournisseur,
     onAddCategorie, onRemoveCategorie,
-    onAddMouvement, onAddEntreeAchat, onRemoveMouvement, onConstaterStock,
+    onAddMouvement, onAddEntreeAchat, onRemoveMouvement, onConstaterStock, onTransferer,
     isChefCompta,
   } = props;
 
@@ -125,6 +129,7 @@ export const Stock = (props: Props) => {
             fournisseurs={fournisseurs}
             onAdd={onAddMouvement}
             onAddAchat={onAddEntreeAchat}
+            onTransferer={onTransferer}
             onRemove={onRemoveMouvement}
             isChefCompta={isChefCompta}
           />
@@ -307,18 +312,22 @@ const ArticlesPanel = ({
 
 // ─── Mouvements ────────────────────────────────────────────────────────────
 const MouvementsPanel = ({
-  annee, mois, mouvements, articles, fournisseurs, onAdd, onAddAchat, onRemove, isChefCompta,
+  annee, mois, mouvements, articles, fournisseurs, onAdd, onAddAchat, onTransferer, onRemove, isChefCompta,
 }: {
   annee: number; mois: number; mouvements: MouvementStock[]; articles: Article[];
   fournisseurs: Fournisseur[];
   onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
   onAddAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
+  onTransferer?: (annee: number, mois: number, t: { articleId: number; quantite: number; activiteDestination: string; date: string; reference?: string }) => void;
   onRemove: (annee: number, mois: number, id: number) => void;
   isChefCompta?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayISO());
-  const [type, setType] = useState<TypeMouvementStock>("entree");
+  const [type, setType] = useState<TypeMouvementStock | "transfert">("entree");
+  const [activiteDestination, setActiviteDestination] = useState("");
+  const { currentSociete } = useTenant();
+  const { activitesActives } = useActivites(currentSociete?.id ?? null);
   const [articleId, setArticleId] = useState<string>("");
   const [quantite, setQuantite] = useState("");
   const [pu, setPu] = useState("");
@@ -339,8 +348,16 @@ const MouvementsPanel = ({
     if (type !== "ajustement" && q <= 0) return toast.error("Quantité doit être > 0");
     // Contrôle immédiat (le stock est revérifié en base à l'enregistrement)
     const art = articles.find((a) => a.id === aId);
-    if (type === "sortie" && art && q > art.stock) {
+    if ((type === "sortie" || type === "transfert") && art && q > art.stock) {
       return toast.error(`Stock insuffisant : ${art.stock} ${art.unite} disponible(s).`);
+    }
+    if (type === "transfert") {
+      if (!activiteDestination) return toast.error("Activité de destination obligatoire");
+      if (art && activiteDestination === art.activiteId) return toast.error("Choisissez une autre activité que celle de l'article.");
+      onTransferer?.(annee, mois, { articleId: aId, quantite: q, activiteDestination, date, reference: reference.trim() || undefined });
+      setArticleId(""); setQuantite(""); setReference(""); setActiviteDestination("");
+      setOpen(false);
+      return;
     }
     const mvt: Omit<MouvementStock, "id"> = {
       date, articleId: aId, type, quantite: q,
@@ -373,15 +390,30 @@ const MouvementsPanel = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Lab label="Date *"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Lab>
             <Lab label="Type *">
-              <Select value={type} onValueChange={(v) => setType(v as TypeMouvementStock)}>
+              <Select value={type} onValueChange={(v) => setType(v as TypeMouvementStock | "transfert")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entree">📥 Entrée (achat)</SelectItem>
                   <SelectItem value="sortie">📤 Sortie (vente / consommation)</SelectItem>
                   <SelectItem value="ajustement">⚖️ Ajustement / inventaire</SelectItem>
+                  {onTransferer && activitesActives.length >= 2 && (
+                    <SelectItem value="transfert">🔁 Transfert vers une autre activité</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </Lab>
+            {type === "transfert" && (
+              <Lab label="Activité de destination *">
+                <Select value={activiteDestination} onValueChange={setActiviteDestination}>
+                  <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                  <SelectContent>
+                    {activitesActives
+                      .filter((a) => a.id !== articles.find((x) => x.id === parseInt(articleId, 10))?.activiteId)
+                      .map((a) => <SelectItem key={a.id} value={a.id}>{a.nom}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Lab>
+            )}
             <Lab label="Article *">
               <Select value={articleId} onValueChange={setArticleId}>
                 <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>

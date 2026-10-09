@@ -65,6 +65,8 @@ import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import { transactionsReversement } from "@/lib/reversement";
 import type { DettesPaie } from "@/lib/alertes";
 import { ecrituresVariationStock, pieceInventaire } from "@/lib/variationStock";
+import { mouvementsTransfert } from "@/lib/achatStock";
+import { useActivites } from "@/hooks/data/useActivites";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -191,6 +193,11 @@ export const useEbeneStoreRemote = (
   // Raccourcis lisibles (même noms que l'ancien useState)
   const employes = tqEmployes.employes;
   const articles = tqArticles.articles; // liste brute (usage interne : recalcul stock)
+  const tqActivites = useActivites(societeId);
+  const tqActivitesNoms = useMemo(
+    () => new Map(tqActivites.activites.map((a) => [a.id, a.nom])),
+    [tqActivites.activites],
+  );
   const fournisseurs = tqFournisseurs.fournisseurs;
   const categoriesStock = tqCategories.categoriesStock;
   const immobilisationsRaw = tqImmobilisations.immobilisations; // brute (usage interne)
@@ -750,6 +757,43 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors de la constatation du stock"));
     },
     [articles, tqEcritures, tqMouvements.mouvementsStock, supprimerEcrituresLiees, log, markSignificantWrite],
+  );
+
+  /**
+   * Transfert de stock vers une autre activité : l'article de même référence
+   * y est créé s'il n'existe pas, puis sortie (origine) et entrée
+   * (destination) au coût moyen d'origine. Si l'entrée échoue, la sortie est
+   * annulée par une entrée de retour.
+   */
+  const transfererStock = useCallback(
+    (annee: number, mois: number, t: { articleId: number; quantite: number; activiteDestination: string; date: string; reference?: string }) => {
+      const source = articles.find((a) => a.id === t.articleId);
+      if (!source) return;
+      const nomActivite = (id: string | null | undefined) => tqActivitesNoms.get(id ?? "") ?? "Sans activité";
+      void (async () => {
+        let destination = articles.find((a) => a.activiteId === t.activiteDestination && a.reference === source.reference);
+        if (!destination) {
+          const { id: _id, ...copie } = source;
+          destination = await tqArticles.addArticle({ ...copie, stock: 0, activiteId: t.activiteDestination });
+        }
+        const [sortie, entree] = mouvementsTransfert(source, destination, t.quantite, t.date, {
+          origine: nomActivite(source.activiteId), destination: nomActivite(t.activiteDestination),
+        }, t.reference);
+        await enregistrerMouvement(annee, mois, sortie);
+        await enregistrerMouvement(annee, mois, entree).catch(async (err) => {
+          await enregistrerMouvement(annee, mois, { ...sortie, type: "entree", prixUnitaire: source.prixAchat, motif: "Annulation du transfert" })
+            .catch(() => undefined);
+          throw err;
+        });
+      })()
+        .then(() => toast.success(`Transfert vers ${nomActivite(t.activiteDestination)} enregistré.`))
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors du transfert de stock"),
+        );
+    },
+    [articles, tqArticles, enregistrerMouvement, tqActivitesNoms],
   );
 
   const annulerFacture = useCallback(
@@ -1513,6 +1557,7 @@ export const useEbeneStoreRemote = (
     updateArticle,
     removeArticle,
     addMouvementStock,
+    transfererStock,
     constaterStock,
     reverserCotisations,
     addEntreeStockAchat,

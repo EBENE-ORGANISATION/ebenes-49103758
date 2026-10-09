@@ -44,3 +44,26 @@ export const transactionAchatStock = (
     activiteId: article.activiteId ?? null,
   };
 };
+
+/**
+ * Transfert de stock entre activités : sortie de l'article de l'activité
+ * d'origine, entrée sur l'article de même référence de l'activité de
+ * destination, au coût moyen d'origine (la valeur du stock ne change pas).
+ */
+export const mouvementsTransfert = (
+  source: Pick<Article, "id" | "prixAchat" | "activiteId">,
+  destination: Pick<Article, "id" | "activiteId">,
+  quantite: number,
+  date: string,
+  libelles: { origine: string; destination: string },
+  reference?: string,
+): Omit<MouvementStock, "id">[] => [
+  {
+    date, articleId: source.id, type: "sortie", quantite,
+    motif: `Transfert vers ${libelles.destination}`, reference, activiteId: source.activiteId ?? null,
+  },
+  {
+    date, articleId: destination.id, type: "entree", quantite, prixUnitaire: source.prixAchat,
+    motif: `Transfert depuis ${libelles.origine}`, reference, activiteId: destination.activiteId ?? null,
+  },
+];

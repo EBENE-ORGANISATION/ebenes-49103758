@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transactionAchatStock } from "./achatStock";
+import { mouvementsTransfert, transactionAchatStock } from "./achatStock";
 import { ecrituresDeTransaction } from "./ecrituresTresorerie";
 
 const article = { designation: "Eau minérale 1,5 L", unite: "bouteille", activiteId: "hotel" };
@@ -24,5 +24,17 @@ describe("transactionAchatStock", () => {
   it("sans TVA, en caisse, sans fournisseur : montant HT, « Fournisseur divers »", () => {
     const t = transactionAchatStock(mvt, article, { compte: "602", tresorerie: "571", avecTva: false }, 0.18);
     expect(t).toMatchObject({ m: -36000, fournisseur: "Fournisseur divers", tresorerie: "571", avecTva: false });
+  });
+});
+
+describe("mouvementsTransfert", () => {
+  it("sortie de l'activité d'origine, entrée dans la destination au coût moyen d'origine", () => {
+    const [s, e] = mouvementsTransfert(
+      { id: 1, prixAchat: 300, activiteId: "boutique" },
+      { id: 9, activiteId: "hotel" },
+      24, "2026-10-12", { origine: "Boutique", destination: "Hôtellerie" }, "TRF-001",
+    );
+    expect(s).toMatchObject({ articleId: 1, type: "sortie", quantite: 24, activiteId: "boutique", motif: "Transfert vers Hôtellerie" });
+    expect(e).toMatchObject({ articleId: 9, type: "entree", quantite: 24, prixUnitaire: 300, activiteId: "hotel", motif: "Transfert depuis Boutique" });
   });
 });
