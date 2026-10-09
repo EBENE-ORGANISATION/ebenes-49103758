@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Download, Printer, ShieldAlert, Check } from "lucide-react";
 import { toast } from "sonner";
 import { todayISO } from "@/lib/ebene-utils";
+import { enregistrerFichier } from "@/lib/fichiers";
 
 interface Props {
   open: boolean;
@@ -43,12 +44,7 @@ export const MfaRecoveryCodesDialog = ({ open, codes, onClose }: Props) => {
       ...codes,
     ].join("\n");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `codes-recuperation-2fa-${todayISO()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void enregistrerFichier(`codes-recuperation-2fa-${todayISO()}.txt`, blob);
   };
 
   const handlePrint = () => {

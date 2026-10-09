@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import { enregistrerFichier } from "@/lib/fichiers";
 import type { DonneesMensuelles, Transaction, Immobilisation } from "@/types/ebene";
 import { moisKey } from "@/lib/ebene-utils";
 import { amortissementsAnnee } from "@/lib/amortissements";
@@ -402,5 +402,5 @@ export const exportGrandLivre = (
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const slug = (societe?.nom || "SYSCOHADA").replace(/[^A-Za-z0-9_-]+/g, "_");
-  saveAs(blob, `${slug}_SYSCOHADA_${annee}.xlsx`);
+  void enregistrerFichier(`${slug}_SYSCOHADA_${annee}.xlsx`, blob);
 };

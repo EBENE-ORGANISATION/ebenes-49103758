@@ -38,7 +38,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import { enregistrerFichier } from "@/lib/fichiers";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
 
 interface Props {
@@ -285,7 +285,7 @@ export const Immobilisations = ({
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     const prefixe = (currentSociete?.nom || "Societe").replace(/[^A-Za-z0-9_-]+/g, "_");
-    saveAs(blob, `${prefixe}_Immobilisations_${annee}.xlsx`);
+    void enregistrerFichier(`${prefixe}_Immobilisations_${annee}.xlsx`, blob);
     toast.success(`Plan d'amortissement ${annee} exporté`);
   };
 

@@ -1,4 +1,5 @@
 /** Utilitaire d'impression avec aperçu intégré. */
+import { isNative } from "@/lib/platform";
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -58,7 +59,7 @@ const waitForFrame = async (iframe: HTMLIFrameElement) => {
  */
 export const printElement = (el: HTMLElement | null, title = "Impression"): void => {
   if (!el) {
-    window.print();
+    if (!isNative()) window.print();
     return;
   }
 
@@ -88,7 +89,11 @@ export const printElement = (el: HTMLElement | null, title = "Impression"): void
 
   const printButton = document.createElement("button");
   printButton.type = "button";
-  printButton.textContent = "Imprimer";
+  // Android (APK) : la WebView n'imprime pas ; le document part en PDF dans la
+  // feuille de partage (imprimer, enregistrer, envoyer).
+  const natif = isNative();
+  const libelle = natif ? "PDF" : "Imprimer";
+  printButton.textContent = libelle;
   printButton.style.cssText = "height:36px;padding:0 14px;border:0;border-radius:7px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer;";
 
   const iframe = document.createElement("iframe");
@@ -104,11 +109,21 @@ export const printElement = (el: HTMLElement | null, title = "Impression"): void
   printButton.onclick = async () => {
     printButton.textContent = "Préparation…";
     printButton.setAttribute("disabled", "true");
-    await waitForFrame(iframe);
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    printButton.textContent = "Imprimer";
-    printButton.removeAttribute("disabled");
+    try {
+      if (natif) {
+        const copie = el.cloneNode(true) as HTMLElement;
+        copie.querySelectorAll(".no-print").forEach((n) => n.remove());
+        const { exportElementToPDF } = await import("@/lib/exportDocs");
+        await exportElementToPDF(copie, title.replace(/[^\p{L}\p{N}_-]+/gu, "_"));
+      } else {
+        await waitForFrame(iframe);
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      }
+    } finally {
+      printButton.textContent = libelle;
+      printButton.removeAttribute("disabled");
+    }
   };
 
   actions.append(printButton, closeButton);

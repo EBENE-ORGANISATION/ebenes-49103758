@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
 import { printElement } from "@/lib/print";
+import { enregistrerFichier, TYPE_PDF, TYPE_XLSX } from "@/lib/fichiers";
 import { TauxImpots } from "./TauxImpots";
 import { GestionDelegations } from "./GestionDelegations";
 import { useAuth } from "@/hooks/useAuth";
@@ -101,7 +102,7 @@ function dlExcel(filename: string, sheetName: string, rows: (string | number)[][
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows.map((r) => r.map(enNombreSiMontant)));
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `${filename}.xlsx`);
+  void enregistrerFichier(`${filename}.xlsx`, XLSX.write(wb, { type: "array", bookType: "xlsx" }), TYPE_XLSX);
 }
 
 function dlPDF(filename: string, title: string, head: string[][], body: (string | number)[][]) {
@@ -113,18 +114,14 @@ function dlPDF(filename: string, title: string, head: string[][], body: (string 
     body: body.map(r => r.map(c => textePdf(String(c)))),
     startY: 25,
   });
-  doc.save(`${filename}.pdf`);
+  void enregistrerFichier(`${filename}.pdf`, doc.output("blob"), TYPE_PDF);
 }
 
 function dlWord(filename: string, title: string, tableHtml: string) {
   const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office'
     xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'></head>
     <body><h2>${title}</h2>${tableHtml}</body></html>`;
-  const blob = new Blob([html], { type: "application/msword" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `${filename}.doc`; a.click();
-  URL.revokeObjectURL(url);
+  void enregistrerFichier(`${filename}.doc`, html, "application/msword");
 }
 
 const ExportBtns = ({ onExcel, onPdf, onWord }: {

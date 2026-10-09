@@ -4,6 +4,8 @@
 // ⚠️ Tous les imports lourds (html2pdf, html-to-docx) sont dynamiques
 // pour éviter de les inclure dans le bundle initial (~2 MB économisés).
 import { toast } from "sonner";
+import { enregistrerFichier, TYPE_PDF } from "@/lib/fichiers";
+import { isNative } from "@/lib/platform";
 
 export const exportElementToPDF = async (element: HTMLElement, filename: string) => {
   // Import dynamique → vendor-pdf chargé seulement au premier export PDF
@@ -12,10 +14,12 @@ export const exportElementToPDF = async (element: HTMLElement, filename: string)
     margin: 10,
     filename: `${filename}.pdf`,
     image: { type: "jpeg" as const, quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    // Téléphone : image moins lourde, sinon la mémoire sature et l'application se ferme
+    html2canvas: { scale: isNative() ? 1.5 : 2, useCORS: true, backgroundColor: "#ffffff" },
     jsPDF: { unit: "mm" as const, format: "a4", orientation: "portrait" as const },
   };
-  await html2pdf().set(opt).from(element).save();
+  const pdf: Blob = await html2pdf().set(opt).from(element).outputPdf("blob");
+  await enregistrerFichier(`${filename}.pdf`, pdf, TYPE_PDF);
 };
 
 /** CSS embarqué commun pour les exports Word */
@@ -64,7 +68,7 @@ export const exportElementToWord = async (element: HTMLElement, filename: string
       pageNumber: false,
     });
 
-    triggerDownload(blob, `${filename}.docx`);
+    await enregistrerFichier(`${filename}.docx`, blob);
     return;
   } catch (err) {
     console.warn("[exportDocs] html-to-docx indisponible, bascule .doc :", err);
@@ -76,7 +80,7 @@ export const exportElementToWord = async (element: HTMLElement, filename: string
     const blob = new Blob(["\uFEFF" + html], {
       type: "application/vnd.ms-word;charset=utf-8",
     });
-    triggerDownload(blob, `${filename}.doc`);
+    await enregistrerFichier(`${filename}.doc`, blob);
     toast.info(
       "Export Word (.doc) — format compatible Word/LibreOffice. " +
       "Pour un .docx natif, utilisez l'application bureau.",
@@ -86,13 +90,3 @@ export const exportElementToWord = async (element: HTMLElement, filename: string
     toast.error("Export Word indisponible dans ce navigateur. Utilisez l'export PDF.");
   }
 };
-
-/** Déclenche le téléchargement d'un Blob via un lien temporaire. */
-function triggerDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}

@@ -11,6 +11,7 @@ import { Download, Eye, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMontant, calculerAnciennete, todayISO } from "@/lib/ebene-utils";
 import { FichePersonnel } from "./FichePersonnel";
+import { enregistrerFichier, TYPE_XLSX } from "@/lib/fichiers";
 import type { Employe } from "@/types/ebene";
 
 interface Props {
@@ -132,7 +133,7 @@ export const ListePersonnel = ({ employes, societeId, absences = [] }: Props) =>
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Liste personnel");
     const stamp = todayISO();
-    XLSX.writeFile(wb, `Liste_personnel_${stamp}.xlsx`);
+    void enregistrerFichier(`Liste_personnel_${stamp}.xlsx`, XLSX.write(wb, { type: "array", bookType: "xlsx" }), TYPE_XLSX);
   };
 
   return (

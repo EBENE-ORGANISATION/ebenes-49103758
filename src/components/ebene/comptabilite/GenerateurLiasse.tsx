@@ -14,6 +14,7 @@ import type { Salarie } from "@/lib/liasse/etatsComplementaires";
 import { useTenant } from "@/hooks/useTenant";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { saveFileViaElectron } from "@/lib/platform";
+import { enregistrerFichier, TYPE_XLSX } from "@/lib/fichiers";
 import { todayISO } from "@/lib/ebene-utils";
 import { formatSolde } from "@/lib/ebene-utils";
 import { caParActivite, genererLiasse, MODELES, systemeDuRegime, type SystemeLiasse } from "@/lib/liasse/genererLiasse";
@@ -53,15 +54,7 @@ const personnelExercice = (employes: Employe[], donnees: DonneesMensuelles, anne
 const telecharger = async (nom: string, contenu: Uint8Array) => {
   const filtres = [{ name: "Classeur Excel", extensions: ["xlsx"] }];
   if (await saveFileViaElectron(nom, contenu, filtres)) return;
-  const blob = new Blob([contenu], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nom;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  await enregistrerFichier(nom, contenu, TYPE_XLSX);
 };
 
 export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, employes = [], immobilisations = [], articles = [], tauxHistorique }: Props) => {

@@ -2,6 +2,7 @@
 // Réutilise calculerPaie() et les utilitaires fiscaux ; ne réécrit aucune logique de paie.
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { enregistrerFichier, TYPE_PDF } from "@/lib/fichiers";
 import { Employe, MoisData, MOIS_NOMS, TauxFiscaux, TAUX_DEFAUT } from "@/types/ebene";
 import { formatMontant as formatMontantEcran, textePdf } from "@/lib/ebene-utils";
 
@@ -194,5 +195,5 @@ export const generateBulletin = (
   const filename = `Bulletin_${(employe.nom || "employe").replace(/\s+/g, "_")}_${
     MOIS_NOMS[mois - 1]
   }_${annee}.pdf`;
-  doc.save(filename);
+  void enregistrerFichier(filename, doc.output("blob"), TYPE_PDF);
 };

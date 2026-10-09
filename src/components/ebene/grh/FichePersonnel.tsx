@@ -13,6 +13,7 @@ import { Download, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMontant, calculerAnciennete, dateFr } from "@/lib/ebene-utils";
 import { printElement } from "@/lib/print";
+import { enregistrerFichier, TYPE_XLSX } from "@/lib/fichiers";
 import type { Employe } from "@/types/ebene";
 
 interface Props {
@@ -47,7 +48,7 @@ const SExport = (rows: Record<string, unknown>[], filename: string) => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Fiche");
-    XLSX.writeFile(wb, filename);
+    void enregistrerFichier(filename, XLSX.write(wb, { type: "array", bookType: "xlsx" }), TYPE_XLSX);
   });
 };
 
@@ -137,7 +138,7 @@ export const FichePersonnel = ({ employe: e, societeId, absences: absencesPeriod
           Statut: s.statut_validation ?? "",
         }))
       ), "Sanctions");
-      XLSX.writeFile(wb, `Fiche_${e.nom.replace(/\s+/g, "_")}.xlsx`);
+      void enregistrerFichier(`Fiche_${e.nom.replace(/\s+/g, "_")}.xlsx`, XLSX.write(wb, { type: "array", bookType: "xlsx" }), TYPE_XLSX);
     });
     void SExport; // keep helper export available
   };

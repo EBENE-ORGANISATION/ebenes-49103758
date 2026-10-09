@@ -18,6 +18,7 @@ import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage }
 import { Facture } from "@/types/ebene";
 import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { toast } from "sonner";
+import { enregistrerFichier } from "@/lib/fichiers";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { useTenant } from "@/hooks/useTenant";
@@ -183,12 +184,7 @@ const Index = () => {
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = t("index_page.archive_filename", { date: todayISO() });
-    a.click();
-    URL.revokeObjectURL(url);
+    void enregistrerFichier(t("index_page.archive_filename", { date: todayISO() }), blob);
     toast.success(t("index_page.archive_exported"));
   };
 
