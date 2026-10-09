@@ -25,6 +25,7 @@ import { useActivites } from "@/hooks/data/useActivites";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
 import { isElectron } from "@/lib/platform";
+import { partActivite } from "@/lib/resultatActivites";
 
 // ── Lazy-loaded : chargé uniquement pour les comptes "employé pur" ───────────
 const PortailEmploye = lazy(() =>
@@ -124,7 +125,7 @@ const Index = () => {
   // 'en_validation' ou 'rejete' sont visibles uniquement côté GRH.
   // Activité affichée : seuls ses employés (paie, GRH, masse salariale)
   const employesActivite = useMemo(
-    () => (validActiviteId ? store.employes.filter((e) => e.activiteId === validActiviteId) : store.employes),
+    () => (validActiviteId ? store.employes.filter((e) => partActivite(e, validActiviteId) > 0) : store.employes),
     [store.employes, validActiviteId],
   );
   const employesPaie = useMemo(

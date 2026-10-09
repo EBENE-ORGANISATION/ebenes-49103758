@@ -15,6 +15,9 @@ import { useTranslation } from "react-i18next";
 import { todayISO } from "@/lib/ebene-utils";
 import { ActiviteSelect } from "@/components/ebene/ActiviteSelect";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
+import { useTenant } from "@/hooks/useTenant";
+import { useActivites } from "@/hooks/data/useActivites";
+import { repartitionValide } from "@/lib/resultatActivites";
 
 interface Props {
   initial?: Employe;
@@ -25,6 +28,8 @@ interface Props {
 export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
   const { t } = useTranslation();
   const { currentActiviteId } = useActiviteFilter();
+  const { currentSociete } = useTenant();
+  const { activitesActives } = useActivites(currentSociete?.id ?? null);
   const [form, setForm] = useState<Omit<Employe, "id">>({
     // Nouvel employé : rattaché à l'activité affichée
     activiteId: currentActiviteId ?? null,
@@ -66,6 +71,8 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     if (!form.nom.trim())                   errs.nom     = t("grh_form.err_name");
     if (!form.poste.trim())                 errs.poste   = t("grh_form.err_job");
     if (!form.salaire || form.salaire <= 0) errs.salaire = t("grh_form.err_salary");
+    const repartition = (form.repartition ?? []).filter((r) => r.part > 0);
+    if (repartition.length > 0 && !repartitionValide(repartition)) errs.repartition = "La répartition doit totaliser 100 %.";
     if (form.typeContrat === "cdd") {
       if (!form.dateFinContrat) errs.dateFinContrat = t("grh_form.err_cdd_end");
       else if (form.dateEmbauche && form.dateFinContrat <= form.dateEmbauche) errs.dateFinContrat = t("grh_form.err_cdd_end_before");
@@ -74,7 +81,7 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
     if (Object.keys(errs).length > 0) return;
     setSaving(true);
     await new Promise((r) => setTimeout(r, 200));
-    onSubmit(form);
+    onSubmit({ ...form, repartition });
     setSaving(false);
   };
 
@@ -201,11 +208,52 @@ export const EmployeForm = ({ initial, onSubmit, onCancel }: Props) => {
           <Field label={t("grh_form.echelon")}>
             <Input type="number" min={1} max={10} value={form.echelon || 1} onChange={(e) => update("echelon", parseInt(e.target.value, 10) || 1)} />
           </Field>
-          <ActiviteSelect
-            value={form.activiteId}
-            onChange={(v) => update("activiteId", v)}
-            label="Activité (paie comptée dans cette activité)"
-          />
+          <div className="space-y-2">
+            <ActiviteSelect
+              value={form.activiteId}
+              onChange={(v) => update("activiteId", v)}
+              label="Activité (paie comptée dans cette activité)"
+            />
+            {activitesActives.length >= 2 && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(form.repartition ?? []).length > 0}
+                    onChange={(e) => update("repartition", e.target.checked
+                      ? activitesActives.map((a) => ({ activiteId: a.id, part: a.id === form.activiteId ? 100 : 0 }))
+                      : [])}
+                  />
+                  Employé partagé entre plusieurs activités
+                </label>
+                {(form.repartition ?? []).length > 0 && (
+                  <div className="space-y-1 pl-5">
+                    {activitesActives.map((a) => {
+                      const part = form.repartition?.find((r) => r.activiteId === a.id)?.part ?? 0;
+                      return (
+                        <div key={a.id} className="flex items-center gap-2 text-xs">
+                          <span className="flex-1 truncate">{a.nom}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            className="h-7 w-20 text-right"
+                            value={part}
+                            onChange={(e) => update("repartition", [
+                              ...(form.repartition ?? []).filter((r) => r.activiteId !== a.id),
+                              { activiteId: a.id, part: parseFloat(e.target.value) || 0 },
+                            ])}
+                          />
+                          <span>%</span>
+                        </div>
+                      );
+                    })}
+                    {errors.repartition && <p className="text-xs text-destructive">{errors.repartition}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <Field label={t("grh_form.hire_date")}>
             <Input type="date" value={form.dateEmbauche || ""} onChange={(e) => update("dateEmbauche", e.target.value)} />
           </Field>

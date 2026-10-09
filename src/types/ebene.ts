@@ -163,11 +163,19 @@ export type CategorieProf =
   | "M1" | "M2" | "M3" | "M4"
   | "C1" | "C2" | "C3" | "C4";
 
+/** Part d'un employé partagé dans une activité (en %). */
+export interface RepartitionActivite {
+  activiteId: string;
+  part: number;
+}
+
 export interface Employe {
   /** Auteur de la saisie (contrôle « quatre yeux »), lu en base. */
   creePar?: string;
   /** Activité de rattachement : sa paie est comptée dans cette activité. */
   activiteId?: string | null;
+  /** Employé partagé : part (en %) de chaque activité ; vide = 100 % pour `activiteId`. */
+  repartition?: RepartitionActivite[];
   id: number;
   nom: string;
   poste: string;

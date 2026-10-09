@@ -4,6 +4,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { RepartitionActivite } from "@/types/ebene";
+import type { Json } from "@/integrations/supabase/types";
 import type {
   Employe,
   TypeContrat,
@@ -55,6 +57,7 @@ export const toEmploye = (row: EmployeRow): Employe => ({
   motifRejet: n(row.motif_rejet),
   creePar: n(row.cree_par),
   activiteId: n(row.activite_id) ?? null,
+  repartition: Array.isArray(row.repartition) ? (row.repartition as unknown as RepartitionActivite[]) : [],
 });
 
 /** Convertit un objet `Employe` partiel en payload d'insertion Supabase. */
@@ -90,6 +93,7 @@ export const fromEmploye = (
   sursalaire: e.sursalaire ?? null,
   solde_conges: e.soldeConges ?? null,
   activite_id: e.activiteId ?? null,
+  repartition: (e.repartition ?? []) as unknown as Json,
   interet_pret_immobilier: e.interetPretImmobilier ?? null,
   assurance_vie: e.assuranceVie ?? null,
   retraite_complementaire: e.retraiteComplementaire ?? null,
@@ -196,6 +200,7 @@ export const employes = {
       ...(patch.sursalaire !== undefined && { sursalaire: patch.sursalaire ?? null }),
       ...(patch.soldeConges !== undefined && { solde_conges: patch.soldeConges ?? null }),
       ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
+      ...(patch.repartition !== undefined && { repartition: patch.repartition as unknown as Json }),
       ...(patch.userId !== undefined && { user_id: patch.userId ?? null }),
       ...(patch.statutValidation !== undefined && {
         statut_validation: patch.statutValidation ?? null,

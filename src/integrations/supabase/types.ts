@@ -930,6 +930,7 @@ export type Database = {
       }
       employes: {
         Row: {
+          repartition: Json
           activite_id: string | null
           cree_par: string | null
           adresse: string | null
@@ -971,6 +972,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          repartition?: Json
           activite_id?: string | null
           cree_par?: string | null
           adresse?: string | null
@@ -1012,6 +1014,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          repartition?: Json
           activite_id?: string | null
           cree_par?: string | null
           adresse?: string | null

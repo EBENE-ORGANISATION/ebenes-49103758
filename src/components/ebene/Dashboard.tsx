@@ -52,6 +52,7 @@ import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
 import { caHTMois, sumDepenses, sumRecettes } from "@/lib/tableauDeBord";
+import { partActivite, resultatParActivite } from "@/lib/resultatActivites";
 
 interface DashboardProps {
   donneesMensuelles: DonneesMensuelles;
@@ -186,7 +187,7 @@ export const Dashboard = ({
     // validées, congés sans solde déduits)
     const masseSalariale = employes.reduce((s, e) => {
       const p = calculerPaie(e, m, annee, mois, taux);
-      return s + p.brut - p.deductionSansSolde;
+      return s + (p.brut - p.deductionSansSolde) * partActivite(e, activiteFiltre);
     }, 0);
 
     const facturesImpayees = m.factures.filter((f) => f.statut === "en_attente");
@@ -314,25 +315,22 @@ export const Dashboard = ({
 
   // ── Répartition par activité (vue consolidée uniquement) ──────────────────
   const showRepartition = !activiteFiltre && activites.length >= 2;
+  // Résultat du mois par activité (écritures validées) : produits et charges
+  // sans activité répartis au prorata du CA, employés partagés selon leurs parts
+  const resultatActivites = useMemo(() => {
+    if (!showRepartition || !moisCourant) return null;
+    return resultatParActivite(moisCourant.ecritures || [], activites.map((a) => a.id), employes);
+  }, [showRepartition, moisCourant, activites, employes]);
   const repartition = useMemo(() => {
-    if (!showRepartition || !moisCourant) return [];
-    const rows = activites.map((a) => {
-      const sub = filterMoisByActivite(moisCourant, a.id);
-      const ca = caHTMois(sub, taux.tva);
-      const dep = sumDepenses(sub);
-      return { id: a.id, nom: a.nom, couleur: a.couleur, ca, dep, solde: ca - dep };
-    });
-    // Lignes sans activité (repli), affichées seulement si elles portent des montants.
-    const sub0 = filterMoisByActivite(moisCourant, null);
-    const ca0 = caHTMois(sub0, taux.tva);
-    const dep0 = sumDepenses(sub0);
-    if (ca0 !== 0 || dep0 !== 0) {
-      rows.push({ id: "__none__", nom: "Sans activité", couleur: "#94a3b8", ca: ca0, dep: dep0, solde: ca0 - dep0 });
-    }
-    return rows
-      .filter((r) => r.ca !== 0 || r.dep !== 0)
+    if (!resultatActivites) return [];
+    return resultatActivites.lignes
+      .map((l) => {
+        const a = activites.find((x) => x.id === l.activiteId)!;
+        return { ...l, id: a.id, nom: a.nom, couleur: a.couleur };
+      })
+      .filter((r) => r.ca !== 0 || r.charges !== 0 || r.produits !== 0)
       .sort((x, y) => y.ca - x.ca);
-  }, [showRepartition, moisCourant, activites, taux.tva]);
+  }, [resultatActivites, activites]);
 
   const totalRepartitionCA = useMemo(
     () => repartition.reduce((s, r) => s + r.ca, 0),
@@ -488,9 +486,10 @@ export const Dashboard = ({
                 <thead>
                   <tr className="text-xs text-muted-foreground border-b">
                     <th className="text-left font-medium py-1.5 pr-3">Activité</th>
-                    <th className="text-right font-medium py-1.5 px-3">CA</th>
-                    <th className="text-right font-medium py-1.5 px-3">Dépenses</th>
-                    <th className="text-right font-medium py-1.5 px-3">Solde</th>
+                    <th className="text-right font-medium py-1.5 px-3">CA HT</th>
+                    <th className="text-right font-medium py-1.5 px-3">Charges directes</th>
+                    <th className="text-right font-medium py-1.5 px-3" title="Produits et charges sans activité, répartis au prorata du CA">Charges communes</th>
+                    <th className="text-right font-medium py-1.5 px-3">Résultat</th>
                     <th className="text-right font-medium py-1.5 pl-3 hidden sm:table-cell">% CA</th>
                   </tr>
                 </thead>
@@ -504,9 +503,10 @@ export const Dashboard = ({
                         </span>
                       </td>
                       <td className="text-right tabular-nums py-2 px-3">{fmt(r.ca)}</td>
-                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.dep)}</td>
-                      <td className={`text-right tabular-nums py-2 px-3 font-medium ${r.solde >= 0 ? "text-success" : "text-destructive"}`}>
-                        {fmt(r.solde)}
+                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.charges - (r.produits - r.ca))}</td>
+                      <td className="text-right tabular-nums py-2 px-3 text-muted-foreground">{fmt(r.communs)}</td>
+                      <td className={`text-right tabular-nums py-2 px-3 font-medium ${r.resultat >= 0 ? "text-success" : "text-destructive"}`}>
+                        {fmt(r.resultat)}
                       </td>
                       <td className="text-right tabular-nums py-2 pl-3 text-muted-foreground hidden sm:table-cell">
                         {totalRepartitionCA > 0 ? `${Math.round((r.ca / totalRepartitionCA) * 100)}%` : "—"}
@@ -515,6 +515,13 @@ export const Dashboard = ({
                   ))}
                 </tbody>
               </table>
+              {resultatActivites && (resultatActivites.communCharges !== 0 || resultatActivites.communProduits !== 0) && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Charges communes : opérations sans activité ({fmt(resultatActivites.communCharges)} de charges,
+                  {" "}{fmt(resultatActivites.communProduits)} de produits) réparties au prorata du CA.
+                  Les autres produits (hors CA) sont déduits des charges directes.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
