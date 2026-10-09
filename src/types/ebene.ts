@@ -440,6 +440,9 @@ export interface CategorieArticle {
   nom: string;
 }
 
+/** Nature comptable d'un article : compte de stock 31, 32 ou 33. */
+export type NatureArticle = "marchandise" | "matiere" | "consommable";
+
 export interface Article {
   id: number;
   reference: string;
@@ -449,6 +452,8 @@ export interface Article {
   prixAchat: number; // PMP courant
   prixVente: number;
   stock: number; // quantité actuelle
+  /** Nature comptable (défaut : marchandise). */
+  nature?: NatureArticle;
   seuilAlerte: number;
   fournisseurId?: number | null;
   emplacement?: string;

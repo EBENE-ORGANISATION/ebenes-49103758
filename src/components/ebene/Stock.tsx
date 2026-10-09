@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import {
   Article, CategorieArticle, Fournisseur, MoisData, MouvementStock,
-  TypeMouvementStock,
+  TypeMouvementStock, NatureArticle,
 } from "@/types/ebene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save, Truck, Tag, Package } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Pencil, X, ClipboardList, Save, Truck, Tag, Package, BookOpen } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
@@ -19,6 +19,7 @@ import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/us
 import { COMPTES_ACHAT_STOCK, type AchatStock, type CompteAchatStock } from "@/lib/achatStock";
 import { intituleCompte } from "@/lib/ecrituresTresorerie";
 import { Checkbox } from "@/components/ui/checkbox";
+import { NATURES_ARTICLE } from "@/lib/variationStock";
 
 interface Props {
   data: MoisData;
@@ -39,6 +40,8 @@ interface Props {
   /** Entrée achetée : mouvement + dépense d'achat (et ses écritures). */
   onAddEntreeAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
   onRemoveMouvement: (annee: number, mois: number, id: number) => void;
+  /** Constate la valeur du stock de fin de mois en comptabilité (chef compta). */
+  onConstaterStock?: (annee: number, mois: number) => void;
   /** Seuls les chefs (compta ou admin) peuvent supprimer */
   isChefCompta?: boolean;
 }
@@ -55,7 +58,7 @@ export const Stock = (props: Props) => {
     onAddArticle, onUpdateArticle, onRemoveArticle,
     onAddFournisseur, onUpdateFournisseur, onRemoveFournisseur,
     onAddCategorie, onRemoveCategorie,
-    onAddMouvement, onAddEntreeAchat, onRemoveMouvement,
+    onAddMouvement, onAddEntreeAchat, onRemoveMouvement, onConstaterStock,
     isChefCompta,
   } = props;
 
@@ -79,6 +82,20 @@ export const Stock = (props: Props) => {
         <Button onClick={() => setShowInventaire(true)} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
           <ClipboardList className="size-4" /> Faire un inventaire
         </Button>
+        {onConstaterStock && (
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            title="Écriture de fin de mois : comptes de stock 31-33 ajustés à la valeur du stock, contre la variation de stock 603x"
+            onClick={() => {
+              if (confirm(`Constater en comptabilité la valeur du stock au ${new Date(annee, mois, 0).toLocaleDateString("fr-FR")} ? L'écriture du mois est recalculée si elle existe déjà.`)) {
+                onConstaterStock(annee, mois);
+              }
+            }}
+          >
+            <BookOpen className="size-4" /> Constater le stock au bilan
+          </Button>
+        )}
         <span className="text-xs text-muted-foreground">
           Saisissez le stock physique constaté ; les écarts génèrent des ajustements automatiques.
         </span>
@@ -153,7 +170,7 @@ const ArticlesPanel = ({
   const { currentActiviteId } = useActiviteFilter();
   const empty: Omit<Article, "id"> = {
     reference: "", designation: "", unite: "pièce",
-    prixAchat: 0, prixVente: 0, stock: 0, seuilAlerte: 0,
+    prixAchat: 0, prixVente: 0, stock: 0, seuilAlerte: 0, nature: "marchandise",
     categorieId: null, fournisseurId: null, activiteId: currentActiviteId,
   };
   const [form, setForm] = useState<Omit<Article, "id">>(empty);
@@ -210,6 +227,14 @@ const ArticlesPanel = ({
             </Lab>
             <Lab label="Prix achat (PMP)"><Input type="number" value={form.prixAchat} onChange={(e) => setForm({ ...form, prixAchat: parseFloat(e.target.value) || 0 })} /></Lab>
             <Lab label="Prix vente"><Input type="number" value={form.prixVente} onChange={(e) => setForm({ ...form, prixVente: parseFloat(e.target.value) || 0 })} /></Lab>
+            <Lab label="Nature (compte de stock)">
+              <Select value={form.nature ?? "marchandise"} onValueChange={(v) => setForm({ ...form, nature: v as NatureArticle })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {NATURES_ARTICLE.map((n) => <SelectItem key={n.value} value={n.value}>{n.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Lab>
             <Lab label="Stock initial"><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} disabled={!!editing} /></Lab>
             <Lab label="Seuil alerte"><Input type="number" value={form.seuilAlerte} onChange={(e) => setForm({ ...form, seuilAlerte: parseFloat(e.target.value) || 0 })} /></Lab>
             <Lab label="Emplacement"><Input value={form.emplacement || ""} onChange={(e) => setForm({ ...form, emplacement: e.target.value })} /></Lab>

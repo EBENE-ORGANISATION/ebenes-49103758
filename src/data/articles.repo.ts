@@ -4,7 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import type { Article } from "@/types/ebene";
+import type { Article, NatureArticle } from "@/types/ebene";
 
 type ArticleRow = Tables<"articles">;
 
@@ -19,6 +19,7 @@ export const toArticle = (row: ArticleRow): Article => ({
   unite: row.unite,
   prixAchat: row.prix_achat,
   prixVente: row.prix_vente,
+  nature: (row.nature ?? "marchandise") as NatureArticle,
   stock: row.stock,
   seuilAlerte: row.seuil_alerte,
   fournisseurId: n(row.fournisseur_id),
@@ -38,6 +39,7 @@ export const fromArticle = (
   unite: a.unite,
   prix_achat: a.prixAchat,
   prix_vente: a.prixVente,
+  nature: a.nature ?? "marchandise",
   stock: a.stock,
   seuil_alerte: a.seuilAlerte,
   fournisseur_id: a.fournisseurId ?? null,
@@ -90,6 +92,7 @@ export const articles = {
       ...(patch.unite !== undefined && { unite: patch.unite }),
       ...(patch.prixAchat !== undefined && { prix_achat: patch.prixAchat }),
       ...(patch.prixVente !== undefined && { prix_vente: patch.prixVente }),
+      ...(patch.nature !== undefined && { nature: patch.nature }),
       ...(patch.stock !== undefined && { stock: patch.stock }),
       ...(patch.seuilAlerte !== undefined && { seuil_alerte: patch.seuilAlerte }),
       ...(patch.fournisseurId !== undefined && {

@@ -514,6 +514,7 @@ const Index = () => {
                 onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId(tp("stock_delete"))}
                 onAddCategorie={stockWrite ? store.addCategorieStock : blocked(tp("stock_action"))}
                 onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId(tp("stock_delete"))}
+                onConstaterStock={stockValidate && comptaWrite ? store.constaterStock : undefined}
                 onAddEntreeAchat={stockWrite ? store.addEntreeStockAchat : undefined}
                 onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error(tp("stock_action")); return 0; })}
                 onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error(tp("stock_delete")))}

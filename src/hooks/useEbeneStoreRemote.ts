@@ -64,6 +64,7 @@ import { useEcritures } from "@/hooks/data/useEcritures";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import { transactionsReversement } from "@/lib/reversement";
 import type { DettesPaie } from "@/lib/alertes";
+import { ecrituresVariationStock, pieceInventaire } from "@/lib/variationStock";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -720,6 +721,35 @@ export const useEbeneStoreRemote = (
         );
     },
     [articles, tauxHistorique, donneesConsolidees, tqTransactions, enregistrerMouvement, tqEcritures, log, markSignificantWrite],
+  );
+
+  /**
+   * Stock au bilan : écritures de fin de mois (31-33 / 603x), une par
+   * activité, recalculées si elles existent déjà pour ce mois.
+   */
+  const constaterStock = useCallback(
+    (annee: number, mois: number) => {
+      const piece = pieceInventaire(annee, mois);
+      const toutes = (Object.values(tqEcritures.ecritures) as EcritureComptable[][]).flat();
+      const nouvelles = ecrituresVariationStock(
+        articles,
+        (Object.values(tqMouvements.mouvementsStock) as MouvementStock[][]).flat(),
+        toutes,
+        annee,
+        mois,
+      );
+      void (async () => {
+        await supprimerEcrituresLiees((e) => e.numeroPiece === piece);
+        await Promise.all(nouvelles.map((e) => tqEcritures.addEcriture(annee, mois, e)));
+        log("CONSTATER_STOCK", "ecritures_comptables", piece, null, { piece, ecritures: nouvelles.length });
+        markSignificantWrite();
+      })()
+        .then(() => toast.success(nouvelles.length
+          ? `Stock constaté en comptabilité (${piece}).`
+          : "Le stock est déjà à jour en comptabilité pour ce mois."))
+        .catch(() => toast.error("Erreur lors de la constatation du stock"));
+    },
+    [articles, tqEcritures, tqMouvements.mouvementsStock, supprimerEcrituresLiees, log, markSignificantWrite],
   );
 
   const annulerFacture = useCallback(
@@ -1483,6 +1513,7 @@ export const useEbeneStoreRemote = (
     updateArticle,
     removeArticle,
     addMouvementStock,
+    constaterStock,
     reverserCotisations,
     addEntreeStockAchat,
     removeMouvementStock,
