@@ -1,6 +1,7 @@
 // Génération de la liasse (états financiers complets) dans le modèle officiel.
 import type { DonneesMensuelles } from "@/types/ebene";
-import { etatsFinanciersLiasse } from "./etatsLiasse";
+import { etatsFinanciersLiasse, soldesCloture } from "./etatsLiasse";
+import { saisiesEmprunts, type Emprunt } from "./emprunts";
 import { saisiesReel, type InfosSociete } from "./modeleReel";
 import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
@@ -28,6 +29,8 @@ export interface DonneesLiasse {
   gestion?: DonneesGestion;
   /** Identification complète (fiches, dirigeants, capital). */
   identification?: InfosIdentification;
+  /** Emprunts (échéanciers et garanties : notes 1 et 16A). */
+  emprunts?: Emprunt[];
   /** Saisies complémentaires. */
   complements?: Saisie[];
 }
@@ -44,7 +47,21 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
         ...saisiesNotesImmobilisations(d.donnees, d.annee),
       ];
   const ident = d.identification ? saisiesIdentification(d.identification, etats, { systeme }) : [];
-  return { etats, saisies: [...base, ...ident, ...(d.complements ?? [])] };
+  const emprunts = systeme === "normal" && d.emprunts?.length ? saisiesDettesFinancieres(d) : [];
+  return { etats, saisies: [...base, ...emprunts, ...ident, ...(d.complements ?? [])] };
+};
+
+/** Notes 1 et 16A : soldes comptables des dettes financières et échéanciers. */
+const saisiesDettesFinancieres = (d: DonneesLiasse): Saisie[] => {
+  const { bilan } = soldesCloture(d.donnees, d.annee);
+  let solde162 = 0;
+  let total = 0;
+  bilan.forEach((v, compte) => {
+    if (!compte.startsWith("16") && !compte.startsWith("18")) return;
+    total -= v;
+    if (compte.startsWith("162")) solde162 -= v;
+  });
+  return saisiesEmprunts(d.emprunts ?? [], d.annee, solde162, total);
 };
 
 /** Remplit le modèle (contenu du fichier) et renvoie le classeur produit. */

@@ -58,6 +58,22 @@ const NOTES_SOLDES: NoteSoldes[] = [
     { ligne: 21, prefixes: ["58"] }, { ligne: 22, somme: [10, 11, 12, 13, 14, 15, 16, 19, 20, 21] },
   ] },
   { feuille: "NOTE 11", base: "bilan", sens: "credit", colN: "E", colN1: "F", colPct: "G", lignes: [{ ligne: 23, prefixes: ["59"] }] },
+  // Dettes financières : la ventilation des emprunts bancaires (ligne 11) par
+  // échéance est reprise des échéanciers d'emprunts (emprunts.ts).
+  { feuille: "NOTE 16A", base: "bilan", sens: "credit", colN: "B", colN1: "C", colAbs: "D", colPct: "E", colCourt: "F", lignes: [
+    { ligne: 10, prefixes: ["161"] }, { ligne: 11, prefixes: ["162"] }, { ligne: 12, prefixes: ["163"] },
+    { ligne: 13, prefixes: ["164"] }, { ligne: 14, prefixes: ["165"] }, { ligne: 15, prefixes: ["166"] },
+    { ligne: 16, prefixes: ["167"] }, { ligne: 17, prefixes: ["16", "168"] }, { ligne: 18, prefixes: ["18"] },
+    { ligne: 19, prefixes: ["185"] }, { ligne: 20, somme: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19] },
+    { ligne: 22, prefixes: ["172"] }, { ligne: 23, prefixes: ["173"] }, { ligne: 24, prefixes: ["174"] },
+    { ligne: 25, prefixes: ["176"] }, { ligne: 26, prefixes: ["17"] }, { ligne: 27, somme: [22, 23, 24, 25, 26] },
+  ] },
+  { feuille: "NOTE 16A", base: "bilan", sens: "credit", colN: "B", colN1: "C", colAbs: "D", colPct: "E", lignes: [
+    { ligne: 28, prefixes: ["191"] }, { ligne: 29, prefixes: ["192"] }, { ligne: 30, prefixes: ["193"] },
+    { ligne: 31, prefixes: ["194"] }, { ligne: 32, prefixes: ["195"] }, { ligne: 33, prefixes: ["196"] },
+    { ligne: 35, prefixes: ["197"] }, { ligne: 40, prefixes: ["19"] },
+    { ligne: 41, somme: [28, 29, 30, 31, 32, 33, 35, 40] },
+  ] },
   { feuille: "Note 17", base: "bilan", sens: "credit", filtrerSigne: true, colN: "B", colN1: "C", colPct: "D", colCourt: "E", lignes: [
     { ligne: 9, prefixes: ["401", "40"] }, { ligne: 10, prefixes: ["402"] }, { ligne: 12, prefixes: ["408"] },
     { ligne: 14, somme: [9, 10, 12] },

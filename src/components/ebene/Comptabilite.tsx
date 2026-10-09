@@ -37,6 +37,7 @@ import { Balance } from "./comptabilite/Balance";
 import { BilanSYSCOHADA } from "./comptabilite/BilanSYSCOHADA";
 import { GenerateurLiasse } from "./comptabilite/GenerateurLiasse";
 import { ExercicesComptables } from "./comptabilite/ExercicesComptables";
+import { EmpruntsSociete } from "./comptabilite/EmpruntsSociete";
 import { CompteResultat } from "./comptabilite/CompteResultat";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
@@ -774,6 +775,7 @@ export const Comptabilite = ({
         {/* ── Onglet Bilan SYSCOHADA ───────────────────────────────────────── */}
         <TabsContent value="bilan" className="space-y-4">
           <ExercicesComptables donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}} annee={annee} />
+          <EmpruntsSociete donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}} />
           <GenerateurLiasse
             donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}}
             annee={annee}

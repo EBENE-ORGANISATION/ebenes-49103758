@@ -18,6 +18,7 @@ import { todayISO } from "@/lib/ebene-utils";
 import { formatSolde } from "@/lib/ebene-utils";
 import { caParActivite, genererLiasse, MODELES, systemeDuRegime, type SystemeLiasse } from "@/lib/liasse/genererLiasse";
 import { useIdentification } from "@/hooks/data/useIdentification";
+import { useEmprunts } from "@/hooks/data/useEmprunts";
 import { useActivites } from "@/hooks/data/useActivites";
 import { SECTEUR_LABELS } from "@/types/fiscal";
 
@@ -66,6 +67,7 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
   const { currentSociete } = useTenant();
   const historiqueTaux = useTauxHistoriqueCourant();
   const { identification } = useIdentification(currentSociete?.id ?? null);
+  const { emprunts } = useEmprunts(currentSociete?.id ?? null);
   const { activites } = useActivites(currentSociete?.id ?? null);
   const [annee, setAnnee] = useState(anneeCourante);
   const [systeme, setSysteme] = useState<SystemeLiasse>(systemeDuRegime(currentSociete?.regime_fiscal));
@@ -90,6 +92,7 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
           articles,
           personnel,
         },
+        emprunts,
         identification: {
           identification,
           regimeFiscal: currentSociete.regime_fiscal,
