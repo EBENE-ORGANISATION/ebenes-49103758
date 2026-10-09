@@ -9,7 +9,7 @@ import { transactions as transactionsRepo, toTransaction } from "@/data/transact
 import { toFacture } from "@/data/factures.repo";
 import { ecritures as ecrituresRepo } from "@/data/ecritures.repo";
 import { tauxHistorique as tauxRepo } from "@/data/tauxHistorique.repo";
-import { ecrituresDeTransaction, pieceAchat, pieceTresorerie } from "@/lib/ecrituresTresorerie";
+import { avecCaisseAnnexe, ecrituresDeTransaction, pieceAchat, pieceTresorerie } from "@/lib/ecrituresTresorerie";
 import { ecrituresFacturePayee } from "@/lib/ecrituresFacture";
 import { tauxPourMois } from "@/lib/ebene-utils";
 import { softRestore } from "@/lib/softDelete";
@@ -59,7 +59,13 @@ const restaurerTransaction = async (id: number, societeId: string): Promise<void
   const aCreer = ecrituresDeTransaction(t, id, taux, annee, mois)
     .filter((e) => !existantes.has(e.numeroPiece))
     .map((e) => ({ ...e, statut }));
-  for (const e of aCreer) await ecrituresRepo.create(e, annee, mois, societeId);
+  // Annexe avec caisse propre : la caisse 571 devient son sous-compte
+  const { data: annexe } = t.activiteId
+    ? await supabase.from("activites").select("nom, compte_caisse").eq("id", t.activiteId).maybeSingle()
+    : { data: null };
+  for (const e of aCreer) {
+    await ecrituresRepo.create(avecCaisseAnnexe(e, annexe?.compte_caisse, annexe?.nom), annee, mois, societeId);
+  }
 };
 
 const restaurerFacture = async (id: number, societeId: string): Promise<void> => {

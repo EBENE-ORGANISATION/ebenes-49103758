@@ -170,25 +170,52 @@ export const ecritureAcquisitionImmo = (
 };
 
 /**
+ * Écriture générée sur la caisse principale (571) passée sur la caisse de
+ * l'annexe (sous-compte, ex. 5711) quand l'activité en a une.
+ */
+export const avecCaisseAnnexe = <E extends { lignes: LigneEcriture[] }>(e: E, compteCaisse?: string | null, nomCaisse?: string): E =>
+  !compteCaisse || compteCaisse === "571"
+    ? e
+    : {
+        ...e,
+        lignes: e.lignes.map((l) =>
+          l.compte === "571" ? { ...l, compte: compteCaisse, intitule: nomCaisse ? `Caisse ${nomCaisse}` : l.intitule } : l),
+      };
+
+export interface OptionsCaisse {
+  /** Caisse dont on veut le solde (défaut : caisse principale 571). */
+  compte?: string;
+  /** Caisse de chaque activité (sous-compte d'annexe, sinon 571). */
+  compteDe?: (activiteId: string | null | undefined) => string;
+  /** Sous-comptes des annexes, exclus du solde de la caisse principale. */
+  comptesAnnexes?: string[];
+}
+
+/**
  * Solde de la caisse (comptes 57) à une date, toutes périodes confondues :
  * recettes et dépenses comptabilisées réglées en caisse, plus les écritures
  * saisies directement en comptabilité qui mouvementent un compte 57.
  * Une recette de facture suit le compte d'encaissement de sa facture ; les
  * salaires et les opérations sans compte enregistré sont réputés en banque.
  */
-export const soldeCaisse = (donnees: DonneesMensuelles, jusquau?: string): number => {
+export const soldeCaisse = (donnees: DonneesMensuelles, jusquau?: string, options: OptionsCaisse = {}): number => {
+  const compte = options.compte ?? "571";
+  const compteDe = options.compteDe ?? (() => "571");
+  const annexes = options.comptesAnnexes ?? [];
+  const ligneDeLaCaisse = (c: string) =>
+    compte === "571" ? c.startsWith("57") && !annexes.includes(c) : c === compte;
   const mois = Object.values(donnees || {});
   const factures = new Map(mois.flatMap((m) => m?.factures || []).map((f) => [f.id, f]));
   let solde = 0;
   for (const m of mois) {
     for (const t of m?.transactions || []) {
       if (!transactionComptabilisee(t) || (jusquau && t.date > jusquau)) continue;
-      const compte = t.tresorerie ?? (t.factureId ? factures.get(t.factureId)?.compteTresorerie : undefined);
-      if (compte === "571") solde += t.m;
+      const factureCompte = t.factureId ? factures.get(t.factureId)?.compteTresorerie : undefined;
+      if (compteDe(t.activiteId) === compte && (t.tresorerie === "571" || (!t.tresorerie && factureCompte === "571"))) solde += t.m;
     }
     for (const e of m?.ecritures || []) {
       if (!ecritureTresorerieAutonome(e) || (jusquau && e.date && e.date > jusquau)) continue;
-      for (const l of e.lignes || []) if (l.compte.startsWith("57")) solde += l.debit - l.credit;
+      for (const l of e.lignes || []) if (ligneDeLaCaisse(l.compte)) solde += l.debit - l.credit;
     }
   }
   return Math.round(solde);

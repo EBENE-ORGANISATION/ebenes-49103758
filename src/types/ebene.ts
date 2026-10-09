@@ -8,6 +8,11 @@ export interface Activite {
   nom: string;
   couleur: string;
   actif: boolean;
+  /** Annexe : coordonnées imprimées sur ses factures (vide : celles de la société). */
+  adresse?: string | null;
+  telephone?: string | null;
+  /** Caisse propre de l'annexe (sous-compte de 571, ex. 5711) ; vide : caisse 571. */
+  compteCaisse?: string | null;
 }
 
 export type TransactionType = "r" | "d";

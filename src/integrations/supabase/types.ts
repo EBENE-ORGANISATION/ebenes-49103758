@@ -106,6 +106,9 @@ export type Database = {
       }
       activites: {
         Row: {
+          adresse: string | null
+          telephone: string | null
+          compte_caisse: string | null
           actif: boolean
           couleur: string
           created_at: string
@@ -115,6 +118,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          adresse?: string | null
+          telephone?: string | null
+          compte_caisse?: string | null
           actif?: boolean
           couleur?: string
           created_at?: string
@@ -124,6 +130,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          adresse?: string | null
+          telephone?: string | null
+          compte_caisse?: string | null
           actif?: boolean
           couleur?: string
           created_at?: string

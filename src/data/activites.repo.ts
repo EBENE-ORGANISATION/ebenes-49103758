@@ -16,6 +16,9 @@ export const toActivite = (row: ActiviteRow): Activite => ({
   nom: row.nom,
   couleur: row.couleur,
   actif: row.actif,
+  adresse: row.adresse ?? null,
+  telephone: row.telephone ?? null,
+  compteCaisse: row.compte_caisse ?? null,
 });
 
 export const activitesRepo = {
@@ -51,12 +54,15 @@ export const activitesRepo = {
   async update(
     id: string,
     societeId: string,
-    patch: Partial<Pick<Activite, "nom" | "couleur" | "actif">>,
+    patch: Partial<Pick<Activite, "nom" | "couleur" | "actif" | "adresse" | "telephone" | "compteCaisse">>,
   ): Promise<void> {
     const dbPatch: TablesUpdate<"activites"> = {
       ...(patch.nom !== undefined && { nom: patch.nom }),
       ...(patch.couleur !== undefined && { couleur: patch.couleur }),
       ...(patch.actif !== undefined && { actif: patch.actif }),
+      ...(patch.adresse !== undefined && { adresse: patch.adresse || null }),
+      ...(patch.telephone !== undefined && { telephone: patch.telephone || null }),
+      ...(patch.compteCaisse !== undefined && { compte_caisse: patch.compteCaisse || null }),
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase

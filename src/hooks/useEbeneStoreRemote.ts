@@ -30,7 +30,7 @@ import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
 import { transactionAchatStock, type AchatStock } from "@/lib/achatStock";
 import {
-  ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation, soldeCaisse,
+  ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation, soldeCaisse, avecCaisseAnnexe,
   type ReglementImmo,
 } from "@/lib/ecrituresTresorerie";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
@@ -198,6 +198,18 @@ export const useEbeneStoreRemote = (
     () => new Map(tqActivites.activites.map((a) => [a.id, a.nom])),
     [tqActivites.activites],
   );
+  // Caisse de chaque activité : sous-compte de l'annexe, sinon caisse principale 571
+  const caisses = useMemo(() => {
+    const parActivite = new Map(tqActivites.activites.filter((a) => a.compteCaisse).map((a) => [a.id, a]));
+    const compteDe = (activiteId: string | null | undefined) => parActivite.get(activiteId ?? "")?.compteCaisse ?? "571";
+    return {
+      compteDe,
+      nomDe: (activiteId: string | null | undefined) => parActivite.get(activiteId ?? "")?.nom,
+      annexes: [...new Set([...parActivite.values()].map((a) => a.compteCaisse!))],
+      solde: (donnees: DonneesMensuelles, activiteId: string | null | undefined) =>
+        soldeCaisse(donnees, undefined, { compte: compteDe(activiteId), compteDe, comptesAnnexes: [...parActivite.values()].map((a) => a.compteCaisse!) }),
+    };
+  }, [tqActivites.activites]);
   const fournisseurs = tqFournisseurs.fournisseurs;
   const categoriesStock = tqCategories.categoriesStock;
   const immobilisationsRaw = tqImmobilisations.immobilisations; // brute (usage interne)
@@ -412,7 +424,7 @@ export const useEbeneStoreRemote = (
       const aid = activiteSaisie(t.activiteId);
       // Une caisse ne peut pas être négative : on prévient dès la saisie
       if (t.tresorerie === "571" && t.m < 0) {
-        const apres = soldeCaisse(donneesConsolidees) + t.m;
+        const apres = caisses.solde(donneesConsolidees, aid) + t.m;
         if (apres < 0) {
           toast.warning(`Caisse insuffisante : après cette dépense, la caisse sera à ${formatSolde(apres)}. Vérifiez le mode de règlement (Banque ?) ou enregistrez d'abord l'approvisionnement de la caisse.`);
         }
@@ -426,14 +438,14 @@ export const useEbeneStoreRemote = (
           // fournisseur), en brouillon : validées en même temps que la transaction.
           const tauxTva = tauxPourMois(tauxHistorique, annee, mois).tva;
           ecrituresDeTransaction({ ...t, activiteId: aid }, saved.id, tauxTva, annee, mois).forEach((e) => {
-            void tqEcritures.addEcriture(annee, mois, e).catch(() => {
+            void tqEcritures.addEcriture(annee, mois, avecCaisseAnnexe(e, caisses.compteDe(aid), caisses.nomDe(aid))).catch(() => {
               console.warn("[EBENE] Écriture auto non créée pour transaction", saved.id, e.numeroPiece);
             });
           });
         })
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
-    [tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, tauxHistorique, donneesConsolidees],
+    [tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, tauxHistorique, donneesConsolidees, caisses],
   );
 
   /** Reversement des cotisations et de l'IRPP dus : une dépense par organisme. */
@@ -621,7 +633,7 @@ export const useEbeneStoreRemote = (
           // déjà la transaction).
           await Promise.all(
             ecrituresFacturePayee(f, compteTresorerie, annee, mois, aid)
-              .map((e) => tqEcritures.addEcriture(annee, mois, e)),
+              .map((e) => tqEcritures.addEcriture(annee, mois, avecCaisseAnnexe(e, caisses.compteDe(aid), caisses.nomDe(aid)))),
           );
         })
         .then(() => {
@@ -633,7 +645,7 @@ export const useEbeneStoreRemote = (
         })
         .catch((e) => toast.error(messageErreur(e, "Erreur lors du marquage comme payée")));
     },
-    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie],
+    [tqFactures, tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, caisses],
   );
 
   /**
@@ -703,8 +715,8 @@ export const useEbeneStoreRemote = (
       if (!article) return;
       const tauxTva = tauxPourMois(tauxHistorique, annee, mois).tva;
       const t = transactionAchatStock(mvt, article, achat, tauxTva);
-      if (t.tresorerie === "571" && soldeCaisse(donneesConsolidees) + t.m < 0) {
-        toast.warning(`Caisse insuffisante : après cet achat, la caisse sera à ${formatSolde(soldeCaisse(donneesConsolidees) + t.m)}.`);
+      if (t.tresorerie === "571" && caisses.solde(donneesConsolidees, t.activiteId) + t.m < 0) {
+        toast.warning(`Caisse insuffisante : après cet achat, la caisse sera à ${formatSolde(caisses.solde(donneesConsolidees, t.activiteId) + t.m)}.`);
       }
       void (async () => {
         const trans = await tqTransactions.addTransaction(annee, mois, t);
@@ -716,7 +728,7 @@ export const useEbeneStoreRemote = (
         markSignificantWrite();
         await Promise.all(
           ecrituresDeTransaction(t, trans.id, tauxTva, annee, mois).map((e) =>
-            tqEcritures.addEcriture(annee, mois, e).catch(() => undefined),
+            tqEcritures.addEcriture(annee, mois, avecCaisseAnnexe(e, caisses.compteDe(t.activiteId), caisses.nomDe(t.activiteId))).catch(() => undefined),
           ),
         );
       })()
@@ -727,7 +739,7 @@ export const useEbeneStoreRemote = (
             : "Erreur lors de l'enregistrement de l'entrée en stock"),
         );
     },
-    [articles, tauxHistorique, donneesConsolidees, tqTransactions, enregistrerMouvement, tqEcritures, log, markSignificantWrite],
+    [articles, tauxHistorique, donneesConsolidees, tqTransactions, enregistrerMouvement, tqEcritures, log, markSignificantWrite, caisses],
   );
 
   /**

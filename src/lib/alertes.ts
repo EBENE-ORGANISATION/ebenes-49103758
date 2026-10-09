@@ -1,4 +1,5 @@
 import type {
+  Activite,
   Article,
   DonneesMensuelles,
   Employe,
@@ -25,6 +26,8 @@ export interface AlertesStoreInput {
   donneesMensuelles: DonneesMensuelles;
   employes: Employe[];
   articles: Article[];
+  /** Activités : caisses des annexes (sous-comptes de 571). */
+  activites?: Activite[];
 }
 
 const MS_PAR_JOUR = 1000 * 60 * 60 * 24;
@@ -162,15 +165,24 @@ export const getAlertes = (store: AlertesStoreInput): Alerte[] => {
   }
 
   // ─── Caisse négative ──────────────────────────────────────────────────────
-  const caisse = soldeCaisse(store.donneesMensuelles, isoLocal(now));
+  const annexes = (store.activites ?? []).filter((a) => a.compteCaisse);
+  const compteDe = (id: string | null | undefined) => annexes.find((a) => a.id === id)?.compteCaisse ?? "571";
+  const comptesAnnexes = annexes.map((a) => a.compteCaisse!);
+  const caissesASurveiller = [
+    { compte: "571", nom: "Caisse" },
+    ...annexes.map((a) => ({ compte: a.compteCaisse!, nom: `Caisse ${a.nom}` })),
+  ];
+  for (const c of caissesASurveiller) {
+  const caisse = soldeCaisse(store.donneesMensuelles, isoLocal(now), { compte: c.compte, compteDe, comptesAnnexes });
   if (caisse < 0) {
     alertes.push({
-      id: `caisse-negative-${isoLocal(now)}`,
+      id: `caisse-negative-${c.compte}-${isoLocal(now)}`,
       categorie: "tresorerie",
       severite: "danger",
-      titre: "Caisse négative",
+      titre: `${c.nom} négative`,
       description: `Solde de la caisse : ${formatSolde(caisse)}. Une caisse ne peut pas être négative : vérifiez les dépenses réglées en caisse (Banque au lieu de Caisse ?) ou enregistrez l'approvisionnement de la caisse.`,
     });
+  }
   }
 
   // ─── 3. CDD se terminant dans les 30 jours ────────────────────────────────

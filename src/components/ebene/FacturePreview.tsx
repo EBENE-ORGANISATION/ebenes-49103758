@@ -8,6 +8,7 @@ import { exportElementToPDF, exportElementToWord } from "@/lib/exportDocs";
 import { printElementById } from "@/lib/print";
 import { useTenant } from "@/hooks/useTenant";
 import { useTranslation } from "react-i18next";
+import { useActivites } from "@/hooks/data/useActivites";
 
 interface Props {
   facture: Facture | null;
@@ -17,6 +18,7 @@ interface Props {
 export const FacturePreview = ({ facture, onClose }: Props) => {
   const { t } = useTranslation();
   const { currentSociete, societeConfig } = useTenant();
+  const { activites } = useActivites(currentSociete?.id ?? null);
   if (!facture) return null;
 
   const isProforma = facture.statut === "proforma";
@@ -138,6 +140,16 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
             {[telephone && t("facture_preview.tel", { value: telephone }), email && t("facture_preview.email", { value: email })].filter(Boolean).join("  •  ")}
             {(telephone || email) && <br />}
             {[rccm && t("facture_preview.rccm", { value: rccm }), nif && t("facture_preview.nif", { value: nif })].filter(Boolean).join("  •  ")}
+            {(() => {
+              // Facture d'une annexe : ses coordonnées sous celles de la société
+              const annexe = activites.find((a) => a.id === facture?.activiteId);
+              if (!annexe || (!annexe.adresse && !annexe.telephone)) return null;
+              return (
+                <div style={{ marginTop: "1mm", fontSize: "9pt", color: "#555" }}>
+                  {[`${annexe.nom}`, annexe.adresse, annexe.telephone && t("facture_preview.tel", { value: annexe.telephone })].filter(Boolean).join("  •  ")}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ─── CONTENU DE LA FACTURE ─── */}

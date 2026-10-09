@@ -4,6 +4,7 @@ import {
   ecritureTresorerieAutonome,
   estEcritureDeTransaction,
   soldeCaisse,
+  avecCaisseAnnexe,
 } from "./ecrituresTresorerie";
 
 const equilibre = (lignes: { debit: number; credit: number }[]) =>
@@ -142,5 +143,30 @@ describe("soldeCaisse", () => {
 
   it("à une date donnée", () => {
     expect(soldeCaisse(donnees, "2026-10-10")).toBe(50000 - 20000 + 118000 - 8000);
+  });
+});
+
+describe("caisses d'annexes", () => {
+  const donnees = {
+    "2026-10": {
+      transactions: [
+        { id: 1, date: "2026-10-05", desc: "", type: "r", m: 80000, source: "manuelle", statut: "valide", tresorerie: "571", activiteId: "hotel" },
+        { id: 2, date: "2026-10-05", desc: "", type: "d", m: -30000, source: "manuelle", statut: "valide", tresorerie: "571", activiteId: "boutique" },
+      ],
+      factures: [],
+      ecritures: [],
+    },
+  } as never;
+  const compteDe = (a: string | null | undefined) => (a === "hotel" ? "5711" : "571");
+
+  it("chaque annexe a sa caisse ; la caisse principale exclut les annexes", () => {
+    expect(soldeCaisse(donnees, undefined, { compte: "5711", compteDe, comptesAnnexes: ["5711"] })).toBe(80000);
+    expect(soldeCaisse(donnees, undefined, { compte: "571", compteDe, comptesAnnexes: ["5711"] })).toBe(-30000);
+  });
+
+  it("une écriture sur 571 passe sur la caisse de l'annexe", () => {
+    const e = avecCaisseAnnexe({ lignes: [{ id: 1, compte: "571", intitule: "Caisse", debit: 100, credit: 0 }] }, "5711", "Hôtel");
+    expect(e.lignes[0]).toMatchObject({ compte: "5711", intitule: "Caisse Hôtel" });
+    expect(avecCaisseAnnexe(e, null)).toBe(e);
   });
 });

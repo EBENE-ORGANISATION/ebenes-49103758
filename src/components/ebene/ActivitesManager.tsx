@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layers, Plus, Trash2, Loader2, Check, X, Pencil } from "lucide-react";
+import { Layers, Plus, Trash2, Loader2, Check, X, Pencil, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,30 @@ export const ActivitesManager = ({ societeId }: { societeId: string }) => {
       toast.error("Erreur lors de la création");
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Annexe : coordonnées et caisse propre
+  const [annexeId, setAnnexeId] = useState<string | null>(null);
+  const [annexe, setAnnexe] = useState({ adresse: "", telephone: "", compteCaisse: "" });
+  const ouvrirAnnexe = (a: Activite) => {
+    setAnnexeId(annexeId === a.id ? null : a.id);
+    setAnnexe({ adresse: a.adresse ?? "", telephone: a.telephone ?? "", compteCaisse: a.compteCaisse ?? "" });
+  };
+  const saveAnnexe = async (a: Activite) => {
+    const compte = annexe.compteCaisse.trim();
+    if (compte && !/^57\d{2,6}$/.test(compte)) {
+      return toast.error("Compte de caisse : un sous-compte de 571, par exemple 5711.");
+    }
+    if (compte && activites.some((x) => x.id !== a.id && x.compteCaisse === compte)) {
+      return toast.error("Ce compte de caisse est déjà utilisé par une autre activité.");
+    }
+    try {
+      await updateActivite(a.id, { adresse: annexe.adresse.trim(), telephone: annexe.telephone.trim(), compteCaisse: compte });
+      setAnnexeId(null);
+      toast.success("Annexe enregistrée");
+    } catch {
+      toast.error("Erreur lors de l'enregistrement de l'annexe");
     }
   };
 
@@ -119,7 +143,8 @@ export const ActivitesManager = ({ societeId }: { societeId: string }) => {
       ) : (
         <div className="divide-y rounded-lg border">
           {activites.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 p-3">
+            <div key={a.id}>
+            <div className="flex items-center gap-3 p-3">
               {/* Couleur */}
               <input
                 type="color"
@@ -200,6 +225,40 @@ export const ActivitesManager = ({ societeId }: { societeId: string }) => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              <Button
+                size="icon" variant="ghost" className="size-8 shrink-0"
+                onClick={() => ouvrirAnnexe(a)}
+                title="Annexe : adresse, téléphone, caisse propre"
+              >
+                <MapPin className={`size-4 ${a.adresse || a.compteCaisse ? "text-primary" : ""}`} />
+              </Button>
+            </div>
+            {annexeId === a.id && (
+              <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-1 sm:col-span-3">
+                  <p className="text-xs text-muted-foreground">
+                    Annexe sur un autre site : coordonnées imprimées sur ses factures, et caisse
+                    propre (sous-compte de 571). Laissez vide pour utiliser celles de la société.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Adresse</Label>
+                  <Input className="h-8" value={annexe.adresse} onChange={(e) => setAnnexe({ ...annexe, adresse: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Téléphone</Label>
+                  <Input className="h-8" value={annexe.telephone} onChange={(e) => setAnnexe({ ...annexe, telephone: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Caisse propre (ex. 5711)</Label>
+                  <Input className="h-8" value={annexe.compteCaisse} placeholder="571 (caisse principale)" onChange={(e) => setAnnexe({ ...annexe, compteCaisse: e.target.value })} />
+                </div>
+                <div className="sm:col-span-3 flex gap-2">
+                  <Button size="sm" onClick={() => saveAnnexe(a)}>Enregistrer</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setAnnexeId(null)}>Annuler</Button>
+                </div>
+              </div>
+            )}
             </div>
           ))}
         </div>

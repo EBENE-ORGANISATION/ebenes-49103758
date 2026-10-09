@@ -150,8 +150,9 @@ const Index = () => {
         donneesMensuelles: store.donneesConsolidees,
         employes: employesSociete,
         articles: store.articles,
+        activites,
       }),
-    [store.donneesConsolidees, employesSociete, store.articles]
+    [store.donneesConsolidees, employesSociete, store.articles, activites]
   );
 
   // (La redirection des comptes 'employe' purs vers le portail se fait plus bas,

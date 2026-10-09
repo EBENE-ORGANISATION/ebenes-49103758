@@ -33,7 +33,7 @@ export const useActivites = (societeId: string | null) => {
       patch,
     }: {
       id: string;
-      patch: Partial<Pick<Activite, "nom" | "couleur" | "actif">>;
+      patch: Partial<Pick<Activite, "nom" | "couleur" | "actif" | "adresse" | "telephone" | "compteCaisse">>;
     }) => repo.update(id, societeId!, patch),
     onSuccess: invalidate,
   });
@@ -56,7 +56,7 @@ export const useActivites = (societeId: string | null) => {
       createMutation.mutateAsync(input),
     updateActivite: (
       id: string,
-      patch: Partial<Pick<Activite, "nom" | "couleur" | "actif">>,
+      patch: Partial<Pick<Activite, "nom" | "couleur" | "actif" | "adresse" | "telephone" | "compteCaisse">>,
     ) => updateMutation.mutateAsync({ id, patch }),
     removeActivite: (id: string) => removeMutation.mutateAsync(id),
     mutations: {
