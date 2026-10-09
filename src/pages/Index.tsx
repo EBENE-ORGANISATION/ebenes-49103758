@@ -437,6 +437,7 @@ const Index = () => {
                 data={dataSociete}
                 employes={employesSociete}
                 vueActivite={!!validActiviteId}
+                onReverser={comptaWrite ? store.reverserCotisations : undefined}
                 annee={annee}
                 mois={mois}
                 paramsAnnee={store.getParamAnnuel(annee)}

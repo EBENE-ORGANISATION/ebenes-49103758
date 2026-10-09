@@ -33,6 +33,8 @@ import { GestionDelegations } from "./GestionDelegations";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
+import { dettesPaie, type DettesPaie } from "@/lib/alertes";
+import { reversementEnAttente } from "@/lib/reversement";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,8 @@ interface Props {
   onSupprimerTaux: (dateEffet: string) => void;
   /** Une activité est affichée : la fiscalité reste celle de toute la société. */
   vueActivite?: boolean;
+  /** Reverse les cotisations et l'IRPP dus (dépenses à valider). */
+  onReverser?: (dues: DettesPaie, tresorerie: "521" | "571") => void;
 }
 
 type StatutMois = "cloture" | "en_cours" | "futur";
@@ -143,7 +147,7 @@ const ExportBtns = ({ onExcel, onPdf, onWord }: {
 
 export const Fiscalite = ({
   data, employes, annee, mois, paramsAnnee, onUpdateParams,
-  donneesMensuelles, tauxHistorique, onAjouterTaux, onSupprimerTaux, vueActivite = false,
+  donneesMensuelles, tauxHistorique, onAjouterTaux, onSupprimerTaux, vueActivite = false, onReverser,
 }: Props) => {
   const { can, user } = useAuth();
   const { currentSociete } = useTenant();
@@ -156,6 +160,13 @@ export const Fiscalite = ({
   const [thInput,    setThInput]    = useState("");
   const [loyerInput, setLoyerInput] = useState("");
   const tvaPrintRef = useRef<HTMLDivElement>(null);
+  // Cotisations et IRPP retenus, encore dus (écritures validées)
+  const dues = useMemo(() => dettesPaie(donneesMensuelles), [donneesMensuelles]);
+  const reversementSaisi = useMemo(
+    () => reversementEnAttente(Object.values(donneesMensuelles).flatMap((m) => m?.transactions ?? [])),
+    [donneesMensuelles],
+  );
+  const [payeReversement, setPayeReversement] = useState<"521" | "571">("521");
 
   // ── État TVA manuel (lignes saisies à la main) ────────────────────────────
   const [tvaManuel, setTvaManuel] = useState({
@@ -946,6 +957,48 @@ export const Fiscalite = ({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="font-bold">Charges Sociales & IRPP — {nomMois} {annee}</h3>
           </div>
+
+          {/* Reversement des retenues dues */}
+          {onReverser && (() => {
+            const total = dues.cnss + dues.amu + dues.irpp;
+            return (
+              <div className="card-elevated p-5 space-y-2">
+                <h4 className="font-bold text-sm">Cotisations et IRPP à reverser</h4>
+                <Row label="CNSS (431)" value={`${fmt(dues.cnss)} FCFA`} />
+                <Row label="AMU (433)" value={`${fmt(dues.amu)} FCFA`} />
+                <Row label="IRPP retenu (447)" value={`${fmt(dues.irpp)} FCFA`} />
+                <Row label="TOTAL À REVERSER" value={`${fmt(total)} FCFA`} strong />
+                {reversementSaisi ? (
+                  <p className="text-xs text-warning">Un reversement est déjà saisi et attend la validation du chef comptable.</p>
+                ) : total > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <select
+                      aria-label="Payé par"
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      value={payeReversement}
+                      onChange={(e) => setPayeReversement(e.target.value as "521" | "571")}
+                    >
+                      <option value="521">Banque (521)</option>
+                      <option value="571">Caisse (571)</option>
+                    </select>
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        if (confirm(`Enregistrer le reversement de ${fmt(total)} FCFA (CNSS, AMU, IRPP) ? Les dépenses seront à valider par le chef comptable.`)) {
+                          onReverser(dues, payeReversement);
+                        }
+                      }}
+                    >
+                      Reverser
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Rien à reverser.</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* CNSS */}
           <div className="card-elevated p-5 space-y-1">

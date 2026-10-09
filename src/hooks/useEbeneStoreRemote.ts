@@ -62,6 +62,8 @@ import { useDevis } from "@/hooks/data/useDevis";
 import { useMouvementsStock } from "@/hooks/data/useMouvementsStock";
 import { useEcritures } from "@/hooks/data/useEcritures";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
+import { transactionsReversement } from "@/lib/reversement";
+import type { DettesPaie } from "@/lib/alertes";
 
 /**
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
@@ -424,6 +426,18 @@ export const useEbeneStoreRemote = (
         .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
     },
     [tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, tauxHistorique, donneesConsolidees],
+  );
+
+  /** Reversement des cotisations et de l'IRPP dus : une dépense par organisme. */
+  const reverserCotisations = useCallback(
+    (dues: DettesPaie, tresorerie: "521" | "571") => {
+      const date = todayISO();
+      const [a, m] = date.split("-").map(Number);
+      const lignes = transactionsReversement(dues, tresorerie, date);
+      lignes.forEach((t) => addTransaction(a, m, t));
+      if (lignes.length) toast.success("Reversement saisi : à valider par le chef comptable.");
+    },
+    [addTransaction],
   );
 
   /**
@@ -1469,6 +1483,7 @@ export const useEbeneStoreRemote = (
     updateArticle,
     removeArticle,
     addMouvementStock,
+    reverserCotisations,
     addEntreeStockAchat,
     removeMouvementStock,
     addSanction,
