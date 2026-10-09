@@ -26,6 +26,7 @@ import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { UpdateNotifier } from "@/components/electron/UpdateNotifier";
 import { isElectron } from "@/lib/platform";
 import { partActivite } from "@/lib/resultatActivites";
+import { useMesActivites } from "@/hooks/useMesActivites";
 
 // ── Lazy-loaded : chargé uniquement pour les comptes "employé pur" ───────────
 const PortailEmploye = lazy(() =>
@@ -69,7 +70,15 @@ const Index = () => {
 
   // ─── Compartiment d'activité courant ──────────────────────────────────────
   const { activites } = useActivites(effectiveSocieteId);
-  const { currentActiviteId } = useActiviteFilter();
+  const { currentActiviteId, setActiviteId } = useActiviteFilter();
+  // Utilisateur limité à certaines activités (droits appliqués par la base) :
+  // une seule autorisée → le filtre y est verrouillé ; sinon, pas d'activité interdite
+  const mesActivites = useMesActivites(effectiveSocieteId);
+  useEffect(() => {
+    if (!mesActivites) return;
+    const autorisee = currentActiviteId && mesActivites.includes(currentActiviteId);
+    if (!autorisee && (mesActivites.length === 1 || currentActiviteId)) setActiviteId(mesActivites[0]);
+  }, [mesActivites, currentActiviteId, setActiviteId]);
   // On ne retient l'activité de l'URL que si elle appartient à la société.
   const validActiviteId = useMemo(
     () => (activites.some((a) => a.id === currentActiviteId) ? currentActiviteId : null),

@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { CrossServiceGrantsPanel } from "@/components/admin/CrossServiceGrantsPanel";
 import { PermissionsOverridesPanel } from "@/components/admin/PermissionsOverridesPanel";
 import { FeatureAccessPanel } from "@/components/admin/FeatureAccessPanel";
+import { ActivitesUtilisateursPanel } from "@/components/admin/ActivitesUtilisateursPanel";
 
 interface AdminUser {
   user_id: string;
@@ -269,6 +270,10 @@ const AdminUsers = () => {
         />
 
         <FeatureAccessPanel
+          users={users.map((u) => ({ user_id: u.user_id, email: u.email, nom: u.nom }))}
+        />
+
+        <ActivitesUtilisateursPanel
           users={users.map((u) => ({ user_id: u.user_id, email: u.email, nom: u.nom }))}
         />
 
