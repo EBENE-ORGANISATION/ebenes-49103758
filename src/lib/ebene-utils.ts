@@ -461,6 +461,12 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   if (msg.includes("QUATRE_YEUX")) {
     return "Vous ne pouvez pas valider votre propre saisie : un autre responsable (ou l'administrateur) doit le faire.";
   }
+  if (msg.includes("EXERCICE_CLOTURE")) {
+    return "Cet exercice est clôturé : plus aucune saisie n'est possible (un administrateur peut le rouvrir).";
+  }
+  if (msg.includes("EXERCICE_REOUVERTURE")) {
+    return "Seul un administrateur peut rouvrir un exercice clôturé.";
+  }
   if (msg.includes("FACTURE_NON_VALIDEE")) {
     return "La facture doit d'abord être validée par le chef comptable avant d'être encaissée.";
   }
