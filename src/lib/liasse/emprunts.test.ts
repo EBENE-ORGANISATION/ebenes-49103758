@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ajouterMois, capitalRestantDu, echeancier, ecritureDeblocage, ecritureEcheance, piecesComptabilisees, prochaineEcheance,
-  saisiesEmprunts, ventilationEcheances, type Emprunt,
+  saisiesEmprunts, suretesConsenties, ventilationEcheances, type Emprunt,
 } from "./emprunts";
 import { saisiesLiasse } from "./genererLiasse";
 
@@ -57,6 +57,20 @@ describe("emprunts", () => {
     expect(val(s, "NOTE 1", "H14")).toBe(5_000_000);
     expect(val(s, "NOTE 1", "I14")).toBe(0);
     expect(String(val(s, "NOTE 16A", "B43"))).toContain("Banque Atlantique");
+  });
+
+  it("montants ramenés au solde comptable (écritures non validées, remboursement partiel)", () => {
+    const e = emprunt({ garantie: "gage" });
+    const restant = capitalRestantDu(e, "2026-12-31");
+    const vide = saisiesEmprunts([e], 2026, 0);
+    expect(["F11", "G11", "H11"].map((c) => val(vide, "NOTE 16A", c))).toEqual([0, 0, 0]);
+    expect(val(vide, "NOTE 1", "G14")).toBeUndefined();
+    expect(suretesConsenties([e], 2026, 0)).toBe(0);
+    const moitie = saisiesEmprunts([e], 2026, Math.round(restant / 2));
+    const somme = ["F11", "G11", "H11"].reduce((t, c) => t + (val(moitie, "NOTE 16A", c) as number), 0);
+    expect(somme).toBe(Math.round(restant / 2));
+    expect(val(moitie, "NOTE 1", "J14")).toBe(Math.round(restant / 2));
+    expect(suretesConsenties([e], 2026, restant)).toBe(restant);
   });
 
   it("générateur : la note 16A reprend le solde 162 et l'échéancier", () => {

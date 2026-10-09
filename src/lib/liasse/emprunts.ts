@@ -134,10 +134,18 @@ export const saisiesEmprunts = (emprunts: Emprunt[], annee: number, solde162: nu
     }
   }
   const out: Saisie[] = [];
-  const solde = Math.round(solde162);
-  const ecart = solde - (v.unAn + v.unADeuxAns + v.plusDeDeuxAns);
+  // Montants ramenés au solde comptable (écritures non validées, remboursements
+  // anticipés…) ; un solde supérieur aux échéanciers va à « un an au plus ».
+  const solde = Math.max(0, Math.round(solde162));
+  const k = facteur(solde, v.unAn + v.unADeuxAns + v.plusDeDeuxAns);
+  v.unADeuxAns = Math.round(v.unADeuxAns * k);
+  v.plusDeDeuxAns = Math.round(v.plusDeDeuxAns * k);
+  brutGaranti = Math.round(brutGaranti * k);
+  garanties.hypotheque = Math.round(garanties.hypotheque * k);
+  garanties.nantissement = Math.round(garanties.nantissement * k);
+  garanties.gage = Math.round(garanties.gage * k);
   if (emprunts.length) {
-    const unAn = Math.max(0, v.unAn + ecart);
+    const unAn = solde - v.unADeuxAns - v.plusDeDeuxAns;
     out.push(
       { feuille: "NOTE 16A", cellule: "F11", valeur: unAn },
       { feuille: "NOTE 16A", cellule: "G11", valeur: v.unADeuxAns },
@@ -161,13 +169,22 @@ export const saisiesEmprunts = (emprunts: Emprunt[], annee: number, solde162: nu
   return out;
 };
 
-/** Sûretés réelles consenties sur les emprunts restant dus à la clôture (engagement donné). */
-export const suretesConsenties = (emprunts: Emprunt[], annee: number): number =>
-  emprunts.reduce((t, e) => {
+const facteur = (solde: number, echeanciers: number) => (echeanciers > 0 ? Math.min(1, solde / echeanciers) : 0);
+
+/**
+ * Sûretés réelles consenties sur les emprunts restant dus à la clôture
+ * (engagement donné), ramenées au solde comptable des emprunts bancaires.
+ */
+export const suretesConsenties = (emprunts: Emprunt[], annee: number, solde162: number): number => {
+  const cloture = `${annee}-12-31`;
+  const restants = emprunts.reduce((t, e) => t + capitalRestantDu(e, cloture), 0);
+  const brut = emprunts.reduce((t, e) => {
     if (!e.garantie || !SURETES_REELLES.includes(e.garantie)) return t;
-    const restant = capitalRestantDu(e, `${annee}-12-31`);
+    const restant = capitalRestantDu(e, cloture);
     return t + (restant > 0 ? Math.min(restant, Math.round(e.montantGaranti ?? restant)) : 0);
   }, 0);
+  return Math.round(brut * facteur(Math.max(0, Math.round(solde162)), restants));
+};
 
 // ── Écritures : déblocage (EMP-<id>-0) et échéances (EMP-<id>-<n>) ──────────
 

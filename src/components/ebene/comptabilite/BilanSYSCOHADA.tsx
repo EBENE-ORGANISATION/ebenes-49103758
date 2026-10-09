@@ -173,6 +173,9 @@ export const BilanSYSCOHADA = ({ donneesMensuelles, annee }: Props) => {
     // Avant clôture, le résultat n'est pas encore viré au compte 13 : on
     // reprend le résultat de l'exercice en cours (produits − charges).
     data["CJ"] = (data["CJ"] || 0) + resultatExercice(soldes);
+    // Banque créditrice (découvert) : ramenée à 0 à l'actif, portée en trésorerie passif
+    const banques = repartirSoldes(soldes, [{ ref: "BS", prefixes: ["52", "53", "57"] }]).BS || 0;
+    if (banques < 0) data["DR"] = (data["DR"] || 0) - banques;
     data["CP"] = ["CA", "CB", "CD", "CE", "CF", "CG", "CH", "CJ", "CL", "CM"]
       .reduce((s, r) => s + (data[r] || 0), 0);
     data["DD"] = ["DA", "DB", "DC"].reduce((s, r) => s + (data[r] || 0), 0);

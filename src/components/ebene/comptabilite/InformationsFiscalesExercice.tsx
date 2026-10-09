@@ -152,7 +152,7 @@ export const InformationsFiscalesExercice = ({ donneesMensuelles, annee }: Props
                     <div key={l} className="flex gap-2 items-center">
                       <Label className="flex-1 text-xs font-normal">{ENGAGEMENTS[l]}</Label>
                       <Input className="h-8 w-32 text-xs text-right" type="number" value={e.donnes ?? ""}
-                        placeholder={l === "39" ? "Sûretés des emprunts" : undefined}
+                        placeholder={l === "39" ? "Auto : emprunts" : undefined}
                         onChange={(ev) => majE({ donnes: nombre(ev.target.value) })} />
                       <Input className="h-8 w-32 text-xs text-right" type="number" value={e.recus ?? ""} onChange={(ev) => majE({ recus: nombre(ev.target.value) })} />
                     </div>

@@ -153,11 +153,11 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
               const maj = (patch: Partial<LigneOuverture>) => setOuverture((o) => o!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
               return (
                 <div key={i} className="flex gap-2 items-center">
-                  <Input className="h-8 w-24 text-xs" value={l.compte} onChange={(e) => maj({ compte: e.target.value.trim() })} aria-label="Compte" />
-                  <span className="flex-1 text-xs truncate text-muted-foreground">{modele?.libelle ?? ""}</span>
-                  <Input className="h-8 w-32 text-xs text-right" type="number" placeholder="Débit" value={l.debit || ""} onChange={(e) => maj({ debit: Number(e.target.value) || 0 })} aria-label="Débit" />
-                  <Input className="h-8 w-32 text-xs text-right" type="number" placeholder="Crédit" value={l.credit || ""} onChange={(e) => maj({ credit: Number(e.target.value) || 0 })} aria-label="Crédit" />
-                  <Button size="icon" variant="ghost" className="size-8" onClick={() => setOuverture((o) => o!.filter((_, j) => j !== i))}><X className="size-4" /></Button>
+                  <Input className="h-8 w-20 shrink-0 text-xs" value={l.compte} onChange={(e) => maj({ compte: e.target.value.trim() })} aria-label="Compte" />
+                  <span className="flex-1 min-w-0 text-xs truncate text-muted-foreground hidden sm:block">{modele?.libelle ?? ""}</span>
+                  <Input className="h-8 w-28 min-w-0 flex-1 sm:flex-none text-xs text-right" type="number" placeholder="Débit" value={l.debit || ""} onChange={(e) => maj({ debit: Number(e.target.value) || 0 })} aria-label="Débit" />
+                  <Input className="h-8 w-28 min-w-0 flex-1 sm:flex-none text-xs text-right" type="number" placeholder="Crédit" value={l.credit || ""} onChange={(e) => maj({ credit: Number(e.target.value) || 0 })} aria-label="Crédit" />
+                  <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => setOuverture((o) => o!.filter((_, j) => j !== i))}><X className="size-4" /></Button>
                 </div>
               );
             })}
@@ -191,7 +191,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Report à nouveau : {formatSolde(total - affecte)}. La clôture génère les à-nouveaux au 01/01/{annee + 1}
+            Report à nouveau : {formatSolde(total - affecte)}. La clôture génère les à-nouveaux au 01/01/{annee + 1}{" "}
             et verrouille l'exercice {annee} (plus aucune saisie possible sans réouverture par un administrateur).
           </p>
           <DialogFooter>

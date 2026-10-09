@@ -54,7 +54,7 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
   const fiscal = systeme === "normal"
     ? [
         ...saisiesResultatFiscal(etats.n.cr.XI, d.fiscal ?? {}, -etats.n.cr.RS),
-        ...saisiesHorsBilan(d.fiscal ?? {}, suretesConsenties(d.emprunts ?? [], d.annee)),
+        ...saisiesHorsBilan(d.fiscal ?? {}, suretesConsenties(d.emprunts ?? [], d.annee, soldesDettes(d).solde162)),
       ]
     : [];
   return { etats, saisies: [...base, ...emprunts, ...fiscal, ...ident, ...(d.complements ?? [])] };
@@ -62,6 +62,12 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
 
 /** Notes 1 et 16A : soldes comptables des dettes financières et échéanciers. */
 const saisiesDettesFinancieres = (d: DonneesLiasse): Saisie[] => {
+  const { solde162, total } = soldesDettes(d);
+  return saisiesEmprunts(d.emprunts ?? [], d.annee, solde162, total);
+};
+
+/** Soldes créditeurs des emprunts bancaires (162) et de toutes les dettes financières (16, 18). */
+const soldesDettes = (d: DonneesLiasse) => {
   const { bilan } = soldesCloture(d.donnees, d.annee);
   let solde162 = 0;
   let total = 0;
@@ -70,7 +76,7 @@ const saisiesDettesFinancieres = (d: DonneesLiasse): Saisie[] => {
     total -= v;
     if (compte.startsWith("162")) solde162 -= v;
   });
-  return saisiesEmprunts(d.emprunts ?? [], d.annee, solde162, total);
+  return { solde162, total };
 };
 
 /** Remplit le modèle (contenu du fichier) et renvoie le classeur produit. */
