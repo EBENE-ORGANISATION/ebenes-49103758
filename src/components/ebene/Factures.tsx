@@ -104,6 +104,8 @@ export const Factures = ({
   const [client, setClient] = useState("");
   const [date, setDate] = useState(todayISO());
   const [reduction, setReduction] = useState("0");
+  // Taxe de séjour : facultative, hors TVA
+  const [taxeSejour, setTaxeSejour] = useState("0");
   const [avecTva, setAvecTva] = useState(true);
   const [proforma, setProforma] = useState(false);
   const [activite, setActivite] = useState<ActiviteType>("service");
@@ -156,6 +158,7 @@ export const Factures = ({
     setClient("");
     setDate(todayISO());
     setReduction("0");
+    setTaxeSejour("0");
     setAvecTva(true);
     setProforma(false);
     setActivite("service");
@@ -211,7 +214,8 @@ export const Factures = ({
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
     const totalHT = Math.max(0, sousTotal - red);
     const totalTva = avecTva ? totalHT * 0.18 : 0;
-    const totalTtc = totalHT + totalTva;
+    const taxe = Math.max(0, Math.round(parseFloat(taxeSejour) || 0));
+    const totalTtc = totalHT + totalTva + taxe;
 
     if (editingId != null && onUpdateFacture) {
       onUpdateFacture(editingId, {
@@ -224,6 +228,7 @@ export const Factures = ({
         totalHT,
         totalTva,
         totalTtc,
+        taxeSejour: taxe,
         activite,
         activiteId,
       });
@@ -245,6 +250,7 @@ export const Factures = ({
       totalHT,
       totalTva,
       totalTtc,
+      taxeSejour: taxe,
       activite,
       activiteId,
     });
@@ -257,6 +263,7 @@ export const Factures = ({
     setClient(f.client);
     setDate(f.date);
     setReduction(String(f.reduction || 0));
+    setTaxeSejour(String(f.taxeSejour || 0));
     setAvecTva(!!f.avecTva);
     setProforma(f.statut === "proforma");
     setActivite(f.activite || "service");
@@ -496,6 +503,21 @@ export const Factures = ({
                 onChange={(e) => setReduction(e.target.value)}
                 className="mt-1"
               />
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Taxe de séjour (FCFA, facultative)
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                value={taxeSejour}
+                onChange={(e) => setTaxeSejour(e.target.value)}
+                className="mt-1"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Hors TVA, ajoutée au total et collectée pour l'État ou la commune (compte 442).
+              </p>
             </div>
           </div>
 
@@ -737,7 +759,7 @@ Elle restera dans la liste, au statut « annulée ». ` +
             <DialogDescription>
               {paiementFacture && (
                 <>
-                  {formatMontant(paiementFacture.avecTva ? paiementFacture.totalTtc : paiementFacture.totalHT)} reçus
+                  {formatMontant(paiementFacture.totalTtc)} reçus
                   de {paiementFacture.client}. Où l'argent a-t-il été encaissé ?
                 </>
               )}

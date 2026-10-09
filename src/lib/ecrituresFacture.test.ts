@@ -76,6 +76,17 @@ describe("ecrituresFacturePayee — articles du stock", () => {
   });
 });
 
+describe("ecrituresFacturePayee — taxe de séjour", () => {
+  it("hors TVA, ajoutée au montant du client et collectée en 442", () => {
+    const [ve, bq] = ecrituresFacturePayee({ ...facture, taxeSejour: 6000, totalTtc: 124000 }, "521", 2026, 10, null);
+    expect(ve.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
+      ["4111", 124000, 0], ["706", 0, 100000], ["4431", 0, 18000], ["442", 0, 6000],
+    ]);
+    expect(bq.lignes[0]).toMatchObject({ compte: "521", debit: 124000 });
+    expect(equilibre(ve.lignes)).toBe(true);
+  });
+});
+
 describe("contrePassation", () => {
   it("inverse débit et crédit, à la date de l'annulation : les soldes reviennent à zéro", () => {
     const origine = ecrituresFacturePayee(facture, "521", 2026, 10, null);

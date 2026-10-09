@@ -28,6 +28,7 @@ import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, forma
 import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
 import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
+import { transactionAchatStock, type AchatStock } from "@/lib/achatStock";
 import {
   ecritureAcquisitionImmo, ecrituresDeTransaction, estEcritureDeTransaction, pieceImmobilisation, soldeCaisse,
   type ReglementImmo,
@@ -668,6 +669,45 @@ export const useEbeneStoreRemote = (
     [enregistrerMouvement],
   );
 
+  /**
+   * Entrée en stock achetée : le mouvement et la dépense d'achat (au nom du
+   * fournisseur, en attente de validation) sont enregistrés ensemble, puis
+   * les écritures de la dépense (achat AC + règlement TR). Si le mouvement
+   * échoue, la dépense est retirée.
+   */
+  const addEntreeStockAchat = useCallback(
+    (annee: number, mois: number, mvt: Omit<MouvementStock, "id">, achat: AchatStock) => {
+      const article = articles.find((a) => a.id === mvt.articleId);
+      if (!article) return;
+      const tauxTva = tauxPourMois(tauxHistorique, annee, mois).tva;
+      const t = transactionAchatStock(mvt, article, achat, tauxTva);
+      if (t.tresorerie === "571" && soldeCaisse(donneesConsolidees) + t.m < 0) {
+        toast.warning(`Caisse insuffisante : après cet achat, la caisse sera à ${formatSolde(soldeCaisse(donneesConsolidees) + t.m)}.`);
+      }
+      void (async () => {
+        const trans = await tqTransactions.addTransaction(annee, mois, t);
+        await enregistrerMouvement(annee, mois, { ...mvt, transactionId: trans.id }).catch(async (err) => {
+          await tqTransactions.removeTransaction(trans.id).catch(() => undefined);
+          throw err;
+        });
+        log("INSERT", "transactions", trans.id, null, trans);
+        markSignificantWrite();
+        await Promise.all(
+          ecrituresDeTransaction(t, trans.id, tauxTva, annee, mois).map((e) =>
+            tqEcritures.addEcriture(annee, mois, e).catch(() => undefined),
+          ),
+        );
+      })()
+        .then(() => toast.success("Entrée en stock et dépense d'achat enregistrées (dépense à valider par le chef comptable)."))
+        .catch((err) =>
+          toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
+            ? err.message
+            : "Erreur lors de l'enregistrement de l'entrée en stock"),
+        );
+    },
+    [articles, tauxHistorique, donneesConsolidees, tqTransactions, enregistrerMouvement, tqEcritures, log, markSignificantWrite],
+  );
+
   const annulerFacture = useCallback(
     (annee: number, mois: number, factureId: number) => {
       const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === factureId);
@@ -1161,13 +1201,23 @@ export const useEbeneStoreRemote = (
             throw err;
           }),
         )
+        .then(() => {
+          // Entrée achetée : sa dépense d'achat (et ses écritures) est retirée aussi
+          if (!mvt.transactionId) return;
+          const cle = Object.keys(tqTransactions.transactions)
+            .find((k) => (tqTransactions.transactions[k] ?? []).some((t) => t.id === mvt.transactionId));
+          if (cle) {
+            const [a, m] = cle.split("-").map(Number);
+            removeTransaction(a, m, mvt.transactionId);
+          }
+        })
         .catch((err) =>
           toast.error(err instanceof ErreurStock || (err instanceof Error && /simultan/.test(err.message))
             ? err.message
             : "Erreur lors de la suppression du mouvement de stock"),
         );
     },
-    [tqMouvements, societeId, tqArticles],
+    [tqMouvements, societeId, tqArticles, tqTransactions.transactions, removeTransaction],
   );
 
   // ─── Sanctions → table relationnelle ─────────────────────────────────────
@@ -1419,6 +1469,7 @@ export const useEbeneStoreRemote = (
     updateArticle,
     removeArticle,
     addMouvementStock,
+    addEntreeStockAchat,
     removeMouvementStock,
     addSanction,
     removeSanction,

@@ -37,6 +37,7 @@ export const toFacture = (row: FactureRow): Facture => ({
   totalHT: row.total_ht,
   totalTva: row.total_tva,
   totalTtc: row.total_ttc,
+  taxeSejour: Number(row.taxe_sejour ?? 0),
   activite: n(row.activite) as ActiviteType | undefined,
   activiteId: n(row.activite_id),
   statutValidation: n(row.statut_validation) as StatutValidation | undefined,
@@ -67,6 +68,7 @@ export const fromFacture = (
   total_ht: f.totalHT,
   total_tva: f.totalTva,
   total_ttc: f.totalTtc,
+  taxe_sejour: f.taxeSejour ?? 0,
   activite: f.activite ?? null,
   activite_id: f.activiteId ?? null,
   statut_validation: f.statutValidation ?? "en_validation",
@@ -139,6 +141,7 @@ export const factures = {
         | "totalTtc"
         | "activiteId"
         | "compteTresorerie"
+        | "taxeSejour"
         | "client"
         | "date"
         | "activite"
@@ -168,6 +171,7 @@ export const factures = {
         ...(patch.totalHT !== undefined && { total_ht: patch.totalHT }),
         ...(patch.totalTva !== undefined && { total_tva: patch.totalTva }),
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
+        ...(patch.taxeSejour !== undefined && { taxe_sejour: patch.taxeSejour }),
         ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
         ...(patch.compteTresorerie !== undefined && { compte_tresorerie: patch.compteTresorerie ?? null }),
         ...(patch.client !== undefined && { client: patch.client }),

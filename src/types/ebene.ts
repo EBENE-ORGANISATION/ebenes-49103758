@@ -79,6 +79,8 @@ export interface Facture {
   creePar?: string;
   /** Compte d'encaissement choisi au paiement (521 Banque, 571 Caisse). */
   compteTresorerie?: "521" | "571";
+  /** Taxe de séjour facultative (hors TVA), ajoutée au total, collectée en 442. */
+  taxeSejour?: number;
   id: number;
   numero: string;
   client: string;

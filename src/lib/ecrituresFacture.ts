@@ -10,11 +10,12 @@ type EcritureGeneree = Omit<EcritureComptable, "id">;
  *    d'articles du stock vont en 701 (ventes de marchandises), les autres en
  *    701 ou 706 selon l'activité de la facture ; la réduction est répartie
  *    au prorata ;
+ *    La taxe de séjour éventuelle (hors TVA) est collectée en 442 ;
  *  - BQ ou CA : Banque 521 ou Caisse 571 / Client 4111 (montant réglé).
  */
 export const ecrituresFacturePayee = (
   f: Pick<Facture, "id" | "numero" | "client" | "date" | "activite" | "avecTva" | "totalHT" | "totalTva" | "totalTtc"> &
-    Partial<Pick<Facture, "lignes">>,
+    Partial<Pick<Facture, "lignes" | "taxeSejour">>,
   compteTresorerie: CompteTresorerie,
   annee: number,
   mois: number,
@@ -29,7 +30,8 @@ export const ecrituresFacturePayee = (
   const marchandises = lignes.filter((l) => l.articleId).reduce((s, l) => s + (l.montant || 0), 0);
   const ht = Math.round(f.totalHT);
   // Montant dû par le client = HT + TVA arrondis : l'écriture est toujours équilibrée
-  const montantRegle = ht + (f.avecTva ? Math.round(f.totalTva) : 0);
+  const taxeSejour = Math.max(0, Math.round(f.taxeSejour ?? 0));
+  const montantRegle = ht + (f.avecTva ? Math.round(f.totalTva) : 0) + taxeSejour;
   const ht701 = compteVente === "701" ? ht : sousTotal > 0 ? Math.round((ht * marchandises) / sousTotal) : 0;
   const produits = (
     [[compteVente === "701" ? "701" : "706", ht - ht701], ["701", ht701]] as [string, number][]
@@ -45,6 +47,7 @@ export const ecrituresFacturePayee = (
     { id: 0, compte: "4111", intitule: "Clients", debit: montantRegle, credit: 0, tiers: f.client },
     ...produits.map(([compte, m]) => ({ id: 0, compte, intitule: libelle(compte), debit: 0, credit: m, tiers: f.client })),
     ...(f.avecTva ? [{ id: 0, compte: "4431", intitule: "TVA facturée sur ventes", debit: 0, credit: Math.round(f.totalTva) }] : []),
+    ...(taxeSejour > 0 ? [{ id: 0, compte: "442", intitule: "Taxe de séjour collectée", debit: 0, credit: taxeSejour }] : []),
   ].map((l, i) => ({ ...l, id: i + 1 }));
 
   const estBanque = compteTresorerie === "521";

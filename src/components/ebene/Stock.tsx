@@ -16,6 +16,9 @@ import { formatMontant, formatSolde, todayISO, dateFr } from "@/lib/ebene-utils"
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
+import { COMPTES_ACHAT_STOCK, type AchatStock, type CompteAchatStock } from "@/lib/achatStock";
+import { intituleCompte } from "@/lib/ecrituresTresorerie";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Props {
   data: MoisData;
@@ -33,6 +36,8 @@ interface Props {
   onAddCategorie: (nom: string) => void;
   onRemoveCategorie: (id: number) => void;
   onAddMouvement: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+  /** Entrée achetée : mouvement + dépense d'achat (et ses écritures). */
+  onAddEntreeAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
   onRemoveMouvement: (annee: number, mois: number, id: number) => void;
   /** Seuls les chefs (compta ou admin) peuvent supprimer */
   isChefCompta?: boolean;
@@ -50,7 +55,7 @@ export const Stock = (props: Props) => {
     onAddArticle, onUpdateArticle, onRemoveArticle,
     onAddFournisseur, onUpdateFournisseur, onRemoveFournisseur,
     onAddCategorie, onRemoveCategorie,
-    onAddMouvement, onRemoveMouvement,
+    onAddMouvement, onAddEntreeAchat, onRemoveMouvement,
     isChefCompta,
   } = props;
 
@@ -100,7 +105,9 @@ export const Stock = (props: Props) => {
             annee={annee} mois={mois}
             mouvements={data.mouvementsStock || []}
             articles={articles}
+            fournisseurs={fournisseurs}
             onAdd={onAddMouvement}
+            onAddAchat={onAddEntreeAchat}
             onRemove={onRemoveMouvement}
             isChefCompta={isChefCompta}
           />
@@ -275,10 +282,12 @@ const ArticlesPanel = ({
 
 // ─── Mouvements ────────────────────────────────────────────────────────────
 const MouvementsPanel = ({
-  annee, mois, mouvements, articles, onAdd, onRemove, isChefCompta,
+  annee, mois, mouvements, articles, fournisseurs, onAdd, onAddAchat, onRemove, isChefCompta,
 }: {
   annee: number; mois: number; mouvements: MouvementStock[]; articles: Article[];
+  fournisseurs: Fournisseur[];
   onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+  onAddAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
   onRemove: (annee: number, mois: number, id: number) => void;
   isChefCompta?: boolean;
 }) => {
@@ -290,6 +299,12 @@ const MouvementsPanel = ({
   const [pu, setPu] = useState("");
   const [motif, setMotif] = useState("");
   const [reference, setReference] = useState("");
+  // Entrée achetée : la dépense d'achat est enregistrée avec le mouvement
+  const [comptabiliser, setComptabiliser] = useState(true);
+  const [compteAchat, setCompteAchat] = useState<CompteAchatStock>("601");
+  const [payeSur, setPayeSur] = useState<"521" | "571">("521");
+  const [achatAvecTva, setAchatAvecTva] = useState(true);
+  const [fournisseurAchat, setFournisseurAchat] = useState("");
 
   const submit = () => {
     const aId = parseInt(articleId, 10);
@@ -302,15 +317,23 @@ const MouvementsPanel = ({
     if (type === "sortie" && art && q > art.stock) {
       return toast.error(`Stock insuffisant : ${art.stock} ${art.unite} disponible(s).`);
     }
-    onAdd(annee, mois, {
+    const mvt: Omit<MouvementStock, "id"> = {
       date, articleId: aId, type, quantite: q,
       prixUnitaire: type === "entree" ? parseFloat(pu) || 0 : undefined,
       motif: motif.trim() || undefined,
       reference: reference.trim() || undefined,
-    });
+    };
+    if (type === "entree" && comptabiliser && onAddAchat) {
+      if (!(parseFloat(pu) > 0)) return toast.error("Prix unitaire d'achat obligatoire pour comptabiliser l'achat.");
+      onAddAchat(annee, mois, mvt, {
+        compte: compteAchat, tresorerie: payeSur, avecTva: achatAvecTva, fournisseur: fournisseurAchat,
+      });
+    } else {
+      onAdd(annee, mois, mvt);
+      toast.success("Mouvement enregistré");
+    }
     setArticleId(""); setQuantite(""); setPu(""); setMotif(""); setReference("");
     setOpen(false);
-    toast.success("Mouvement enregistré");
   };
 
   const sorted = [...mouvements].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -346,9 +369,60 @@ const MouvementsPanel = ({
               <Input type="number" value={quantite} onChange={(e) => setQuantite(e.target.value)} />
             </Lab>
             {type === "entree" && (
-              <Lab label="Prix unitaire (recalcule PMP)">
+              <Lab label="Prix unitaire HT (recalcule PMP)">
                 <Input type="number" value={pu} onChange={(e) => setPu(e.target.value)} />
               </Lab>
+            )}
+            {type === "entree" && onAddAchat && (
+              <div className="sm:col-span-3 rounded-lg border border-border bg-background/60 p-3 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <Checkbox checked={comptabiliser} onCheckedChange={(v) => setComptabiliser(v === true)} />
+                  Enregistrer l'achat en dépense (comptabilité)
+                </label>
+                {comptabiliser && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Lab label="Compte d'achat">
+                      <Select value={compteAchat} onValueChange={(v) => setCompteAchat(v as CompteAchatStock)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {COMPTES_ACHAT_STOCK.map((c) => (
+                            <SelectItem key={c} value={c}>{c} — {intituleCompte(c)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Lab>
+                    <Lab label="Payé par">
+                      <Select value={payeSur} onValueChange={(v) => setPayeSur(v as "521" | "571")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="521">Banque (521)</SelectItem>
+                          <SelectItem value="571">Caisse (571)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Lab>
+                    <Lab label="Fournisseur">
+                      <Input
+                        list="fournisseurs-achat-stock"
+                        value={fournisseurAchat}
+                        onChange={(e) => setFournisseurAchat(e.target.value)}
+                        placeholder="Fournisseur divers"
+                      />
+                      <datalist id="fournisseurs-achat-stock">
+                        {fournisseurs.map((f) => <option key={f.id} value={f.nom} />)}
+                      </datalist>
+                    </Lab>
+                    <label className="sm:col-span-3 flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox checked={achatAvecTva} onCheckedChange={(v) => setAchatAvecTva(v === true)} />
+                      Facture fournisseur avec TVA (18 % ajoutée au prix HT, déductible)
+                      {parseFloat(quantite) > 0 && parseFloat(pu) > 0 && (
+                        <span className="text-muted-foreground">
+                          — dépense de {formatMontant(Math.round(parseFloat(quantite) * parseFloat(pu) * (achatAvecTva ? 1.18 : 1)))}
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
             )}
             <Lab label="Référence (BL, facture...)"><Input value={reference} onChange={(e) => setReference(e.target.value)} /></Lab>
             <Lab label="Motif" full><Input value={motif} onChange={(e) => setMotif(e.target.value)} /></Lab>

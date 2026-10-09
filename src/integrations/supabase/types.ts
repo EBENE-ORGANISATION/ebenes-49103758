@@ -1061,6 +1061,7 @@ export type Database = {
       }
       factures: {
         Row: {
+          taxe_sejour: number
           cree_par: string | null
           compte_tresorerie: string | null
           activite: string | null
@@ -1087,6 +1088,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          taxe_sejour?: number
           cree_par?: string | null
           compte_tresorerie?: string | null
           activite?: string | null
@@ -1113,6 +1115,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          taxe_sejour?: number
           cree_par?: string | null
           compte_tresorerie?: string | null
           activite?: string | null

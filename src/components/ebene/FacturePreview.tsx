@@ -351,6 +351,14 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
                         </td>
                       </tr>
                     )}
+                    {(facture.taxeSejour ?? 0) > 0 && (
+                      <tr>
+                        <td style={{ padding: "2mm 4mm", color: "#666" }}>Taxe de séjour (hors TVA)</td>
+                        <td style={{ padding: "2mm 4mm", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                          {formatMontant(facture.taxeSejour ?? 0)}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
 
