@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { identificationRepo, type IdentificationSociete } from "@/data/identification.repo";
 
+/** Valeur stable tant que rien n'est chargé (évite de relancer les effets à chaque rendu). */
+const VIDE: IdentificationSociete = {};
+
 const cle = (societeId: string | null) => ["societe_identification", societeId] as const;
 
 /** Identification complète de la société (états financiers). */
@@ -16,7 +19,7 @@ export const useIdentification = (societeId: string | null) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: cle(societeId) }),
   });
   return {
-    identification: query.data ?? {},
+    identification: query.data ?? VIDE,
     isLoading: query.isLoading,
     enregistrer: mutation.mutateAsync,
     enregistrement: mutation.isPending,
