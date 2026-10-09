@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useTranslation } from "react-i18next";
 
-export const STATUT_BADGES: Record<StatutValidation, { cls: string; key: string }> = {
+const STATUT_BADGES: Record<StatutValidation, { cls: string; key: string }> = {
   brouillon: { cls: "bg-muted text-muted-foreground", key: "grh_statut.brouillon" },
   en_validation: { cls: "bg-warning/15 text-warning", key: "grh_statut.en_validation" },
   valide: { cls: "bg-success/15 text-success", key: "grh_statut.valide" },

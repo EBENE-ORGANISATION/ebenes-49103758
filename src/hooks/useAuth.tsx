@@ -252,7 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange, fetchMfa]);
+  }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange, fetchMfa, checkDevice]);
 
   /** Heartbeat: maintient last_seen_at sur la session en cours */
   useEffect(() => {
@@ -260,7 +260,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const tick = () => { void checkDevice(); };
     const id = setInterval(tick, 2 * 60 * 1000);
     return () => clearInterval(id);
-  }, [user]);
+  }, [checkDevice, user]);
 
   /** Inactivity timeout: déconnexion après 30 min sans activité */
   useEffect(() => {
@@ -383,6 +383,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Contexte React : le fournisseur et son hook vivent ensemble (convention)
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) {
@@ -432,6 +434,7 @@ export const useAuth = () => {
   return ctx;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrateur",
   chef_compta: "Chef Service Comptabilité",

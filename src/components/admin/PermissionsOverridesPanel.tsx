@@ -210,6 +210,8 @@ export const PermissionsOverridesPanel = ({ users }: Props) => {
 
   useEffect(() => {
     if (open && selectedUser) void loadOverrides(selectedUser);
+  // Rechargé à l'ouverture et au changement d'utilisateur seulement
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedUser]);
 
   const handleChangeDraft = (update: Partial<Draft>) => {

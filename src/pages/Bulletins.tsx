@@ -82,7 +82,7 @@ const Bulletins = () => {
   }, [selectedEmploye, loadBulletinsEmploye]);
 
   const annees = useMemo(() => {
-    const y = now.getFullYear();
+    const y = new Date().getFullYear();
     return [y - 2, y - 1, y, y + 1];
   }, []);
 

@@ -27,7 +27,7 @@ import {
 import { FileText, RefreshCw, CheckCircle, CreditCard, Trash2, Download, Plus, Users, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { generateBulletin, type BulletinSocieteInfo } from "@/lib/bulletinPDF";
-import { calculerPaie } from "@/components/ebene/grh/BulletinPaie";
+import { calculerPaie } from "@/lib/paie";
 import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { MOIS_NOMS, type Employe, type BulletinPaieRecord } from "@/types/ebene";
 import { BulletinEditDialog } from "./BulletinEditDialog";

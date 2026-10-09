@@ -236,7 +236,7 @@ export const PortailEmploye = () => {
       .filter((s) => s.employeId === employe.id && new Date(s.date).getTime() >= limite)
       .forEach((s) => sanctions.push(s));
     return { primes, sanctions };
-  }, [employe, store, annee]);
+  }, [employe, store]);
 
   // ─── Messagerie ────────────────────────────────────────────────────────
   const [msgTexte, setMsgTexte] = useState("");

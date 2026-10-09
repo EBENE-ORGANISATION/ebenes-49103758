@@ -116,7 +116,7 @@ export const Comptabilite = ({
   const [showSaisie, setShowSaisie] = useState(false);
 
   // ── Écritures SYSCOHADA du mois ─────────────────────────────────────────────
-  const ecritures: EcritureComptable[] = data.ecritures || [];
+  const ecritures = useMemo<EcritureComptable[]>(() => data.ecritures || [], [data.ecritures]);
 
   // ── Calculs Trésorerie (existants — inchangés) ──────────────────────────────
   // Les charges salariales n'apparaissent en dépenses que lorsqu'un bulletin

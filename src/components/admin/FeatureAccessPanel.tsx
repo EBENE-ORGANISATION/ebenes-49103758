@@ -60,6 +60,8 @@ export const FeatureAccessPanel = ({ users }: Props) => {
 
   useEffect(() => {
     if (open && selectedUser) void loadFeatures(selectedUser);
+  // Rechargé à l'ouverture et au changement d'utilisateur seulement
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedUser]);
 
   const save = async () => {

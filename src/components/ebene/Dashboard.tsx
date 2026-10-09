@@ -217,7 +217,7 @@ export const Dashboard = ({
       montantImpaye,
       tresorerie, tresoreriePrecedente, tendanceTresorerie,
     };
-  }, [moisCourant, moisPrecedent, employes, donneesMensuelles, annee, mois, taux]);
+  }, [moisCourant, moisPrecedent, taux, employes, donneesMensuelles, annee, mois, activiteFiltre]);
 
   // ── Sparkline trésorerie 6 mois ──────────────────────────────────────────
   const sparklineTresorerie = useMemo(() => {

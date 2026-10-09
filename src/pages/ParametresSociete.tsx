@@ -109,6 +109,8 @@ const ParametresSociete = () => {
   // Aperçu en direct des couleurs
   useEffect(() => {
     applyTheme(draft);
+  // Seules les couleurs changent le thème affiché
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent]);
 
   if (!isAdmin && !isSuperAdmin) {

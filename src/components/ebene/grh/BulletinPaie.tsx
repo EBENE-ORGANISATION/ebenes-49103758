@@ -17,8 +17,6 @@ interface Props {
   onClose: () => void;
 }
 
-// Calcul déplacé dans @/lib/paie (module pur) ; réexporté pour les appelants existants.
-export { calculerPaie, type CalculPaie } from "@/lib/paie";
 
 export const BulletinPaie = ({ employe, data, annee, mois, onClose }: Props) => {
   const { t } = useTranslation();

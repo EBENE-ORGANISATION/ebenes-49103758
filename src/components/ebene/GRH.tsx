@@ -33,7 +33,8 @@ import {
 import { StatCard } from "./StatCard";
 import { formatMontant, tauxPourMois } from "@/lib/ebene-utils";
 import { EmployeForm } from "./grh/EmployeForm";
-import { BulletinPaie, calculerPaie } from "./grh/BulletinPaie";
+import { BulletinPaie } from "./grh/BulletinPaie";
+import { calculerPaie } from "@/lib/paie";
 import { ContratGenerator } from "./grh/ContratGenerator";
 import { AbsencesPanel } from "./grh/AbsencesPanel";
 import { HeuresSupPanel } from "./grh/HeuresSupPanel";
