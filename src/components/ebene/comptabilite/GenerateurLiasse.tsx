@@ -16,7 +16,9 @@ import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { saveFileViaElectron } from "@/lib/platform";
 import { todayISO } from "@/lib/ebene-utils";
 import { formatSolde } from "@/lib/ebene-utils";
-import { genererLiasse, MODELES, systemeDuRegime, type SystemeLiasse } from "@/lib/liasse/genererLiasse";
+import { caParActivite, genererLiasse, MODELES, systemeDuRegime, type SystemeLiasse } from "@/lib/liasse/genererLiasse";
+import { useIdentification } from "@/hooks/data/useIdentification";
+import { useActivites } from "@/hooks/data/useActivites";
 import { SECTEUR_LABELS } from "@/types/fiscal";
 
 interface Props {
@@ -63,6 +65,8 @@ const telecharger = async (nom: string, contenu: Uint8Array) => {
 export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, employes = [], immobilisations = [], articles = [], tauxHistorique }: Props) => {
   const { currentSociete } = useTenant();
   const historiqueTaux = useTauxHistoriqueCourant();
+  const { identification } = useIdentification(currentSociete?.id ?? null);
+  const { activites } = useActivites(currentSociete?.id ?? null);
   const [annee, setAnnee] = useState(anneeCourante);
   const [systeme, setSysteme] = useState<SystemeLiasse>(systemeDuRegime(currentSociete?.regime_fiscal));
   const [enCours, setEnCours] = useState(false);
@@ -76,6 +80,7 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
       if (!reponse.ok) throw new Error("Modèle introuvable");
       const modele = await reponse.arrayBuffer();
       const secteur = currentSociete.secteur_activite as keyof typeof SECTEUR_LABELS | null;
+      const personnel = personnelExercice(employes, donneesMensuelles, annee, tauxHistorique ?? historiqueTaux);
       const { fichier, etats } = await genererLiasse(systeme, modele, {
         donnees: donneesMensuelles,
         annee,
@@ -83,7 +88,16 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
         gestion: {
           immobilisations,
           articles,
-          personnel: personnelExercice(employes, donneesMensuelles, annee, tauxHistorique ?? historiqueTaux),
+          personnel,
+        },
+        identification: {
+          identification,
+          regimeFiscal: currentSociete.regime_fiscal,
+          representant: currentSociete.representant,
+          fonctionRepresentant: currentSociete.fonction_representant,
+          activites: caParActivite(donneesMensuelles, annee, new Map(activites.map((a) => [a.id, a.nom]))),
+          effectif: personnel.length,
+          masseSalariale: personnel.reduce((t, p) => t + p.masseAnnuelle, 0),
         },
         societe: {
           nom: currentSociete.nom,
@@ -95,6 +109,9 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
           representant: currentSociete.representant,
           fonctionRepresentant: currentSociete.fonction_representant,
           activite: secteur ? SECTEUR_LABELS[secteur] ?? secteur : null,
+          sigle: identification.sigle,
+          ville: identification.ville,
+          boitePostale: identification.boitePostale,
         },
       });
       const nom = `Etats_financiers_${annee}_${currentSociete.nom.replace(/[^\w-]+/g, "_")}_${systeme === "smt" ? "SMT" : "SN"}.xlsx`;

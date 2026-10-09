@@ -19,12 +19,18 @@ const ecrituresValidees = (donnees: DonneesMensuelles): (EcritureComptable & { _
       .map((e) => ({ ...e, _annee: e.annee ?? annee }));
   });
 
+/** Écriture d'à-nouveaux (bilan d'ouverture) de l'exercice. */
+export const pieceANouveaux = (annee: number) => `AN-${annee}`;
+export const estANouveaux = (e: Pick<EcritureComptable, "journal" | "numeroPiece">, annee: number) =>
+  e.journal === "AN" && e.numeroPiece === pieceANouveaux(annee);
+
 const ajouter = (s: Soldes, compte: string, v: number) => s.set(compte, (s.get(compte) ?? 0) + v);
 
 /** Soldes de clôture de l'exercice : bilan (cumulé) + gestion (exercice seul). */
 export const soldesCloture = (donnees: DonneesMensuelles, annee: number): { bilan: Soldes; gestion: Soldes; reportImplicite: number } => {
   const toutes = ecrituresValidees(donnees);
-  const avecANouveaux = toutes.some((e) => e._annee === annee && e.journal === "AN");
+  // À-nouveaux d'exercice : pièce « AN-<année> » (le stock d'ouverture INV-OUV n'en est pas)
+  const avecANouveaux = toutes.some((e) => e._annee === annee && estANouveaux(e, annee));
   const bilan: Soldes = new Map();
   const gestion: Soldes = new Map();
   let reportImplicite = 0;

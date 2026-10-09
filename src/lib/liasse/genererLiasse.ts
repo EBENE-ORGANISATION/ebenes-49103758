@@ -5,6 +5,8 @@ import { saisiesReel, type InfosSociete } from "./modeleReel";
 import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
 import { complementsReel, complementsSmt, type DonneesGestion } from "./etatsComplementaires";
+import { saisiesIdentification, type ActiviteCA, type InfosIdentification } from "./identificationLiasse";
+import type { DonneesMensuelles as DM } from "@/types/ebene";
 import { remplirModele, type Saisie } from "./xlsxPatch";
 
 export type SystemeLiasse = "normal" | "smt";
@@ -24,7 +26,9 @@ export interface DonneesLiasse {
   dateArrete: string;
   /** Immobilisations, stock et personnel (notes et états complémentaires). */
   gestion?: DonneesGestion;
-  /** Saisies complémentaires (identification détaillée…). */
+  /** Identification complète (fiches, dirigeants, capital). */
+  identification?: InfosIdentification;
+  /** Saisies complémentaires. */
   complements?: Saisie[];
 }
 
@@ -39,7 +43,8 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
         ...saisiesNotesSoldes(d.donnees, d.annee),
         ...saisiesNotesImmobilisations(d.donnees, d.annee),
       ];
-  return { etats, saisies: [...base, ...(d.complements ?? [])] };
+  const ident = d.identification ? saisiesIdentification(d.identification, etats, { systeme }) : [];
+  return { etats, saisies: [...base, ...ident, ...(d.complements ?? [])] };
 };
 
 /** Remplit le modèle (contenu du fichier) et renvoie le classeur produit. */
@@ -47,4 +52,21 @@ export const genererLiasse = async (systeme: SystemeLiasse, modele: ArrayBuffer 
   const { etats, saisies } = saisiesLiasse(systeme, d);
   const fichier = await remplirModele(modele, saisies);
   return { etats, fichier };
+};
+
+/** Chiffre d'affaires HT de l'exercice par activité (comptes 70 des écritures validées). */
+export const caParActivite = (donnees: DM, annee: number, noms: Map<string, string>): ActiviteCA[] => {
+  const ca = new Map<string, number>();
+  for (const [k, m] of Object.entries(donnees)) {
+    if (Number(k.split("-")[0]) !== annee) continue;
+    for (const e of m?.ecritures ?? []) {
+      if (e.statut === "brouillon") continue;
+      for (const l of e.lignes ?? []) {
+        if (!l.compte.startsWith("70")) continue;
+        const nom = (e.activiteId && noms.get(e.activiteId)) || "Activité principale";
+        ca.set(nom, (ca.get(nom) ?? 0) + (l.credit || 0) - (l.debit || 0));
+      }
+    }
+  }
+  return [...ca].map(([nom, v]) => ({ nom, ca: Math.round(v) }));
 };

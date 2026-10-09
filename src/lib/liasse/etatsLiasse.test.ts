@@ -67,3 +67,20 @@ describe("etatsFinanciersLiasse", () => {
     expect(e27.ecartTresorerie).toBe(0);
   });
 });
+
+describe("à-nouveaux d'exercice", () => {
+  it("avec une pièce AN-<année>, le bilan part des à-nouveaux et ignore les exercices antérieurs", () => {
+    const an = e("AN-2027", "2027-01-01", [["521", 700_000, 0], ["1013", 0, 1_000_000], ["129", 300_000, 0]], "AN");
+    const d = { "2026-12": { ecritures: ecritures2026 }, "2027-1": { ecritures: [an] } } as never;
+    const x = etatsFinanciersLiasse(d, 2027);
+    expect(x.n.actif.BS.net).toBe(700_000);
+    expect(x.n.passif.CH).toBe(-300_000);
+    expect(x.n.actif.BZ.net).toBe(x.n.passif.DZ);
+  });
+
+  it("le stock d'ouverture (journal AN, pièce INV-OUV) n'est pas pris pour des à-nouveaux", () => {
+    const ouv = e("INV-OUV-2027-01", "2027-01-01", [["311", 10_000, 0], ["121", 0, 10_000]], "AN");
+    const d = { "2026-12": { ecritures: ecritures2026 }, "2027-1": { ecritures: [ouv] } } as never;
+    expect(etatsFinanciersLiasse(d, 2027).n.actif.BS.net).toBe(740_000);
+  });
+});
