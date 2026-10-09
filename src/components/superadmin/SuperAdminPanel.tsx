@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLienAccueil } from "@/hooks/useTenant";
 import { useTranslation, Trans } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -288,6 +289,7 @@ const MiseAJourPanel = ({ stats }: { stats: Stats | null }) => {
 export const SuperAdminPanel = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const accueil = useLienAccueil();
   const [societes, setSocietes] = useState<SocieteRow[]>([]);
   const [configs, setConfigs] = useState<Record<string, SocieteConfigRow>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -408,7 +410,7 @@ export const SuperAdminPanel = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+          <Button variant="outline" size="sm" onClick={() => navigate(accueil)}>
             <ArrowLeft className="size-4 mr-1" /> {t("superadmin.back")}
           </Button>
           <div>

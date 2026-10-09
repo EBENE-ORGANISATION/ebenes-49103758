@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTenant } from "@/hooks/useTenant";
+import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { ActivitesManager } from "@/components/ebene/ActivitesManager";
 import { IdentificationSociete } from "@/components/ebene/IdentificationSociete";
 import { applyTheme } from "@/lib/theme";
@@ -58,6 +58,7 @@ const ParametresSociete = () => {
   const { t } = useTranslation();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { currentSociete, societeConfig, societes, setCurrentSocieteId, isLoading, refresh } = useTenant();
+  const accueil = useLienAccueil();
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draft, setDraft] = useState({
@@ -120,7 +121,7 @@ const ParametresSociete = () => {
         <Card className="p-6 max-w-md text-center space-y-3">
           <h1 className="text-xl font-bold">{t("params.access_denied")}</h1>
           <p className="text-sm text-muted-foreground">{t("params.access_denied_desc")}</p>
-          <Button asChild variant="outline"><Link to="/">{t("params.back")}</Link></Button>
+          <Button asChild variant="outline"><Link to={accueil}>{t("params.back")}</Link></Button>
         </Card>
       </div>
     );
@@ -219,7 +220,7 @@ const ParametresSociete = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> {t("params.back")}</Link>
+              <Link to={accueil}><ArrowLeft className="size-4" /> {t("params.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Settings2 className="size-6 text-primary" /> {t("params.title")}

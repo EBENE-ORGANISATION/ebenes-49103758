@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useLienAccueil } from "@/hooks/useTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, AppRole, ROLE_LABELS } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const callFn = async (body: Record<string, unknown>) => {
 };
 
 const AdminUsers = () => {
+  const accueil = useLienAccueil();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -147,7 +149,7 @@ const AdminUsers = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="size-4" /> {t("admin_users.back")}</Link>
+              <Link to={accueil}><ArrowLeft className="size-4" /> {t("admin_users.back")}</Link>
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="size-6 text-primary" /> {t("admin_users.title")}

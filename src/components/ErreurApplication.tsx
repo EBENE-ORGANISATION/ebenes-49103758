@@ -3,6 +3,13 @@
  * (écran blanc). Un écran propose de revenir à l'accueil ou de recharger.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { lienAccueil } from "@/hooks/useTenant";
+
+/** Accueil de la société en cours (le ?sid= de l'adresse), sinon accueil général. */
+const hashAccueil = () => {
+  const m = window.location.hash.match(/[?&]sid=([^&]+)/);
+  return "#" + lienAccueil(m ? decodeURIComponent(m[1]) : null);
+};
 
 interface Props {
   children: ReactNode;
@@ -24,12 +31,12 @@ export class ErreurApplication extends Component<Props, State> {
   }
 
   private accueil = () => {
-    window.location.hash = "#/";
+    window.location.hash = hashAccueil();
     this.setState({ erreur: null });
   };
 
   private recharger = () => {
-    window.location.hash = "#/";
+    window.location.hash = hashAccueil();
     window.location.reload();
   };
 

@@ -63,6 +63,18 @@ export const useTenantNavigate = (): ((societeId: string | null) => void) => {
   );
 };
 
+/**
+ * Lien de retour à l'accueil qui garde la société en cours (?sid=).
+ * Un simple "/" ramènerait un super-admin sur la console « Ébène Suite ».
+ */
+export const lienAccueil = (sid: string | null): string =>
+  sid ? `/?sid=${encodeURIComponent(sid)}` : "/";
+
+export const useLienAccueil = (): string => {
+  const { search } = useLocation();
+  return lienAccueil(new URLSearchParams(search).get("sid"));
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface TenantState {

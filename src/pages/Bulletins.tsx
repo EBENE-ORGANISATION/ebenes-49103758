@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, FileText, Download, History } from "lucide-react";
-import { useTenant } from "@/hooks/useTenant";
+import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { useAuth } from "@/hooks/useAuth";
 import { useEbeneStoreRemote as useEbeneStore } from "@/hooks/useEbeneStoreRemote";
 import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
@@ -45,6 +45,7 @@ const statutClass = (s: BulletinPaieRecord["statut"]) =>
 
 const Bulletins = () => {
   const navigate = useNavigate();
+  const accueil = useLienAccueil();
   const now = new Date();
   const [annee, setAnnee] = useState<number>(now.getFullYear());
   const [mois, setMois] = useState<number>(now.getMonth() + 1);
@@ -97,7 +98,7 @@ const Bulletins = () => {
     <div className="container mx-auto p-4 space-y-4 max-w-6xl">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={() => navigate(accueil)} className="gap-1.5">
             <ArrowLeft className="size-4" /> Retour
           </Button>
           <h1 className="text-2xl font-bold flex items-center gap-2">

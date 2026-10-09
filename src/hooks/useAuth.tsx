@@ -111,7 +111,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const email = data.email ?? "";
         // Redirige vers /auth avec flag
         const params = new URLSearchParams({ awaiting_confirmation: "1", email });
-        window.location.replace(`/auth?${params.toString()}`);
+        // Route du HashRouter : pas de rechargement complet, et le message
+        // « Confirmation requise » s'affiche (il lit les paramètres du #).
+        window.location.replace(`${window.location.pathname}${window.location.search}#/auth?${params.toString()}`);
       }
     } catch (e) {
       console.error("checkDevice failed", e);

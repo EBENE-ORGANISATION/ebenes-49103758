@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { useTenant } from "@/hooks/useTenant";
+import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { fetchDeleted, softPurge } from "@/lib/softDelete";
 import { restaurerDepuisCorbeille, RestaurationRefusee } from "@/lib/restaurationCorbeille";
 import { QK_ECRITURES } from "@/hooks/data/useEcritures";
@@ -139,6 +139,7 @@ interface DeletedItem {
 export default function Corbeille() {
   const { isAdmin, isChefCompta, isChefGrh } = useAuth();
   const { currentSociete } = useTenant();
+  const accueil = useLienAccueil();
   const qc = useQueryClient();
   const societeId = currentSociete?.id ?? "";
 
@@ -230,7 +231,7 @@ export default function Corbeille() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-4">
         <p className="text-muted-foreground">Aucune société sélectionnée.</p>
         <Button asChild variant="outline" size="sm" className="gap-1.5">
-          <Link to="/">
+          <Link to={accueil}>
             <ArrowLeft className="size-4" /> Retour
           </Link>
         </Button>
@@ -244,7 +245,7 @@ export default function Corbeille() {
         {/* En-tête */}
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link to="/">
+            <Link to={accueil}>
               <ArrowLeft className="size-4" /> Retour
             </Link>
           </Button>
