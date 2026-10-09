@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActiviteType,
+  Article,
   Devis,
   DonneesMensuelles,
   MoisData,
@@ -25,6 +26,8 @@ import { ActiviteSelect } from "./ActiviteSelect";
 import { useTranslation } from "react-i18next";
 import { DevisPreview } from "./DevisPreview";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
+import { LignesVente } from "./LignesVente";
+import { LIGNE_VIDE, lignesEnregistrees, lignesEnSaisie, type LigneSaisie } from "@/lib/lignesVente";
 import {
   genererNumeroDevis,
   genererNumeroFacture as genererNumeroFactureFmt,
@@ -40,6 +43,8 @@ interface Props {
   onConvertir: (id: number, numeroFacture: string) => void;
   /** Mise à jour d'un devis non encore converti / refusé. */
   onUpdate?: (id: number, patch: Partial<Devis>) => void;
+  /** Articles du stock : une ligne peut reprendre un article (repris à la conversion en facture). */
+  articles?: Article[];
 }
 
 const STATUT_BADGE_CLS: Record<StatutDevis, string> = {
@@ -90,6 +95,7 @@ export const DevisSection = ({
   onRemove,
   onConvertir,
   onUpdate,
+  articles = [],
 }: Props) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -104,9 +110,7 @@ export const DevisSection = ({
   const { currentActiviteId } = useActiviteFilter();
   const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
   useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
-  const [lignes, setLignes] = useState<{ description: string; montant: string }[]>([
-    { description: "", montant: "" },
-  ]);
+  const [lignes, setLignes] = useState<LigneSaisie[]>([{ ...LIGNE_VIDE }]);
   const [numero, setNumero] = useState("");
   const [numeroEdited, setNumeroEdited] = useState(false);
 
@@ -132,7 +136,7 @@ export const DevisSection = ({
     setAvecTva(true);
     setActivite("service");
     setActiviteId(currentActiviteId);
-    setLignes([{ description: "", montant: "" }]);
+    setLignes([{ ...LIGNE_VIDE }]);
     setNumero("");
     setNumeroEdited(false);
   };
@@ -159,9 +163,7 @@ export const DevisSection = ({
     if (activiteObligatoire && !activiteId) return alert(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!client.trim()) return alert(t("devis.err_client"));
     if (!date) return alert(t("devis.err_date"));
-    const lignesNet = lignes
-      .map((l) => ({ description: l.description.trim(), montant: parseFloat(l.montant) || 0 }))
-      .filter((l) => l.description && l.montant > 0);
+    const lignesNet = lignesEnregistrees(lignes);
     if (lignesNet.length === 0) return alert(t("devis.err_lines"));
     const red = Math.max(0, parseFloat(reduction) || 0);
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
@@ -298,50 +300,14 @@ export const DevisSection = ({
             <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1 block">
               {t("devis.f_services")}
             </Label>
-            <div className="space-y-2">
-              {lignes.map((l, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <Input
-                    placeholder={t("devis.f_description")}
-                    value={l.description}
-                    onChange={(e) => {
-                      const next = [...lignes];
-                      next[idx] = { ...next[idx], description: e.target.value };
-                      setLignes(next);
-                    }}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    placeholder={t("devis.f_amount")}
-                    value={l.montant}
-                    onChange={(e) => {
-                      const next = [...lignes];
-                      next[idx] = { ...next[idx], montant: e.target.value };
-                      setLignes(next);
-                    }}
-                    className="w-32"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive shrink-0"
-                    onClick={() => setLignes(lignes.filter((_, i) => i !== idx))}
-                    disabled={lignes.length === 1}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 gap-1.5"
-              onClick={() => setLignes([...lignes, { description: "", montant: "" }])}
-            >
-              <Plus className="size-3.5" /> {t("devis.add_line")}
-            </Button>
+            <LignesVente
+              lignes={lignes}
+              onChange={setLignes}
+              articles={articles}
+              placeholderDescription={t("devis.f_description")}
+              placeholderMontant={t("devis.f_amount")}
+              libelleAjout={t("devis.add_line")}
+            />
           </div>
 
           <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} label="Compartiment d'activité" />
@@ -447,12 +413,7 @@ export const DevisSection = ({
                           setAvecTva(!!d.avecTva);
                           setActivite(d.activite || "service");
                           setActiviteId(d.activiteId ?? null);
-                          setLignes(
-                            (d.lignes && d.lignes.length > 0
-                              ? d.lignes
-                              : [{ description: "", montant: 0 }]
-                            ).map((l) => ({ description: l.description, montant: String(l.montant) }))
-                          );
+                          setLignes(lignesEnSaisie(d.lignes));
                           setOpen(true);
                         }}
                       >

@@ -18,6 +18,8 @@ import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
+import { LignesVente } from "./LignesVente";
+import { LIGNE_VIDE, lignesEnregistrees, lignesEnSaisie, type LigneSaisie } from "@/lib/lignesVente";
 import {
   genererNumeroFacture,
   reserverNumero,
@@ -112,23 +114,7 @@ export const Factures = ({
   const { currentActiviteId } = useActiviteFilter();
   const [activiteId, setActiviteId] = useState<string | null>(currentActiviteId);
   useEffect(() => { setActiviteId(currentActiviteId); }, [currentActiviteId]);
-  // Ligne en saisie ; articleId : article du stock vendu (montant = quantité × prix unitaire)
-  type LigneSaisie = { description: string; montant: string; articleId?: number | null; quantite?: string; prixUnitaire?: string };
-  const [lignes, setLignes] = useState<LigneSaisie[]>([
-    { description: "", montant: "" },
-  ]);
-  const majLigne = (idx: number, patch: Partial<LigneSaisie>) =>
-    setLignes((prev) => prev.map((l, i) => {
-      if (i !== idx) return l;
-      const n = { ...l, ...patch };
-      if (n.articleId) n.montant = String((parseFloat(n.quantite || "0") || 0) * (parseFloat(n.prixUnitaire || "0") || 0));
-      return n;
-    }));
-  const choisirArticle = (idx: number, articleId: number | null) => {
-    const a = articles.find((x) => x.id === articleId);
-    if (!a) return majLigne(idx, { articleId: null, quantite: undefined, prixUnitaire: undefined });
-    majLigne(idx, { articleId: a.id, description: a.designation, quantite: lignes[idx]?.quantite || "1", prixUnitaire: String(a.prixVente || 0) });
-  };
+  const [lignes, setLignes] = useState<LigneSaisie[]>([{ ...LIGNE_VIDE }]);
   const [ocrOpen, setOcrOpen] = useState(false);
   const [numero, setNumero] = useState("");
   const [numeroEdited, setNumeroEdited] = useState(false);
@@ -163,7 +149,7 @@ export const Factures = ({
     setProforma(false);
     setActivite("service");
     setActiviteId(currentActiviteId);
-    setLignes([{ description: "", montant: "" }]);
+    setLignes([{ ...LIGNE_VIDE }]);
     setNumero("");
     setNumeroEdited(false);
   };
@@ -200,15 +186,7 @@ export const Factures = ({
     if (activiteObligatoire && !activiteId) return alert(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!client.trim()) return alert("Le nom du client est obligatoire.");
     if (!date) return alert("Date obligatoire.");
-    const lignesNet = lignes
-      .map((l) => ({
-        description: l.description.trim(),
-        montant: parseFloat(l.montant) || 0,
-        ...(l.articleId
-          ? { articleId: l.articleId, quantite: parseFloat(l.quantite || "0") || 0, prixUnitaire: parseFloat(l.prixUnitaire || "0") || 0 }
-          : {}),
-      }))
-      .filter((l) => l.description && l.montant > 0);
+    const lignesNet = lignesEnregistrees(lignes);
     if (lignesNet.length === 0) return alert("Au moins une prestation valide.");
     const red = Math.max(0, parseFloat(reduction) || 0);
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
@@ -268,18 +246,7 @@ export const Factures = ({
     setProforma(f.statut === "proforma");
     setActivite(f.activite || "service");
     setActiviteId(f.activiteId ?? null);
-    setLignes(
-      (f.lignes && f.lignes.length > 0
-        ? f.lignes
-        : [{ description: "", montant: 0 }]
-      ).map((l) => ({
-        description: l.description,
-        montant: String(l.montant),
-        articleId: l.articleId ?? null,
-        quantite: l.quantite != null ? String(l.quantite) : undefined,
-        prixUnitaire: l.prixUnitaire != null ? String(l.prixUnitaire) : undefined,
-      }))
-    );
+    setLignes(lignesEnSaisie(f.lignes));
     setOpen(true);
   };
 
@@ -293,6 +260,7 @@ export const Factures = ({
       {onAddDevis && onRemoveDevis && onConvertirDevis && (
         <DevisSection
           annee={annee}
+          articles={articles}
           donneesMensuelles={donneesMensuelles}
           data={data}
           onAdd={onAddDevis}
@@ -385,92 +353,12 @@ export const Factures = ({
             <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1 block">
               Prestations *
             </Label>
-            <div className="space-y-2">
-              {lignes.map((l, idx) => {
-                const article = articles.find((a) => a.id === l.articleId);
-                const manque = !!article && (parseFloat(l.quantite || "0") || 0) > article.stock;
-                return (
-                <div key={idx} className="space-y-1.5">
-                {articles.length > 0 && (
-                  <select
-                    aria-label="Article du stock"
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                    value={l.articleId ?? ""}
-                    onChange={(e) => choisirArticle(idx, e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Prestation (hors stock)</option>
-                    {articles.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.reference} — {a.designation} (stock : {a.stock} {a.unite})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                  <Input
-                    placeholder="Description"
-                    value={l.description}
-                    onChange={(e) => majLigne(idx, { description: e.target.value })}
-                    className="flex-1 min-w-[10rem]"
-                  />
-                  {l.articleId && (
-                    <>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="any"
-                        aria-label="Quantité"
-                        placeholder="Qté"
-                        value={l.quantite ?? ""}
-                        onChange={(e) => majLigne(idx, { quantite: e.target.value })}
-                        className={`w-20 ${manque ? "border-destructive" : ""}`}
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        aria-label="Prix unitaire"
-                        placeholder="P.U."
-                        value={l.prixUnitaire ?? ""}
-                        onChange={(e) => majLigne(idx, { prixUnitaire: e.target.value })}
-                        className="w-28"
-                      />
-                    </>
-                  )}
-                  <Input
-                    type="number"
-                    placeholder="Montant"
-                    value={l.montant}
-                    readOnly={!!l.articleId}
-                    onChange={(e) => majLigne(idx, { montant: e.target.value })}
-                    className={`w-32 ${l.articleId ? "bg-muted" : ""}`}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive shrink-0"
-                    onClick={() => setLignes(lignes.filter((_, i) => i !== idx))}
-                    disabled={lignes.length === 1}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-                {manque && article && (
-                  <p className="text-xs text-destructive">
-                    Stock disponible : {article.stock} {article.unite}. La facture ne pourra être validée qu&apos;après une entrée en stock.
-                  </p>
-                )}
-                </div>
-                );
-              })}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 gap-1.5"
-              onClick={() => setLignes([...lignes, { description: "", montant: "" }])}
-            >
-              <Plus className="size-3.5" /> Ajouter ligne
-            </Button>
+            <LignesVente
+              lignes={lignes}
+              onChange={setLignes}
+              articles={articles}
+              messageStock={(a) => `Stock disponible : ${a.stock} ${a.unite}. La facture ne pourra être validée qu'après une entrée en stock.`}
+            />
           </div>
 
           <ActiviteSelect value={activiteId} onChange={setActiviteId} allowNone={false} label="Compartiment d'activité" />
