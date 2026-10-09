@@ -37,6 +37,12 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("vite/preload-helper") || id.includes("commonjsHelpers")) {
             return "vendor-runtime";
           }
+          // ── JSZip (liasse fiscale) : chunk à part. Sinon Rollup le range avec
+          //    html-to-docx, qui en dépend, et l'onglet Comptabilité exécute alors
+          //    html-to-docx au chargement → « Class extends value undefined ».
+          if (id.includes("node_modules/jszip") || id.includes("node_modules\\jszip")) {
+            return "vendor-zip";
+          }
           // ── Chunk dédié html-to-docx (1,2 MB) — chargé uniquement à l'export Word
           if (id.includes("html-to-docx") || id.includes("xmlbuilder2") || id.includes("htmlparser2")) {
             return "vendor-docx";
