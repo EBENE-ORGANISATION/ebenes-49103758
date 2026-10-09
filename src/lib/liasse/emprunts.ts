@@ -149,7 +149,6 @@ export const saisiesEmprunts = (emprunts: Emprunt[], annee: number, solde162: nu
     if (lignesCommentaire.length) out.push({ feuille: "NOTE 16A", cellule: "B43", valeur: lignesCommentaire.join(" — ") });
   }
   if (brutGaranti) {
-    const total = garanties.hypotheque + garanties.nantissement + garanties.gage;
     for (const ligne of [14, 16, 33]) {
       out.push(
         { feuille: "NOTE 1", cellule: `G${ligne}`, valeur: brutGaranti },
@@ -158,11 +157,17 @@ export const saisiesEmprunts = (emprunts: Emprunt[], annee: number, solde162: nu
         { feuille: "NOTE 1", cellule: `J${ligne}`, valeur: garanties.gage },
       );
     }
-    // Engagements donnés : sûretés consenties
-    out.push({ feuille: "NOTE 1", cellule: "I39", valeur: total }, { feuille: "NOTE 1", cellule: "I43", valeur: total });
   }
   return out;
 };
+
+/** Sûretés réelles consenties sur les emprunts restant dus à la clôture (engagement donné). */
+export const suretesConsenties = (emprunts: Emprunt[], annee: number): number =>
+  emprunts.reduce((t, e) => {
+    if (!e.garantie || !SURETES_REELLES.includes(e.garantie)) return t;
+    const restant = capitalRestantDu(e, `${annee}-12-31`);
+    return t + (restant > 0 ? Math.min(restant, Math.round(e.montantGaranti ?? restant)) : 0);
+  }, 0);
 
 // ── Écritures : déblocage (EMP-<id>-0) et échéances (EMP-<id>-<n>) ──────────
 

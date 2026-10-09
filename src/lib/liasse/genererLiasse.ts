@@ -1,7 +1,8 @@
 // Génération de la liasse (états financiers complets) dans le modèle officiel.
 import type { DonneesMensuelles } from "@/types/ebene";
 import { etatsFinanciersLiasse, soldesCloture } from "./etatsLiasse";
-import { saisiesEmprunts, type Emprunt } from "./emprunts";
+import { saisiesEmprunts, suretesConsenties, type Emprunt } from "./emprunts";
+import { saisiesHorsBilan, saisiesResultatFiscal, type InformationsFiscales } from "./resultatFiscal";
 import { saisiesReel, type InfosSociete } from "./modeleReel";
 import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
@@ -31,6 +32,8 @@ export interface DonneesLiasse {
   identification?: InfosIdentification;
   /** Emprunts (échéanciers et garanties : notes 1 et 16A). */
   emprunts?: Emprunt[];
+  /** Résultat fiscal, engagements hors bilan, actifs et passifs éventuels. */
+  fiscal?: InformationsFiscales;
   /** Saisies complémentaires. */
   complements?: Saisie[];
 }
@@ -48,7 +51,13 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
       ];
   const ident = d.identification ? saisiesIdentification(d.identification, etats, { systeme }) : [];
   const emprunts = systeme === "normal" && d.emprunts?.length ? saisiesDettesFinancieres(d) : [];
-  return { etats, saisies: [...base, ...emprunts, ...ident, ...(d.complements ?? [])] };
+  const fiscal = systeme === "normal"
+    ? [
+        ...saisiesResultatFiscal(etats.n.cr.XI, d.fiscal ?? {}, -etats.n.cr.RS),
+        ...saisiesHorsBilan(d.fiscal ?? {}, suretesConsenties(d.emprunts ?? [], d.annee)),
+      ]
+    : [];
+  return { etats, saisies: [...base, ...emprunts, ...fiscal, ...ident, ...(d.complements ?? [])] };
 };
 
 /** Notes 1 et 16A : soldes comptables des dettes financières et échéanciers. */

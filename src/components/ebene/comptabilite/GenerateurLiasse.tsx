@@ -19,6 +19,7 @@ import { formatSolde } from "@/lib/ebene-utils";
 import { caParActivite, genererLiasse, MODELES, systemeDuRegime, type SystemeLiasse } from "@/lib/liasse/genererLiasse";
 import { useIdentification } from "@/hooks/data/useIdentification";
 import { useEmprunts } from "@/hooks/data/useEmprunts";
+import { informationsFiscalesRepo } from "@/data/informationsFiscales.repo";
 import { useActivites } from "@/hooks/data/useActivites";
 import { SECTEUR_LABELS } from "@/types/fiscal";
 
@@ -93,6 +94,7 @@ export const GenerateurLiasse = ({ donneesMensuelles, annee: anneeCourante, empl
           personnel,
         },
         emprunts,
+        fiscal: await informationsFiscalesRepo.get(currentSociete.id, annee),
         identification: {
           identification,
           regimeFiscal: currentSociete.regime_fiscal,

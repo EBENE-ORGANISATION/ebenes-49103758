@@ -39,6 +39,8 @@ describe("genererLiasse (modèles réels)", { timeout: 30_000 }, () => {
     expect(wb.Sheets["BILAN ACTIF"].G40.v).toBe(wb.Sheets["BILAN PASSIF"].F38.v); // BZ = DZ
     expect(wb.Sheets["COMPTE DE RESULTAT"].H15.v).toBe(100_000); // TC
     expect(wb.Sheets["TFT"].K38.v).toBe(1_118_000); // ZH
+    expect(wb.Sheets["P58 Résultat fiscal"].H7.v).toBe(100_000); // bénéfice comptable
+    expect(wb.Sheets["P58 Résultat fiscal"].H56.v).toBe(100_000); // résultat fiscal
   });
 
   it("SMT : bilan simplifié et compte de résultat en recettes / dépenses", async () => {
