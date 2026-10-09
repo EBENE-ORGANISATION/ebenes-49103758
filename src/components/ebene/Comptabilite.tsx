@@ -34,6 +34,7 @@ import { JournalEcritures } from "./comptabilite/JournalEcritures";
 import { GrandLivre } from "./comptabilite/GrandLivre";
 import { Balance } from "./comptabilite/Balance";
 import { BilanSYSCOHADA } from "./comptabilite/BilanSYSCOHADA";
+import { GenerateurLiasse } from "./comptabilite/GenerateurLiasse";
 import { CompteResultat } from "./comptabilite/CompteResultat";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 import { useActiviteObligatoire, MESSAGE_ACTIVITE_OBLIGATOIRE } from "@/hooks/useActiviteObligatoire";
@@ -52,6 +53,8 @@ interface Props {
   onRejeter?: (id: number, motif: string) => void;
   /** Toutes les données de l'année — sert au calcul d'anomalies et au Grand-Livre. */
   donneesMensuelles?: DonneesMensuelles;
+  /** Données de toute la société (états financiers). */
+  donneesSociete?: DonneesMensuelles;
   /** Écritures comptables SYSCOHADA */
   onAddEcriture?: (e: Omit<EcritureComptable, "id">) => void;
   onValiderEcriture?: (id: number) => void;
@@ -78,6 +81,7 @@ export const Comptabilite = ({
   onValider,
   onRejeter,
   donneesMensuelles,
+  donneesSociete,
   taux,
   onAddEcriture,
   onValiderEcriture,
@@ -759,7 +763,8 @@ export const Comptabilite = ({
         </TabsContent>
 
         {/* ── Onglet Bilan SYSCOHADA ───────────────────────────────────────── */}
-        <TabsContent value="bilan">
+        <TabsContent value="bilan" className="space-y-4">
+          <GenerateurLiasse donneesMensuelles={donneesSociete ?? donneesMensuelles ?? {}} annee={annee} />
           <BilanSYSCOHADA
             donneesMensuelles={donneesMensuelles ?? {}}
             annee={annee}
