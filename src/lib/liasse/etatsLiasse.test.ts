@@ -55,6 +55,14 @@ describe("etatsFinanciersLiasse", () => {
     expect(etats.ecartTresorerie).toBe(0);
   });
 
+  it("TFT : ZF = financement (D + E), ZG = variation totale (B + C + F)", () => {
+    const t = etats.tft;
+    expect(t.ZF).toBe(t.ZD + t.ZE);
+    expect(t.ZG).toBe(t.ZB + t.ZC + t.ZF);
+    expect(t.ZF).toBe(1_000_000);
+    expect(t.ZH).toBe(t.ZA + t.ZG);
+  });
+
   it("exercice suivant sans à-nouveaux : bilan cumulé, résultat antérieur en report à nouveau", () => {
     const d2 = { "2026-12": { ecritures: ecritures2026 }, "2027-1": { ecritures: [e("V2", "2027-01-15", [["521", 50_000, 0], ["706", 0, 50_000]])] } } as never;
     const e27 = etatsFinanciersLiasse(d2, 2027);

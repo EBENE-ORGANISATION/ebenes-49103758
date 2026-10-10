@@ -281,8 +281,9 @@ export const tableauFlux = (
   r.FP = Math.round(mvt.credit(["17", "18"]));
   r.FQ = -Math.round(mvt.debit(["16", "17"]));
   r.ZE = r.FO + r.FP + r.FQ;
-  r.ZF = r.ZB + r.ZC + r.ZD + r.ZE;
-  r.ZG = r.ZF;
+  // F : flux des activités de financement (D + E) ; G : variation de la trésorerie (B + C + F)
+  r.ZF = r.ZD + r.ZE;
+  r.ZG = r.ZB + r.ZC + r.ZF;
   r.ZH = r.ZA + r.ZG;
   return r;
 };
