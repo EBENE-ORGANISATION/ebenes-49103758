@@ -8,7 +8,7 @@ import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { ActivitesManager } from "@/components/ebene/ActivitesManager";
 import { IdentificationSociete } from "@/components/ebene/IdentificationSociete";
 import { applyTheme } from "@/lib/theme";
-import { avecConfort, lireConfort } from "@/lib/confort";
+import { THEMES, avecConfort, avecTheme, lireConfort, lireTheme, type ThemeApparence } from "@/lib/apparence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,12 @@ import {
   formaterNumero,
   resetCompteur,
 } from "@/lib/numerotation";
+
+// Aperçu de chaque thème : fond de cadre, fond de page, couleur d'action.
+const APERCU_THEME: Record<ThemeApparence, [string, string, string]> = {
+  actuel: ["#3D0000", "#F8F5F2", "#89604A"],
+  "ebene-bordeaux": ["#17110D", "#F7F4F1", "#3D0000"],
+};
 
 const ColorField = ({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
@@ -311,24 +317,57 @@ const ParametresSociete = () => {
               <p className="text-xs text-muted-foreground">
                 {isSuperAdmin ? t("params.colors_hint") : t("params.appearance_locked")}
               </p>
+              <div role="radiogroup" aria-label={t("params.theme_label")} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {THEMES.map((theme) => {
+                  const choisi = lireTheme(draft.theme_custom) === theme;
+                  const [cadre, page, action] = APERCU_THEME[theme];
+                  return (
+                    <button
+                      key={theme}
+                      type="button"
+                      role="radio"
+                      aria-checked={choisi}
+                      disabled={!isSuperAdmin}
+                      onClick={() => setDraft((d) => ({ ...d, theme_custom: avecTheme(d.theme_custom, theme) }))}
+                      className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                        choisi ? "border-primary ring-2 ring-primary/30" : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <span aria-hidden="true" className="flex h-10 w-14 shrink-0 overflow-hidden rounded-md border border-border">
+                        <span className="w-4" style={{ background: cadre }} />
+                        <span className="flex flex-1 items-end p-1" style={{ background: page }}>
+                          <span className="h-2 w-full rounded-sm" style={{ background: action }} />
+                        </span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-semibold">{t(`params.theme_${theme.replace("-", "_")}`)}</span>
+                        <span className="block text-xs text-muted-foreground">{t(`params.theme_${theme.replace("-", "_")}_hint`)}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {lireTheme(draft.theme_custom) === "ebene-bordeaux" && (
+                <p className="text-xs text-muted-foreground">{t("params.theme_fixed_colors")}</p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <ColorField
                   label={t("params.color_primary")}
                   value={draft.couleur_primaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_primaire: v }))}
-                  disabled={!isSuperAdmin}
+                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
                 />
                 <ColorField
                   label={t("params.color_secondary")}
                   value={draft.couleur_secondaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_secondaire: v }))}
-                  disabled={!isSuperAdmin}
+                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
                 />
                 <ColorField
                   label={t("params.color_accent")}
                   value={draft.couleur_accent}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_accent: v }))}
-                  disabled={!isSuperAdmin}
+                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
                 />
               </div>
               <div className="flex items-start justify-between gap-4 border-t pt-4">

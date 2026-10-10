@@ -122,6 +122,89 @@
   }
 }
 
+/* Thème « Ébène bordeaux » (choisi par le super-admin pour une société) :
+   cadre en ébène (en-tête, menu), pages lin et cartes blanches à filets fins,
+   bordeaux réservé à l'action, bronze en accent, laiton sur l'ébène.
+   Source Serif 4 pour les titres, Source Sans 3 pour l'interface, chiffres alignés.
+   Placé avant « terrain » pour que le confort terrain puisse s'y ajouter. */
+@layer base {
+  html[data-theme="ebene-bordeaux"] {
+    --background: 30 27% 96%;
+    --foreground: 0 13% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 13% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 13% 9%;
+
+    --primary: 0 100% 12%;
+    --primary-foreground: 37 42% 89%;
+    --primary-glow: 0 61% 26%;
+    --secondary: 30 25% 89%;
+    --secondary-foreground: 0 100% 12%;
+    --muted: 30 25% 92%;
+    --muted-foreground: 24 10% 39%;
+    --accent: 21 30% 41%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 131 39% 30%;
+    --destructive: 3 68% 38%;
+    --warning: 39 79% 34%;
+    --info: 21 30% 41%;
+
+    --border: 28 20% 83%;
+    --input: 28 20% 83%;
+    --ring: 0 100% 12%;
+    --radius: 0.625rem;
+
+    --header-gradient: linear-gradient(hsl(24 28% 7%), hsl(24 28% 7%));
+    --shadow-card: 0 1px 2px hsl(24 28% 7% / 0.05);
+    --shadow-elevated: 0 16px 40px hsl(24 28% 7% / 0.18);
+
+    --sidebar-background: 24 28% 7%;
+    --sidebar-foreground: 36 28% 79%;
+    --sidebar-primary: 36 49% 59%;
+    --sidebar-primary-foreground: 24 28% 7%;
+    --sidebar-accent: 20 33% 12%;
+    --sidebar-accent-foreground: 37 42% 89%;
+    --sidebar-border: 21 33% 18%;
+    --sidebar-ring: 36 49% 59%;
+
+    --font-base: "Source Sans 3", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-titre: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Le cadre ébène se termine par un filet bordeaux, comme sur les maquettes. */
+  html[data-theme="ebene-bordeaux"] .header-gradient {
+    border-bottom: 4px solid hsl(0 100% 12%);
+  }
+
+  /* Titres de contenu en Source Serif ; l'en-tête garde la police d'interface. */
+  html[data-theme="ebene-bordeaux"] :is(h1, h2, h3) {
+    font-family: var(--font-titre);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  html[data-theme="ebene-bordeaux"] header :is(h1, h2, h3) {
+    font-family: var(--font-base);
+  }
+}
+
+/* Montants : chiffres alignés de Source Sans au lieu de la chasse fixe
+   (couche utilities pour passer devant la classe Tailwind font-mono). */
+@layer utilities {
+  html[data-theme="ebene-bordeaux"] :is(.font-mono, .amount) {
+    font-family: var(--font-base);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Grands montants des cartes d'indicateurs en Source Serif, comme sur les maquettes. */
+  html[data-theme="ebene-bordeaux"] .stat-card .amount {
+    font-family: var(--font-titre);
+    font-weight: 600;
+  }
+}
+
 /* Confort « terrain » (choisi par le super-admin pour une société) :
    tout ce qui est en rem grandit de 12,5 % (texte, boutons h-10 ≈ 45 px),
    gris de texte et bordures plus sombres. Les points de rupture sont en px,

@@ -10,7 +10,7 @@
  * pour les nouveaux composants qui voudraient utiliser les HEX bruts.
  */
 
-import { lireConfort } from "./confort";
+import { lireConfort, lireTheme } from "./apparence";
 
 const FALLBACK = {
   primaire: "#1F3864",
@@ -29,7 +29,7 @@ interface ThemeInput {
   logo_url?: string | null;
   /** Nom de la société (utilisé pour <title>). */
   nom?: string | null;
-  /** Réglages d'affichage choisis par le super-admin (voir lib/confort). */
+  /** Réglages d'affichage choisis par le super-admin (voir lib/apparence). */
   theme_custom?: unknown;
 }
 
@@ -135,9 +135,35 @@ const glowFor = (hex: string): string => {
   return `${hh} ${ss} ${newL}%`;
 };
 
+/** Variables posées en ligne par le thème « actuel » ; retirées pour laisser index.css décider. */
+const VARIABLES_SOCIETE = [
+  "--primary", "--primary-foreground", "--primary-glow", "--ring",
+  "--secondary", "--secondary-foreground", "--accent", "--accent-foreground",
+  "--header-gradient", "--font-base",
+];
+
+/** Thème « Ébène bordeaux » : palette et polices fixes, définies dans index.css. */
+const appliquerEbeneBordeaux = (root: HTMLElement): void => {
+  VARIABLES_SOCIETE.forEach((v) => root.style.removeProperty(v));
+  root.style.setProperty("--color-primary", "#3D0000");
+  root.style.setProperty("--color-secondary", "#17110D");
+  root.style.setProperty("--color-accent", "#89604A");
+  root.dataset.theme = "ebene-bordeaux";
+  void import("./polices-ebene-bordeaux").catch(() => {
+    // Polices indisponibles : la pile système prend le relais, l'interface reste utilisable.
+  });
+};
+
 export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+
+  if (lireTheme(cfg?.theme_custom) === "ebene-bordeaux") {
+    appliquerEbeneBordeaux(root);
+    appliquerConfortEtOnglet(root, cfg);
+    return;
+  }
+  delete root.dataset.theme;
   const primaire = cfg?.couleur_primaire || FALLBACK.primaire;
   const secondaire = cfg?.couleur_secondaire || FALLBACK.secondaire;
   const accent = cfg?.couleur_accent || FALLBACK.accent;
@@ -178,14 +204,19 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
     `${fontFamily}, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
   );
 
-  // 3ter) Confort d'affichage (attribut lu par index.css)
+  appliquerConfortEtOnglet(root, cfg);
+};
+
+/** Commun aux deux thèmes : confort d'affichage, titre et favicon de l'onglet. */
+function appliquerConfortEtOnglet(root: HTMLElement, cfg: ThemeInput | null | undefined): void {
+  // Confort d'affichage (attribut lu par index.css)
   if (lireConfort(cfg?.theme_custom) === "terrain") root.dataset.confort = "terrain";
   else delete root.dataset.confort;
 
-  // 4) Identité visuelle de l'onglet (titre + favicon)
+  // Identité visuelle de l'onglet (titre + favicon)
   applyDocumentTitle(cfg?.nom);
   applyFavicon(cfg?.logo_url);
-};
+}
 
 export const resetTheme = (): void => {
   applyTheme({
