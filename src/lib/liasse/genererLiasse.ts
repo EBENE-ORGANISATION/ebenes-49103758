@@ -8,7 +8,7 @@ import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
 import { complementsReel, complementsSmt, type DonneesGestion } from "./etatsComplementaires";
 import {
-  saisiesAnalyseAchats, saisiesAnalyseVentes, saisiesFicheRecapitulative, saisiesLoyers,
+  saisiesAnalyseAchats, saisiesAnalyseVentes, saisiesCreancesClients, saisiesFicheRecapitulative, saisiesLoyers,
   saisiesNote28, saisiesNote31, saisiesNote34, saisiesNote3D, saisiesTva,
 } from "./notesSynthese";
 import { saisiesIdentification, type ActiviteCA, type InfosIdentification } from "./identificationLiasse";
@@ -60,6 +60,7 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
         ...saisiesAnalyseVentes(d.donnees, d.annee),
         ...saisiesAnalyseAchats(d.donnees, d.annee),
         ...saisiesTva(d.donnees, d.annee),
+        ...saisiesCreancesClients(d.donnees, d.annee),
       ];
   const ident = d.identification ? saisiesIdentification(d.identification, etats, { systeme }) : [];
   const emprunts = systeme === "normal" && d.emprunts?.length ? saisiesDettesFinancieres(d) : [];

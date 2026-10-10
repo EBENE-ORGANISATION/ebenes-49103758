@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { etatsFinanciersLiasse } from "./etatsLiasse";
 import {
-  achatsParDesignation, saisiesAnalyseVentes, saisiesFicheRecapitulative, saisiesLoyers,
+  achatsParDesignation, creancesClients, saisiesAnalyseVentes, saisiesFicheRecapitulative, saisiesLoyers,
   saisiesNote28, saisiesNote31, saisiesNote34, saisiesNote3D, saisiesTva,
 } from "./notesSynthese";
 import { saisiesNotesSoldes } from "./notesReel";
@@ -91,6 +91,16 @@ describe("notes de synthèse (système normal)", () => {
       { designation: "Achat ordinateurs", montant: 400_000 },
       { designation: "Achat imprimantes", montant: 100_000 },
     ]);
+  });
+
+  it("P78 : facture non réglée à la clôture = créance, réglée avant = soldée", () => {
+    const f = (id: number, date: string, activite: string, ttc: number) => ({ id, date, activite, statut: "payee", totalTtc: ttc, lignes: [] });
+    const d = {
+      "2025-12": { factures: [f(1, "2025-12-20", "commerce", 118_000), f(2, "2025-12-22", "service", 59_000), f(3, "2025-11-05", "service", 10_000)], transactions: [{ factureId: 3, date: "2025-11-30" }] },
+      "2026-1": { transactions: [{ factureId: 1, date: "2026-01-15" }, { factureId: 2, date: "2026-01-16" }] },
+    } as never;
+    expect(creancesClients(d, 2025)).toEqual({ biens: 118_000, services: 59_000 });
+    expect(creancesClients(d, 2026)).toEqual({ biens: 0, services: 0 });
   });
 
   it("P79 : TVA facturée, récupérable et due", () => {

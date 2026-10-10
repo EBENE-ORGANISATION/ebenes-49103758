@@ -291,6 +291,40 @@ export const saisiesAnalyseVentes = (donnees: DonneesMensuelles, annee: number):
   return out;
 };
 
+// ── P78 : détail des créances clients ───────────────────────────────────────
+
+/**
+ * Factures non encore réglées à la clôture (TTC), par nature : livraisons de
+ * biens (activité commerce) ou prestations de services. Une facture réglée
+ * après la clôture est encore une créance à cette date.
+ */
+export const creancesClients = (donnees: DonneesMensuelles, annee: number): { biens: number; services: number } => {
+  const cloture = `${annee}-12-31`;
+  const reglees = new Set<number>();
+  for (const m of Object.values(donnees)) {
+    for (const t of m?.transactions ?? []) if (t.factureId && t.date <= cloture) reglees.add(t.factureId);
+  }
+  let biens = 0, services = 0;
+  for (const m of Object.values(donnees)) {
+    for (const f of m?.factures ?? []) {
+      if (f.statut === "proforma" || f.statut === "annulee" || f.date > cloture || reglees.has(f.id)) continue;
+      if (f.activite === "commerce") biens += f.totalTtc; else services += f.totalTtc;
+    }
+  }
+  return { biens: Math.round(biens), services: Math.round(services) };
+};
+
+export const saisiesCreancesClients = (donnees: DonneesMensuelles, annee: number): Saisie[] => {
+  const f = "P78 Détail CREANCES CLIENTS ET";
+  const out: Saisie[] = [];
+  (["B", "D", "F", "H"] as const).forEach((col, k) => {
+    const { biens, services } = creancesClients(donnees, annee - k);
+    if (!biens && !services) return;
+    out.push({ feuille: f, cellule: `${col}15`, valeur: biens }, { feuille: f, cellule: `${col}16`, valeur: services }, { feuille: f, cellule: `${col}18`, valeur: biens + services });
+  });
+  return out;
+};
+
 // ── P71 : analyse du coût d'achat ───────────────────────────────────────────
 
 /** Achats HT de l'exercice (601, 602, 604, 605, 608) par libellé d'écriture, achetés localement. */

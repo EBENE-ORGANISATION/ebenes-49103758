@@ -44,6 +44,15 @@ const NOTES_SOLDES: NoteSoldes[] = [
   { feuille: "NOTE 4", base: "bilan", sens: "credit", colN: "F", colN1: "G", colPct: "H", lignes: [
     { ligne: 18, prefixes: ["296"] }, { ligne: 19, prefixes: ["297"] },
   ] },
+  // Actif et passif circulants HAO (créances et dettes sur cessions et acquisitions d'immobilisations)
+  { feuille: "NOTE 5", base: "bilan", sens: "debit", filtrerSigne: true, colN: "F", colN1: "H", colPct: "J", lignes: [
+    { ligne: 10, prefixes: ["485"] }, { ligne: 11, prefixes: ["488"] }, { ligne: 12, somme: [10, 11] },
+  ] },
+  { feuille: "NOTE 5", base: "bilan", sens: "credit", colN: "F", colN1: "H", colPct: "J", lignes: [{ ligne: 13, prefixes: ["498"] }] },
+  { feuille: "NOTE 5", base: "bilan", sens: "credit", filtrerSigne: true, colN: "F", colN1: "H", colPct: "J", lignes: [
+    { ligne: 26, prefixes: ["481"] }, { ligne: 27, prefixes: ["482"] }, { ligne: 28, prefixes: ["483"] },
+    { ligne: 29, prefixes: ["484"] }, { ligne: 31, somme: [26, 27, 28, 29] },
+  ] },
   // Autres créances (soldes débiteurs des comptes 42 à 47)
   { feuille: "NOTE 8", base: "bilan", sens: "debit", filtrerSigne: true, colN: "E", colN1: "F", colPct: "G", colCourt: "H", lignes: [
     { ligne: 10, prefixes: ["42"] }, { ligne: 11, prefixes: ["43"] }, { ligne: 12, prefixes: ["44"] },
@@ -261,6 +270,7 @@ export const saisiesNotesSoldes = (donnees: DonneesMensuelles, annee: number): S
   net("NOTE 6", "F", "H", 18, 20, 22);
   net("NOTE 7", "E", "F", 18, 20, 22);
   net("NOTE 8", "E", "F", 20, 21, 22);
+  net("NOTE 5", "F", "H", 12, 13, 15);
   // Note 4 : total net = brut − dépréciations des titres et des autres immobilisations financières
   const get = (feuille: string, cellule: string) => (out.find((x) => x.feuille === feuille && x.cellule === cellule)?.valeur as number) ?? 0;
   for (const col of ["F", "G"]) {

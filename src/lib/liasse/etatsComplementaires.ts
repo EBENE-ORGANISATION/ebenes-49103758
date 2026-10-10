@@ -2,6 +2,7 @@
 // immobilisations, stock, personnel, trésorerie) — module pur.
 import type { Article, DonneesMensuelles, Immobilisation } from "@/types/ebene";
 import { cumulAFin, dotationAnnee } from "@/lib/amortissements";
+import { cumulADate } from "@/lib/cessionImmo";
 import { transactionComptabilisee } from "@/lib/ebene-utils";
 import type { Saisie } from "./xlsxPatch";
 import { soldesCloture } from "./etatsLiasse";
@@ -86,14 +87,17 @@ const saisiesTiers = (feuille: string, premiere: number, tiers: Tiers[], max = 3
 export const saisiesAmortissements = (immobilisations: Immobilisation[], annee: number, feuille = "P85 Tableau des amort.", premiere = 16): Saisie[] =>
   immobilisations
     .filter((i) => i.dateAcquisition.slice(0, 4) <= String(annee))
+    // Une immobilisation cédée un exercice antérieur n'est plus à l'actif
+    .filter((i) => !i.dateCession || i.dateCession.slice(0, 4) >= String(annee))
     .slice(0, 40)
     .flatMap((i, k) => {
       const l = premiere + k;
       const anterieurs = cumulAFin(i, annee - 1);
-      const dotation = dotationAnnee(i, annee);
+      const cedee = !!i.dateCession && i.dateCession.slice(0, 4) === String(annee);
+      // L'année de la cession, la dotation s'arrête à la date de cession (comme la note 3D)
+      const dotation = cedee ? Math.max(0, Math.min(i.valeurOrigine, cumulADate(i, i.dateCession!)) - anterieurs) : dotationAnnee(i, annee);
       const total = anterieurs + dotation;
       const taux = i.dureeAmortissement > 0 ? Math.round((100 / i.dureeAmortissement) * 100) / 100 : 0;
-      const cedee = !!i.dateCession && i.dateCession.slice(0, 4) === String(annee);
       return [
         { feuille, cellule: `A${l}`, valeur: i.libelle },
         { feuille, cellule: `C${l}`, valeur: dateFrCourte(i.dateAcquisition) },
