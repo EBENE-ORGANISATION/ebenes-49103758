@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { contrePassation, ecrituresFacturePayee, estContrePassation } from "./ecrituresFacture";
-import { soldesExercice } from "./etatsFinanciers";
+import {
+  aEcritureVente, contrePassation, ecrituresFacturePayee, ecrituresReglementFacture, ecritureVenteFacture, estContrePassation,
+} from "./ecrituresFacture";
+import { fiscaliteDepuisEcritures, soldesExercice } from "./etatsFinanciers";
 
 const equilibre = (lignes: { debit: number; credit: number }[]) =>
   lignes.reduce((s, l) => s + l.debit, 0) === lignes.reduce((s, l) => s + l.credit, 0);
+const comptes = (e: { lignes: { compte: string; debit: number; credit: number }[] }) => e.lignes.map((l) => [l.compte, l.debit, l.credit]);
 
 const facture = {
   id: 7,
@@ -17,43 +20,71 @@ const facture = {
   totalTtc: 118000,
 };
 
-describe("ecrituresFacturePayee", () => {
-  it("avec TVA, encaissée en banque : VE (4111 / 706 / 4431) puis BQ (521 / 4111)", () => {
-    const [ve, bq] = ecrituresFacturePayee(facture, "521", 2026, 10, null);
-    expect(ve.journal).toBe("VE");
-    expect(ve.numeroPiece).toBe("VE-FAC-007");
-    expect(ve.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
-      ["4111", 118000, 0],
-      ["706", 0, 100000],
-      ["4431", 0, 18000],
-    ]);
-    expect(bq.journal).toBe("BQ");
-    expect(bq.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
-      ["521", 118000, 0],
-      ["4111", 0, 118000],
-    ]);
-    for (const e of [ve, bq]) {
-      expect(equilibre(e.lignes)).toBe(true);
-      expect(e).toMatchObject({ statut: "valide", factureId: 7, date: "2026-10-03" });
-    }
+describe("vente à la validation, règlement au paiement", () => {
+  it("prestation de services : TVA en attente (4438) à la validation, exigible (4432) à l'encaissement", () => {
+    const ve = ecritureVenteFacture(facture, 2026, 10, null);
+    expect(ve).toMatchObject({ journal: "VE", numeroPiece: "VE-FAC-007", statut: "valide", factureId: 7, date: "2026-10-03" });
+    expect(comptes(ve)).toEqual([["4111", 118000, 0], ["706", 0, 100000], ["4438", 0, 18000]]);
+
+    const [bq, tva] = ecrituresReglementFacture(facture, "521", "2026-11-05", 2026, 11, null);
+    expect(bq).toMatchObject({ journal: "BQ", numeroPiece: "BQ-FAC-007", date: "2026-11-05", annee: 2026, mois: 11 });
+    expect(comptes(bq)).toEqual([["521", 118000, 0], ["4111", 0, 118000]]);
+    expect(tva).toMatchObject({ journal: "OD", numeroPiece: "TVA-FAC-007", date: "2026-11-05" });
+    expect(comptes(tva)).toEqual([["4438", 18000, 0], ["4432", 0, 18000]]);
+    expect(tva.lignes[1].base).toBe(100000);
+    for (const e of [ve, bq, tva]) expect(equilibre(e.lignes)).toBe(true);
   });
 
-  it("sans TVA, commerce, encaissée en caisse : 701 et journal CA", () => {
-    const [ve, ca] = ecrituresFacturePayee(
-      { ...facture, activite: "commerce", avecTva: false, totalTva: 0, totalTtc: 100000 },
-      "571", 2026, 10, "act-1",
-    );
-    expect(ve.lignes.map((l) => l.compte)).toEqual(["4111", "701"]);
-    expect(ca.journal).toBe("CA");
-    expect(ca.numeroPiece).toBe("CA-FAC-007");
+  it("vente de marchandises : TVA due dès la facture (4431), pas de virement au paiement", () => {
+    const f = { ...facture, activite: "commerce" as const };
+    expect(comptes(ecritureVenteFacture(f, 2026, 10, null))).toEqual([["4111", 118000, 0], ["701", 0, 100000], ["4431", 0, 18000]]);
+    expect(ecrituresReglementFacture(f, "571", "2026-10-20", 2026, 10, "act-1").map((e) => e.journal)).toEqual(["CA"]);
+  });
+
+  it("sans TVA : ni 4431 ni 4438", () => {
+    const f = { ...facture, activite: "commerce" as const, avecTva: false, totalTva: 0, totalTtc: 100000 };
+    expect(ecritureVenteFacture(f, 2026, 10, null).lignes.map((l) => l.compte)).toEqual(["4111", "701"]);
+    const [ca] = ecrituresReglementFacture(f, "571", "2026-10-03", 2026, 10, "act-1");
+    expect(ca).toMatchObject({ journal: "CA", numeroPiece: "CA-FAC-007", activiteId: "act-1" });
     expect(ca.lignes[0]).toMatchObject({ compte: "571", debit: 100000 });
-    expect(ca.activiteId).toBe("act-1");
+  });
+
+  it("reconnaît une facture dont la vente est déjà passée", () => {
+    const ve = { ...ecritureVenteFacture(facture, 2026, 10, null), id: 1 };
+    expect(aEcritureVente([ve], facture)).toBe(true);
+    expect(aEcritureVente([ve], { id: 8, numero: "FAC-008" })).toBe(false);
+  });
+
+  it("facture payée en une fois (ancienne facture) : vente, règlement et TVA exigible", () => {
+    expect(ecrituresFacturePayee(facture, "521", 2026, 10, null).map((e) => e.numeroPiece)).toEqual(["VE-FAC-007", "BQ-FAC-007", "TVA-FAC-007"]);
   });
 });
 
-describe("ecrituresFacturePayee — articles du stock", () => {
-  it("facture d'hôtel avec nuitées et boissons : nuitées en 706, boissons en 701, réduction au prorata", () => {
-    const [ve] = ecrituresFacturePayee(
+describe("déclaration de TVA", () => {
+  const fisc = (es: ReturnType<typeof ecritureVenteFacture>[]) => fiscaliteDepuisEcritures(es as never);
+
+  it("mois de la facture de services : CA comptabilisé, ni TVA ni base imposable", () => {
+    const f = fisc([ecritureVenteFacture(facture, 2026, 10, null)]);
+    expect([f.caHT, f.caTaxable, f.caNonTaxable, f.tvaCollectee]).toEqual([100000, 0, 0, 0]);
+  });
+
+  it("mois de l'encaissement : base et TVA exigibles", () => {
+    const f = fisc(ecrituresReglementFacture(facture, "521", "2026-11-05", 2026, 11, null));
+    expect([f.caHT, f.caTaxable, f.tvaCollectee]).toEqual([0, 100000, 18000]);
+  });
+
+  it("marchandises : base et TVA dès la facture ; vente sans TVA : hors champ", () => {
+    const f = fisc([
+      ecritureVenteFacture({ ...facture, activite: "commerce" }, 2026, 10, null),
+      ecritureVenteFacture({ ...facture, id: 9, numero: "FAC-009", avecTva: false, totalTva: 0, totalTtc: 100000 }, 2026, 10, null),
+    ]);
+    expect([f.caHT, f.caTaxable, f.caNonTaxable, f.tvaCollectee]).toEqual([200000, 100000, 100000, 18000]);
+  });
+});
+
+describe("ventilation — articles du stock", () => {
+  it("facture d'hôtel avec nuitées et boissons : TVA des boissons due, celle des nuitées en attente", () => {
+    const ve = ecritureVenteFacture(
       {
         ...facture,
         lignes: [
@@ -64,26 +95,26 @@ describe("ecrituresFacturePayee — articles du stock", () => {
         totalTva: 40500,
         totalTtc: 265500,
       },
-      "521", 2026, 10, null,
+      2026, 10, null,
     );
-    expect(ve.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
+    expect(comptes(ve)).toEqual([
       ["4111", 265500, 0],
       ["706", 0, 180000],
       ["701", 0, 45000],
-      ["4431", 0, 40500],
+      ["4431", 0, 8100],
+      ["4438", 0, 32400],
     ]);
     expect(equilibre(ve.lignes)).toBe(true);
   });
 });
 
-describe("ecrituresFacturePayee — taxe de séjour", () => {
+describe("taxe de séjour", () => {
   it("hors TVA, ajoutée au montant du client et collectée en 442", () => {
-    const [ve, bq] = ecrituresFacturePayee({ ...facture, taxeSejour: 6000, totalTtc: 124000 }, "521", 2026, 10, null);
-    expect(ve.lignes.map((l) => [l.compte, l.debit, l.credit])).toEqual([
-      ["4111", 124000, 0], ["706", 0, 100000], ["4431", 0, 18000], ["442", 0, 6000],
+    const f = { ...facture, taxeSejour: 6000, totalTtc: 124000 };
+    expect(comptes(ecritureVenteFacture(f, 2026, 10, null))).toEqual([
+      ["4111", 124000, 0], ["706", 0, 100000], ["4438", 0, 18000], ["442", 0, 6000],
     ]);
-    expect(bq.lignes[0]).toMatchObject({ compte: "521", debit: 124000 });
-    expect(equilibre(ve.lignes)).toBe(true);
+    expect(ecrituresReglementFacture(f, "521", "2026-10-03", 2026, 10, null)[0].lignes[0]).toMatchObject({ compte: "521", debit: 124000 });
   });
 });
 
@@ -99,8 +130,11 @@ describe("contrePassation", () => {
 
     const toutes = [...origine, ...annulation].map((e, i) => ({ ...e, id: i + 1 }));
     const soldes = soldesExercice({ "2026-10": { ecritures: toutes } } as never, 2026);
-    expect([...soldes.keys()].sort()).toEqual(["4111", "4431", "521", "706"]);
+    expect([...soldes.keys()].sort()).toEqual(["4111", "4432", "4438", "521", "706"]);
     for (const solde of soldes.values()) expect(solde).toBe(0);
+    // La déclaration aussi revient à zéro (base de TVA contre-passée)
+    const f = fiscaliteDepuisEcritures(toutes as never);
+    expect([f.caHT, f.caTaxable, f.tvaCollectee]).toEqual([0, 0, 0]);
   });
 
   it("reconnaît une contre-passation", () => {

@@ -25,7 +25,7 @@ import {
   EcritureComptable,
 } from "@/types/ebene";
 import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant, formatSolde } from "@/lib/ebene-utils";
-import { contrePassation, ecrituresFacturePayee, estContrePassation } from "@/lib/ecrituresFacture";
+import { aEcritureVente, contrePassation, ecritureVenteFacture, ecrituresReglementFacture, estContrePassation } from "@/lib/ecrituresFacture";
 import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
 import { transactionAchatStock, type AchatStock } from "@/lib/achatStock";
@@ -588,6 +588,17 @@ export const useEbeneStoreRemote = (
     [tqFactures, tqTransactions, markSignificantWrite, supprimerEcrituresLiees, log],
   );
 
+  /** Écriture de vente (VE) d'une facture validée, si elle n'existe pas encore. */
+  const passerVente = useCallback(
+    async (annee: number, mois: number, f: Facture) => {
+      if (f.statut === "proforma" || f.statut === "annulee") return;
+      const toutes = (Object.values(tqEcritures.ecritures) as EcritureComptable[][]).flat();
+      if (aEcritureVente(toutes, f)) return;
+      await tqEcritures.addEcriture(annee, mois, ecritureVenteFacture(f, annee, mois, f.activiteId ?? null));
+    },
+    [tqEcritures],
+  );
+
   /**
    * Marque une facture comme payée :
    *  - transaction de recette (TTC) ;
@@ -606,8 +617,14 @@ export const useEbeneStoreRemote = (
       }
 
       const aid = f.activiteId ?? null; // l'activité de la facture
-      void tqTransactions.addTransaction(annee, mois, {
-        date: f.date,
+      // Encaissement daté du jour (jamais avant la facture) : la recette et la
+      // TVA sur services exigible à l'encaissement tombent dans le mois du paiement.
+      const datePaiement = todayISO() < f.date ? f.date : todayISO();
+      const [pa, pm] = datePaiement.split("-").map(Number);
+      const toutes = (Object.values(tqEcritures.ecritures) as EcritureComptable[][]).flat();
+      const venteDejaPassee = aEcritureVente(toutes, f);
+      void tqTransactions.addTransaction(pa, pm, {
+        date: datePaiement,
         desc: `Facture ${f.numero} — ${f.client}`,
         type: "r",
         m: f.totalTtc,
@@ -628,18 +645,23 @@ export const useEbeneStoreRemote = (
             await tqTransactions.removeTransaction(trans.id).catch(() => undefined);
             throw e;
           });
-          // VE (constatation de la vente) et BQ/CA (encaissement), liées à la
+          // Règlement BQ/CA (et TVA sur services devenue exigible), liés à la
           // facture : le tableau de bord ne les recompte pas (la recette est
-          // déjà la transaction).
+          // déjà la transaction). La vente (VE) est passée à la validation ; une
+          // facture validée avant ce changement la reçoit ici, à sa date.
+          const ecritures = [
+            ...(venteDejaPassee ? [] : [ecritureVenteFacture(f, annee, mois, aid)]),
+            ...ecrituresReglementFacture(f, compteTresorerie, datePaiement, pa, pm, aid),
+          ];
           await Promise.all(
-            ecrituresFacturePayee(f, compteTresorerie, annee, mois, aid)
-              .map((e) => tqEcritures.addEcriture(annee, mois, avecCaisseAnnexe(e, caisses.compteDe(aid), caisses.nomDe(aid)))),
+            ecritures.map((e) => tqEcritures.addEcriture(e.annee!, e.mois!, avecCaisseAnnexe(e, caisses.compteDe(aid), caisses.nomDe(aid)))),
           );
         })
         .then(() => {
           log("MARQUER_PAYEE", "factures", factureId, null, {
             factureId,
-            ecriture: "VE générée automatiquement",
+            datePaiement,
+            ecriture: venteDejaPassee ? "règlement" : "VE et règlement",
           });
           markSignificantWrite();
         })
@@ -835,13 +857,19 @@ export const useEbeneStoreRemote = (
   );
 
   const convertirProforma = useCallback(
-    (_annee: number, _mois: number, factureId: number, nouveauNumero: string) => {
+    (annee: number, mois: number, factureId: number, nouveauNumero: string) => {
+      const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === factureId);
       void tqFactures.updateFacture(factureId, {
         statut: "en_attente",
         numero: nouveauNumero,
-      }).catch(() => toast.error("Erreur lors de la conversion du proforma"));
+      })
+        .then(async () => {
+          // Proforma déjà validé : la vente se comptabilise à la conversion
+          if (f && f.statutValidation === "valide") await passerVente(annee, mois, { ...f, statut: "en_attente", numero: nouveauNumero });
+        })
+        .catch(() => toast.error("Erreur lors de la conversion du proforma"));
     },
-    [tqFactures],
+    [tqFactures, passerVente],
   );
 
   const validerFacture = useCallback(
@@ -857,12 +885,14 @@ export const useEbeneStoreRemote = (
         .then(async () => {
           log("VALIDER_FACTURE", "factures", id, null, { id });
           if (!f) return;
+          // La vente est comptabilisée dès la validation (pas pour un proforma)
+          await passerVente(annee, mois, f).catch((e) => toast.error(messageErreur(e, "Écriture de vente non créée")));
           const erreursStock = await mouvementsFacture(sortiesFacture(f, f.date));
           if (erreursStock.length) toast.error(`Sortie de stock incomplète : ${erreursStock.join(" ; ")}`);
         })
         .catch((e) => toast.error(messageErreur(e, "Erreur lors de la validation de la facture")));
     },
-    [tqFactures, articles, mouvementsFacture, log],
+    [tqFactures, articles, mouvementsFacture, log, passerVente],
   );
 
   const rejeterFacture = useCallback(

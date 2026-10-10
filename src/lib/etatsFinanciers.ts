@@ -1,5 +1,6 @@
 // États financiers SYSCOHADA (compte de résultat, bilan) — calculs purs, testables.
 import type { DonneesMensuelles } from "@/types/ebene";
+import { COMPTE_TVA_ATTENTE } from "@/lib/ecrituresFacture";
 
 /** Solde de chaque compte (débit − crédit) sur les écritures non brouillon de l'exercice. */
 export const soldesExercice = (donneesMensuelles: DonneesMensuelles, annee: number): Map<string, number> => {
@@ -149,16 +150,19 @@ export interface FiscalitePeriode {
   /** Chiffre d'affaires hors taxes (crédits nets des comptes 70). */
   caHT: number;
   /**
-   * Part du CA soumise à la TVA (ventes dont l'écriture porte de la TVA
-   * collectée 443) et part hors champ / sans TVA : lignes L1 et L2 de la
-   * déclaration.
+   * Base soumise à la TVA exigible sur la période (ligne L1 de la
+   * déclaration) : ventes dont l'écriture porte de la TVA collectée exigible,
+   * plus la base des prestations de services encaissées (TVA exigible à
+   * l'encaissement, ligne de TVA portant sa base). Les prestations facturées
+   * non encore encaissées n'y sont pas.
    */
   caTaxable: number;
+  /** Ventes sans aucune TVA : hors champ ou exonérées (ligne L2). */
   caNonTaxable: number;
   /** Part commerce (701) et part service (autres 70x), pour la patente. */
   caCommerce: number;
   caService: number;
-  /** TVA collectée (crédits nets 443) et déductible (débits nets 445). */
+  /** TVA collectée exigible (crédits nets 443, hors TVA en attente 4438) et déductible (débits nets 445). */
   tvaCollectee: number;
   tvaDeductible: number;
   /** Résultat de la période : produits − charges (classes 6, 7, 8). */
@@ -166,28 +170,37 @@ export interface FiscalitePeriode {
 }
 
 export const fiscaliteDepuisEcritures = (
-  ecritures: { statut: string; lignes?: { compte: string; debit: number; credit: number }[] | null }[],
+  ecritures: { statut: string; lignes?: { compte: string; debit: number; credit: number; base?: number }[] | null }[],
 ): FiscalitePeriode => {
   const soldes = new Map<string, number>();
-  ecritures
-    .filter((e) => e.statut !== "brouillon")
-    .forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
-      soldes.set(l.compte, (soldes.get(l.compte) || 0) + (l.debit || 0) - (l.credit || 0));
-    }));
+  const validees = ecritures.filter((e) => e.statut !== "brouillon");
+  validees.forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
+    soldes.set(l.compte, (soldes.get(l.compte) || 0) + (l.debit || 0) - (l.credit || 0));
+  }));
+  const enAttente = (c: string) => c.startsWith(COMPTE_TVA_ATTENTE);
+  const exigible = (c: string) => c.startsWith("443") && !enAttente(c);
+  let caTaxable = 0;
+  let caNonTaxable = 0;
+  for (const e of validees) {
+    const lignes = Array.isArray(e.lignes) ? e.lignes : [];
+    const produit = (prefixe: string) => lignes.filter((l) => l.compte.startsWith(prefixe)).reduce((s, l) => s + (l.credit || 0) - (l.debit || 0), 0);
+    const avecExigible = lignes.some((l) => exigible(l.compte));
+    const avecAttente = lignes.some((l) => enAttente(l.compte));
+    // Prestations dont la TVA attend l'encaissement : seules les marchandises de la facture sont imposables
+    if (avecAttente) { if (avecExigible) caTaxable += produit("701"); }
+    else if (avecExigible) caTaxable += produit("70");
+    else caNonTaxable += produit("70");
+    caTaxable += lignes.filter((l) => exigible(l.compte) && l.base).reduce((s, l) => s + (l.base || 0), 0);
+  }
   const caCommerce = 0 - sommePrefixes(soldes, ["701"]);
   const caHT = 0 - sommePrefixes(soldes, ["70"]);
-  const caTaxable = ecritures
-    .filter((e) => e.statut !== "brouillon" && Array.isArray(e.lignes) && e.lignes.some((l) => l.compte.startsWith("443")))
-    .flatMap((e) => e.lignes ?? [])
-    .filter((l) => l.compte.startsWith("70"))
-    .reduce((s, l) => s + (l.credit || 0) - (l.debit || 0), 0);
   return {
     caHT,
     caTaxable,
-    caNonTaxable: caHT - caTaxable,
+    caNonTaxable,
     caCommerce,
     caService: caHT - caCommerce,
-    tvaCollectee: 0 - sommePrefixes(soldes, ["443"]),
+    tvaCollectee: 0 - sommePrefixes(soldes, ["443"]) + sommePrefixes(soldes, [COMPTE_TVA_ATTENTE]),
     tvaDeductible: sommePrefixes(soldes, ["445"]),
     resultat: resultatExercice(soldes),
   };

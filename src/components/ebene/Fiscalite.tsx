@@ -282,7 +282,9 @@ export const Fiscalite = ({
       rec, dep, ben, resultat,
       recService, recCommerce,
       is, imfMensuel, imfAnnuel, impot, regime,
-      caHT, caTaxable, caNonTaxable: caHT - caTaxable, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
+      // Sans TVA : lu dans les écritures (les prestations facturées dont la TVA
+      // attend l'encaissement ne sont ni imposables ni hors champ ce mois-ci)
+      caHT, caTaxable, caNonTaxable: avecEcritures ? fiscEcritures.caNonTaxable : caHT - caTaxable, tvaCollectee, tvaDeductible, tvaNette, tvaAPayer, creditAReporter,
       patService, patCommerce, pat,
       thAnnuel, thDuMois, loyerAnnuel, rslAnnuel, rslMensuel,
       masse, cnssEmp, amuEmp, cnssSal, amuSal,

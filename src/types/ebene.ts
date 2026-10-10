@@ -308,6 +308,8 @@ export interface LigneEcriture {
   debit: number;
   credit: number;
   tiers?: string;
+  /** Base HT d'une ligne de TVA, quand elle ne se lit pas dans l'écriture (TVA sur services exigible à l'encaissement). */
+  base?: number;
 }
 
 export interface CompteComptable {
