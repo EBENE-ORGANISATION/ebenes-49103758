@@ -65,4 +65,22 @@ describe("ecrituresVariationStock", () => {
     const novembre = ecrituresVariationStock([ramette], mvts, [an, od], 2026, 11);
     expect(novembre.some((e) => e.journal === "AN")).toBe(false);
   });
+
+  it("à-nouveaux de clôture : ne recompte pas le stock déjà dans l'historique ; sans historique, part des plus récents", () => {
+    const stock = (piece: string, date: string, montant: number, activiteId: string | null) => ({
+      numeroPiece: piece, statut: "valide" as const, date, annee: Number(date.slice(0, 4)), mois: Number(date.slice(5, 7)), activiteId,
+      lignes: [{ id: 1, compte: "311", intitule: "", debit: montant, credit: 0 }, { id: 2, compte: "6031", intitule: "", debit: 0, credit: montant }],
+    });
+    const an = (annee: number, montant: number) => ({ ...stock(`AN-${annee}`, `${annee}-01-01`, montant, null), lignes: [{ id: 1, compte: "311", intitule: "", debit: montant, credit: 0 }] });
+    const article = { ...eau, stock: 10, prixAchat: 200_000 }; // 2 000 000 en stock, aucun mouvement
+    // Historique 2024-2025 : 1 350 000 + 450 000 = 1 800 000 ; AN-2025 reprend les 1 350 000
+    const avec = ecrituresVariationStock([article], [], [stock("JEU-INV-2024", "2024-12-31", 1_350_000, "hotel"), an(2025, 1_350_000),
+      stock("JEU-INV-2025", "2025-12-31", 450_000, "hotel")], 2026, 10);
+    expect(avec.map((e) => [e.numeroPiece, e.lignes[0].compte, e.lignes[0].debit])).toEqual([["INV-2026-10", "311", 200_000]]);
+    // Bilan d'ouverture saisi (AN-2025), puis clôture 2025 (AN-2026) : seuls les plus récents comptent
+    const sans = ecrituresVariationStock([article], [], [an(2025, 1_000_000), stock("INV-2025-12", "2025-12-31", 500_000, "hotel"), an(2026, 1_500_000)], 2026, 10);
+    // Pas de second stock d'ouverture ; au total, 311 passe de 1 500 000 à 2 000 000
+    expect(sans.map((e) => [e.numeroPiece, e.activiteId, e.lignes[0].debit - e.lignes[0].credit])).toEqual([
+      ["INV-2026-10", "hotel", 2_000_000], ["INV-2026-10", null, -1_500_000]]);
+  });
 });

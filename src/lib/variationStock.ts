@@ -81,18 +81,41 @@ export const ecrituresVariationStock = (
     valeursDebut.set(k, (valeursDebut.get(k) ?? 0) + Math.max(0, quantiteALaDate(a, mouvements, veille)) * (a.prixAchat || 0));
   }
   // Solde des comptes de stock à la même date (hors écriture du mois remplacée)
+  const natureDe = (compte: string) =>
+    (Object.keys(COMPTES_STOCK) as NatureArticle[]).find((n) => compte.startsWith(COMPTES_STOCK[n].stock.slice(0, 2)));
+  const dateDe = (e: (typeof ecritures)[number]) => e.date ?? (e.annee && e.mois ? finDeMois(e.annee, e.mois) : "");
+  const retenues = ecritures.filter((e) => {
+    if (e.statut === "brouillon" || e.numeroPiece === piece || e.numeroPiece === pieceOuv) return false;
+    const d = dateDe(e);
+    return !!d && d <= date;
+  });
+  // Les à-nouveaux de clôture (« AN-2025 », sans activité) reprennent les
+  // écritures des exercices antérieurs : ils ne comptent pour une nature que si
+  // cet historique est absent (bilan d'ouverture saisi au démarrage) ; on part
+  // alors des plus récents.
+  const estANouveaux = (e: (typeof ecritures)[number]) => /^AN-\d{4}$/.test(e.numeroPiece);
+  const datesAN = retenues.filter(estANouveaux).map(dateDe).sort();
+  const premierAN = datesAN[0];
+  const dernierAN = datesAN[datesAN.length - 1];
+  const avecHistorique = new Set<NatureArticle>();
+  if (premierAN)
+    for (const e of retenues)
+      if (!estANouveaux(e) && dateDe(e) < premierAN)
+        for (const l of e.lignes ?? []) {
+          const n = natureDe(l.compte);
+          if (n) avecHistorique.add(n);
+        }
   const soldes = new Map<string, number>();
   const dejaEnCompta = new Set<string>(); // stock déjà constaté avant le mois
-  for (const e of ecritures) {
-    if (e.statut === "brouillon" || e.numeroPiece === piece || e.numeroPiece === pieceOuv) continue;
-    const d = e.date ?? (e.annee && e.mois ? finDeMois(e.annee, e.mois) : "");
-    if (!d || d > date) continue;
+  for (const e of retenues) {
+    const d = dateDe(e);
     for (const l of e.lignes ?? []) {
-      const nature = (Object.keys(COMPTES_STOCK) as NatureArticle[]).find((n) => l.compte.startsWith(COMPTES_STOCK[n].stock.slice(0, 2)));
+      const nature = natureDe(l.compte);
       if (!nature) continue;
+      if (avecHistorique.has(nature) ? estANouveaux(e) : dernierAN && d < dernierAN) continue;
       const k = cle(e.activiteId, nature);
       soldes.set(k, (soldes.get(k) ?? 0) + l.debit - l.credit);
-      if (d < debut) dejaEnCompta.add(k);
+      if (d < debut) dejaEnCompta.add(e.activiteId ? k : cle(null, nature)); // à-nouveaux sans activité : toute la nature
       if (!valeurs.has(k)) valeurs.set(k, 0);
     }
   }
@@ -100,7 +123,7 @@ export const ecrituresVariationStock = (
   // Stock d'ouverture (première constatation) : en à-nouveaux
   const ouvertures = new Map<string, LigneEcriture[]>();
   for (const [k, v] of valeursDebut) {
-    if (dejaEnCompta.has(k)) continue;
+    if (dejaEnCompta.has(k) || dejaEnCompta.has(cle(null, k.split("|")[1] as NatureArticle))) continue;
     const montant = Math.round(v);
     if (montant <= 0) continue;
     const [activite, nature] = k.split("|") as [string, NatureArticle];
