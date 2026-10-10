@@ -90,10 +90,8 @@ describe("notes de synthèse (système normal)", () => {
     expect(cellule(v, "P73 Analyse des Ventes", "A15")).toBe("Ordinateur portable");
     expect(cellule(v, "P73 Analyse des Ventes", "J15")).toBe(800_000);
     expect(cellule(v, "P73 Analyse des Ventes", "J55")).toBe(1_000_000);
-    expect(achatsParDesignation(donnees, 2026)).toEqual([
-      { designation: "Achat ordinateurs", montant: 400_000 },
-      { designation: "Achat imprimantes", montant: 100_000 },
-    ]);
+    // Regroupés par nature (intitulé du compte) : ici deux achats de marchandises (601)
+    expect(achatsParDesignation(donnees, 2026)).toEqual([{ designation: "601", montant: 500_000 }]);
   });
 
   it("P78 : facture non réglée à la clôture = créance, réglée avant = soldée", () => {

@@ -327,7 +327,11 @@ export const saisiesCreancesClients = (donnees: DonneesMensuelles, annee: number
 
 // ── P71 : analyse du coût d'achat ───────────────────────────────────────────
 
-/** Achats HT de l'exercice (601, 602, 604, 605, 608) par libellé d'écriture, achetés localement. */
+/**
+ * Achats HT de l'exercice de marchandises (601), de matières premières (602) et
+ * de matières et fournitures consommables (604), par nature (intitulé du
+ * compte), achetés localement. Les fournitures non stockables (605) n'en sont pas.
+ */
 export const achatsParDesignation = (donnees: DonneesMensuelles, annee: number): { designation: string; montant: number }[] => {
   const achats = new Map<string, number>();
   for (const [k, m] of Object.entries(donnees)) {
@@ -335,8 +339,8 @@ export const achatsParDesignation = (donnees: DonneesMensuelles, annee: number):
     for (const e of m?.ecritures ?? []) {
       if (e.statut === "brouillon") continue;
       for (const l of e.lignes ?? []) {
-        if (!commence(l.compte, ["601", "602", "604", "605", "608"])) continue;
-        const nom = (e.libelle || l.intitule || "Achats divers").trim();
+        if (!commence(l.compte, ["601", "602", "604"])) continue;
+        const nom = (l.intitule || l.compte).trim();
         achats.set(nom, (achats.get(nom) ?? 0) + (l.debit || 0) - (l.credit || 0));
       }
     }
