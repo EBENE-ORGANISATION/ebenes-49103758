@@ -221,6 +221,11 @@ const Index = () => {
   // Helpers permissions
   const comptaWrite = can("compta", "write");
   const comptaValidate = can("compta", "validate");
+  // Pièces déjà en comptabilité (dotations et cessions passées une seule fois)
+  const piecesComptables = useMemo(
+    () => new Set(Object.values(store.donneesConsolidees).flatMap((m) => (m?.ecritures ?? []).map((e) => e.numeroPiece))),
+    [store.donneesConsolidees],
+  );
   const factWrite = can("factures", "write");
   const factValidate = can("factures", "validate");
   const stockWrite = can("stock", "write");
@@ -596,6 +601,8 @@ const Index = () => {
                   ? (a, m, e) => store.addEcriture(a, m, e)
                   : undefined}
                 moisDotation={12}
+                piecesExistantes={piecesComptables}
+                ecrituresValidees={comptaValidate}
               />
             </TabsContent>
             )}

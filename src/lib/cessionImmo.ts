@@ -1,4 +1,4 @@
-import type { Immobilisation } from "@/types/ebene";
+import type { EcritureComptable, Immobilisation, LigneEcriture } from "@/types/ebene";
 import { cumulAFin, joursEcoules30360, vncAFin } from "@/lib/amortissements";
 
 /**
@@ -16,8 +16,10 @@ export const vncADate = (
   const d = new Date(`${String(dateCessionISO).slice(0, 10)}T00:00:00`);
   if (isNaN(d.getTime())) return immo.valeurOrigine;
   const annee = d.getFullYear();
-  // VNC à la fin de l'exercice N-1
-  const vncDebutAnnee = vncAFin(immo, annee - 1) || immo.valeurOrigine;
+  // VNC à la fin de l'exercice N-1 (valeur d'origine si acquise pendant l'exercice ;
+  // une immobilisation totalement amortie a bien une VNC nulle)
+  const anneeAcq = Number(String(immo.dateAcquisition).slice(0, 4));
+  const vncDebutAnnee = annee - 1 < anneeAcq ? immo.valeurOrigine : vncAFin(immo, annee - 1);
   const dotAnnee = cumulAFin(immo, annee) - cumulAFin(immo, annee - 1);
   // Prorata temporis (base 30/360) de la dotation N. L'année d'acquisition,
   // la dotation ne court que depuis l'acquisition.
@@ -74,10 +76,8 @@ export const typeResultatCession = (
  *     Débit  485  — Créances sur cessions d'immobilisations  = valeur de cession
  *           ─────► Crédit 822 — Produits des cessions          = valeur de cession
  *
- *  ③ Résultat (présentation simplifiée demandée par le projet) :
- *     - Plus-value  ► Crédit 827 — Produits HAO sur cession (plus-value)
- *     - Moins-value ► Débit  837 — Charges HAO sur cession (moins-value)
- *     (équilibré par la contrepartie 822/812 selon le cas).
+ *  La plus ou moins-value est la différence 822 − 812 : elle n'a pas de
+ *  compte propre en SYSCOHADA révisé.
  */
 export interface EcritureCession {
   compte: string;
@@ -93,10 +93,6 @@ export const ecrituresCession = (
   const valeurCession = Number(immo.valeurCession || 0);
   const cumul = cumulADate(immo, immo.dateCession);
   const vnc = Math.max(0, immo.valeurOrigine - cumul);
-  const pmv =
-    typeof immo.plusMoinsValue === "number"
-      ? immo.plusMoinsValue
-      : valeurCession - vnc;
 
   const cptActif = immo.comptesSYSCOHADA?.actif || "2";
   const cptAmort = immo.comptesSYSCOHADA?.amortissementCumule || "28";
@@ -119,16 +115,73 @@ export const ecrituresCession = (
     ecr.push({ compte: "822", libelle: lib + " — produit de cession", debit: 0, credit: valeurCession });
   }
 
-  // ③ Résultat plus/moins-value (827 / 837)
-  if (pmv > 0.5) {
-    ecr.push({ compte: "827", libelle: lib + " — plus-value sur cession", debit: 0, credit: pmv });
-    // Équilibrage technique : on solde par 812 (la VNC reprise est inférieure au prix)
-    ecr.push({ compte: "812", libelle: lib + " — équilibrage plus-value", debit: pmv, credit: 0 });
-  } else if (pmv < -0.5) {
-    const perte = -pmv;
-    ecr.push({ compte: "837", libelle: lib + " — moins-value sur cession", debit: perte, credit: 0 });
-    ecr.push({ compte: "822", libelle: lib + " — équilibrage moins-value", debit: 0, credit: perte });
-  }
-
   return ecr;
+};
+type EcritureGeneree = Omit<EcritureComptable, "id">;
+
+/** Contrepartie du prix de cession : encaissé en banque ou en caisse, ou restant dû (485). */
+export type ReglementCession = "521" | "571" | "485";
+
+export const pieceCession = (immoId: number) => `CES-${immoId}`;
+
+/**
+ * Écritures d'une cession, à la date de cession :
+ *  1. dotation de l'exercice jusqu'à la cession (OD DOT-CES-<id>) ;
+ *  2. sortie de l'actif (OD CES-<id>) : amortissements cumulés et VNC (812)
+ *     au débit, valeur d'origine au crédit ;
+ *  3. prix (CES-PRIX-<id>) : banque, caisse ou créance 485 au débit, 822 au crédit.
+ * Les dotations des exercices antérieurs sont supposées comptabilisées.
+ */
+export const ecrituresComptablesCession = (
+  immo: Immobilisation,
+  dateCession: string,
+  prix: number,
+  reglement: ReglementCession,
+  statut: "valide" | "brouillon" = "valide",
+): EcritureGeneree[] => {
+  const [annee, mois] = dateCession.split("-").map(Number);
+  const r = Math.round;
+  const comptes = immo.comptesSYSCOHADA;
+  const actif = comptes?.actif || "2";
+  const amort = comptes?.amortissementCumule || "";
+  const dotation = comptes?.dotation || "6813";
+  const anneeAcq = Number(String(immo.dateAcquisition).slice(0, 4));
+  const cumul = amort ? r(cumulADate(immo, dateCession)) : 0;
+  const anterieurs = amort && annee - 1 >= anneeAcq ? r(Math.min(immo.valeurOrigine, cumulAFin(immo, annee - 1))) : 0;
+  const complement = Math.max(0, cumul - anterieurs);
+  const vnc = r(immo.valeurOrigine) - cumul;
+  const numeroter = (l: LigneEcriture[]) => l.filter((x) => x.debit || x.credit).map((x, i) => ({ ...x, id: i + 1 }));
+  const commun = { statut, activiteId: immo.activiteId ?? null, date: dateCession, annee, mois };
+  const out: EcritureGeneree[] = [];
+  if (complement > 0) {
+    out.push({
+      ...commun, journal: "OD", numeroPiece: `DOT-CES-${immo.id}`,
+      libelle: `Dotation ${annee} jusqu'à la cession — ${immo.libelle}`,
+      lignes: numeroter([
+        { id: 0, compte: dotation, intitule: "Dotations aux amortissements", debit: complement, credit: 0 },
+        { id: 0, compte: amort, intitule: `Amortissements — ${immo.libelle}`, debit: 0, credit: complement },
+      ]),
+    });
+  }
+  out.push({
+    ...commun, journal: "OD", numeroPiece: pieceCession(immo.id),
+    libelle: `Cession — ${immo.libelle}`,
+    lignes: numeroter([
+      ...(amort ? [{ id: 0, compte: amort, intitule: `Amortissements — ${immo.libelle}`, debit: cumul, credit: 0 }] : []),
+      { id: 0, compte: "812", intitule: "Valeurs comptables des cessions d'immobilisations", debit: vnc, credit: 0 },
+      { id: 0, compte: actif, intitule: immo.libelle, debit: 0, credit: r(immo.valeurOrigine) },
+    ]),
+  });
+  if (prix > 0) {
+    const intitules = { "521": "Banques", "571": "Caisse", "485": "Créances sur cessions d'immobilisations" } as const;
+    out.push({
+      ...commun, journal: reglement === "521" ? "BQ" : reglement === "571" ? "CA" : "OD", numeroPiece: `CES-PRIX-${immo.id}`,
+      libelle: `Prix de cession — ${immo.libelle}`,
+      lignes: numeroter([
+        { id: 0, compte: reglement, intitule: intitules[reglement], debit: r(prix), credit: 0 },
+        { id: 0, compte: "822", intitule: "Produits des cessions d'immobilisations", debit: 0, credit: r(prix) },
+      ]),
+    });
+  }
+  return out;
 };

@@ -33,6 +33,9 @@ import {
   vncADate,
   cumulADate,
   typeResultatCession,
+  ecrituresComptablesCession,
+  pieceCession,
+  type ReglementCession,
 } from "@/lib/cessionImmo";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -54,6 +57,10 @@ interface Props {
   onAddEcriture?: (annee: number, mois: number, e: Omit<EcritureComptable, "id">) => void;
   /** Mois de comptabilisation des dotations (défaut : 12 = décembre). */
   moisDotation?: number;
+  /** Numéros des pièces déjà comptabilisées (dotations et cessions ne sont pas passées deux fois). */
+  piecesExistantes?: Set<string>;
+  /** L'utilisateur peut valider les écritures : dotations et cessions sont alors passées validées. */
+  ecrituresValidees?: boolean;
 }
 
 const METHODES: { v: MethodeAmortissement; label: string }[] = [
@@ -70,7 +77,10 @@ export const Immobilisations = ({
   canEdit,
   onAddEcriture,
   moisDotation = 12,
+  piecesExistantes,
+  ecrituresValidees = false,
 }: Props) => {
+  const statutEcritures = ecrituresValidees ? ("valide" as const) : ("brouillon" as const);
   const { currentSociete } = useTenant();
   const [showForm, setShowForm] = useState(false);
   const [libelle, setLibelle] = useState("");
@@ -88,11 +98,13 @@ export const Immobilisations = ({
   const [cessionImmo, setCessionImmo] = useState<Immobilisation | null>(null);
   const [cessionDate, setCessionDate] = useState(todayISO());
   const [cessionValeur, setCessionValeur] = useState("");
+  const [cessionReglement, setCessionReglement] = useState<ReglementCession>("521");
 
   const openCession = (i: Immobilisation) => {
     setCessionImmo(i);
     setCessionDate(todayISO());
     setCessionValeur("");
+    setCessionReglement("521");
   };
   const closeCession = () => {
     setCessionImmo(null);
@@ -121,6 +133,14 @@ export const Immobilisations = ({
       valeurCession: valeur,
       plusMoinsValue: pmv,
     });
+    // Écritures de la cession : dotation jusqu'à la cession, sortie de l'actif, prix
+    if (onAddEcriture && !piecesExistantes?.has(pieceCession(cessionImmo.id))) {
+      for (const e of ecrituresComptablesCession(cessionImmo, cessionDate, valeur, cessionReglement, statutEcritures)) {
+        onAddEcriture(e.annee!, e.mois!, e);
+      }
+    } else if (!onAddEcriture) {
+      toast.warning("Écritures de cession non générées : droit d'écriture en comptabilité requis.");
+    }
     toast.success(
       pmv > 0
         ? `Cession enregistrée — plus-value de ${formatMontant(pmv)}`
@@ -155,11 +175,12 @@ export const Immobilisations = ({
 
   const genererEcrituresDotations = async () => {
     if (!onAddEcriture) return;
+    const piece = (id: number) => `OD-AMO-${annee}-${String(id).padStart(4, "0")}`;
     const immoActives = lignes.filter(
-      (l) => l.dotation > 0 && (l.immobilisation.statut ?? "actif") === "actif"
+      (l) => l.dotation > 0 && (l.immobilisation.statut ?? "actif") === "actif" && !piecesExistantes?.has(piece(l.immobilisation.id))
     );
     if (immoActives.length === 0) {
-      toast.warning("Aucune dotation à comptabiliser pour " + annee);
+      toast.warning(`Aucune dotation à comptabiliser pour ${annee} (déjà passées ou aucune immobilisation active).`);
       return;
     }
     setGeneratingDotations(true);
@@ -169,7 +190,7 @@ export const Immobilisations = ({
         const comptes = i.comptesSYSCOHADA ?? COMPTES_IMMO_DEFAUT[i.categorie ?? "materiel_bureau"];
         const compteDotation = comptes?.dotation ?? "6813";
         const compteAmortissement = comptes?.amortissementCumule ?? "2845";
-        const numeroPiece = `OD-AMO-${annee}-${String(i.id).padStart(4, "0")}`;
+        const numeroPiece = piece(i.id);
 
         onAddEcriture(annee, moisDotation, {
           journal: "OD",
@@ -191,13 +212,15 @@ export const Immobilisations = ({
               credit: Math.round(l.dotation),
             },
           ],
-          statut: "brouillon",
+          statut: statutEcritures,
+          activiteId: i.activiteId ?? null,
+          date: `${annee}-${String(moisDotation).padStart(2, "0")}-${new Date(annee, moisDotation, 0).getDate()}`,
           annee,
           mois: moisDotation,
         });
       }
       toast.success(
-        `${immoActives.length} écriture${immoActives.length > 1 ? "s" : ""} de dotation générée${immoActives.length > 1 ? "s" : ""} en brouillon — Journal OD`
+        `${immoActives.length} écriture${immoActives.length > 1 ? "s" : ""} de dotation générée${immoActives.length > 1 ? "s" : ""}${statutEcritures === "valide" ? " et validée" + (immoActives.length > 1 ? "s" : "") : " en brouillon (à valider par le chef comptable)"} — Journal OD`
       );
     } finally {
       setGeneratingDotations(false);
@@ -543,6 +566,17 @@ export const Immobilisations = ({
               <Input type="date" value={cessionDate} onChange={(e) => setCessionDate(e.target.value)} />
             </div>
             <div>
+              <Label>Prix de cession</Label>
+              <Select value={cessionReglement} onValueChange={(v) => setCessionReglement(v as ReglementCession)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="521">Encaissé en banque (521)</SelectItem>
+                  <SelectItem value="571">Encaissé en caisse (571)</SelectItem>
+                  <SelectItem value="485">À recevoir (créance 485)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Valeur de cession (FCFA)</Label>
               <Input
                 type="number"
@@ -570,9 +604,9 @@ export const Immobilisations = ({
                 <div className="border-t border-border pt-1.5 flex justify-between items-center">
                   <span className="font-semibold">
                     {cessionPreview.type === "plus_value"
-                      ? "Plus-value (827)"
+                      ? "Plus-value (822 − 812)"
                       : cessionPreview.type === "moins_value"
-                      ? "Moins-value (837)"
+                      ? "Moins-value (822 − 812)"
                       : "Résultat"}
                   </span>
                   <span
@@ -589,7 +623,8 @@ export const Immobilisations = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground pt-1">
-                  Écritures SYSCOHADA générées : 485 (créance) / {cessionImmo?.comptesSYSCOHADA?.actif || "2xx"} (sortie) / {cessionPreview.type === "plus_value" ? "827 (plus-value)" : cessionPreview.type === "moins_value" ? "837 (moins-value)" : "812/822"}.
+                  Écritures générées {statutEcritures === "valide" ? "validées" : "en brouillon"} : dotation jusqu'à la cession,
+                  sortie de l'actif (812 / {cessionImmo?.comptesSYSCOHADA?.actif || "2xx"}), prix ({cessionReglement} / 822).
                 </p>
               </div>
             )}
