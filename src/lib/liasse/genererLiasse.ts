@@ -7,6 +7,10 @@ import { saisiesReel, type InfosSociete } from "./modeleReel";
 import { saisiesSmt } from "./modeleSmt";
 import { saisiesNotesImmobilisations, saisiesNotesSoldes } from "./notesReel";
 import { complementsReel, complementsSmt, type DonneesGestion } from "./etatsComplementaires";
+import {
+  saisiesAnalyseAchats, saisiesAnalyseVentes, saisiesFicheRecapitulative, saisiesLoyers,
+  saisiesNote28, saisiesNote31, saisiesNote34, saisiesNote3D, saisiesTva,
+} from "./notesSynthese";
 import { saisiesIdentification, type ActiviteCA, type InfosIdentification } from "./identificationLiasse";
 import type { DonneesMensuelles as DM } from "@/types/ebene";
 import { remplirModele, type Saisie } from "./xlsxPatch";
@@ -48,6 +52,14 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
         ...saisiesReel(etats, d.societe, d.dateArrete),
         ...saisiesNotesSoldes(d.donnees, d.annee),
         ...saisiesNotesImmobilisations(d.donnees, d.annee),
+        ...saisiesNote3D(d.gestion?.immobilisations ?? [], d.annee),
+        ...saisiesNote28(d.donnees, d.annee),
+        ...saisiesNote31(d.donnees, d.annee, d.gestion?.personnel ?? []),
+        ...saisiesNote34(d.donnees, d.annee),
+        ...saisiesLoyers(etats, d.donnees, d.societe.ville),
+        ...saisiesAnalyseVentes(d.donnees, d.annee),
+        ...saisiesAnalyseAchats(d.donnees, d.annee),
+        ...saisiesTva(d.donnees, d.annee),
       ];
   const ident = d.identification ? saisiesIdentification(d.identification, etats, { systeme }) : [];
   const emprunts = systeme === "normal" && d.emprunts?.length ? saisiesDettesFinancieres(d) : [];
@@ -57,7 +69,10 @@ export const saisiesLiasse = (systeme: SystemeLiasse, d: DonneesLiasse) => {
         ...saisiesHorsBilan(d.fiscal ?? {}, suretesConsenties(d.emprunts ?? [], d.annee, soldesDettes(d).solde162)),
       ]
     : [];
-  return { etats, saisies: [...base, ...emprunts, ...fiscal, ...ident, ...(d.complements ?? [])] };
+  const saisies = [...base, ...emprunts, ...fiscal, ...ident, ...(d.complements ?? [])];
+  // Fiche récapitulative : notes applicables d'après les montants inscrits
+  const recap = systeme === "normal" ? saisiesFicheRecapitulative(saisies) : [];
+  return { etats, saisies: [...saisies, ...recap] };
 };
 
 /** Notes 1 et 16A : soldes comptables des dettes financières et échéanciers. */

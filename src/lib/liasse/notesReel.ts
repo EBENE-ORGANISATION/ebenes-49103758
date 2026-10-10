@@ -25,7 +25,8 @@ interface NoteSoldes {
   /** Comptes de tiers : seuls les comptes dont le solde est dans le sens de la note. */
   filtrerSigne?: boolean;
   colN: string;
-  colN1: string;
+  /** Colonne N-1 (absente des états qui ne présentent que l'exercice). */
+  colN1?: string;
   colPct?: string;
   colAbs?: string;
   /** Colonne « à un an au plus » : faute d'échéancier, tout le solde y est porté. */
@@ -34,6 +35,45 @@ interface NoteSoldes {
 }
 
 const NOTES_SOLDES: NoteSoldes[] = [
+  // Immobilisations financières (26 titres de participation, 27 autres)
+  { feuille: "NOTE 4", base: "bilan", sens: "debit", colN: "F", colN1: "G", colPct: "H", lignes: [
+    { ligne: 10, prefixes: ["26"] }, { ligne: 11, prefixes: ["271", "27", "277", "278"] }, { ligne: 12, prefixes: ["272"] },
+    { ligne: 13, prefixes: ["273"] }, { ligne: 14, prefixes: ["274"] }, { ligne: 15, prefixes: ["275"] },
+    { ligne: 16, prefixes: ["276"] }, { ligne: 17, somme: [10, 11, 12, 13, 14, 15, 16] },
+  ] },
+  { feuille: "NOTE 4", base: "bilan", sens: "credit", colN: "F", colN1: "G", colPct: "H", lignes: [
+    { ligne: 18, prefixes: ["296"] }, { ligne: 19, prefixes: ["297"] },
+  ] },
+  // Autres créances (soldes débiteurs des comptes 42 à 47)
+  { feuille: "NOTE 8", base: "bilan", sens: "debit", filtrerSigne: true, colN: "E", colN1: "F", colPct: "G", colCourt: "H", lignes: [
+    { ligne: 10, prefixes: ["42"] }, { ligne: 11, prefixes: ["43"] }, { ligne: 12, prefixes: ["44"] },
+    { ligne: 13, prefixes: ["45"] }, { ligne: 14, prefixes: ["46"] }, { ligne: 15, prefixes: ["474"] },
+    { ligne: 16, prefixes: ["47"] }, { ligne: 20, somme: [10, 11, 12, 13, 14, 15, 16] },
+  ] },
+  { feuille: "NOTE 8", base: "bilan", sens: "credit", colN: "E", colN1: "F", colPct: "G", lignes: [
+    { ligne: 21, prefixes: ["492", "493", "494", "495", "496", "497"] },
+  ] },
+  // Primes et réserves
+  { feuille: "NOTE 14", base: "bilan", sens: "credit", colN: "F", colN1: "H", colAbs: "J", lignes: [
+    { ligne: 10, prefixes: ["1052"] }, { ligne: 11, prefixes: ["1051"] }, { ligne: 12, prefixes: ["1053"] },
+    { ligne: 13, prefixes: ["1054"] }, { ligne: 14, prefixes: ["105", "1058"] }, { ligne: 15, somme: [10, 11, 12, 13, 14] },
+    { ligne: 16, prefixes: ["111"] }, { ligne: 17, prefixes: ["112"] }, { ligne: 18, prefixes: ["1131"] },
+    { ligne: 19, prefixes: ["1132"] }, { ligne: 20, prefixes: ["113"] }, { ligne: 21, somme: [16, 17, 18, 19, 20] },
+    { ligne: 22, prefixes: ["118", "11"] }, { ligne: 23, prefixes: ["12"] },
+  ] },
+  // Autres dettes (soldes créditeurs des comptes 45 à 47) et provisions à court terme
+  { feuille: "NOTE 19", base: "bilan", sens: "credit", filtrerSigne: true, colN: "E", colN1: "F", colAbs: "G", colPct: "H", colCourt: "I", lignes: [
+    { ligne: 10, prefixes: ["45"] }, { ligne: 11, prefixes: ["461", "467"] }, { ligne: 12, prefixes: ["462"] },
+    { ligne: 13, prefixes: ["465"] }, { ligne: 14, prefixes: ["466"] }, { ligne: 15, prefixes: ["46"] },
+    { ligne: 16, somme: [11, 12, 13, 14, 15] },
+    { ligne: 17, prefixes: ["4712", "471"] }, { ligne: 18, prefixes: ["4713"] }, { ligne: 19, prefixes: ["4715"] },
+    { ligne: 20, prefixes: ["4716"] }, { ligne: 21, prefixes: ["472"] }, { ligne: 22, prefixes: ["474"] },
+    { ligne: 23, prefixes: ["47"] }, { ligne: 24, somme: [17, 18, 19, 20, 21, 22, 23] },
+    { ligne: 29, somme: [10, 16, 24] },
+  ] },
+  { feuille: "NOTE 19", base: "bilan", sens: "credit", colN: "E", colN1: "F", colAbs: "G", colPct: "H", colCourt: "I", lignes: [
+    { ligne: 30, prefixes: ["499"] },
+  ] },
   { feuille: "NOTE 6", base: "bilan", sens: "debit", colN: "F", colN1: "H", colPct: "J", lignes: [
     { ligne: 10, prefixes: ["31"] }, { ligne: 11, prefixes: ["32"] }, { ligne: 12, prefixes: ["33"] },
     { ligne: 13, prefixes: ["34"] }, { ligne: 14, prefixes: ["35"] }, { ligne: 15, prefixes: ["36"] },
@@ -88,6 +128,14 @@ const NOTES_SOLDES: NoteSoldes[] = [
     { ligne: 17, prefixes: ["441"] }, { ligne: 18, prefixes: ["442"] }, { ligne: 19, prefixes: ["443", "444"] },
     { ligne: 20, prefixes: ["447"] }, { ligne: 21, prefixes: ["44"] },
     { ligne: 22, somme: [17, 18, 19, 20, 21] }, { ligne: 23, somme: [15, 22] },
+  ] },
+  // Détail des dettes fiscales (état complémentaire P76) : dettes nées dans l'exercice
+  { feuille: "P 76 Détail DETTES FISCALES", base: "bilan", sens: "credit", filtrerSigne: true, colN: "B", colCourt: "C", lignes: [
+    { ligne: 14, prefixes: ["4461"] }, { ligne: 16, prefixes: ["441"] }, { ligne: 18, prefixes: ["4462"] },
+    { ligne: 19, prefixes: ["443", "444"] }, { ligne: 20, prefixes: ["4463"] }, { ligne: 21, prefixes: ["4464"] },
+    { ligne: 24, prefixes: ["4471"] }, { ligne: 25, prefixes: ["4472"] },
+    { ligne: 26, prefixes: ["442", "446", "447", "448", "449"] },
+    { ligne: 35, somme: [14, 16, 18, 19, 20, 21, 24, 25, 26] },
   ] },
   // ── Produits et charges ──
   { feuille: "NOTE 21", base: "gestion", sens: "credit", colN: "E", colN1: "F", colPct: "G", lignes: [
@@ -144,6 +192,17 @@ const NOTES_SOLDES: NoteSoldes[] = [
     { ligne: 28, prefixes: ["778", "77"] }, { ligne: 29, prefixes: ["797"] },
     { ligne: 30, somme: [22, 23, 24, 25, 26, 27, 28, 29] },
   ] },
+  // Charges et produits hors activités ordinaires (hors cessions : notes 3D)
+  { feuille: "NOTE 30", base: "gestion", sens: "debit", colN: "E", colN1: "F", colPct: "G", lignes: [
+    { ligne: 10, prefixes: ["831", "83"] }, { ligne: 21, prefixes: ["834"] }, { ligne: 22, prefixes: ["835"] },
+    { ligne: 23, prefixes: ["836"] }, { ligne: 24, prefixes: ["839"] }, { ligne: 25, prefixes: ["85"] },
+    { ligne: 26, prefixes: ["87"] }, { ligne: 28, somme: [10, 21, 22, 23, 24, 25, 26] },
+  ] },
+  { feuille: "NOTE 30", base: "gestion", sens: "credit", colN: "E", colN1: "F", colPct: "G", lignes: [
+    { ligne: 29, prefixes: ["841", "84"] }, { ligne: 40, prefixes: ["845"] }, { ligne: 41, prefixes: ["846"] },
+    { ligne: 42, prefixes: ["848"] }, { ligne: 43, prefixes: ["849"] }, { ligne: 44, prefixes: ["86"] },
+    { ligne: 45, somme: [29, 40, 41, 42, 43, 44] },
+  ] },
 ];
 
 /** Montant de chaque ligne (préfixe le plus long, sens et filtre de signe de la note). */
@@ -186,7 +245,7 @@ export const saisiesNotesSoldes = (donnees: DonneesMensuelles, annee: number): S
       const n = mN.get(l.ligne) ?? 0;
       const n1 = mN1.get(l.ligne) ?? 0;
       out.push({ feuille: note.feuille, cellule: `${note.colN}${l.ligne}`, valeur: n });
-      out.push({ feuille: note.feuille, cellule: `${note.colN1}${l.ligne}`, valeur: n1 });
+      if (note.colN1) out.push({ feuille: note.feuille, cellule: `${note.colN1}${l.ligne}`, valeur: n1 });
       if (note.colAbs) out.push({ feuille: note.feuille, cellule: `${note.colAbs}${l.ligne}`, valeur: n - n1 });
       const pct = pourcentage(n, n1);
       if (note.colPct && pct !== null) out.push({ feuille: note.feuille, cellule: `${note.colPct}${l.ligne}`, valeur: pct });
@@ -201,6 +260,12 @@ export const saisiesNotesSoldes = (donnees: DonneesMensuelles, annee: number): S
   };
   net("NOTE 6", "F", "H", 18, 20, 22);
   net("NOTE 7", "E", "F", 18, 20, 22);
+  net("NOTE 8", "E", "F", 20, 21, 22);
+  // Note 4 : total net = brut − dépréciations des titres et des autres immobilisations financières
+  const get = (feuille: string, cellule: string) => (out.find((x) => x.feuille === feuille && x.cellule === cellule)?.valeur as number) ?? 0;
+  for (const col of ["F", "G"]) {
+    out.push({ feuille: "NOTE 4", cellule: `${col}21`, valeur: get("NOTE 4", `${col}17`) - get("NOTE 4", `${col}18`) - get("NOTE 4", `${col}19`) });
+  }
   return out;
 };
 
