@@ -10,6 +10,8 @@
  * pour les nouveaux composants qui voudraient utiliser les HEX bruts.
  */
 
+import { lireConfort } from "./confort";
+
 const FALLBACK = {
   primaire: "#1F3864",
   secondaire: "#2E75B6",
@@ -27,6 +29,8 @@ interface ThemeInput {
   logo_url?: string | null;
   /** Nom de la société (utilisé pour <title>). */
   nom?: string | null;
+  /** Réglages d'affichage choisis par le super-admin (voir lib/confort). */
+  theme_custom?: unknown;
 }
 
 const hexToRgb = (hex: string): [number, number, number] | null => {
@@ -173,6 +177,10 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
     "--font-base",
     `${fontFamily}, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
   );
+
+  // 3ter) Confort d'affichage (attribut lu par index.css)
+  if (lireConfort(cfg?.theme_custom) === "terrain") root.dataset.confort = "terrain";
+  else delete root.dataset.confort;
 
   // 4) Identité visuelle de l'onglet (titre + favicon)
   applyDocumentTitle(cfg?.nom);

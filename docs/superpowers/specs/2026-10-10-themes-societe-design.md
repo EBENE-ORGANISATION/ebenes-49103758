@@ -1,7 +1,10 @@
 # Thèmes par société — spécification
 
 Date : 10/10/2026
-Statut : à relire par le propriétaire du produit, aucune implémentation commencée.
+Statut : **non retenue en entier.** Le 10/10/2026, le propriétaire a choisi la version allégée :
+verrou super-admin (lot 1, section 5) + réglage « confort terrain » par société (`theme_custom.confort`)
++ une seule refonte visuelle pour toute l'application (direction à choisir). Le reste de ce document
+(10 thèmes, mélange des 5 réglages, écran Apparence) reste en réserve.
 Maquettes de référence : canevas « Ébène Suite — Directions de design » (10 directions).
 
 ## 1. Objectif

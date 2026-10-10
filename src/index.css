@@ -122,6 +122,25 @@
   }
 }
 
+/* Confort « terrain » (choisi par le super-admin pour une société) :
+   tout ce qui est en rem grandit de 12,5 % (texte, boutons h-10 ≈ 45 px),
+   gris de texte et bordures plus sombres. Les points de rupture sont en px,
+   la mise en page téléphone/ordinateur ne change donc pas. */
+@layer base {
+  html[data-confort="terrain"] {
+    font-size: 112.5%;
+    --muted-foreground: 28 18% 26%;
+    --border: 28 18% 68%;
+    --input: 28 18% 58%;
+  }
+
+  html[data-confort="terrain"].dark {
+    --muted-foreground: 215 20% 78%;
+    --border: 222 22% 34%;
+    --input: 222 22% 42%;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

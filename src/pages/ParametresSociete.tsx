@@ -2,16 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { ActivitesManager } from "@/components/ebene/ActivitesManager";
 import { IdentificationSociete } from "@/components/ebene/IdentificationSociete";
 import { applyTheme } from "@/lib/theme";
+import { avecConfort, lireConfort } from "@/lib/confort";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -35,7 +38,7 @@ import {
   resetCompteur,
 } from "@/lib/numerotation";
 
-const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+const ColorField = ({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
     <Label className="text-xs">{label}</Label>
     <div className="flex items-center gap-2">
@@ -43,11 +46,13 @@ const ColorField = ({ label, value, onChange }: { label: string; value: string; 
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-16 p-1 cursor-pointer"
+        disabled={disabled}
+        className="h-10 w-16 p-1 cursor-pointer disabled:cursor-not-allowed"
       />
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         className="font-mono text-xs"
       />
     </div>
@@ -66,6 +71,7 @@ const ParametresSociete = () => {
     couleur_primaire: "#1F3864",
     couleur_secondaire: "#2E75B6",
     couleur_accent: "#C55A11",
+    theme_custom: {} as unknown,
     adresse: "",
     telephone: "",
     email: "",
@@ -95,6 +101,7 @@ const ParametresSociete = () => {
       couleur_primaire: societeConfig.couleur_primaire ?? "#1F3864",
       couleur_secondaire: societeConfig.couleur_secondaire ?? "#2E75B6",
       couleur_accent: societeConfig.couleur_accent ?? "#C55A11",
+      theme_custom: societeConfig.theme_custom ?? {},
       adresse: societeConfig.adresse ?? "",
       telephone: societeConfig.telephone ?? "",
       email: societeConfig.email ?? "",
@@ -113,7 +120,7 @@ const ParametresSociete = () => {
     applyTheme(draft);
   // Seules les couleurs changent le thème affiché
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent]);
+  }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent, draft.theme_custom]);
 
   if (!isAdmin && !isSuperAdmin) {
     return (
@@ -155,9 +162,13 @@ const ParametresSociete = () => {
         .from("societe_config")
         .update({
           logo_url: draft.logo_url,
-          couleur_primaire: draft.couleur_primaire,
-          couleur_secondaire: draft.couleur_secondaire,
-          couleur_accent: draft.couleur_accent,
+          // L'apparence est réservée au super-admin (déclencheur verrou_apparence_societe).
+          ...(isSuperAdmin && {
+            couleur_primaire: draft.couleur_primaire,
+            couleur_secondaire: draft.couleur_secondaire,
+            couleur_accent: draft.couleur_accent,
+            theme_custom: draft.theme_custom as Json,
+          }),
           adresse: draft.adresse,
           telephone: draft.telephone,
           email: draft.email,
@@ -297,22 +308,41 @@ const ParametresSociete = () => {
 
             <Card className="p-5 space-y-4">
               <h2 className="font-bold">{t("params.section_colors")}</h2>
-              <p className="text-xs text-muted-foreground">{t("params.colors_hint")}</p>
+              <p className="text-xs text-muted-foreground">
+                {isSuperAdmin ? t("params.colors_hint") : t("params.appearance_locked")}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <ColorField
                   label={t("params.color_primary")}
                   value={draft.couleur_primaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_primaire: v }))}
+                  disabled={!isSuperAdmin}
                 />
                 <ColorField
                   label={t("params.color_secondary")}
                   value={draft.couleur_secondaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_secondaire: v }))}
+                  disabled={!isSuperAdmin}
                 />
                 <ColorField
                   label={t("params.color_accent")}
                   value={draft.couleur_accent}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_accent: v }))}
+                  disabled={!isSuperAdmin}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t pt-4">
+                <div className="space-y-1">
+                  <Label htmlFor="confort-terrain" className="font-semibold">{t("params.comfort_field")}</Label>
+                  <p className="text-xs text-muted-foreground">{t("params.comfort_field_hint")}</p>
+                </div>
+                <Switch
+                  id="confort-terrain"
+                  checked={lireConfort(draft.theme_custom) === "terrain"}
+                  disabled={!isSuperAdmin}
+                  onCheckedChange={(on) =>
+                    setDraft((d) => ({ ...d, theme_custom: avecConfort(d.theme_custom, on ? "terrain" : "normal") }))
+                  }
                 />
               </div>
             </Card>
