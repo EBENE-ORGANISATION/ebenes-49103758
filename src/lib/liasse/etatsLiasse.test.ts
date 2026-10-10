@@ -78,6 +78,17 @@ describe("à-nouveaux d'exercice", () => {
     expect(x.n.actif.BZ.net).toBe(x.n.passif.DZ);
   });
 
+  it("exercice suivant non encore clôturé : il part des derniers à-nouveaux, sans les compter deux fois", () => {
+    const an = e("AN-2027", "2027-01-01", [["521", 700_000, 0], ["1013", 0, 1_000_000], ["129", 300_000, 0]], "AN");
+    const vente = e("VE", "2028-03-01", [["521", 50_000, 0], ["706", 0, 50_000]]);
+    const d = { "2026-12": { ecritures: ecritures2026 }, "2027-1": { ecritures: [an] }, "2028-3": { ecritures: [vente] } } as never;
+    const x = etatsFinanciersLiasse(d, 2028);
+    expect(x.n.actif.BS.net).toBe(750_000);
+    expect(x.n.passif.CA).toBe(1_000_000);
+    expect(x.n.passif.CJ).toBe(50_000);
+    expect(x.n.actif.BZ.net).toBe(x.n.passif.DZ);
+  });
+
   it("le stock d'ouverture (journal AN, pièce INV-OUV) n'est pas pris pour des à-nouveaux", () => {
     const ouv = e("INV-OUV-2027-01", "2027-01-01", [["311", 10_000, 0], ["121", 0, 10_000]], "AN");
     const d = { "2026-12": { ecritures: ecritures2026 }, "2027-1": { ecritures: [ouv] } } as never;

@@ -29,21 +29,25 @@ const ajouter = (s: Soldes, compte: string, v: number) => s.set(compte, (s.get(c
 /** Soldes de clôture de l'exercice : bilan (cumulé) + gestion (exercice seul). */
 export const soldesCloture = (donnees: DonneesMensuelles, annee: number): { bilan: Soldes; gestion: Soldes; reportImplicite: number } => {
   const toutes = ecrituresValidees(donnees);
-  // À-nouveaux d'exercice : pièce « AN-<année> » (le stock d'ouverture INV-OUV n'en est pas)
-  const avecANouveaux = toutes.some((e) => e._annee === annee && estANouveaux(e, annee));
+  // Point de départ : les à-nouveaux les plus récents (pièce « AN-<année> », le
+  // stock d'ouverture INV-OUV n'en est pas) jusqu'à cet exercice. Les écritures
+  // antérieures y sont déjà reprises ; sans à-nouveaux, tout est cumulé depuis l'origine.
+  const depart = toutes
+    .filter((e) => e._annee <= annee && estANouveaux(e, e._annee))
+    .reduce<number | null>((max, e) => (max === null || e._annee > max ? e._annee : max), null);
   const bilan: Soldes = new Map();
   const gestion: Soldes = new Map();
   let reportImplicite = 0;
   for (const e of toutes) {
-    if (e._annee > annee) continue;
+    if (e._annee > annee || (depart !== null && e._annee < depart)) continue;
     for (const l of e.lignes ?? []) {
       const v = (l.debit || 0) - (l.credit || 0);
       const classe = l.compte.charAt(0);
       if ("12345".includes(classe)) {
-        if (!avecANouveaux || e._annee === annee) ajouter(bilan, l.compte, v);
+        ajouter(bilan, l.compte, v);
       } else if (e._annee === annee) {
         ajouter(gestion, l.compte, v);
-      } else if (!avecANouveaux) {
+      } else {
         reportImplicite -= v; // résultat des exercices antérieurs non affecté
       }
     }
