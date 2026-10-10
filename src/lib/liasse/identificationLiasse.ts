@@ -127,19 +127,10 @@ export const saisiesIdentification = (
     set("NOTE 13", `H${l}`, x.montant);
   });
 
-  // Note 31 : capital, résultats, personnel (exercice N)
+  // Note 31 : nombre d'actions et effectif ; les montants des cinq exercices
+  // viennent de la comptabilité (notesSynthese.saisiesNote31)
   const n31 = "NOTE 31";
-  set(n31, "G15", id.capitalSocial ?? (etats.n.passif.CA || undefined));
   set(n31, "G16", id.nombreParts);
-  set(n31, "G22", etats.n.cr.XB);
-  set(n31, "G23", etats.n.cr.XG);
-  set(n31, "G24", -etats.n.cr.RQ);
-  set(n31, "G25", -etats.n.cr.RS);
-  set(n31, "G26", etats.n.cr.XI);
-  set(n31, "H22", etats.n1.cr.XB);
-  set(n31, "H23", etats.n1.cr.XG);
-  set(n31, "H26", etats.n1.cr.XI);
   set(n31, "G31", infos.effectif);
-  set(n31, "G33", infos.masseSalariale !== undefined ? Math.round(infos.masseSalariale) : undefined);
   return out;
 };

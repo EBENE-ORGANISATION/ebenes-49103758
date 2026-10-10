@@ -144,7 +144,7 @@ export const saisiesNote31 = (donnees: DonneesMensuelles, annee: number, personn
     set(24, -cr.RQ);
     set(25, -cr.RS);
     set(26, cr.XI);
-    if (k === 0) set(31, personnel.length);
+    if (k === 0 && personnel.length) set(31, personnel.length);
     set(33, somme(gestion, ["661", "662", "663"]));
     set(34, somme(gestion, ["664", "668"]));
     set(35, somme(gestion, ["667"]));

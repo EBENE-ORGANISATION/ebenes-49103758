@@ -66,6 +66,9 @@ describe("notes de synthèse (système normal)", () => {
     expect(cellule(s, "NOTE 31", "G33")).toBe(600_000);
     expect(cellule(s, "NOTE 31", "G34")).toBe(100_000);
     expect(cellule(s, "NOTE 31", "I22")).toBeUndefined();
+    // Résultat des activités ordinaires hors dotations et reprises
+    const cr = etatsFinanciersLiasse(donnees, 2026).n.cr;
+    expect(cellule(s, "NOTE 31", "G23")).toBe(cr.XG - cr.RL - cr.RN - cr.TJ - cr.TL);
   });
 
   it("note 34 : soldes intermédiaires en milliers, cohérents avec le compte de résultat", () => {
