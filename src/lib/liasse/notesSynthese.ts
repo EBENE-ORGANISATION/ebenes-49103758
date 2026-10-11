@@ -261,7 +261,8 @@ export const ventesParDesignation = (donnees: DonneesMensuelles, annee: number):
   for (const [k, m] of Object.entries(donnees)) {
     if (Number(k.split("-")[0]) !== annee) continue;
     for (const f of m?.factures ?? []) {
-      if (f.statut === "proforma" || f.statut === "annulee") continue;
+      // Seules les factures validées ont une écriture de vente
+      if (f.statut === "proforma" || f.statut === "annulee" || (f.statutValidation && f.statutValidation !== "valide")) continue;
       const brut = f.lignes.reduce((t, l) => t + (l.montant || 0), 0);
       if (!brut) continue;
       for (const l of f.lignes) {
@@ -273,8 +274,16 @@ export const ventesParDesignation = (donnees: DonneesMensuelles, annee: number):
   return [...ventes].map(([designation, montant]) => ({ designation, montant: Math.round(montant) })).sort((a, b) => b.montant - a.montant);
 };
 
+/** Libellé des ventes comptabilisées sans facture (recettes de caisse, prestations encaissées directement). */
+export const VENTES_SANS_FACTURE = "Ventes sans facture (recettes encaissées)";
+
 export const saisiesAnalyseVentes = (donnees: DonneesMensuelles, annee: number): Saisie[] => {
   const ventes = ventesParDesignation(donnees, annee);
+  // Le total doit égaler le chiffre d'affaires (comptes 70) : l'écart vient des
+  // ventes enregistrées directement en trésorerie, sans facture.
+  const ca = Math.round(-somme(soldesCloture(donnees, annee).gestion, ["70"]));
+  const ecart = ca - ventes.reduce((t, v) => t + v.montant, 0);
+  if (ecart > 0) ventes.push({ designation: VENTES_SANS_FACTURE, montant: ecart });
   if (!ventes.length) return [];
   const f = "P73 Analyse des Ventes";
   const max = 38; // lignes 15 à 52

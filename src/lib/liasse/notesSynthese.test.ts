@@ -94,6 +94,25 @@ describe("notes de synthèse (système normal)", () => {
     expect(achatsParDesignation(donnees, 2026)).toEqual([{ designation: "601", montant: 500_000 }]);
   });
 
+  it("P73 : les recettes encaissées sans facture complètent le total jusqu'au chiffre d'affaires", () => {
+    const d = {
+      "2026-3": {
+        factures: [
+          { id: 1, statut: "payee", totalHT: 400_000, lignes: [{ description: "Nuitées", montant: 400_000 }] },
+          // En attente de validation : pas encore de vente comptabilisée
+          { id: 2, statut: "en_attente", statutValidation: "en_validation", totalHT: 90_000, lignes: [{ description: "Salle", montant: 90_000 }] },
+        ],
+        ecritures: [
+          { id: 1, journal: "VE", numeroPiece: "VE-1", libelle: "", statut: "valide", lignes: [{ id: 1, compte: "706", intitule: "", debit: 0, credit: 400_000 }] },
+          { id: 2, journal: "CA", numeroPiece: "TR-9", libelle: "", statut: "valide", lignes: [{ id: 1, compte: "706", intitule: "", debit: 0, credit: 150_000 }] },
+        ],
+      },
+    } as never;
+    const v = saisiesAnalyseVentes(d, 2026);
+    expect([cellule(v, "P73 Analyse des Ventes", "A16"), cellule(v, "P73 Analyse des Ventes", "J16")]).toEqual(["Ventes sans facture (recettes encaissées)", 150_000]);
+    expect(cellule(v, "P73 Analyse des Ventes", "J55")).toBe(550_000);
+  });
+
   it("P78 : facture non réglée à la clôture = créance, réglée avant = soldée", () => {
     const f = (id: number, date: string, activite: string, ttc: number) => ({ id, date, activite, statut: "payee", totalTtc: ttc, lignes: [] });
     const d = {

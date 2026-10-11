@@ -47,7 +47,7 @@ export const principauxClients = (donnees: DonneesMensuelles, annee: number): Ti
   for (const [k, m] of Object.entries(donnees)) {
     if (Number(k.split("-")[0]) !== annee) continue;
     for (const f of m?.factures ?? []) {
-      if (f.statut === "proforma" || f.statut === "annulee") continue;
+      if (f.statut === "proforma" || f.statut === "annulee" || (f.statutValidation && f.statutValidation !== "valide")) continue;
       const t = parClient.get(f.client) ?? { nom: f.client, ht: 0, tva: 0, ttc: 0 };
       t.ht += f.totalHT; t.tva += f.avecTva ? f.totalTva : 0; t.ttc += f.avecTva ? f.totalHT + f.totalTva : f.totalHT;
       parClient.set(f.client, t);
