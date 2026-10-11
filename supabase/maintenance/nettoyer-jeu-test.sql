@@ -1,7 +1,12 @@
--- Suppression du jeu de données 2024-2025 de la société « EBENE SERVICES - TEST »
--- (chargé le 10/10/2026 entre 22:35 et 22:48 UTC : factures JEU-*, transactions,
--- bulletins, immobilisations « Jeu de test 2024-2025 », emprunt « Banque Test »,
--- écritures AN-2025 / JEU-* et celles générées par ces pièces).
+-- Suppression des jeux de données de test de la société « EBENE SERVICES - TEST » :
+--  - 2024-2025, chargé le 10/10/2026 entre 22:35 et 22:48 UTC (factures JEU-*,
+--    transactions, bulletins, immobilisations « Jeu de test 2024-2025 », emprunt
+--    « Banque Test », écritures AN-2025 / JEU-*) ;
+--  - janvier-septembre 2026, chargé le 11/10/2026 entre 01:53 et 02:09 UTC
+--    (factures JEU-2026-*, transactions, bulletins, à-nouveaux AN-2026, stock
+--    INV-2026-01 / INV-2026-10, achats du stock d'octobre) ;
+--  - la clôture des exercices 2024 et 2025.
+-- Les brouillons d'octobre 2026 validés le même jour restent validés.
 --
 -- Les factures payées ou validées ne peuvent pas être supprimées depuis
 -- l'application (déclencheur trg_factures_suppression) et les exercices clos
@@ -22,9 +27,13 @@ begin
 end $$;
 
 create temporary table jeu_bornes on commit drop as
-select '3458ac49-0fd5-4872-8162-f233ff20501e'::uuid as societe_id,
-       timestamptz '2026-10-10 22:35:00+00' as debut,
-       timestamptz '2026-10-10 22:48:00+00' as fin;
+select '3458ac49-0fd5-4872-8162-f233ff20501e'::uuid as societe_id, debut, fin
+from (values (timestamptz '2026-10-10 22:35:00+00', timestamptz '2026-10-10 22:48:00+00'),
+             (timestamptz '2026-10-11 01:53:00+00', timestamptz '2026-10-11 02:09:00+00')) v(debut, fin);
+
+-- Exercices rouverts d'abord : les écritures 2024-2025 redeviennent modifiables
+delete from exercices x using (select distinct societe_id from jeu_bornes) b
+ where x.societe_id = b.societe_id and x.annee in (2024, 2025);
 
 alter table factures disable trigger trg_factures_suppression;
 alter table factures disable trigger trg_exercice_cloture;
@@ -52,6 +61,7 @@ alter table ecritures_comptables enable trigger trg_exercice_cloture;
 -- Contrôle : tout doit être à 0 avant le commit
 select 'reste' as controle,
   (select count(*) from factures f, jeu_bornes b where f.societe_id = b.societe_id and f.numero like 'JEU-%') as factures,
+  (select count(*) from ecritures_comptables e, jeu_bornes b where e.societe_id = b.societe_id and e.numero_piece = 'AN-2026') as an_2026,
   (select count(*) from ecritures_comptables e, jeu_bornes b where e.societe_id = b.societe_id and e.annee < 2026) as ecritures_2024_2025,
   (select count(*) from transactions t, jeu_bornes b where t.societe_id = b.societe_id and t.annee < 2026) as transactions_2024_2025,
   (select count(*) from bulletins_paie p, jeu_bornes b where p.societe_id = b.societe_id and p.annee < 2026) as bulletins_2024_2025;
