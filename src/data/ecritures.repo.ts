@@ -17,6 +17,7 @@ import type {
   CodeJournal,
   StatutEcriture,
 } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type EcritureRow = Tables<"ecritures_comptables">;
 
@@ -73,11 +74,11 @@ export const fromEcriture = (
 export const ecritures = {
   /** Charge TOUTES les écritures actives, groupées par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, EcritureComptable[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("ecritures_comptables")
       .select("*")
       .eq("societe_id", societeId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).order("id").range(de, a));
     if (error) throw error;
     const result: Record<string, EcritureComptable[]> = {};
     for (const row of (data ?? []) as EcritureRow[]) {

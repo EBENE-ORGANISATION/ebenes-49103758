@@ -6,6 +6,7 @@
  * Structure DB : UNIQUE (societe_id, employe_id, annee, mois).
  */
 import { supabase } from "@/integrations/supabase/client";
+import { toutesLesPages } from "./pagination";
 
 // Type interne (table pas encore dans les types auto-générés)
 interface RetenueRow {
@@ -26,10 +27,10 @@ export const retenues = {
   async listAll(
     societeId: string,
   ): Promise<Record<string, Record<number, number>>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("retenues")
       .select("*")
-      .eq("societe_id", societeId);
+      .eq("societe_id", societeId).order("id").range(de, a));
     if (error) throw error;
     const result: Record<string, Record<number, number>> = {};
     for (const row of (data ?? []) as RetenueRow[]) {

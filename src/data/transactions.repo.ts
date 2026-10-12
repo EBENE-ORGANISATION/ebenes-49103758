@@ -16,6 +16,7 @@ import type {
   StatutValidation,
   ActiviteType,
 } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type TransactionRow = Tables<"transactions">;
 
@@ -80,16 +81,16 @@ export const fromTransaction = (
 export const transactions = {
   /** Charge TOUTES les transactions actives, groupées par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, Transaction[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("transactions")
       .select("*")
       .eq("societe_id", societeId)
       .is("deleted_at" as never, null)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false }).order("id").range(de, a));
     if (error) {
       if (error.code === "42703") {
-        const fb = await supabase.from("transactions").select("*")
-          .eq("societe_id", societeId).order("date", { ascending: false });
+        const fb = await toutesLesPages((de, a) => supabase.from("transactions").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false }).order("id").range(de, a));
         if (fb.error) throw fb.error;
         const result2: Record<string, Transaction[]> = {};
         for (const row of (fb.data ?? []) as TransactionRow[]) {

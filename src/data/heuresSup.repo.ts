@@ -4,6 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { HeuresSup, StatutValidation } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type HeuresSupRow = Tables<"heures_sup">;
 
@@ -53,10 +54,10 @@ export const heuresSup = {
   async listAll(
     societeId: string,
   ): Promise<Record<string, Record<number, HeuresSup>>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("heures_sup")
       .select("*")
-      .eq("societe_id", societeId);
+      .eq("societe_id", societeId).order("id").range(de, a));
     if (error) throw error;
     const result: Record<string, Record<number, HeuresSup>> = {};
     for (const row of (data ?? []) as HeuresSupRow[]) {

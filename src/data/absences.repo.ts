@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Absence, TypeAbsence, StatutValidation } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type AbsenceRow = Tables<"absences">;
 
@@ -51,16 +52,16 @@ export const absences = {
    * Utilisé par le hook TQ pour couvrir la navigation multi-mois.
    */
   async listAll(societeId: string): Promise<Record<string, Absence[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("absences")
       .select("*")
       .eq("societe_id", societeId)
       .is("deleted_at" as never, null)
-      .order("date_debut", { ascending: true });
+      .order("date_debut", { ascending: true }).order("id").range(de, a));
     if (error) {
       if (error.code === "42703") {
-        const fb = await supabase.from("absences").select("*")
-          .eq("societe_id", societeId).order("date_debut", { ascending: true });
+        const fb = await toutesLesPages((de, a) => supabase.from("absences").select("*")
+          .eq("societe_id", societeId).order("date_debut", { ascending: true }).order("id").range(de, a));
         if (fb.error) throw fb.error;
         const result2: Record<string, Absence[]> = {};
         for (const row of (fb.data ?? []) as AbsenceRow[]) {

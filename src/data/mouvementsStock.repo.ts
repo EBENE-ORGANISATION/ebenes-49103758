@@ -4,6 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { MouvementStock, TypeMouvementStock } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type MouvementRow = Tables<"mouvements_stock">;
 
@@ -50,11 +51,11 @@ export const fromMouvement = (
 export const mouvementsStock = {
   /** Charge TOUS les mouvements de stock, groupés par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, MouvementStock[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("mouvements_stock")
       .select("*")
       .eq("societe_id", societeId)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false }).order("id").range(de, a));
     if (error) throw error;
     const result: Record<string, MouvementStock[]> = {};
     for (const row of (data ?? []) as MouvementRow[]) {

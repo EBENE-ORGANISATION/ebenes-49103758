@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { softRemove } from "@/lib/softDelete";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { Prime, StatutValidation } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type PrimeRow = Tables<"primes">;
 
@@ -48,16 +49,16 @@ export const primes = {
   async listAll(
     societeId: string,
   ): Promise<Record<string, Record<number, Prime[]>>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("primes")
       .select("*")
       .eq("societe_id", societeId)
       .is("deleted_at" as never, null)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).order("id").range(de, a));
     if (error) {
       if (error.code === "42703") {
-        const fb = await supabase.from("primes").select("*")
-          .eq("societe_id", societeId).order("created_at", { ascending: true });
+        const fb = await toutesLesPages((de, a) => supabase.from("primes").select("*")
+          .eq("societe_id", societeId).order("created_at", { ascending: true }).order("id").range(de, a));
         if (fb.error) throw fb.error;
         const result2: Record<string, Record<number, Prime[]>> = {};
         for (const row of (fb.data ?? []) as PrimeRow[]) {

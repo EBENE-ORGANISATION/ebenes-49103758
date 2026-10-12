@@ -13,6 +13,7 @@ import type {
   LignePrestation,
   ActiviteType,
 } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type FactureRow = Tables<"factures">;
 
@@ -78,16 +79,16 @@ export const fromFacture = (
 export const factures = {
   /** Charge TOUTES les factures actives, groupées par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, Facture[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("factures")
       .select("*")
       .eq("societe_id", societeId)
       .is("deleted_at" as never, null)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false }).order("id").range(de, a));
     if (error) {
       if (error.code === "42703") {
-        const fb = await supabase.from("factures").select("*")
-          .eq("societe_id", societeId).order("date", { ascending: false });
+        const fb = await toutesLesPages((de, a) => supabase.from("factures").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false }).order("id").range(de, a));
         if (fb.error) throw fb.error;
         const result2: Record<string, Facture[]> = {};
         for (const row of (fb.data ?? []) as FactureRow[]) {

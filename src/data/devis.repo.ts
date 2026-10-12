@@ -12,6 +12,7 @@ import type {
   LignePrestation,
   ActiviteType,
 } from "@/types/ebene";
+import { toutesLesPages } from "./pagination";
 
 type DevisRow = Tables<"devis">;
 
@@ -73,16 +74,16 @@ export const fromDevis = (
 export const devis = {
   /** Charge TOUS les devis actifs, groupés par moisKey ("YYYY-M"). */
   async listAll(societeId: string): Promise<Record<string, Devis[]>> {
-    const { data, error } = await supabase
+    const { data, error } = await toutesLesPages((de, a) => supabase
       .from("devis")
       .select("*")
       .eq("societe_id", societeId)
       .is("deleted_at" as never, null)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false }).order("id").range(de, a));
     if (error) {
       if (error.code === "42703") {
-        const fb = await supabase.from("devis").select("*")
-          .eq("societe_id", societeId).order("date", { ascending: false });
+        const fb = await toutesLesPages((de, a) => supabase.from("devis").select("*")
+          .eq("societe_id", societeId).order("date", { ascending: false }).order("id").range(de, a));
         if (fb.error) throw fb.error;
         const result2: Record<string, Devis[]> = {};
         for (const row of (fb.data ?? []) as DevisRow[]) {
