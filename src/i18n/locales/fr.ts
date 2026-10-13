@@ -1043,6 +1043,8 @@ const fr = {
   force_pwd: {
     title: "Changement de mot de passe requis",
     subtitle: "Votre mot de passe a été défini par un administrateur. Vous devez en choisir un nouveau pour continuer.",
+    reset_title: "Nouveau mot de passe",
+    reset_subtitle: "Votre lien de réinitialisation est valide. Choisissez votre nouveau mot de passe.",
     new_password: "Nouveau mot de passe",
     confirm_password: "Confirmer le mot de passe",
     rule_min8: "Au moins 8 caractères",

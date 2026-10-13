@@ -12,6 +12,7 @@ import {
 } from "@/lib/permissions";
 import type { HeaderFeature } from "@/lib/features";
 import { toast } from "sonner";
+import { prendreRetourRecuperation } from "@/lib/recuperationMotDePasse";
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const INACTIVITY_WARN_MS    = 25 * 60 * 1000; // avertissement à 25 min
@@ -76,6 +77,10 @@ interface AuthContextValue {
   mustChangePassword: boolean;
   /** Appelé par ForceChangePasswordModal après succès pour rafraîchir le flag. */
   clearMustChangePassword: () => void;
+  /** TRUE après un clic sur le lien « Mot de passe oublié » : l'utilisateur choisit un nouveau mot de passe. */
+  recuperationMotDePasse: boolean;
+  /** Appelé après le choix du nouveau mot de passe. */
+  finirRecuperation: () => void;
   /** ID du facteur TOTP enrôlé et vérifié, null si pas de 2FA. */
   mfaFactorId: string | null;
   /** TRUE si le 2FA est requis mais pas encore vérifié pour cette session. */
@@ -97,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [features, setFeatures] = useState<HeaderFeature[]>([]);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [recuperationMotDePasse, setRecuperationMotDePasse] = useState(false);
   const [nomAgent, setNomAgent] = useState<string | null>(null);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -206,6 +212,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((evt, sess) => {
+      // Lien « Mot de passe oublié » : session ouverte, il reste à choisir le nouveau mot de passe
+      if (evt === "PASSWORD_RECOVERY") setRecuperationMotDePasse(true);
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
@@ -258,6 +266,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       }
     });
+
+    // Retour du lien « Mot de passe oublié » (capturé au démarrage, avant le routeur)
+    const retour = prendreRetourRecuperation();
+    if (retour && "tokenHash" in retour) {
+      supabase.auth.verifyOtp({ token_hash: retour.tokenHash, type: "recovery" }).then(({ error }) => {
+        if (error) toast.error(`Lien de réinitialisation invalide ou expiré : ${error.message}. Refaites « Mot de passe oublié ».`, { duration: 12000 });
+      });
+    } else if (retour && "erreur" in retour) {
+      toast.error(
+        retour.erreur === "expire"
+          ? "Ce lien de réinitialisation a expiré ou a déjà servi. Refaites « Mot de passe oublié » pour en recevoir un nouveau."
+          : `Lien de réinitialisation refusé : ${retour.erreur}`,
+        { duration: 12000 },
+      );
+    }
 
     return () => sub.subscription.unsubscribe();
   }, [fetchRoles, fetchGrants, fetchOverrides, fetchFeatures, fetchMustChange, fetchMfa, checkDevice]);
@@ -331,6 +354,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMustChangePassword(false);
   }, []);
 
+  const finirRecuperation = useCallback(() => {
+    setRecuperationMotDePasse(false);
+  }, []);
+
   const clearMfaRequired = useCallback(() => {
     setMfaRequired(false);
   }, []);
@@ -382,6 +409,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
         nomAgent, mustChangePassword, clearMustChangePassword,
+        recuperationMotDePasse, finirRecuperation,
         mfaFactorId, mfaRequired, clearMfaRequired,
         refreshMfa,
       }}
@@ -434,6 +462,8 @@ export const useAuth = () => {
       nomAgent: null,
       mustChangePassword: false,
       clearMustChangePassword: () => {},
+      recuperationMotDePasse: false,
+      finirRecuperation: () => {},
       mfaFactorId: null,
       mfaRequired: false,
       clearMfaRequired: () => {},

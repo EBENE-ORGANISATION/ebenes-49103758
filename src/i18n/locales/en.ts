@@ -1045,6 +1045,8 @@ const en: Translation = {
   force_pwd: {
     title: "Password change required",
     subtitle: "Your password was set by an administrator. You must choose a new one to continue.",
+    reset_title: "New password",
+    reset_subtitle: "Your reset link is valid. Choose your new password.",
     new_password: "New password",
     confirm_password: "Confirm password",
     rule_min8: "At least 8 characters",

@@ -10,6 +10,7 @@ import { Loader2, LogIn, ShieldPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
 import { connexionGoogle } from "@/lib/connexionGoogle";
+import { adresseRetourRecuperation } from "@/lib/recuperationMotDePasse";
 import { useTranslation } from "react-i18next";
 import { EbeneSuiteLogo } from "@/components/brand/EbeneSuiteLogo";
 
@@ -98,7 +99,8 @@ const Auth = () => {
     setResetBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth`,
+        // APK et .exe : leur adresse locale n'est pas ouvrable depuis un e-mail → site web
+        redirectTo: adresseRetourRecuperation(window.location.origin),
       });
       if (error) throw error;
       toast.success(t("auth_page.reset_sent"));

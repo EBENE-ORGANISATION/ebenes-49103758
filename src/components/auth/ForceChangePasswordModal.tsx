@@ -22,9 +22,11 @@ import { PasswordStrengthIndicator } from "./PasswordStrengthIndicator";
 interface Props {
   userId: string;
   onDone: () => void;
+  /** Ouverte depuis le lien « Mot de passe oublié » (titre et texte adaptés). */
+  recuperation?: boolean;
 }
 
-export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
+export const ForceChangePasswordModal = ({ userId, onDone, recuperation = false }: Props) => {
   const { t } = useTranslation();
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
@@ -89,9 +91,9 @@ export const ForceChangePasswordModal = ({ userId, onDone }: Props) => {
             <ShieldAlert className="size-8 text-warning" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">{t("force_pwd.title")}</h2>
+            <h2 className="text-xl font-bold">{t(recuperation ? "force_pwd.reset_title" : "force_pwd.title")}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {t("force_pwd.subtitle")}
+              {t(recuperation ? "force_pwd.reset_subtitle" : "force_pwd.subtitle")}
             </p>
           </div>
         </div>
