@@ -211,6 +211,10 @@ export interface MontantsEnregistres {
 export interface LigneBulletin {
   libelle: string;
   montant: number;
+  /** Base de calcul (ancienneté, cotisations), quand elle est connue. */
+  base?: number;
+  /** Taux appliqué à la base, en pourcentage lisible (« 4 », « 17,5 »). */
+  taux?: string;
 }
 
 /** Contenu chiffré d'un bulletin PDF, prêt à mettre en page. */
@@ -281,12 +285,11 @@ export const contenuBulletin = (
   const gains: LigneBulletin[] = [{ libelle: "Salaire de base", montant: v.base }];
   if (v.sursalaire > 0) gains.push({ libelle: "Sursalaire", montant: v.sursalaire });
   if (v.anc > 0)
-    gains.push({
-      libelle: concorde(c.primeAnciennete, v.anc)
-        ? `Prime d'ancienneté (${(c.tauxAnc * 100).toFixed(0)}%)`
-        : "Prime d'ancienneté",
-      montant: v.anc,
-    });
+    gains.push(
+      concorde(c.primeAnciennete, v.anc)
+        ? { libelle: `Prime d'ancienneté (${(c.tauxAnc * 100).toFixed(0)}%)`, montant: v.anc, base: v.base, taux: (c.tauxAnc * 100).toFixed(0) }
+        : { libelle: "Prime d'ancienneté", montant: v.anc },
+    );
   if (v.hs > 0) gains.push({ libelle: "Heures supplémentaires", montant: v.hs });
   if (v.primes > 0) {
     if (concorde(somme(primesDetail), v.primes)) gains.push(...primesDetail);
@@ -297,9 +300,14 @@ export const contenuBulletin = (
     else gains.push({ libelle: "Indemnités", montant: v.indemnites });
   }
 
+  // Cotisation : base et taux affichés seulement si le calcul retombe sur le montant retenu
+  const cotisation = (libelle: string, taux: number, calcule: number, montant: number): LigneBulletin =>
+    concorde(calcule, montant)
+      ? { libelle: avecTaux(libelle, taux, true), montant, base: c.baseCotisable, taux: pctTaux(taux) }
+      : { libelle, montant };
   const retenues: LigneBulletin[] = [
-    { libelle: avecTaux("CNSS salarié", c.taux.cnssSal, concorde(c.cnssSal, v.cnssSal)), montant: v.cnssSal },
-    { libelle: avecTaux("AMU salarié", c.taux.amuSal, concorde(c.amuSal, v.amuSal)), montant: v.amuSal },
+    cotisation("CNSS salarié", c.taux.cnssSal, c.cnssSal, v.cnssSal),
+    cotisation("AMU salarié", c.taux.amuSal, c.amuSal, v.amuSal),
     { libelle: "IRPP (barème progressif Togo)", montant: v.irpp },
   ];
   // Congés sans solde : non stockés à part, ils sont la part du total des

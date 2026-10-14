@@ -11,7 +11,8 @@ export const exportElementToPDF = async (element: HTMLElement, filename: string)
   // Import dynamique → vendor-pdf chargé seulement au premier export PDF
   const { default: html2pdf } = await import("html2pdf.js");
   const opt = {
-    margin: 10,
+    // Documents mis en page en A4 (data-page-a4) : ils portent leurs propres marges
+    margin: element.hasAttribute("data-page-a4") ? 0 : 10,
     filename: `${filename}.pdf`,
     image: { type: "jpeg" as const, quality: 0.98 },
     // Téléphone : image moins lourde, sinon la mémoire sature et l'application se ferme

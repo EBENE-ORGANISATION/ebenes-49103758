@@ -10,6 +10,14 @@ const getDocumentStyles = () =>
 
 const buildPrintableHtml = (el: HTMLElement, title: string): string => {
   const cloned = el.cloneNode(true) as HTMLElement;
+  // La feuille de style d'impression de l'application (index.css, @media print) ne laisse
+  // visible que #print-area : tout autre élément imprimé sortait en page blanche.
+  const contenu =
+    cloned.id === "print-area" || cloned.querySelector("#print-area")
+      ? cloned.outerHTML
+      : `<div id="print-area">${cloned.outerHTML}</div>`;
+  // Documents mis en page en A4 (modèles de documents) : ils portent leurs propres marges.
+  const pageA4 = cloned.hasAttribute("data-page-a4") || !!cloned.querySelector("[data-page-a4]");
 
   return `<!doctype html>
 <html lang="fr">
@@ -20,14 +28,14 @@ const buildPrintableHtml = (el: HTMLElement, title: string): string => {
 ${getDocumentStyles()}
 <style>
   html, body { margin: 0; padding: 0; background: #fff !important; color: #000 !important; }
-  body { padding: 12mm; font-family: Arial, sans-serif; }
+  body { padding: ${pageA4 ? "0" : "12mm"}; font-family: Arial, sans-serif; }
   .no-print, [data-radix-popper-content-wrapper] { display: none !important; }
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4; margin: ${pageA4 ? "0" : "12mm"}; }
   table { border-collapse: collapse; width: 100%; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 </style>
 </head>
-<body>${cloned.outerHTML}</body>
+<body>${contenu}</body>
 </html>`;
 };
 

@@ -52,6 +52,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
+import { useIdentification } from "@/hooks/data/useIdentification";
 
 interface Props {
   employes: Employe[];
@@ -144,8 +145,9 @@ export const GRH = ({
     const ids = new Set(employes.map((e) => e.id));
     return sanctions.filter((x) => ids.has(x.employeId));
   }, [employes, sanctions]);
+  const { identification } = useIdentification(currentSociete?.id ?? null);
   const societeInfo = currentSociete && societeConfig
-    ? { ...societeConfig, nom: currentSociete.nom }
+    ? { ...societeConfig, nom: currentSociete.nom, cnss_employeur: identification.cnssEmployeur ?? null }
     : null;
 
   const stats = useMemo(() => {
