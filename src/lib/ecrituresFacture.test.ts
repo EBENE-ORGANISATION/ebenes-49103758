@@ -142,3 +142,46 @@ describe("contrePassation", () => {
     expect(estContrePassation({ numeroPiece: "VE-FAC-007" })).toBe(false);
   });
 });
+
+describe("facture multi-activités : un produit par activité", () => {
+  const multi = {
+    ...facture,
+    totalHT: 600000,
+    totalTva: 108000,
+    totalTtc: 708000,
+    reduction: 0,
+    lignes: [
+      { description: "Installation réseau", montant: 450000 },
+      { description: "Nettoyage", montant: 75000, activiteId: "entretien" },
+      { description: "3 nuitées", montant: 75000, activiteId: "hotel" },
+    ],
+  };
+
+  it("le 706 est découpé par activité, les lignes sans activité suivent celle de la facture", () => {
+    const ve = ecritureVenteFacture(multi, 2026, 10, "info");
+    const produits = ve.lignes.filter((l) => l.compte === "706").map((l) => [l.activiteId, l.credit]);
+    expect(produits).toEqual([["info", 450000], ["entretien", 75000], ["hotel", 75000]]);
+    expect(equilibre(ve.lignes)).toBe(true);
+    expect(ve.activiteId).toBe("info");
+  });
+
+  it("la réduction se répartit au prorata, sans écart d'arrondi", () => {
+    const remise = { ...multi, totalHT: 599999, totalTva: 108000, totalTtc: 707999 };
+    const ve = ecritureVenteFacture(remise, 2026, 10, "info");
+    const total = ve.lignes.filter((l) => l.compte === "706").reduce((s, l) => s + l.credit, 0);
+    expect(total).toBe(599999);
+    expect(equilibre(ve.lignes)).toBe(true);
+  });
+
+  it("sans activité sur les lignes, l'écriture reste celle d'avant (une ligne par compte, sans activité de ligne)", () => {
+    const ve = ecritureVenteFacture({ ...facture, lignes: [{ description: "A", montant: 100000 }] }, 2026, 10, "info");
+    const l706 = ve.lignes.find((l) => l.compte === "706")!;
+    expect(l706.credit).toBe(100000);
+    expect(l706.activiteId).toBeUndefined();
+  });
+
+  it("la contre-passation garde l'activité de chaque ligne", () => {
+    const an = contrePassation({ ...ecritureVenteFacture(multi, 2026, 10, "info") }, "2026-11-01", 2026, 11);
+    expect(an.lignes.filter((l) => l.compte === "706").map((l) => [l.activiteId, l.debit])).toEqual([["info", 450000], ["entretien", 75000], ["hotel", 75000]]);
+  });
+});

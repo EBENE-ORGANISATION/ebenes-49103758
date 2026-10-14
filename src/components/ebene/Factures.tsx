@@ -355,6 +355,7 @@ export const Factures = ({
             </Label>
             <LignesVente
               lignes={lignes}
+              activiteDocument={activiteId}
               onChange={setLignes}
               articles={articles}
               messageStock={(a) => `Stock disponible : ${a.stock} ${a.unite}. La facture ne pourra être validée qu'après une entrée en stock.`}

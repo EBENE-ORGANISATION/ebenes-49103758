@@ -302,6 +302,7 @@ export const DevisSection = ({
             </Label>
             <LignesVente
               lignes={lignes}
+              activiteDocument={activiteId}
               onChange={setLignes}
               articles={articles}
               placeholderDescription={t("devis.f_description")}

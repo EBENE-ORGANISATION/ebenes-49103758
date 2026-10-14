@@ -8,6 +8,8 @@ export type LigneSaisie = {
   articleId?: number | null;
   quantite?: string;
   prixUnitaire?: string;
+  /** Activité propre à la ligne ; vide = activité du document. */
+  activiteId?: string | null;
 };
 
 export const LIGNE_VIDE: LigneSaisie = { description: "", montant: "" };
@@ -21,6 +23,7 @@ export const lignesEnregistrees = (lignes: LigneSaisie[]): LignePrestation[] =>
       ...(l.articleId
         ? { articleId: l.articleId, quantite: parseFloat(l.quantite || "0") || 0, prixUnitaire: parseFloat(l.prixUnitaire || "0") || 0 }
         : {}),
+      ...(l.activiteId ? { activiteId: l.activiteId } : {}),
     }))
     .filter((l) => l.description && l.montant > 0);
 
@@ -32,4 +35,5 @@ export const lignesEnSaisie = (lignes: LignePrestation[] | undefined): LigneSais
     articleId: l.articleId ?? null,
     quantite: l.quantite != null ? String(l.quantite) : undefined,
     prixUnitaire: l.prixUnitaire != null ? String(l.prixUnitaire) : undefined,
+    activiteId: l.activiteId ?? null,
   }));

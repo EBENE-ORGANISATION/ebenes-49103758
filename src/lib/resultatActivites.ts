@@ -77,7 +77,8 @@ export const resultatParActivite = (
         // Salaire d'un employé partagé : charges réparties selon ses parts
         for (const r of partage) imputer(r.activiteId, l.compte, l.debit, l.credit, r.part / 100);
       } else {
-        imputer(e.activiteId, l.compte, l.debit, l.credit);
+        // Vente multi-activités : l'activité de la ligne prime sur celle de l'écriture
+        imputer(l.activiteId ?? e.activiteId, l.compte, l.debit, l.credit);
       }
     }
   }

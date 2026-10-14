@@ -41,7 +41,47 @@ export const ventilationFacture = (f: FactureComptable) => {
   const taxeSejour = Math.max(0, Math.round(f.taxeSejour ?? 0));
   // Montant dû par le client = HT + TVA arrondis : les écritures sont toujours équilibrées
   const montantRegle = ht + tva + taxeSejour;
-  return { ht701, htServices, tvaBiens, tvaServices, taxeSejour, montantRegle };
+  return { ht701, htServices, tvaBiens, tvaServices, taxeSejour, montantRegle, produits: produitsParActivite(f, ht701, htServices) };
+};
+
+/** Produit HT d'une facture pour un compte (701 / 706) et une activité (null : celle du document). */
+export interface ProduitActivite { compte: "701" | "706"; activiteId: string | null; montant: number }
+
+/**
+ * Répartit les produits HT de chaque compte entre les activités des lignes,
+ * au prorata de leurs montants (la réduction s'y répartit donc aussi). Les
+ * arrondis vont aux plus grands restes : la somme égale exactement le total du compte.
+ */
+const produitsParActivite = (f: FactureComptable, ht701: number, htServices: number): ProduitActivite[] => {
+  const tout701 = f.activite === "commerce";
+  const poids = new Map<string, { compte: "701" | "706"; activiteId: string | null; brut: number }>();
+  for (const l of f.lignes ?? []) {
+    const compte: "701" | "706" = tout701 || l.articleId ? "701" : "706";
+    const activiteId = l.activiteId ?? null;
+    const cle = `${compte}|${activiteId ?? ""}`;
+    const p = poids.get(cle) ?? { compte, activiteId, brut: 0 };
+    p.brut += l.montant || 0;
+    poids.set(cle, p);
+  }
+  const out: ProduitActivite[] = [];
+  for (const [compte, total] of [["706", htServices], ["701", ht701]] as ["701" | "706", number][]) {
+    if (total <= 0) continue;
+    const parts = [...poids.values()].filter((p) => p.compte === compte && p.brut > 0);
+    const somme = parts.reduce((s, p) => s + p.brut, 0);
+    if (parts.length === 0 || somme <= 0) {
+      out.push({ compte, activiteId: null, montant: total });
+      continue;
+    }
+    const exacts = parts.map((p) => (total * p.brut) / somme);
+    const montants = exacts.map(Math.floor);
+    let reste = total - montants.reduce((s, m) => s + m, 0);
+    exacts
+      .map((x, i) => ({ i, r: x - Math.floor(x) }))
+      .sort((a, b) => b.r - a.r)
+      .forEach(({ i }) => { if (reste > 0) { montants[i] += 1; reste -= 1; } });
+    parts.forEach((p, i) => { if (montants[i] > 0) out.push({ compte, activiteId: p.activiteId, montant: montants[i] }); });
+  }
+  return out;
 };
 
 /**
@@ -52,11 +92,23 @@ export const ventilationFacture = (f: FactureComptable) => {
 export const ecritureVenteFacture = (f: FactureComptable, annee: number, mois: number, activiteId: string | null): EcritureGeneree => {
   const v = ventilationFacture(f);
   const libelle = (compte: string) => (compte === "701" ? "Ventes de marchandises" : "Services vendus");
+  // Facture multi-activités : une ligne de produit par compte et par activité, chacune
+  // portant son activité ; sinon une ligne par compte, rattachée à l'activité de l'écriture.
+  const multi = v.produits.some((p) => p.activiteId !== null);
+  const produits = new Map<string, { compte: string; activiteId: string | null; montant: number }>();
+  for (const p of v.produits) {
+    const aid = p.activiteId ?? activiteId;
+    const cle = `${p.compte}|${aid ?? ""}`;
+    const x = produits.get(cle) ?? { compte: p.compte, activiteId: aid, montant: 0 };
+    x.montant += p.montant;
+    produits.set(cle, x);
+  }
   const lignes: LigneEcriture[] = [
     { id: 0, compte: "4111", intitule: "Clients", debit: v.montantRegle, credit: 0, tiers: f.client },
-    ...([["706", v.htServices], ["701", v.ht701]] as [string, number][])
-      .filter(([, m]) => m > 0)
-      .map(([compte, m]) => ({ id: 0, compte, intitule: libelle(compte), debit: 0, credit: m, tiers: f.client })),
+    ...[...produits.values()].map((p) => ({
+      id: 0, compte: p.compte, intitule: libelle(p.compte), debit: 0, credit: p.montant, tiers: f.client,
+      ...(multi ? { activiteId: p.activiteId } : {}),
+    })),
     ...(v.tvaBiens > 0 ? [{ id: 0, compte: "4431", intitule: "TVA facturée sur ventes", debit: 0, credit: v.tvaBiens }] : []),
     ...(v.tvaServices > 0 ? [{ id: 0, compte: COMPTE_TVA_ATTENTE, intitule: INTITULE_TVA_ATTENTE, debit: 0, credit: v.tvaServices }] : []),
     ...(v.taxeSejour > 0 ? [{ id: 0, compte: "442", intitule: "Taxe de séjour collectée", debit: 0, credit: v.taxeSejour }] : []),

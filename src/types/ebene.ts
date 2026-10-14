@@ -75,6 +75,8 @@ export interface LignePrestation {
   articleId?: number | null;
   quantite?: number;
   prixUnitaire?: number;
+  /** Activité de la ligne, quand elle diffère de celle du document (facture multi-activités). */
+  activiteId?: string | null;
 }
 
 export type StatutFacture = "en_attente" | "payee" | "proforma" | "annulee";
@@ -310,6 +312,8 @@ export interface LigneEcriture {
   tiers?: string;
   /** Base HT d'une ligne de TVA, quand elle ne se lit pas dans l'écriture (TVA sur services exigible à l'encaissement). */
   base?: number;
+  /** Activité de la ligne (vente multi-activités) ; à défaut, celle de l'écriture. */
+  activiteId?: string | null;
 }
 
 export interface CompteComptable {

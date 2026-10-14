@@ -51,3 +51,19 @@ describe("resultatParActivite", () => {
     expect(lignes.map((l) => l.communs)).toEqual([100000, 100000]);
   });
 });
+
+describe("resultatParActivite — vente multi-activités", () => {
+  it("l'activité d'une ligne de produit prime sur celle de l'écriture", () => {
+    const ve = {
+      statut: "valide" as const, numeroPiece: "VE-FAC-9", activiteId: "info",
+      lignes: [
+        { id: 1, compte: "4111", intitule: "", debit: 600000, credit: 0 },
+        { id: 2, compte: "706", intitule: "", debit: 0, credit: 450000, activiteId: "info" },
+        { id: 3, compte: "706", intitule: "", debit: 0, credit: 150000, activiteId: "hotel" },
+      ],
+    };
+    const { lignes } = resultatParActivite([ve], ["hotel", "info"]);
+    expect(lignes.find((l) => l.activiteId === "info")!.ca).toBe(450000);
+    expect(lignes.find((l) => l.activiteId === "hotel")!.ca).toBe(150000);
+  });
+});

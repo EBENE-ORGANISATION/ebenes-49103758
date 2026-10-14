@@ -111,7 +111,8 @@ export const caParActivite = (donnees: DM, annee: number, noms: Map<string, stri
       if (e.statut === "brouillon") continue;
       for (const l of e.lignes ?? []) {
         if (!l.compte.startsWith("70")) continue;
-        const nom = (e.activiteId && noms.get(e.activiteId)) || "Activité principale";
+        const aid = l.activiteId ?? e.activiteId;
+        const nom = (aid && noms.get(aid)) || "Activité principale";
         ca.set(nom, (ca.get(nom) ?? 0) + (l.credit || 0) - (l.debit || 0));
       }
     }

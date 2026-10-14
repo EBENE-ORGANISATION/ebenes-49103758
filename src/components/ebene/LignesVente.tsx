@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Article } from "@/types/ebene";
 import { LIGNE_VIDE, type LigneSaisie } from "@/lib/lignesVente";
+import { useTenant } from "@/hooks/useTenant";
+import { useActivites } from "@/hooks/data/useActivites";
 
 interface Props {
   lignes: LigneSaisie[];
@@ -15,6 +17,8 @@ interface Props {
   libelleAjout?: string;
   /** Message sous une ligne dont la quantité dépasse le stock. */
   messageStock?: (article: Article) => string;
+  /** Activité du document : une ligne sans activité propre la suit. */
+  activiteDocument?: string | null;
 }
 
 export const LignesVente = ({
@@ -23,7 +27,13 @@ export const LignesVente = ({
   placeholderMontant = "Montant",
   libelleAjout = "Ajouter ligne",
   messageStock = (a) => `Stock disponible : ${a.stock} ${a.unite}.`,
+  activiteDocument = null,
 }: Props) => {
+  const { currentSociete } = useTenant();
+  const { activitesActives } = useActivites(currentSociete?.id ?? null);
+  // Une activité par ligne seulement quand la société en exerce plusieurs
+  const parLigne = activitesActives.length >= 2;
+  const nomDocument = activitesActives.find((a) => a.id === activiteDocument)?.nom;
   const maj = (idx: number, patch: Partial<LigneSaisie>) =>
     onChange(lignes.map((l, i) => {
       if (i !== idx) return l;
@@ -109,6 +119,19 @@ export const LignesVente = ({
                   <X className="size-4" />
                 </Button>
               </div>
+              {parLigne && (
+                <select
+                  aria-label="Activité de la ligne"
+                  className="h-8 w-full sm:w-72 rounded-md border border-input bg-background px-2 text-xs"
+                  value={l.activiteId ?? ""}
+                  onChange={(e) => maj(idx, { activiteId: e.target.value || null })}
+                >
+                  <option value="">{nomDocument ? `Activité du document (${nomDocument})` : "Activité du document"}</option>
+                  {activitesActives.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nom}</option>
+                  ))}
+                </select>
+              )}
               {manque && article && <p className="text-xs text-destructive">{messageStock(article)}</p>}
             </div>
           );
