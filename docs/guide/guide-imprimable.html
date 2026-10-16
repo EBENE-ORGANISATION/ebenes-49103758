@@ -1,0 +1,357 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guide Ébène Suite</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Mise en page : colonne de lecture unique, sommaire en tête, un chapitre par page à l'impression */
+:root {
+  --ebene: #1e1412;
+  --bordeaux: #6b1020;
+  --bordeaux-clair: #9e1b32;
+  --papier: #fbf8f5;
+  --encre: #241a17;
+  --gris: #6d605b;
+  --filet: #e6dcd5;
+  --fond-note: #f4ece6;
+  --carte: #ffffff;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --papier: #17100e; --encre: #f1e9e4; --gris: #b6a8a1; --filet: #3a2c28; --fond-note: #241916; --carte: #1f1614;
+  --bordeaux: #e08a98; --bordeaux-clair: #f0a0ad; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --papier: #17100e; --encre: #f1e9e4; --gris: #b6a8a1; --filet: #3a2c28; --fond-note: #241916; --carte: #1f1614;
+  --bordeaux: #e08a98; --bordeaux-clair: #f0a0ad; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papier); color: var(--encre); font: 17px/1.62 var(--sans); }
+.page { max-width: 46rem; margin: 0 auto; padding-block: 0 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bandeau { background: var(--ebene); color: #f3ebe6; }
+.bandeau .page { padding-block: 3rem 2.6rem; }
+.marque { font: 600 .82rem/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: #c9a99c; }
+h1 { font: 700 clamp(2.2rem, 6vw, 3.3rem)/1.08 var(--serif); margin: .6rem 0 .8rem; text-wrap: balance; }
+.chapeau { font-size: 1.12rem; color: #e2d4cc; max-width: 36rem; margin: 0; }
+.version { margin-top: 1.4rem; font-size: .9rem; color: #c9a99c; font-variant-numeric: tabular-nums; }
+h2 { font: 700 1.75rem/1.2 var(--serif); margin: 3.2rem 0 .4rem; text-wrap: balance; }
+h2 .num { color: var(--bordeaux-clair); margin-right: .45rem; font-variant-numeric: tabular-nums; }
+h3 { font: 600 1.18rem/1.3 var(--serif); margin: 2rem 0 .4rem; }
+.partie { margin: 3.6rem 0 0; padding-top: 1.4rem; border-top: 3px solid var(--bordeaux); }
+.partie .titre { font: 700 2.1rem/1.1 var(--serif); margin: .2rem 0 .5rem; }
+.partie .pour { font-weight: 600; color: var(--bordeaux); }
+p, li { max-width: 42rem; }
+ol.etapes { padding-left: 1.4rem; }
+ol.etapes li { margin: .35rem 0; }
+.bouton { font-weight: 600; white-space: nowrap; border-bottom: 2px solid var(--filet); }
+figure { margin: 1.2rem 0 1.6rem; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--filet); border-radius: 6px; background: var(--carte); }
+figure.tel { display: flex; gap: 1rem; flex-wrap: wrap; }
+figure.tel img { width: min(260px, 100%); }
+figcaption { font-size: .88rem; color: var(--gris); margin-top: .45rem; }
+.note { background: var(--fond-note); border-left: 4px solid var(--bordeaux); padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1.2rem 0; }
+.note strong { color: var(--bordeaux); }
+.sommaire { columns: 2 16rem; column-gap: 2rem; padding: 0; list-style: none; margin: 1rem 0 0; }
+.sommaire li { break-inside: avoid; margin: .2rem 0; }
+.sommaire a { color: var(--encre); text-decoration: none; border-bottom: 1px solid var(--filet); }
+.sommaire a:hover, .sommaire a:focus-visible { border-color: var(--bordeaux); outline: none; }
+.sommaire .groupe { font: 600 .82rem/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--bordeaux); margin-top: .8rem; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+.tableau { overflow-x: auto; margin: 1rem 0; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--filet); vertical-align: top; }
+th { font-weight: 600; color: var(--gris); }
+td.compte { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+a { color: var(--bordeaux); }
+.pied { margin-top: 4rem; font-size: .9rem; color: var(--gris); border-top: 1px solid var(--filet); padding-top: 1rem; }
+@media print {
+  @page { size: A4; margin: 16mm 15mm; }
+  body { background: #fff; color: #241a17; font-size: 11pt; }
+  .bandeau { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { max-width: none; padding: 0; }
+  .bandeau .page { padding: 2.2rem 1.6rem; }
+  section.chapitre { break-before: page; }
+  .partie { break-before: page; }
+  figure { break-inside: avoid; }
+  figure img { border-color: #ddd; }
+  a { color: inherit; text-decoration: none; }
+  .note { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head><body>
+
+<header class="bandeau">
+  <div class="page">
+    <div class="marque">Ébène Suite</div>
+    <h1>Guide d'utilisation</h1>
+    <p class="chapeau">Toute votre entreprise au même endroit : facturer, payer, suivre la trésorerie, tenir la comptabilité SYSCOHADA et déclarer, au Togo.</p>
+    <p class="version">Version 2.6.0 · octobre 2026 · captures faites sur la société de démonstration (données fictives)</p>
+  </div>
+</header>
+
+<main class="page">
+  <h2 id="sommaire" style="margin-top:2.4rem">Sommaire</h2>
+  <ul class="sommaire">
+    <li class="groupe">Démarrer — pour le dirigeant</li>
+    <li><a href="#reperes">1. Se repérer</a></li>
+    <li><a href="#tableau">2. Lire le tableau de bord</a></li>
+    <li><a href="#devis">3. Du devis à la facture</a></li>
+    <li><a href="#encaisser">4. Encaisser une facture</a></li>
+    <li><a href="#depense">5. Enregistrer une dépense</a></li>
+    <li><a href="#stock">6. Suivre le stock</a></li>
+    <li><a href="#paie">7. Le personnel et la paie</a></li>
+    <li><a href="#telephone">8. Sur le téléphone</a></li>
+    <li class="groupe">Expert — pour le comptable</li>
+    <li><a href="#saisie">9. Saisir une écriture</a></li>
+    <li><a href="#etats">10. Journal, grand livre, balance</a></li>
+    <li><a href="#bilan">11. Bilan et compte de résultat</a></li>
+    <li><a href="#declarations">12. TVA, social et impôt</a></li>
+    <li><a href="#immos">13. Immobilisations</a></li>
+    <li><a href="#cloture">14. Clôturer l'exercice</a></li>
+    <li><a href="#parametres">15. Paramètres de la société</a></li>
+    <li class="groupe">Annexes</li>
+    <li><a href="#regles">Les règles à connaître</a></li>
+    <li><a href="#comptes">Les comptes utilisés</a></li>
+  </ul>
+
+  <div class="partie">
+    <p class="pour">Partie 1 · pour le dirigeant</p>
+    <p class="titre">Démarrer</p>
+    <p>Pas besoin d'être comptable. Vous faites vos devis, vos factures, vos dépenses et votre paie ; Ébène Suite passe les écritures comptables à votre place.</p>
+  </div>
+
+  <section class="chapitre" id="reperes">
+    <h2><span class="num">1</span>Se repérer</h2>
+    <p>En haut de chaque écran, la barre sombre rappelle <strong>la société ouverte</strong>. Juste en dessous, la <strong>période</strong> (mois et année) fixe ce que vous regardez : tableau de bord, factures du mois, déclaration de TVA.</p>
+    <figure><img src="img/g01_tableau_de_bord.jpg" alt="Écran d'accueil : barre de la société, période, onglets et tableau de bord" loading="lazy"><figcaption>L'accueil : la société en haut, la période, puis les onglets Dashboard, Comptabilité, Fiscalité, Commercial, Stock, Immobilisations, GRH.</figcaption></figure>
+    <h3>Changer de société, d'activité ou de mois</h3>
+    <ol class="etapes">
+      <li>Pour une autre société : touchez son nom en haut, puis choisissez-la dans la liste.</li>
+      <li>Si votre société a plusieurs activités (par exemple matériel informatique et hôtellerie), le bouton <span class="bouton">Toutes les activités</span> permet de n'afficher qu'une activité.</li>
+      <li>Pour un autre mois : les flèches de part et d'autre du mois, ou les deux listes Mois et Année. Le bouton <span class="bouton">Aujourd'hui</span> revient au mois en cours.</li>
+    </ol>
+    <figure><img src="img/g03_selecteur_societe.jpg" alt="Liste des sociétés ouverte" loading="lazy"><figcaption>Le choix de la société.</figcaption></figure>
+    <div class="note"><strong>Bon à savoir.</strong> Le menu en haut à droite donne accès au récapitulatif annuel, aux archives, à la corbeille, aux utilisateurs, au journal d'audit et aux paramètres de la société.</div>
+  </section>
+
+  <section class="chapitre" id="tableau">
+    <h2><span class="num">2</span>Lire le tableau de bord</h2>
+    <p>Quatre chiffres résument le mois choisi :</p>
+    <ul>
+      <li><strong>Chiffre d'affaires du mois</strong>, hors taxes, comparé au mois précédent ;</li>
+      <li><strong>Masse salariale</strong> : les salaires bruts du mois ;</li>
+      <li><strong>Factures impayées</strong> : toutes celles qui attendent encore leur règlement, quel que soit leur mois ;</li>
+      <li><strong>Trésorerie estimée</strong> : l'argent en banque et en caisse à la fin du mois, comme dans la comptabilité.</li>
+    </ul>
+    <p>En dessous : la répartition par activité (chiffre d'affaires, charges et résultat de chacune), puis la carte Trésorerie avec une prévision à 30 jours, et les courbes des 12 derniers mois.</p>
+    <figure><img src="img/g02_tresorerie_carte.jpg" alt="Carte Trésorerie et prévisionnel à 30 jours" loading="lazy"><figcaption>La prévision à 30 jours ajoute les factures en attente et retire la paie, les dépenses habituelles et les impôts à reverser.</figcaption></figure>
+    <div class="note"><strong>La cloche</strong> en haut signale ce qui demande votre attention : facture en retard, échéance de TVA ou de cotisations, stock bas.</div>
+  </section>
+
+  <section class="chapitre" id="devis">
+    <h2><span class="num">3</span>Du devis à la facture</h2>
+    <p>Tout se passe dans l'onglet <span class="bouton">Commercial</span>.</p>
+    <h3>Faire un devis</h3>
+    <ol class="etapes">
+      <li>Touchez <span class="bouton">Nouveau devis</span>.</li>
+      <li>Saisissez le client, la date et, si besoin, la date de validité.</li>
+      <li>Ajoutez une ligne par prestation ou par article du stock. Chaque ligne peut avoir sa propre activité.</li>
+      <li>Vérifiez les totaux affichés en bas (HT, TVA 18 %, TTC), puis touchez <span class="bouton">Créer</span>.</li>
+    </ol>
+    <figure><img src="img/g08_devis.jpg" alt="Formulaire de nouveau devis" loading="lazy"></figure>
+    <h3>Transformer le devis en facture</h3>
+    <p>Quand le client accepte, touchez <span class="bouton">Accepté</span> puis <span class="bouton">Convertir en facture</span>. La facture est datée du jour et reçoit le prochain numéro de facture.</p>
+    <h3>Faire une facture directement</h3>
+    <ol class="etapes">
+      <li>Touchez <span class="bouton">Nouvelle Facture / Proforma</span>.</li>
+      <li>Le numéro est proposé automatiquement (par exemple FAC-2026-016). Gardez-le : la suite reste continue.</li>
+      <li>Remplissez le client, la date, les lignes et l'activité, puis <span class="bouton">Créer</span>.</li>
+    </ol>
+    <figure><img src="img/g05_nouvelle_facture.jpg" alt="Formulaire de nouvelle facture avec les totaux" loading="lazy"><figcaption>Les totaux se calculent pendant la saisie.</figcaption></figure>
+    <p>Pour l'imprimer ou l'envoyer, touchez l'œil : l'aperçu propose <span class="bouton">Imprimer</span>, <span class="bouton">PDF</span> et <span class="bouton">Word</span>. Les lignes sont regroupées par activité et le montant est écrit en toutes lettres.</p>
+    <figure><img src="img/g06_apercu_facture.jpg" alt="Aperçu d'une facture" loading="lazy"></figure>
+    <div class="note"><strong>Proforma.</strong> Cochez <em>Proforma</em> pour une offre sans valeur comptable : elle a sa propre suite (PRO-2026-001…) et devient une vraie facture avec <span class="bouton">Convertir</span>.</div>
+    <div class="note"><strong>Facture validée.</strong> Une facture doit être validée par le responsable comptable avant d'être encaissée. Une facture validée ne se supprime plus : elle s'<em>annule</em>, ses écritures sont contre-passées et elle s'imprime « Annulée ».</div>
+  </section>
+
+  <section class="chapitre" id="encaisser">
+    <h2><span class="num">4</span>Encaisser une facture</h2>
+    <ol class="etapes">
+      <li>Sur la facture validée, touchez <span class="bouton">Marquer payée</span>.</li>
+      <li>Choisissez où l'argent est arrivé : <strong>Caisse</strong> (espèces) ou <strong>Banque</strong> (virement, chèque, mobile money).</li>
+    </ol>
+    <figure><img src="img/g07_paiement_facture.jpg" alt="Choix Caisse ou Banque au règlement" loading="lazy"></figure>
+    <p>L'encaissement est daté du jour, la trésorerie augmente et, pour une prestation de service, la TVA devient due à ce moment-là.</p>
+  </section>
+
+  <section class="chapitre" id="depense">
+    <h2><span class="num">5</span>Enregistrer une dépense</h2>
+    <p>Onglet <span class="bouton">Comptabilité</span>, puis <span class="bouton">Trésorerie</span>.</p>
+    <ol class="etapes">
+      <li>Touchez <span class="bouton">Ajouter Transaction</span> et choisissez <strong>Dépense</strong>.</li>
+      <li>Indiquez la description, l'activité, le montant <strong>TTC</strong>, la nature de la charge (téléphone, loyer, carburant…) et le moyen de paiement.</li>
+      <li>Pour une facture fournisseur, joignez-la (photo ou PDF) et laissez cochée <em>Facture avec TVA</em> si le fournisseur facture la TVA : elle sera déduite.</li>
+    </ol>
+    <figure><img src="img/g09_depense.jpg" alt="Formulaire de dépense" loading="lazy"></figure>
+    <div class="note"><strong>Plus rapide :</strong> <span class="bouton">Facture fournisseur par photo</span> lit la facture (fournisseur, date, montants) et remplit le formulaire. Vérifiez puis enregistrez.</div>
+    <p>Une dépense est ensuite validée par le responsable comptable ; c'est à ce moment qu'elle entre dans les comptes.</p>
+  </section>
+
+  <section class="chapitre" id="stock">
+    <h2><span class="num">6</span>Suivre le stock</h2>
+    <p>Onglet <span class="bouton">Stock</span> : la liste des articles avec leur quantité, leur prix moyen d'achat et un signal quand le seuil d'alerte est atteint.</p>
+    <figure><img src="img/g13_stock.jpg" alt="Liste des articles du stock" loading="lazy"></figure>
+    <h3>Entrer une livraison</h3>
+    <ol class="etapes">
+      <li><span class="bouton">Mouvements</span> puis <span class="bouton">Nouveau mouvement</span>, type <strong>Entrée</strong>.</li>
+      <li>Choisissez l'article, la quantité et le prix d'achat hors taxes.</li>
+      <li>Laissez cochée <em>Enregistrer l'achat en dépense</em> : la dépense et ses écritures sont créées avec l'entrée.</li>
+    </ol>
+    <figure><img src="img/g14_mouvement.jpg" alt="Nouveau mouvement de stock" loading="lazy"></figure>
+    <p>Les ventes de la facture sortent du stock à sa validation ; une sortie plus grande que le stock disponible est refusée. En fin de mois, <span class="bouton">Faire un inventaire</span> corrige les écarts et <span class="bouton">Constater le stock au bilan</span> met la comptabilité à jour.</p>
+  </section>
+
+  <section class="chapitre" id="paie">
+    <h2><span class="num">7</span>Le personnel et la paie</h2>
+    <p>Onglet <span class="bouton">GRH</span>. <em>Effectif &amp; paie</em> montre chaque salarié avec son brut, son net et son coût ; <span class="bouton">Ajouter un employé</span> crée une fiche.</p>
+    <figure><img src="img/g11_effectif.jpg" alt="Effectif et paie" loading="lazy"></figure>
+    <h3>Les absences</h3>
+    <p><span class="bouton">Congés &amp; absences</span> : saisissez congés payés, maladie, congé sans solde… Un congé sans solde réduit le salaire du mois ; un congé payé qui dépasse le solde est refusé.</p>
+    <figure><img src="img/g12_conges.jpg" alt="Congés et absences" loading="lazy"></figure>
+    <h3>Faire la paie du mois</h3>
+    <ol class="etapes">
+      <li>Onglet <span class="bouton">Bulletins</span>, puis <span class="bouton">Générer tous</span> (ou <span class="bouton">Générer</span> salarié par salarié).</li>
+      <li>Vérifiez chaque bulletin, puis <span class="bouton">Valider</span>.</li>
+      <li>Le jour du virement, <span class="bouton">Payer</span> : le salaire net sort de la banque, et les écritures de paie sont passées.</li>
+    </ol>
+    <figure><img src="img/g10_bulletins.jpg" alt="Bulletins du mois" loading="lazy"></figure>
+    <div class="note"><strong>Cotisations et IRPP</strong> restent à reverser : faites-le depuis <em>Fiscalité → Social → Reverser</em>, avant le 15 du mois suivant.</div>
+  </section>
+
+  <section class="chapitre" id="telephone">
+    <h2><span class="num">8</span>Sur le téléphone</h2>
+    <p>L'application Android affiche les mêmes écrans, adaptés à l'écran. Le bouton <span class="bouton">Menu</span> en haut à droite regroupe la société, l'activité et les autres pages.</p>
+    <figure class="tel"><img src="img/g40_mobile_accueil.jpg" alt="Accueil sur téléphone" loading="lazy"><img src="img/g41_mobile_menu.jpg" alt="Menu sur téléphone" loading="lazy"></figure>
+    <p>Sans connexion, un bandeau rouge le signale : attendez le retour du réseau avant de saisir, et ne fermez pas l'application pendant ce temps.</p>
+  </section>
+
+  <div class="partie">
+    <p class="pour">Partie 2 · pour le comptable</p>
+    <p class="titre">Expert</p>
+    <p>Plan comptable SYSCOHADA révisé, journaux VE, AC, BQ, CA, OD et AN, contrôle « quatre yeux », exercices et à-nouveaux, déclarations au modèle OTR.</p>
+  </div>
+
+  <section class="chapitre" id="saisie">
+    <h2><span class="num">9</span>Saisir une écriture</h2>
+    <p>Onglet <span class="bouton">Comptabilité</span>, <span class="bouton">Saisie</span>. Deux modes :</p>
+    <ul>
+      <li><strong>Saisie guidée</strong> : vous choisissez l'opération (vente, achat, loyer, règlement de TVA…) et le montant ; l'écriture est proposée et équilibrée d'office.</li>
+      <li><strong>Saisie expert</strong> : vous saisissez librement les lignes. Les comptes se complètent depuis le plan comptable ; l'écriture doit être équilibrée pour être enregistrée.</li>
+    </ul>
+    <figure><img src="img/g20_saisie_guidee.jpg" alt="Saisie guidée : choix de l'opération" loading="lazy"></figure>
+    <figure><img src="img/g21_saisie_expert.jpg" alt="Saisie expert" loading="lazy"></figure>
+    <p>Le numéro de pièce suit le journal dans l'année (OD-2026-0001, OD-2026-0002…). Une écriture saisie est en <em>brouillon</em> jusqu'à sa validation dans le <span class="bouton">Journal</span>, par une autre personne que son auteur (sauf l'administrateur).</p>
+  </section>
+
+  <section class="chapitre" id="etats">
+    <h2><span class="num">10</span>Journal, grand livre, balance</h2>
+    <figure><img src="img/g22_journal.jpg" alt="Journal des écritures" loading="lazy"><figcaption>Le journal : validation, rejet avec motif, suppression des brouillons.</figcaption></figure>
+    <figure><img src="img/g23_grand_livre.jpg" alt="Grand livre" loading="lazy"><figcaption>Le grand livre : chaque compte, ses mouvements à leur date et son solde progressif.</figcaption></figure>
+    <figure><img src="img/g24_balance.jpg" alt="Balance" loading="lazy"><figcaption>La balance de l'exercice : mouvements et soldes, sous-totaux par classe. Les totaux généraux sont égaux.</figcaption></figure>
+    <div class="note"><strong>Exercice précédent pas encore clôturé ?</strong> La balance, le grand livre et le bilan reprennent ses soldes en <em>à-nouveaux provisoires</em> (comptes de bilan, résultat en 12) en attendant la clôture.</div>
+  </section>
+
+  <section class="chapitre" id="bilan">
+    <h2><span class="num">11</span>Bilan et compte de résultat</h2>
+    <p>Établis au format de la liasse SYSCOHADA révisé, à partir des écritures validées de l'exercice.</p>
+    <figure><img src="img/g25_bilan.jpg" alt="Bilan" loading="lazy"></figure>
+    <figure><img src="img/g26_resultat.jpg" alt="Compte de résultat" loading="lazy"></figure>
+    <p>Le générateur de liasse remplit les modèles officiels (système normal ou SMT selon le régime) à partir des mêmes données.</p>
+  </section>
+
+  <section class="chapitre" id="declarations">
+    <h2><span class="num">12</span>TVA, social et impôt</h2>
+    <p>Onglet <span class="bouton">Fiscalité</span>, pour le mois choisi.</p>
+    <h3>Déclaration de TVA (modèle OTR)</h3>
+    <p>Chiffre d'affaires taxable et exonéré, TVA collectée (443), TVA déductible (445), crédit du mois précédent repris automatiquement (ligne L16, modifiable), solde à payer ou crédit à reporter. Export Excel, PDF ou Word.</p>
+    <figure><img src="img/g27_tva.jpg" alt="Déclaration de TVA" loading="lazy"></figure>
+    <p>La liquidation ou le règlement de la TVA (4431 au débit, 4452 et 4441 ou banque au crédit) n'entre pas dans le calcul de la déclaration : elle la solde. La saisie guidée <em>Règlement de la TVA</em> la passe avec les montants de la déclaration.</p>
+    <h3>Social</h3>
+    <p>Cotisations CNSS et AMU et IRPP retenus, à reverser : le bouton <span class="bouton">Reverser</span> passe le règlement par banque ou caisse.</p>
+    <figure><img src="img/g28_social.jpg" alt="Charges sociales et IRPP" loading="lazy"></figure>
+    <h3>IS et IMF</h3>
+    <p>Estimation mensuelle de l'impôt sur les sociétés et de l'IMF (le plus élevé des deux s'applique), et patente. Les taux se règlent dans <em>Fiscalité → Paramètres</em> et suivent l'historique des taux.</p>
+  </section>
+
+  <section class="chapitre" id="immos">
+    <h2><span class="num">13</span>Immobilisations</h2>
+    <figure><img src="img/g29_immobilisations.jpg" alt="Tableau des immobilisations" loading="lazy"></figure>
+    <ul>
+      <li><strong>Acquisition</strong> : <span class="bouton">Nouvelle immobilisation</span> passe l'écriture d'achat (compte d'immobilisation contre banque, caisse ou fournisseur d'immobilisation 481).</li>
+      <li><strong>Amortissement</strong> linéaire ou dégressif (coefficients 1,5 · 2 · 2,5), prorata 30/360, au franc près.</li>
+      <li><strong>Fin d'exercice</strong> : <span class="bouton">Comptabiliser dotations</span> passe les dotations de l'année, une seule fois.</li>
+      <li><strong>Cession</strong> : dotation jusqu'à la date de cession, sortie de l'actif (812), prix de cession (822) ; plus-value ou moins-value affichée. Un bien dont l'achat n'est pas encore validé ne peut pas être cédé, et un bien amorti ne se supprime pas : il se cède.</li>
+    </ul>
+  </section>
+
+  <section class="chapitre" id="cloture">
+    <h2><span class="num">14</span>Clôturer l'exercice</h2>
+    <p>Onglet <span class="bouton">Comptabilité</span>, <span class="bouton">Bilan</span>, puis <span class="bouton">Clôturer l'exercice</span>.</p>
+    <ol class="etapes">
+      <li>Validez ou supprimez d'abord toutes les pièces en attente : la clôture est refusée tant qu'il reste des écritures en brouillon, des opérations ou des factures à valider.</li>
+      <li>Répartissez le résultat : réserve légale, réserves libres, dividendes ; le reste va en report à nouveau.</li>
+      <li>Confirmez : les à-nouveaux de l'exercice suivant (pièce AN-année) sont générés et l'exercice est verrouillé.</li>
+    </ol>
+    <figure><img src="img/g30_cloture.jpg" alt="Fenêtre de clôture" loading="lazy"></figure>
+    <p>Seul un administrateur peut rouvrir un exercice clôturé ; il faut ensuite le clôturer de nouveau pour recalculer les à-nouveaux. Pour une première année, <span class="bouton">Bilan d'ouverture</span> saisit les soldes de départ.</p>
+  </section>
+
+  <section class="chapitre" id="parametres">
+    <h2><span class="num">15</span>Paramètres de la société</h2>
+    <p>Menu, puis <span class="bouton">Paramètres société</span> (administrateur) : logo, couleurs, informations légales, mentions des documents, activités, identification pour les états financiers et numérotation.</p>
+    <figure><img src="img/g31_parametres.jpg" alt="Paramètres de la société" loading="lazy"></figure>
+    <figure><img src="img/g32_numerotation.jpg" alt="Numérotation automatique" loading="lazy"><figcaption>Quand le format contient l'année ({YYYY}), la suite repart à 001 chaque année. Un numéro déjà émis ne peut pas être redonné.</figcaption></figure>
+  </section>
+
+  <section class="chapitre" id="regles">
+    <h2>Les règles à connaître</h2>
+    <div class="tableau"><table>
+      <thead><tr><th>Règle</th><th>Ce que fait l'application</th></tr></thead>
+      <tbody>
+        <tr><td>Une pièce appartient au mois de sa date</td><td>Une facture du 29 septembre saisie en octobre est rangée en septembre (TVA, exercice).</td></tr>
+        <tr><td>Quatre yeux</td><td>On ne valide pas sa propre saisie, sauf l'administrateur.</td></tr>
+        <tr><td>Encaisser après validation</td><td>Une facture se valide avant d'être marquée payée.</td></tr>
+        <tr><td>Annuler plutôt que supprimer</td><td>Une facture validée ou payée s'annule : ses écritures sont contre-passées.</td></tr>
+        <tr><td>Numérotation continue</td><td>Une suite par année, sans trou ; les proformas ont leur propre suite.</td></tr>
+        <tr><td>Exercice clôturé</td><td>Plus aucune saisie datée de cet exercice ; réouverture par l'administrateur.</td></tr>
+        <tr><td>Salaires</td><td>La charge au mois du bulletin, le paiement du net au jour du virement.</td></tr>
+        <tr><td>Stock</td><td>Sortie à la validation de la facture, refus si le stock ne suffit pas.</td></tr>
+        <tr><td>Double authentification</td><td>Obligatoire pour le super-administrateur ; un nouvel appareil se confirme par e-mail.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="chapitre" id="comptes">
+    <h2>Les comptes utilisés</h2>
+    <div class="tableau"><table>
+      <thead><tr><th>Compte</th><th>Usage dans Ébène Suite</th></tr></thead>
+      <tbody>
+        <tr><td class="compte">4111</td><td>Clients : débité à la validation de la facture, soldé à l'encaissement</td></tr>
+        <tr><td class="compte">701 / 706</td><td>Ventes de marchandises / prestations de services</td></tr>
+        <tr><td class="compte">4431 · 4432</td><td>TVA collectée sur ventes · sur prestations (exigible)</td></tr>
+        <tr><td class="compte">4438</td><td>TVA des services en attente d'encaissement</td></tr>
+        <tr><td class="compte">4452</td><td>TVA déductible sur achats</td></tr>
+        <tr><td class="compte">4011</td><td>Fournisseurs</td></tr>
+        <tr><td class="compte">521 · 571</td><td>Banque · Caisse (571x : caisse propre d'une activité)</td></tr>
+        <tr><td class="compte">661 · 6641</td><td>Salaires · charges sociales patronales</td></tr>
+        <tr><td class="compte">422</td><td>Personnel, rémunérations dues (net à payer)</td></tr>
+        <tr><td class="compte">431 · 433 · 447</td><td>CNSS · AMU · IRPP retenu</td></tr>
+        <tr><td class="compte">31 · 33 · 603</td><td>Stocks de marchandises · de consommables · variation de stock</td></tr>
+        <tr><td class="compte">2x · 28x · 681x</td><td>Immobilisations · amortissements · dotations</td></tr>
+        <tr><td class="compte">812 · 822</td><td>Valeur comptable · produit des cessions</td></tr>
+        <tr><td class="compte">12 · 121 · 129</td><td>Report à nouveau (provisoire · créditeur · débiteur)</td></tr>
+      </tbody>
+    </table></div>
+    <p class="pied">Ébène Suite · ebnservicess.com · Web, Windows et Android. Guide établi sur la version 2.6.0 ; les écrans montrent la société de démonstration, avec des données fictives.</p>
+  </section>
+</main>
+</body></html>

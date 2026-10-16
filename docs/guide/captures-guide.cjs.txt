@@ -1,0 +1,97 @@
+// Captures du guide utilisateur (société TEST, données fictives)
+const { ctx: c } = require("./moteur.cjs"); const { p } = require("./api.cjs");
+const A = "C:/Users/LENOVO/Desktop/ebenes/docs/guide/captures/";
+const seul = process.argv[2] || null;
+const resultats = [];
+
+const photo = async (nom) => { await c.effacer().catch(() => {}); await c.attendre(500); await p("photo", { fichier: A + nom + ".png" }); resultats.push("ok " + nom); };
+const onglet = async (txt, apres = 1600) => c.clic(`[role=tab]|${txt}`, { apres });
+const bouton = async (txt, apres = 1200) => c.clic(`button|${txt}`, { apres });
+const fermer = async () => { await c.echap(); await c.echap(); };
+
+const ECRANS = {
+  // ── Démarrer ──
+  async g01_tableau_de_bord() { await c.ouvrir(""); await c.attendre(1500); await photo("g01_tableau_de_bord"); },
+  async g02_tresorerie_carte() { await c.ouvrir(""); await c.defiler(900, 1200); await photo("g02_tresorerie_carte"); },
+  async g03_selecteur_societe() { await c.ouvrir(""); await bouton("EBENE SERVICES - TEST", 900); await photo("g03_selecteur_societe"); await fermer(); },
+  async g04_commercial() { await c.ouvrir(""); await onglet("Commercial"); await photo("g04_commercial"); },
+  async g05_nouvelle_facture() {
+    await c.ouvrir(""); await onglet("Commercial"); await bouton("Nouvelle Facture");
+    await c.js(`(() => { const f=[...document.querySelectorAll('h3')].find(h=>h.innerText.includes('Nouvelle Facture')).parentElement;
+      const sv=(el,v)=>{Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,v); el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));};
+      sv(f.querySelectorAll('input')[1],'TEST Client Exemple'); sv(f.querySelector('input[placeholder=Description]'),'Installation réseau (exemple)'); sv(f.querySelector('input[placeholder=Montant]'),'250000');
+      f.scrollIntoView({block:'start'}); })()`);
+    await c.attendre(700); await photo("g05_nouvelle_facture");
+  },
+  async g06_apercu_facture() {
+    await c.ouvrir(""); await onglet("Commercial"); await c.haut();
+    await c.clic(await c.dans("FAC-2026-013", "button:has(.lucide-eye)"), { apres: 2500 });
+    await photo("g06_apercu_facture"); await fermer();
+  },
+  async g07_paiement_facture() {
+    await c.ouvrir(""); await onglet("Commercial");
+    await c.clic(await c.dans("FAC-2026-015", "button|Marquer payée"), { apres: 1200 }).catch(async () => {
+      await c.js(`[...document.querySelectorAll('button')].find(b=>b.innerText.includes('Marquer payée'))?.click()`); await c.attendre(1200);
+    });
+    await photo("g07_paiement_facture"); await fermer();
+  },
+  async g08_devis() { await c.ouvrir(""); await onglet("Commercial"); await bouton("Nouveau devis"); await photo("g08_devis"); },
+  async g09_depense() {
+    await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Trésorerie"); await bouton("Ajouter Transaction");
+    await photo("g09_depense");
+  },
+  async g10_bulletins() { await c.ouvrir(""); await onglet("GRH"); await onglet("Bulletins", 2500); await photo("g10_bulletins"); },
+  async g11_effectif() { await c.ouvrir(""); await onglet("GRH"); await photo("g11_effectif"); },
+  async g12_conges() { await c.ouvrir(""); await onglet("GRH"); await onglet("Congés"); await photo("g12_conges"); },
+  async g13_stock() { await c.ouvrir(""); await onglet("Stock"); await photo("g13_stock"); },
+  async g14_mouvement() { await c.ouvrir(""); await onglet("Stock"); await onglet("Mouvements"); await bouton("Nouveau mouvement"); await photo("g14_mouvement"); },
+  // ── Expert ──
+  async g20_saisie_guidee() { await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Saisie"); await bouton("Saisie guidée"); await photo("g20_saisie_guidee"); },
+  async g21_saisie_expert() {
+    await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Saisie"); await bouton("Saisie expert");
+    await c.js(`[...document.querySelectorAll('button')].find(b=>/Nouvelle saisie/.test(b.innerText))?.click()`); await c.attendre(800);
+    await photo("g21_saisie_expert");
+  },
+  async g22_journal() { await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Journal"); await photo("g22_journal"); },
+  async g23_grand_livre() {
+    await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Grand-Livre");
+    await c.js(`(() => { const e=[...document.querySelectorAll('[role=tabpanel][data-state=active] div')].filter(d=>d.innerText?.trim().startsWith('521')&&d.innerText.includes('mvts')).pop(); e?.dispatchEvent(new MouseEvent('click',{bubbles:true})); })()`);
+    await c.attendre(900); await photo("g23_grand_livre");
+  },
+  async g24_balance() { await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Balance"); await photo("g24_balance"); },
+  async g25_bilan() { await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Bilan", 2200); await photo("g25_bilan"); },
+  async g26_resultat() { await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Résultat"); await photo("g26_resultat"); },
+  async g27_tva() {
+    await c.ouvrir(""); await c.clic("button[title='Mois précédent']", { apres: 1500 }); await onglet("Fiscalité", 2000);
+    await photo("g27_tva");
+  },
+  async g28_social() { await c.ouvrir(""); await c.clic("button[title='Mois précédent']", { apres: 1500 }); await onglet("Fiscalité"); await onglet("Social"); await photo("g28_social"); },
+  async g29_immobilisations() { await c.ouvrir(""); await onglet("Immobilisations"); await photo("g29_immobilisations"); },
+  async g30_cloture() {
+    await c.ouvrir(""); await onglet("Comptabilité"); await onglet("Bilan", 2000);
+    await bouton("Clôturer l'exercice", 1000); await photo("g30_cloture"); await fermer();
+  },
+  async g31_parametres() { await c.page("http://localhost:8080/#/admin/societe?sid=3458ac49-0fd5-4872-8162-f233ff20501e"); await c.attendre(1500); await photo("g31_parametres"); },
+  async g32_numerotation() {
+    await c.page("http://localhost:8080/#/admin/societe?sid=3458ac49-0fd5-4872-8162-f233ff20501e"); await c.attendre(1500);
+    await c.js(`[...document.querySelectorAll('h2,h3')].find(h=>h.innerText.includes('Numérotation'))?.scrollIntoView({block:'start'})`); await c.attendre(700);
+    await photo("g32_numerotation");
+  },
+  // ── Téléphone ──
+  async g40_mobile_accueil() { await p("taille", { w: 390, h: 844, mobile: true }); await c.ouvrir(""); await c.attendre(1500); await photo("g40_mobile_accueil"); await p("taille", { w: 1440, h: 900 }); },
+  async g41_mobile_menu() {
+    await p("taille", { w: 390, h: 844, mobile: true }); await c.ouvrir(""); await c.clic("button[aria-label=Menu]", { apres: 900 });
+    await photo("g41_mobile_menu"); await fermer(); await p("taille", { w: 1440, h: 900 });
+  },
+};
+
+(async () => {
+  await c.camera("principal");
+  await p("taille", { w: 1440, h: 900 });
+  for (const [nom, f] of Object.entries(ECRANS)) {
+    if (seul && !nom.startsWith(seul)) continue;
+    try { await f(); } catch (e) { resultats.push("ÉCHEC " + nom + " : " + e.message); await fermer().catch(() => {}); }
+  }
+  console.log(resultats.join("\n"));
+  process.exit(0);
+})().catch((e) => { console.error(e.message); process.exit(1); });
