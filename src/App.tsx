@@ -15,6 +15,7 @@ const ParametresSociete = lazy(() => import("./pages/ParametresSociete.tsx"));
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin.tsx"));
 const Bulletins = lazy(() => import("./pages/Bulletins.tsx"));
 const Corbeille = lazy(() => import("./pages/Corbeille.tsx"));
+const ConfirmerAppareil = lazy(() => import("./pages/ConfirmerAppareil.tsx"));
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
@@ -51,6 +52,7 @@ const App = () => (
           <Suspense fallback={null}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/confirmer-appareil" element={<ConfirmerAppareil />} />
             <Route
               path="/"
               element={
