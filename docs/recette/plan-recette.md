@@ -26,8 +26,8 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 | 8 | GRH : personnel, fiche, contrats, absences, heures sup, discipline, indemnités, simulateur, import Excel | GRH, grh/* | fait (barème licenciement à confirmer) |
 | 9 | Paie : bulletins, validation, paiement, récap annuel | BulletinsPaie, BulletinEditDialog, RecapAnnuelModal, pages/Bulletins | fait |
 | 10 | Mon portail (employé) et délégations | MonPortail, GestionDelegations | à faire |
-| 11 | Paramètres société, identification, activités, apparence | ParametresSociete, IdentificationSociete, ActivitesManager | à faire |
-| 12 | Administration : utilisateurs, journal d'audit, corbeille, archives, super-admin | AdminUsers, AuditLog, Corbeille, ArchivesModal, SuperAdmin | à faire |
+| 11 | Paramètres société, identification, activités, apparence | ParametresSociete, IdentificationSociete, ActivitesManager | fait (téléversement du logo non testé) |
+| 12 | Administration : utilisateurs, journal d'audit, corbeille, archives, super-admin | AdminUsers, AuditLog, Corbeille, ArchivesModal, SuperAdmin | fait (création d'utilisateur non testée : comptes créés par vous) |
 | 13 | Impression et documents (modèle D) | components/impression | à faire |
 | 14 | Hors ligne, mises à jour, Electron, Android | OfflineBanner, UpdateBanner, electron, AndroidUpdateChecker | à faire |
 | 15 | Droits et isolation RLS (transversal) | supabase/migrations | à faire |

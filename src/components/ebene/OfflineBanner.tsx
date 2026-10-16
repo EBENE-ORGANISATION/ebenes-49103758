@@ -75,7 +75,7 @@ export const OfflineBanner = () => {
               <p className="text-xs opacity-80">
                 {reconnecting
                   ? "Vérification de la connexion à Supabase…"
-                  : "Les modifications sont enregistrées localement et seront synchronisées à la reconnexion."}
+                  : "Les saisies en cours partiront au retour de la connexion si l'application reste ouverte : rien n'est conservé si vous la fermez. Évitez de saisir d'ici là."}
               </p>
             </div>
           </div>
