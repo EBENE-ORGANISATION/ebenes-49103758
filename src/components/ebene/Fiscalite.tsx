@@ -1140,7 +1140,7 @@ export const Fiscalite = ({
           {societeId && (
             <div className="card-elevated p-5">
               <h3 className="font-bold mb-4">Régime fiscal & Impôts applicables</h3>
-              <TauxImpots societeId={societeId} canEdit={canEditTaux} />
+              <TauxImpots societeId={societeId} canEdit={canEditTaux} caAnnuelHT={caAnnuel} />
             </div>
           )}
 

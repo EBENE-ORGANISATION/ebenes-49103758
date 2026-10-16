@@ -31,15 +31,18 @@ import {
 } from "@/utils/fiscalAutoSet";
 import { useFiscalite } from "@/hooks/useFiscalite";
 import { useTransactions } from "@/hooks/data/useTransactions";
+import { transactionComptabilisee } from "@/lib/ebene-utils";
 
 interface Props {
   societeId: string;
   canEdit?: boolean;
+  /** CA hors taxes de l'exercice, lu dans les écritures (onglet Fiscalité). */
+  caAnnuelHT?: number;
 }
 
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 
-export const TauxImpots = ({ societeId, canEdit = false }: Props) => {
+export const TauxImpots = ({ societeId, canEdit = false, caAnnuelHT }: Props) => {
   const { fiscalite, isLoading, updateFiscal, isUpdating } = useFiscalite(societeId);
   const { transactions } = useTransactions(societeId);
 
@@ -50,16 +53,18 @@ export const TauxImpots = ({ societeId, canEdit = false }: Props) => {
 
   // ── CA calculé automatiquement depuis les recettes de l'année en cours ──
   const anneeEnCours = new Date().getFullYear();
-  const caAutoCalcule = useMemo(() => {
+  const caRecettes = useMemo(() => {
     let total = 0;
     for (let mois = 1; mois <= 12; mois++) {
       const key = `${anneeEnCours}-${mois}`;
       for (const t of (transactions[key] ?? [])) {
-        if (t.type === "r") total += t.m;
+        if (t.type === "r" && transactionComptabilisee(t)) total += t.m;
       }
     }
     return Math.round(total);
   }, [transactions, anneeEnCours]);
+  // CA hors taxes de la comptabilité ; à défaut, recettes de l'année (ancienne estimation)
+  const caAutoCalcule = caAnnuelHT != null ? Math.round(caAnnuelHT) : caRecettes;
 
   // ── Sync depuis la DB (régime, secteur, TVA uniquement — CA vient des recettes) ──
   useEffect(() => {
@@ -76,8 +81,10 @@ export const TauxImpots = ({ societeId, canEdit = false }: Props) => {
 
   useEffect(() => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    // Seul un utilisateur autorisé met à jour l'estimation enregistrée
+    if (!canEdit) return;
     autoSaveTimerRef.current = setTimeout(async () => {
-      if (lastSavedCaRef.current === caAutoCalcule) return;
+      if (lastSavedCaRef.current === caAutoCalcule || caAutoCalcule === fiscalite?.ca_annuel_estime) return;
       try {
         await updateFiscal({ ca_annuel_estime: caAutoCalcule });
         lastSavedCaRef.current = caAutoCalcule;
@@ -140,7 +147,7 @@ export const TauxImpots = ({ societeId, canEdit = false }: Props) => {
         <TrendingUp className="size-4 text-primary shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">
-            CA {anneeEnCours} — calculé automatiquement depuis les recettes enregistrées
+            CA {anneeEnCours} hors taxes — lu dans la comptabilité
           </p>
           <p className="text-lg font-bold tabular-nums">
             {fmt(caAutoCalcule)} <span className="text-sm font-normal text-muted-foreground">FCFA</span>

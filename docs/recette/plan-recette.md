@@ -22,7 +22,7 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 | 4 | Stock : articles, catégories, mouvements | Stock | fait (entrée achetée, PMP, refus de sortie, suppression, constatation au bilan vérifiés) |
 | 5 | Immobilisations et amortissements | Immobilisations | fait |
 | 6 | Comptabilité : saisie guidée/expert, journal, grand livre, balance, bilan, résultat, exercices, emprunts, liasse | comptabilite/* | fait (clôture réelle non rejouée : 2026 doit rester ouvert ; liasse couverte par ses tests) |
-| 7 | Fiscalité : TVA modèle OTR, IS, réintégrations/déductions, taux | Fiscalite, TauxImpots, TauxHistoriqueDialog | à faire |
+| 7 | Fiscalité : TVA modèle OTR, IS, réintégrations/déductions, taux | Fiscalite, TauxImpots, TauxHistoriqueDialog | fait (taux légaux non revérifiés : paramétrables) |
 | 8 | GRH : personnel, fiche, contrats, absences, heures sup, discipline, indemnités, simulateur, import Excel | GRH, grh/* | à faire |
 | 9 | Paie : bulletins, validation, paiement, récap annuel | BulletinsPaie, BulletinEditDialog, RecapAnnuelModal, pages/Bulletins | à faire |
 | 10 | Mon portail (employé) et délégations | MonPortail, GestionDelegations | à faire |
