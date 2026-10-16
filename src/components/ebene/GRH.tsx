@@ -342,7 +342,7 @@ export const GRH = ({
                           {e.poste} • Cat. {e.categorie || "—"} Éch. {e.echelon || 1} • {(e.typeContrat || "cdi").toUpperCase()}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Ancienneté : <strong>{anc.toFixed(1)} ans</strong> (prime {(tx * 100).toFixed(0)}%) • {e.situation === "marie" ? "Marié(e)" : "Célibataire"} • {e.enfants} enf.
+                          Ancienneté : <strong>{anc.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} an{anc >= 2 ? "s" : ""}</strong> (prime {(tx * 100).toFixed(0)}%) • {e.situation === "marie" ? "Marié(e)" : "Célibataire"} • {e.enfants} enf.
                         </p>
                         {sv === "rejete" && e.motifRejet && (
                           <p className="text-xs text-destructive mt-1 italic">

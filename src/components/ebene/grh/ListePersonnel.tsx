@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Eye, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMontant, calculerAnciennete, todayISO } from "@/lib/ebene-utils";
+import { formatMontant, calculerAnciennete, todayISO, dateFr } from "@/lib/ebene-utils";
 import { FichePersonnel } from "./FichePersonnel";
 import { enregistrerFichier, TYPE_XLSX } from "@/lib/fichiers";
 import type { Employe } from "@/types/ebene";
@@ -185,8 +185,8 @@ export const ListePersonnel = ({ employes, societeId, absences = [] }: Props) =>
                   <td className="px-3 py-2">{e.poste}</td>
                   <td className="px-3 py-2">{e.categorie ?? "—"}{e.echelon ? `/${e.echelon}` : ""}</td>
                   <td className="px-3 py-2">{(e.typeContrat ?? "—").toUpperCase()}</td>
-                  <td className="px-3 py-2">{e.dateEmbauche ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">{anc.toFixed(1)}</td>
+                  <td className="px-3 py-2">{e.dateEmbauche ? dateFr(e.dateEmbauche) : "—"}</td>
+                  <td className="px-3 py-2 text-right">{anc.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                   <td className="px-3 py-2 text-right amount">{formatMontant(e.salaire)}</td>
                   <td className="px-3 py-2 text-right">{c?.nbBulletins ?? 0}</td>
                   <td className="px-3 py-2 text-right amount text-success">{formatMontant(c?.totalNet ?? 0)}</td>

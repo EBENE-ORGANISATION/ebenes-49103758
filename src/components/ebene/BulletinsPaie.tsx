@@ -328,7 +328,8 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmer le paiement</AlertDialogTitle>
-                                <AlertDialogDescription className="space-y-2">
+                                <AlertDialogDescription asChild>
+                                  <div className="space-y-2 text-sm text-muted-foreground">
                                   <p>
                                     Vous êtes sur le point de marquer le bulletin de{" "}
                                     <strong>{b.employe_nom}</strong> comme payé pour {periode}.
@@ -342,6 +343,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                                     <li className="text-muted-foreground">Cotisations et IRPP restent à reverser (Fiscalité → Social → Reverser).</li>
                                   </ul>
                                   <p className="text-destructive font-medium text-xs">Cette action est irréversible.</p>
+                                  </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
