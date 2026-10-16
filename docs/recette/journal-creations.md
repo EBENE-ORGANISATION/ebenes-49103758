@@ -18,3 +18,5 @@
 | 2026-10-16 | Comptabilité | transactions | Recette comptoir avec TVA 11 800 (caisse Hôtellerie 5711), validée, écriture TR-771 | 771 |
 | 2026-10-16 | Paie | bulletins_paie | Bulletin nov. 2026 de TEST Komla AGBEKO généré, validé, payé (transaction 772, OD-SAL-202611-11, RS-202611-11) | — |
 | 2026-10-16 | Immobilisations | immobilisations | « Test blocage cession (recette) » créée puis supprimée (IM-14 supprimée) | 14 |
+| 2026-10-16 | Tournage tutos | devis | DEV-2026-010 « DÉMO Client Vidéo », converti | — |
+| 2026-10-16 | Tournage tutos | factures | FAC-2026-016 « DÉMO Client Vidéo » 531 000 TTC, validée puis payée en banque | — |

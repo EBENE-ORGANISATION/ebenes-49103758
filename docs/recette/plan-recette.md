@@ -38,3 +38,12 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 3. Recalculer les montants et contrôler les écritures en SQL (lecture seule sur TEST).
 4. Corriger, vérifier, commit.
 5. Mettre à jour `bugs.md` et le statut ci-dessus ; point d'étape.
+
+## Livrables produits (2026-10-16)
+
+- Guide 2.6.0 : `docs/guide/` (page web publiée, PDF A4 de 32 pages).
+- Vidéos (hors dépôt, `brag-output-2026-10-16-tutoriels/`, page d'accueil `index.html`) :
+  - 20 tutos courts, un par fonction (0 min 32 à 2 min 15), classés Démarrer / Expert ;
+  - 12 tutos par module (0 min 32 à 5 min 37) ;
+  - film de présentation en quatre longueurs : 2 min 17, 3 min 54, 18 min 42 et 25 min 36.
+- Le portail employé (module 10) est exclu des vidéos tant qu'il reste en suspens ; les chapitres sont renumérotés.
