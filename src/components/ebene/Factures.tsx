@@ -183,7 +183,9 @@ export const Factures = ({
     if (draft.fournisseur) setClient(draft.fournisseur);
     if (draft.date) setDate(draft.date);
     setAvecTva(!!draft.tva && draft.tva > 0);
-    const montant = draft.montantHT ?? draft.montantTTC ?? null;
+    // Les lignes sont saisies hors taxes : un TTC seul est ramené au HT (sinon TVA comptée deux fois)
+    const montant = draft.montantHT
+      ?? (draft.montantTTC != null ? Math.round(draft.montantTTC - (draft.tva ?? 0)) : null);
     if (montant != null && montant > 0) {
       setLignes([{ description: "Facture importée (OCR)", montant: String(montant) }]);
     }
