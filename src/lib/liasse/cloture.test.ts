@@ -54,3 +54,22 @@ describe("clôture d'exercice", () => {
     expect(o.lignes).toHaveLength(2);
   });
 });
+
+describe("piecesEnAttente — clôture bloquée tant que tout n'est pas comptabilisé", () => {
+  it("compte brouillons, opérations à valider et factures à valider, pas les encaissements automatiques", async () => {
+    const { piecesEnAttente } = await import("./cloture");
+    const donnees = {
+      "2026-10": {
+        ecritures: [{ statut: "brouillon" }, { statut: "valide" }],
+        transactions: [
+          { statut: "en_validation", source: "manuelle" },
+          { statut: "en_validation", source: "facture" },
+          { statut: "rejete", source: "manuelle" },
+        ],
+        factures: [{ statut: "en_attente", statutValidation: "en_validation" }, { statut: "annulee", statutValidation: "en_validation" }],
+      },
+      "2025-12": { ecritures: [{ statut: "brouillon" }], transactions: [], factures: [] },
+    } as never;
+    expect(piecesEnAttente(donnees, 2026)).toEqual({ ecritures: 1, operations: 1, factures: 1, total: 3 });
+  });
+});

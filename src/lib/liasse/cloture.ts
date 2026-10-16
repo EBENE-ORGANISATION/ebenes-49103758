@@ -4,6 +4,7 @@
 // affecté (réserve légale, réserves libres, dividendes, report à nouveau).
 import type { DonneesMensuelles, EcritureComptable, LigneEcriture } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
+import { transactionComptabilisee } from "@/lib/ebene-utils";
 import { compteResultatLiasse, pieceANouveaux, soldesCloture } from "./etatsLiasse";
 
 export interface Affectation {
@@ -114,3 +115,27 @@ export const MODELE_OUVERTURE: { compte: string; libelle: string; sens: "debit" 
   { compte: "521", libelle: "Banque", sens: "debit" },
   { compte: "571", libelle: "Caisse", sens: "debit" },
 ];
+
+/**
+ * Pièces de l'exercice qui ne sont pas encore comptabilisées : après la
+ * clôture, le verrou de la base empêcherait de les valider, et elles
+ * manqueraient aux à-nouveaux. La clôture attend qu'elles soient traitées.
+ */
+export const piecesEnAttente = (donnees: DonneesMensuelles, annee: number) => {
+  let ecritures = 0, operations = 0, factures = 0;
+  for (const [k, m] of Object.entries(donnees || {})) {
+    if (Number(k.split("-")[0]) !== annee || !m) continue;
+    ecritures += (m.ecritures || []).filter((e) => e.statut === "brouillon").length;
+    // Encaissements de factures et salaires : comptabilisés d'office (transactionComptabilisee)
+    operations += (m.transactions || []).filter((t) => t.statut !== "rejete" && !transactionComptabilisee(t)).length;
+    factures += (m.factures || []).filter((f) => f.statut !== "annulee" && (f.statutValidation === "brouillon" || f.statutValidation === "en_validation")).length;
+  }
+  return { ecritures, operations, factures, total: ecritures + operations + factures };
+};
+
+export const messagePiecesEnAttente = (annee: number, p: ReturnType<typeof piecesEnAttente>): string =>
+  `Exercice ${annee} : ` + [
+    p.ecritures && `${p.ecritures} écriture${p.ecritures > 1 ? "s" : ""} en brouillon`,
+    p.operations && `${p.operations} opération${p.operations > 1 ? "s" : ""} de trésorerie à valider`,
+    p.factures && `${p.factures} facture${p.factures > 1 ? "s" : ""} à valider`,
+  ].filter(Boolean).join(", ") + ". Validez-les ou supprimez-les avant de clôturer : après la clôture, plus rien ne peut être validé dans l'exercice.";

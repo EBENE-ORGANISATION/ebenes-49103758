@@ -18,7 +18,7 @@ import { QK_ECRITURES } from "@/hooks/data/useEcritures";
 import { formatSolde, messageErreur } from "@/lib/ebene-utils";
 import {
   ecritureANouveaux, ecritureOuverture, MODELE_OUVERTURE, resultatAAffecter, verifierOuverture,
-  type Affectation, type LigneOuverture,
+  type Affectation, type LigneOuverture, piecesEnAttente, messagePiecesEnAttente,
 } from "@/lib/liasse/cloture";
 import { estANouveaux } from "@/lib/liasse/etatsLiasse";
 
@@ -72,8 +72,10 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
     }
   };
 
+  const enAttente = piecesEnAttente(donneesMensuelles, annee);
   const cloturer = async () => {
     if (!cloture) return;
+    if (enAttente.total > 0) return toast.error(messagePiecesEnAttente(annee, enAttente));
     setEnCours(true);
     try {
       // À-nouveaux de N+1 d'abord, puis verrouillage de N
@@ -181,6 +183,11 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
       <Dialog open={!!cloture} onOpenChange={(v) => !v && setCloture(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Clôturer l'exercice {annee}</DialogTitle></DialogHeader>
+          {enAttente.total > 0 && (
+            <p className="text-sm rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-2">
+              {messagePiecesEnAttente(annee, enAttente)}
+            </p>
+          )}
           <p className="text-sm">Résultat à affecter : <strong>{formatSolde(total)}</strong></p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {([["reserveLegale", "Réserve légale (111)"], ["reservesLibres", "Réserves libres (118)"], ["dividendes", "Dividendes (465)"]] as const).map(([cle, label]) => (
@@ -196,7 +203,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCloture(null)}>Annuler</Button>
-            <Button onClick={cloturer} disabled={enCours}>{enCours && <Loader2 className="size-4 animate-spin" />} Clôturer</Button>
+            <Button onClick={cloturer} disabled={enCours || enAttente.total > 0}>{enCours && <Loader2 className="size-4 animate-spin" />} Clôturer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
