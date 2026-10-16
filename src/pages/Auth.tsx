@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, LogIn, ShieldPlus } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
 import { connexionGoogle } from "@/lib/connexionGoogle";
@@ -32,11 +32,6 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showBootstrap, setShowBootstrap] = useState(false);
-  const [bEmail, setBEmail] = useState("");
-  const [bNom, setBNom] = useState("");
-  const [bPwd, setBPwd] = useState("");
-  const [bBusy, setBBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
 
@@ -54,26 +49,6 @@ const Auth = () => {
     } else {
       toast.success(t("auth_page.welcome"));
       navigate("/", { replace: true });
-    }
-  };
-
-  const onBootstrap = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBBusy(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("bootstrap-admin", {
-        body: { email: bEmail.trim(), password: bPwd, nom: bNom.trim() },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-      toast.success(t("auth_page.bootstrap_ok"));
-      setShowBootstrap(false);
-      setEmail(bEmail);
-      setBPwd("");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBBusy(false);
     }
   };
 
@@ -226,35 +201,6 @@ const Auth = () => {
 
         <p className="text-xs text-center text-muted-foreground mt-6">{t("auth_page.accounts_admin_note")}</p>
 
-        <div className="mt-4 pt-4 border-t">
-          {!showBootstrap ? (
-            <button
-              type="button"
-              onClick={() => setShowBootstrap(true)}
-              className="text-xs text-muted-foreground hover:text-primary mx-auto block"
-            >
-              {t("auth_page.bootstrap_link")}
-            </button>
-          ) : (
-            <form onSubmit={onBootstrap} className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                <ShieldPlus className="size-4" /> {t("auth_page.bootstrap_title")}
-              </div>
-              <p className="text-xs text-muted-foreground">{t("auth_page.bootstrap_note")}</p>
-              <Input placeholder={t("auth_page.full_name")} value={bNom} onChange={(e) => setBNom(e.target.value)} />
-              <Input type="email" placeholder={t("auth_page.email")} required value={bEmail} onChange={(e) => setBEmail(e.target.value)} />
-              <Input type="text" placeholder={t("auth_page.password_min")} required value={bPwd} onChange={(e) => setBPwd(e.target.value)} />
-              <div className="flex gap-2">
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowBootstrap(false)} className="flex-1">
-                  {t("auth_page.cancel")}
-                </Button>
-                <Button type="submit" size="sm" disabled={bBusy} className="flex-1">
-                  {bBusy ? <Loader2 className="size-4 animate-spin" /> : t("auth_page.create_admin")}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
       </Card>
     </div>
   );
