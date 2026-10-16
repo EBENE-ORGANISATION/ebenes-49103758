@@ -33,6 +33,7 @@ import { MOIS_NOMS, type Employe, type BulletinPaieRecord } from "@/types/ebene"
 import { BulletinEditDialog } from "./BulletinEditDialog";
 import { useTauxHistoriqueCourant } from "@/hooks/data/useTauxHistorique";
 import { useActivites } from "@/hooks/data/useActivites";
+import { embaucheAvantFinMois } from "@/lib/tableauDeBord";
 
 interface Props {
   employes: Employe[];
@@ -163,8 +164,9 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
 
   // ─── Employés sans bulletin pour ce mois ─────────────────────────────────
   const existingIds = new Set(bulletins.map((b) => b.employe_id));
+  // Pas de bulletin pour un salarié embauché après le mois
   const sansBulletin = employes.filter(
-    (e) => (!e.statutValidation || e.statutValidation === "valide") && !existingIds.has(e.id)
+    (e) => (!e.statutValidation || e.statutValidation === "valide") && !existingIds.has(e.id) && embaucheAvantFinMois(e, annee, mois)
   );
 
   // ─── Totaux ──────────────────────────────────────────────────────────────

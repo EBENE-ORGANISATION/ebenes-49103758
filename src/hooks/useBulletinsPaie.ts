@@ -5,6 +5,7 @@ import { calculerPaie, sansSoldeEnregistre, totauxBulletinEdite } from "@/lib/pa
 import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
 import { useTauxHistorique } from "@/hooks/data/useTauxHistorique";
 import type { BulletinPaieRecord, Employe, EcritureComptable, MoisData, Transaction } from "@/types/ebene";
+import { embaucheAvantFinMois } from "@/lib/tableauDeBord";
 
 export { type BulletinPaieRecord };
 
@@ -134,8 +135,9 @@ export const useBulletinsPaie = (societeId: string | null) => {
       mois: number
     ): Promise<{ ok: number; err: number }> => {
       if (!societeId) return { ok: 0, err: 0 };
+      // Fiches validées, salariés déjà embauchés à la fin du mois
       const actifs = employes.filter(
-        (e) => !e.statutValidation || e.statutValidation === "valide"
+        (e) => (!e.statutValidation || e.statutValidation === "valide") && embaucheAvantFinMois(e, annee, mois)
       );
       let ok = 0;
       let err = 0;
