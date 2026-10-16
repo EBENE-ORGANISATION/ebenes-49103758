@@ -110,3 +110,45 @@ describe("fiscaliteDepuisEcritures — chiffres fiscaux du mois", () => {
     expect(f.caHT).toBe(350_000);
   });
 });
+
+describe("fiscaliteDepuisEcritures — liquidation et règlement de TVA", () => {
+  const e = (lignes: [string, number, number][], extra: Record<string, unknown> = {}) =>
+    ({ statut: "valide", lignes: lignes.map(([compte, debit, credit]) => ({ compte, debit, credit, ...extra })) });
+  const vente = e([["4111", 1_180_000, 0], ["701", 0, 1_000_000], ["4431", 0, 180_000]]);
+  const achat = e([["601", 400_000, 0], ["4452", 72_000, 0], ["4011", 0, 472_000]]);
+
+  it("la liquidation du mois (4431 / 4452 / 4441) n'annule pas la TVA déclarée", () => {
+    const liquidation = e([["4431", 180_000, 0], ["4452", 0, 72_000], ["4441", 0, 108_000]]);
+    const f = fiscaliteDepuisEcritures([vente, achat, liquidation]);
+    expect(f.tvaCollectee).toBe(180_000);
+    expect(f.tvaDeductible).toBe(72_000);
+  });
+
+  it("le règlement direct par la banque non plus", () => {
+    const reglement = e([["4431", 180_000, 0], ["4452", 0, 72_000], ["521", 0, 108_000]]);
+    expect(fiscaliteDepuisEcritures([vente, achat, reglement]).tvaCollectee).toBe(180_000);
+  });
+
+  it("une contre-passation de TVA (annulation de facture) reste déduite", () => {
+    const annulation = e([["4432", 24_000, 0], ["4438", 0, 24_000]]);
+    const encaissement = e([["4438", 24_000, 0], ["4432", 0, 24_000]]);
+    expect(fiscaliteDepuisEcritures([encaissement, annulation]).tvaCollectee).toBe(0);
+  });
+});
+
+describe("creditTvaReporte — ligne L16", () => {
+  const mois = (collectee: number, deductible: number) => ({
+    ecritures: [
+      { statut: "valide", lignes: [{ compte: "4111", debit: collectee, credit: 0 }, { compte: "4431", debit: 0, credit: collectee }] },
+      { statut: "valide", lignes: [{ compte: "4452", debit: deductible, credit: 0 }, { compte: "4011", debit: 0, credit: deductible }] },
+    ],
+  });
+  it("enchaîne les crédits jusqu'à leur imputation", async () => {
+    const { creditTvaReporte } = await import("./etatsFinanciers");
+    const d = { "2026-9": mois(100, 400), "2026-10": mois(250, 0), "2026-11": mois(10, 0) } as never;
+    expect(creditTvaReporte(d, 2026, 9)).toBe(0);
+    expect(creditTvaReporte(d, 2026, 10)).toBe(300);
+    expect(creditTvaReporte(d, 2026, 11)).toBe(50);
+    expect(creditTvaReporte(d, 2026, 12)).toBe(40);
+  });
+});

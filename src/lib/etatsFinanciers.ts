@@ -171,11 +171,26 @@ export interface FiscalitePeriode {
   resultat: number;
 }
 
+/**
+ * Liquidation ou règlement de la TVA d'une période (TVA collectée soldée au
+ * débit contre la déductible, l'État 4441/4449 ou la banque). Elle solde la
+ * déclaration et ne doit pas l'annuler : exclue du calcul de la TVA du mois.
+ * Une contre-passation de TVA (4432 / 4438) n'en est pas une.
+ */
+export const estLiquidationTva = (lignes: { compte: string; debit: number; credit: number }[]): boolean => {
+  const debitCollectee = lignes.some((l) => l.compte.startsWith("443") && !l.compte.startsWith(COMPTE_TVA_ATTENTE) && (l.debit || 0) > 0);
+  const contrepartie = lignes.some((l) =>
+    l.compte.startsWith("4441") || l.compte.startsWith("4449") || /^5[0-8]/.test(l.compte)
+    || (l.compte.startsWith("445") && (l.credit || 0) > 0));
+  const sansProduitNiCharge = !lignes.some((l) => /^[67]/.test(l.compte));
+  return debitCollectee && contrepartie && sansProduitNiCharge;
+};
+
 export const fiscaliteDepuisEcritures = (
   ecritures: { statut: string; lignes?: { compte: string; debit: number; credit: number; base?: number }[] | null }[],
 ): FiscalitePeriode => {
   const soldes = new Map<string, number>();
-  const validees = ecritures.filter((e) => e.statut !== "brouillon");
+  const validees = ecritures.filter((e) => e.statut !== "brouillon" && !estLiquidationTva(Array.isArray(e.lignes) ? e.lignes : []));
   validees.forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
     soldes.set(l.compte, (soldes.get(l.compte) || 0) + (l.debit || 0) - (l.credit || 0));
   }));
@@ -206,4 +221,26 @@ export const fiscaliteDepuisEcritures = (
     tvaDeductible: sommePrefixes(soldes, ["445"]),
     resultat: resultatExercice(soldes),
   };
+};
+
+/**
+ * Crédit de TVA reporté au début du mois (ligne L16 de la déclaration) :
+ * déclarations des mois précédents enchaînées depuis le premier mois tenu en
+ * comptabilité, chaque crédit s'imputant sur la TVA due du mois suivant.
+ */
+export const creditTvaReporte = (donnees: DonneesMensuelles, annee: number, mois: number): number => {
+  const cle = (a: number, m: number) => a * 100 + m;
+  const fin = cle(annee, mois);
+  const periodes = Object.keys(donnees || {})
+    .map((k) => k.split("-").map(Number) as [number, number])
+    .filter(([a, m]) => cle(a, m) < fin)
+    .sort(([a1, m1], [a2, m2]) => cle(a1, m1) - cle(a2, m2));
+  let credit = 0;
+  for (const [a, m] of periodes) {
+    const ecritures = donnees[`${a}-${m}`]?.ecritures || [];
+    if (!ecritures.some((e) => e.statut !== "brouillon")) continue;
+    const f = fiscaliteDepuisEcritures(ecritures);
+    credit = Math.max(0, credit + f.tvaDeductible - f.tvaCollectee);
+  }
+  return Math.round(credit);
 };

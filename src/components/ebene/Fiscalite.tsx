@@ -16,7 +16,7 @@ import {
   textePdf,
 } from "@/lib/ebene-utils";
 import { calculerPaie } from "@/lib/paie";
-import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
+import { creditTvaReporte, fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { useTenant } from "@/hooks/useTenant";
 import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
 import { dettesPaie, type DettesPaie } from "@/lib/alertes";
 import { reversementEnAttente } from "@/lib/reversement";
+import { embaucheAvantFinMois } from "@/lib/tableauDeBord";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,14 @@ export const Fiscalite = ({
 
   const setLigne = (key: keyof typeof tvaManuel, val: string) =>
     setTvaManuel(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
+  // L16 : crédit des déclarations précédentes, sauf saisie contraire
+  const [l16Saisi, setL16Saisi] = useState<number | null>(null);
+  const creditReporteAuto = useMemo(() => creditTvaReporte(donneesMensuelles, annee, mois), [donneesMensuelles, annee, mois]);
+  // Lignes saisies à la main : propres au mois affiché
+  useEffect(() => {
+    setTvaManuel({ l3: 0, l4: 0, l5: 0, l8: 0, l9: 0, l10: 0, l13: 0, l14: 0, l15: 0, l16: 0, l17: 0 });
+    setL16Saisi(null);
+  }, [annee, mois]);
 
   // IRPP depuis bulletins de paie
   const { bulletins, loadBulletins } = useBulletinsPaie(societeId || null);
@@ -269,7 +278,8 @@ export const Fiscalite = ({
     // Social : mêmes calculs que les bulletins (base cotisable, primes validées,
     // heures sup, ancienneté, congés sans solde, taux du mois)
     let masse = 0, cnssEmp = 0, amuEmp = 0, cnssSal = 0, amuSal = 0;
-    employes.forEach(e => {
+    // Seuls les salariés déjà embauchés à la fin du mois
+    employes.filter((e) => embaucheAvantFinMois(e, annee, mois)).forEach(e => {
       const p = calculerPaie(e, data, annee, mois, taux);
       masse   += p.baseCotisable;
       cnssEmp += p.cnssEmp;
@@ -322,7 +332,7 @@ export const Fiscalite = ({
     const l13 = tvaManuel.l13;  // déductions immobilisations
     const l14 = tvaManuel.l14;  // régularisations +
     const l15 = tvaManuel.l15;  // reversements -
-    const l16 = tvaManuel.l16;  // crédit TVA reporté
+    const l16 = l16Saisi ?? creditReporteAuto;  // crédit TVA reporté
     const l17 = tvaManuel.l17;  // prorata de déduction (FCFA — s'ajoute)
     const l18 = l12 + l13 + l14 - l15 + l16 + l17;  // TOTAL TVA DÉDUCTIBLE
 
@@ -332,7 +342,7 @@ export const Fiscalite = ({
     const l21 = Math.max(0, -l19);   // CRÉDIT À REPORTER
 
     return { l1, l2, l3, l4, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21 };
-  }, [calc, tvaManuel]);
+  }, [calc, tvaManuel, l16Saisi, creditReporteAuto]);
 
   // ── Labels TVA ───────────────────────────────────────────────────────────
   const estCloture    = statut === "cloture";
@@ -493,7 +503,7 @@ export const Fiscalite = ({
                             hint={mois === 1 ? "Acompte janv. (15/01)" : mois === 7 ? "Acompte juil. (15/07)" : undefined} />
             <StatCard label="RSL (mensuel)"     value={`${fmt(calc.rslMensuel)} FCFA`}  tone="info"
                             hint={`≤ ${nextRslDate}`} />
-            <StatCard label="Charges sociales"  value={`${fmt(calc.totalSocial)} FCFA`} tone="purple" />
+            <StatCard label="Charges patronales"  value={`${fmt(calc.totalSocial)} FCFA`} tone="purple" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -512,8 +522,8 @@ export const Fiscalite = ({
               <Row label="Masse salariale cotisable"     value={`${fmt(calc.masse)} FCFA`} />
               <Row label={`CNSS patronal ${(taux.cnssEmp*100).toFixed(1)}%`} value={`${fmt(calc.cnssEmp)} FCFA`} />
               <Row label={`AMU patronal ${(taux.amuEmp*100).toFixed(0)}%`}   value={`${fmt(calc.amuEmp)} FCFA`} />
-              <Row label="IRPP (bulletins)"              value={irppTotal > 0 ? `${fmt(irppTotal)} FCFA` : "—"} />
-              <Row label="TOTAL CHARGES SOCIALES"        value={`${fmt(calc.totalSocial)} FCFA`} strong />
+              <Row label="TOTAL CHARGES PATRONALES"      value={`${fmt(calc.totalSocial)} FCFA`} strong />
+              <Row label="IRPP retenu sur salaires (à reverser, hors charges)" value={irppTotal > 0 ? `${fmt(irppTotal)} FCFA` : "—"} />
             </div>
           </div>
         </TabsContent>
@@ -825,8 +835,9 @@ export const Fiscalite = ({
                     <span>Crédit de TVA reporté du mois précédent</span>
                     <Input
                       type="number" min={0}
-                      value={tvaManuel.l16 || ""}
-                      onChange={e => setLigne("l16", e.target.value)}
+                      value={l16Saisi ?? creditReporteAuto}
+                      onChange={e => setL16Saisi(e.target.value === "" ? null : Math.max(0, parseFloat(e.target.value) || 0))}
+                      title="Calculé d'après les déclarations des mois précédents ; modifiable"
                       disabled={estCloture}
                       className="h-7 w-32 text-xs font-mono text-right"
                       placeholder="0"
