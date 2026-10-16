@@ -722,6 +722,8 @@ export const Comptabilite = ({
                             variant="ghost"
                             size="icon"
                             className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title="Supprimer l'opération (et son écriture)"
+                            aria-label={`Supprimer l'opération ${t.desc}`}
                             onClick={() => {
                               if (
                                 t.source === "facture" && t.factureId
