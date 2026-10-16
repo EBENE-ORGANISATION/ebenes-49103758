@@ -35,7 +35,7 @@ import {
   type ReglementImmo,
 } from "@/lib/ecrituresTresorerie";
 import { backupToDrive, type EbeneStoreLike } from "@/lib/googleDrive";
-import { amortissementsAnnee } from "@/lib/amortissements";
+import { amortissementsAnneeAvecCessions } from "@/lib/cessionImmo";
 import {
   appliquerMouvement,
   annulerMouvement,
@@ -1456,7 +1456,7 @@ export const useEbeneStoreRemote = (
   );
 
   const getAmortissements = useCallback(
-    (annee: number) => amortissementsAnnee(immobilisations, annee),
+    (annee: number) => amortissementsAnneeAvecCessions(immobilisations, annee),
     [immobilisations],
   );
 

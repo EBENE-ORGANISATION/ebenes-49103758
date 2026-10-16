@@ -50,3 +50,16 @@ describe("arrondi au franc", () => {
     expect(lignes[lignes.length - 1].vnc).toBe(0);
   });
 });
+
+describe("tableau de l'exercice avec cessions", () => {
+  it("dotation jusqu'à la cession, puis bien sorti de l'actif", async () => {
+    const { amortissementsAnneeAvecCessions } = await import("./cessionImmo");
+    const clim = {
+      ...serveur, valeurOrigine: 600_000, dureeAmortissement: 5, dateAcquisition: "2026-10-01",
+      statut: "cede", dateCession: "2026-11-30", valeurCession: 650_000,
+    } as unknown as Immobilisation;
+    expect(amortissementsAnneeAvecCessions([clim], 2026)[0]).toMatchObject({ dotation: 20_000, cumul: 0, vnc: 0 });
+    expect(amortissementsAnneeAvecCessions([clim], 2027)[0]).toMatchObject({ dotation: 0, cumul: 0, vnc: 0 });
+    expect(amortissementsAnneeAvecCessions([{ ...clim, statut: "actif", dateCession: undefined } as Immobilisation], 2026)[0].dotation).toBe(30_000);
+  });
+});

@@ -2,8 +2,7 @@ import * as XLSX from "xlsx";
 import { enregistrerFichier } from "@/lib/fichiers";
 import type { DonneesMensuelles, Transaction, Immobilisation } from "@/types/ebene";
 import { moisKey } from "@/lib/ebene-utils";
-import { amortissementsAnnee } from "@/lib/amortissements";
-import { ecrituresCession } from "@/lib/cessionImmo";
+import { amortissementsAnneeAvecCessions, ecrituresCession } from "@/lib/cessionImmo";
 
 /** Sous-ensemble de societe_config + societes utilisé pour l'en-tête du classeur. */
 export interface ExportSocieteInfo {
@@ -320,7 +319,7 @@ export const exportGrandLivre = (
   const lignes = construireLignes(annee, donneesMensuelles);
   // Écritures de dotations aux amortissements de l'année (31/12) :
   //   Débit : compte 681x (dotation) — Crédit : compte 28xx (amortissement cumulé)
-  const amorts = amortissementsAnnee(immobilisations, annee).filter((a) => a.dotation > 0);
+  const amorts = amortissementsAnneeAvecCessions(immobilisations, annee).filter((a) => a.dotation > 0);
   if (amorts.length > 0) {
     const dateCloture = `${annee}-12-31`;
     let pieceSeq = lignes.length + 1;

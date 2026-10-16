@@ -1,5 +1,5 @@
 import type { EcritureComptable, Immobilisation, LigneEcriture } from "@/types/ebene";
-import { cumulAFin, joursEcoules30360, vncAFin } from "@/lib/amortissements";
+import { amortissementsAnnee, cumulAFin, joursEcoules30360, vncAFin, type AmortissementAnnuelLigne } from "@/lib/amortissements";
 
 /**
  * Calcul de la valeur nette comptable (VNC) à une date donnée pour une
@@ -185,3 +185,18 @@ export const ecrituresComptablesCession = (
   }
   return out;
 };
+
+/**
+ * Tableau de l'exercice en tenant compte des cessions : l'année de la cession,
+ * la dotation court jusqu'à la date de cession ; ensuite plus de dotation. Un
+ * bien cédé est sorti de l'actif : cumul et VNC à 0 en fin d'exercice.
+ */
+export const amortissementsAnneeAvecCessions = (immos: Immobilisation[], annee: number): AmortissementAnnuelLigne[] =>
+  amortissementsAnnee(immos, annee).map((l) => {
+    const i = l.immobilisation;
+    const anneeCession = i.statut === "cede" && i.dateCession ? Number(String(i.dateCession).slice(0, 4)) : null;
+    if (anneeCession === null || anneeCession > annee) return l;
+    if (anneeCession < annee) return { immobilisation: i, dotation: 0, cumul: 0, vnc: 0 };
+    const anterieurs = cumulAFin(i, annee - 1);
+    return { immobilisation: i, dotation: Math.max(0, Math.round(cumulADate(i, i.dateCession!) - anterieurs)), cumul: 0, vnc: 0 };
+  });

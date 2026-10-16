@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/hooks/useTenant";
 import type { ReglementImmo } from "@/lib/ecrituresTresorerie";
 import {
@@ -24,11 +24,9 @@ import { toast } from "sonner";
 import { StatCard } from "./StatCard";
 import { ActiviteSelect } from "./ActiviteSelect";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
+import { planAmortissement } from "@/lib/amortissements";
 import {
-  amortissementsAnnee,
-  planAmortissement,
-} from "@/lib/amortissements";
-import {
+  amortissementsAnneeAvecCessions,
   calculerPlusMoinsValue,
   vncADate,
   cumulADate,
@@ -152,7 +150,7 @@ export const Immobilisations = ({
   };
 
   const lignes = useMemo(
-    () => amortissementsAnnee(immobilisations, annee),
+    () => amortissementsAnneeAvecCessions(immobilisations, annee),
     [immobilisations, annee]
   );
 
@@ -172,12 +170,21 @@ export const Immobilisations = ({
 
   // ─── Génération écritures dotations ────────────────────────────────────────
   const [generatingDotations, setGeneratingDotations] = useState(false);
+  // Pièces passées pendant la session : un second clic avant le rafraîchissement
+  // des écritures ne les repasse pas (la base refuse aussi les doublons).
+  const piecesPassees = useRef(new Set<string>());
+  const aDesEcrituresAmortissement = (id: number) => {
+    const fin = `-${String(id).padStart(4, "0")}`;
+    return [...(piecesExistantes ?? [])].some((p) =>
+      (p.startsWith("OD-AMO-") && p.endsWith(fin)) || p === pieceCession(id) || p === `DOT-CES-${id}` || p === `CES-PRIX-${id}`);
+  };
 
   const genererEcrituresDotations = async () => {
     if (!onAddEcriture) return;
     const piece = (id: number) => `OD-AMO-${annee}-${String(id).padStart(4, "0")}`;
     const immoActives = lignes.filter(
-      (l) => l.dotation > 0 && (l.immobilisation.statut ?? "actif") === "actif" && !piecesExistantes?.has(piece(l.immobilisation.id))
+      (l) => l.dotation > 0 && (l.immobilisation.statut ?? "actif") === "actif"
+        && !piecesExistantes?.has(piece(l.immobilisation.id)) && !piecesPassees.current.has(piece(l.immobilisation.id))
     );
     if (immoActives.length === 0) {
       toast.warning(`Aucune dotation à comptabiliser pour ${annee} (déjà passées ou aucune immobilisation active).`);
@@ -191,6 +198,7 @@ export const Immobilisations = ({
         const compteDotation = comptes?.dotation ?? "6813";
         const compteAmortissement = comptes?.amortissementCumule ?? "2845";
         const numeroPiece = piece(i.id);
+        piecesPassees.current.add(numeroPiece);
 
         onAddEcriture(annee, moisDotation, {
           journal: "OD",
@@ -465,7 +473,7 @@ export const Immobilisations = ({
                     <span className={`badge-soft ${statutBadge}`}>{statutLabel}</span>
                     {statut === "cede" && i.dateCession && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Le {i.dateCession}
+                        Le {dateFr(i.dateCession)}
                         {typeof i.plusMoinsValue === "number" && (
                           <span
                             className={
@@ -516,8 +524,14 @@ export const Immobilisations = ({
                         <Button
                           size="icon"
                           variant="ghost"
+                          // Dotations ou cession déjà passées : le bien sort par cession ou mise au rebut
+                          disabled={aDesEcrituresAmortissement(i.id)}
+                          title={aDesEcrituresAmortissement(i.id)
+                            ? "Des dotations ou une cession sont déjà comptabilisées : sortez le bien par une cession, il ne se supprime plus"
+                            : "Supprimer (saisie à corriger, rien d'amorti en comptabilité)"}
+                          aria-label={`Supprimer ${i.libelle}`}
                           onClick={() => {
-                            if (confirm(`Supprimer "${i.libelle}" ? Le plan d'amortissement sera perdu.`)) {
+                            if (confirm(`Supprimer "${i.libelle}" ? Son écriture d'acquisition est supprimée aussi.`)) {
                               onRemove(i.id);
                             }
                           }}

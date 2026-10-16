@@ -12,3 +12,5 @@
 | 2026-10-16 | Stock | mouvements_stock | Entrée BL-RECETTE-01 (100 ramettes à 2 400) puis supprimée : transaction 770 en corbeille, écritures 1836-1837 supprimées | 20 |
 | 2026-10-16 | Stock | ecritures | Constatation du stock d'octobre 2026 recalculée (INV-2026-10) | — |
 | 2026-10-16 | Immobilisations | immobilisations | Climatiseur salle de réunion (recette) 600 000, écriture BQ d'acquisition en brouillon | 13 |
+| 2026-10-16 | Immobilisations | ecritures | Cession du climatiseur (immo 13) au 30/11/2026 pour 650 000 : DOT-CES-13, CES-13, CES-PRIX-13 | — |
+| 2026-10-16 | Immobilisations | ecritures | Dotations 2026 comptabilisées : OD-AMO-2026-0002 à 0011 (3 649 403 F) ; 10 doublons créés par le second clic puis supprimés (id 1855-1864) | — |

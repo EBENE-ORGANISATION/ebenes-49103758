@@ -483,6 +483,9 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   if (msg.includes("FACTURE_NON_VALIDEE")) {
     return "La facture doit d'abord être validée par le chef comptable avant d'être encaissée.";
   }
+  if (msg.includes("ecritures_piece_unique")) {
+    return "Cette pièce est déjà passée en comptabilité : elle n'est pas enregistrée une seconde fois.";
+  }
   if (msg.includes("NUMERO_DEJA_UTILISE")) {
     return msg.replace(/^.*NUMERO_DEJA_UTILISE:\s*/, "Numéro déjà émis : ") + ". Le compteur ne peut pas revenir en arrière dans l'année.";
   }
