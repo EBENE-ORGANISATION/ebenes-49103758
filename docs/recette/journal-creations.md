@@ -14,3 +14,4 @@
 | 2026-10-16 | Immobilisations | immobilisations | Climatiseur salle de réunion (recette) 600 000, écriture BQ d'acquisition en brouillon | 13 |
 | 2026-10-16 | Immobilisations | ecritures | Cession du climatiseur (immo 13) au 30/11/2026 pour 650 000 : DOT-CES-13, CES-13, CES-PRIX-13 | — |
 | 2026-10-16 | Immobilisations | ecritures | Dotations 2026 comptabilisées : OD-AMO-2026-0002 à 0011 (3 649 403 F) ; 10 doublons créés par le second clic puis supprimés (id 1855-1864) | — |
+| 2026-10-16 | Comptabilité | ecritures | OD-2026-0001 « Recette compta : facture téléphone (test) » 6281/571 10 000, validée | — |

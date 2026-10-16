@@ -467,6 +467,22 @@ export function genererLignesEcriture(
  * Format : `{journal}-{annee}-{sequence sur 4 chiffres}`
  * Exemple : `VE-2025-0042`
  */
+/**
+ * Prochain numéro libre d'un journal pour une année (JJ-AAAA-NNNN), d'après
+ * les pièces déjà passées dans toute la société : un compte par mois aurait
+ * redonné des numéros déjà pris.
+ */
+export function prochainNumeroPiece(journal: CodeJournal, annee: number, pieces: Iterable<string>): string {
+  const prefixe = `${journal}-${annee}-`;
+  let max = 0;
+  for (const p of pieces) {
+    if (!p.startsWith(prefixe)) continue;
+    const n = Number(p.slice(prefixe.length));
+    if (Number.isInteger(n)) max = Math.max(max, n);
+  }
+  return genererNumeroPiece(journal, annee, max + 1);
+}
+
 export function genererNumeroPiece(
   journal: CodeJournal,
   annee: number,

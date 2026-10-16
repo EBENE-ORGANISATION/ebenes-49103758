@@ -7,6 +7,7 @@ import { type DonneesMensuelles, type EcritureComptable } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
 import { formatMontant, dateFr } from "@/lib/ebene-utils";
 import { printElement } from "@/lib/print";
+import { ouvertureProvisoire } from "@/lib/soldesComptables";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
@@ -49,6 +50,15 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
       }>;
     }>();
 
+    // Exercice précédent pas encore clôturé : à-nouveaux provisoires en tête de chaque compte
+    ouvertureProvisoire(donneesMensuelles, annee).forEach((solde, compte) => {
+      map.set(compte, { lignes: [{
+        date: `${annee}-01-01`,
+        ecriture: { id: 0, journal: "AN", numeroPiece: `AN-${annee} (provisoire)`, libelle: `À-nouveaux provisoires (exercice ${annee - 1} non clôturé)`, lignes: [], statut: "valide" } as EcritureComptable,
+        debit: Math.max(0, solde), credit: Math.max(0, -solde),
+      }] });
+    });
+
     for (const [key, mois] of Object.entries(donneesMensuelles)) {
       const [anneeKey] = key.split("-");
       if (parseInt(anneeKey, 10) !== annee) continue;
@@ -56,9 +66,9 @@ export const GrandLivre = ({ donneesMensuelles, annee }: Props) => {
       for (const ecriture of (mois.ecritures ?? [])) {
         if (ecriture.statut === "brouillon") continue;
         const lignesEcr = Array.isArray(ecriture.lignes) ? ecriture.lignes : [];
-        const dateEcr   = ecriture.annee && ecriture.mois
-          ? `${ecriture.annee}-${String(ecriture.mois).padStart(2, "0")}-01`
-          : "";
+        // Date de l'écriture, à défaut le 1er de son mois
+        const dateEcr   = ecriture.date
+          || (ecriture.annee && ecriture.mois ? `${ecriture.annee}-${String(ecriture.mois).padStart(2, "0")}-01` : "");
         for (const ligne of lignesEcr) {
           if (!map.has(ligne.compte)) map.set(ligne.compte, { lignes: [] });
           map.get(ligne.compte)!.lignes.push({

@@ -50,3 +50,30 @@ export const soldesFinMois = (donnees: DonneesMensuelles, annee: number, mois: n
   }
   return soldes;
 };
+
+/**
+ * À-nouveaux provisoires d'un exercice dont le précédent n'est pas encore
+ * clôturé (pas d'écriture AN-<année>) : soldes des comptes de bilan (classes
+ * 1 à 5) à la fin de l'exercice précédent, et résultat non encore affecté
+ * reporté au compte 12. Vide si l'exercice a ses à-nouveaux ou s'il n'y a rien avant.
+ * Ajoutés à la balance, au grand livre et au bilan, ils évitent un exercice
+ * qui démarrerait à zéro en attendant la clôture.
+ */
+export const COMPTE_REPORT_PROVISOIRE = "12";
+
+export const ouvertureProvisoire = (donnees: DonneesMensuelles, annee: number): Map<string, number> => {
+  const ouverture = new Map<string, number>();
+  const aSesANouveaux = Object.entries(donnees || {}).some(([k, m]) =>
+    anneeMois(k)[0] === annee && (m?.ecritures || []).some((e) => comptable(e) && estANouveaux(e, annee)));
+  const avant = Object.entries(donnees || {}).some(([k, m]) =>
+    anneeMois(k)[0] < annee && (m?.ecritures || []).some(comptable));
+  if (aSesANouveaux || !avant) return ouverture;
+  let resultat = 0;
+  soldesFinMois(donnees, annee - 1, 12).forEach((solde, compte) => {
+    if (!solde) return;
+    if (/^[1-5]/.test(compte)) ouverture.set(compte, (ouverture.get(compte) || 0) + solde);
+    else resultat += solde;
+  });
+  if (resultat) ouverture.set(COMPTE_REPORT_PROVISOIRE, (ouverture.get(COMPTE_REPORT_PROVISOIRE) || 0) + resultat);
+  return ouverture;
+};

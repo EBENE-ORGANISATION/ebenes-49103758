@@ -18,6 +18,7 @@ import {
 import {
   genererLignesEcriture,
   genererNumeroPiece,
+  prochainNumeroPiece,
   isEcritureEquilibree,
 } from "@/lib/planComptable";
 import { todayISO } from "@/lib/ebene-utils";
@@ -27,6 +28,8 @@ interface Props {
   mois: number;
   /** Nombre d'écritures existantes ce mois — sert à la numérotation automatique. */
   sequenceEcritures: number;
+  /** Pièces déjà passées dans la société (numérotation sans doublon). */
+  piecesExistantes?: Set<string>;
   onSave: (ecriture: Omit<EcritureComptable, "id">) => void;
   onCancel: () => void;
   tauxTVA?: number;
@@ -189,6 +192,7 @@ export const SaisieGuidee = ({
   annee,
   mois,
   sequenceEcritures,
+  piecesExistantes,
   onSave,
   onCancel,
   tauxTVA = 0.18,
@@ -233,6 +237,12 @@ export const SaisieGuidee = ({
     return Object.keys(errs).length === 0;
   };
 
+  // Numéro : suite du journal dans l'année de la pièce (sa date)
+  const anneePiece = Number(String(date).slice(0, 4)) || annee;
+  const numeroPiece = piecesExistantes
+    ? prochainNumeroPiece(journal, anneePiece, piecesExistantes)
+    : genererNumeroPiece(journal, anneePiece, sequenceEcritures + 1);
+
   // F7 — Spinner + async save
   const handleSave = async () => {
     if (!validate()) return;
@@ -242,7 +252,7 @@ export const SaisieGuidee = ({
     onSave({
       date,
       journal,
-      numeroPiece: genererNumeroPiece(journal, annee, sequenceEcritures + 1),
+      numeroPiece,
       libelle:     libelle.trim() || TYPE_OPERATION_LABELS[typeOp],
       lignes:      lignesPreview,
       statut:      "brouillon",

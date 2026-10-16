@@ -19,6 +19,7 @@ import {
 import {
   rechercherComptes,
   genererNumeroPiece,
+  prochainNumeroPiece,
   isEcritureEquilibree,
 } from "@/lib/planComptable";
 import { todayISO } from "@/lib/ebene-utils";
@@ -28,6 +29,8 @@ interface Props {
   mois: number;
   /** Nombre d'écritures existantes ce mois — sert à la numérotation automatique. */
   sequenceEcritures: number;
+  /** Pièces déjà passées dans la société (numérotation sans doublon). */
+  piecesExistantes?: Set<string>;
   onSave: (ecriture: Omit<EcritureComptable, "id">) => void;
   onCancel: () => void;
 }
@@ -56,6 +59,7 @@ export const SaisieExpert = ({
   annee,
   mois,
   sequenceEcritures,
+  piecesExistantes,
   onSave,
   onCancel,
 }: Props) => {
@@ -97,7 +101,10 @@ export const SaisieExpert = ({
     const errs: Record<string, string> = {};
     if (!date)           errs.date    = "Date obligatoire";
     if (!libelle.trim()) errs.libelle = "Libellé obligatoire";
-    if (!equilibre) {
+    // Un compte SYSCOHADA est un numéro d'au moins 2 chiffres, classes 1 à 9
+    const invalide = lignes.find((l) => (parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0) && !/^[1-9]\d+$/.test(l.compte.trim()));
+    if (invalide) errs.global = `Compte « ${invalide.compte || "vide"} » invalide : saisissez un numéro du plan SYSCOHADA (ex. 6281, 571).`;
+    if (!errs.global && !equilibre) {
       if (totalDebit === 0 && totalCredit === 0)
         errs.global = "Saisissez au moins 2 lignes avec montants";
       else
@@ -106,6 +113,12 @@ export const SaisieExpert = ({
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
+
+  // Numéro : suite du journal dans l'année de la pièce (sa date)
+  const anneePiece = Number(String(date).slice(0, 4)) || annee;
+  const numeroPiece = piecesExistantes
+    ? prochainNumeroPiece(journal, anneePiece, piecesExistantes)
+    : genererNumeroPiece(journal, anneePiece, sequenceEcritures + 1);
 
   // F7 — Spinner + async save
   const handleSave = async () => {
@@ -133,7 +146,7 @@ export const SaisieExpert = ({
     onSave({
       date,
       journal,
-      numeroPiece: genererNumeroPiece(journal, annee, sequenceEcritures + 1),
+      numeroPiece,
       libelle:     libelle.trim(),
       lignes:      lignesValides,
       statut:      "brouillon",
@@ -173,7 +186,7 @@ export const SaisieExpert = ({
         <div className="space-y-1.5">
           <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">N° Pièce (auto)</Label>
           <Input
-            value={genererNumeroPiece(journal, annee, sequenceEcritures + 1)}
+            value={numeroPiece}
             readOnly
             className="bg-muted/40 font-mono text-sm"
           />

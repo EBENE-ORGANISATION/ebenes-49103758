@@ -1,10 +1,12 @@
 // États financiers SYSCOHADA (compte de résultat, bilan) — calculs purs, testables.
 import type { DonneesMensuelles } from "@/types/ebene";
 import { COMPTE_TVA_ATTENTE } from "@/lib/ecrituresFacture";
+import { ouvertureProvisoire } from "@/lib/soldesComptables";
 
 /** Solde de chaque compte (débit − crédit) sur les écritures non brouillon de l'exercice. */
 export const soldesExercice = (donneesMensuelles: DonneesMensuelles, annee: number): Map<string, number> => {
-  const soldes = new Map<string, number>();
+  // Exercice précédent pas encore clôturé : à-nouveaux provisoires (comptes de bilan, résultat en 12)
+  const soldes = new Map<string, number>(ouvertureProvisoire(donneesMensuelles, annee));
   Object.entries(donneesMensuelles).forEach(([key, moisData]) => {
     const [a] = key.split("-");
     if (parseInt(a) !== annee) return;

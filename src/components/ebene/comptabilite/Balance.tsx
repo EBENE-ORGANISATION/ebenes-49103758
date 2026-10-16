@@ -4,6 +4,7 @@ import { type DonneesMensuelles } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
 import { Scale, Printer, CheckCircle2, AlertTriangle } from "lucide-react";
 import { printElement } from "@/lib/print";
+import { ouvertureProvisoire } from "@/lib/soldesComptables";
 
 interface Props {
   donneesMensuelles: DonneesMensuelles;
@@ -37,6 +38,10 @@ export const Balance = ({ donneesMensuelles, annee }: Props) => {
 
   const lignes = useMemo<LigneBalance[]>(() => {
     const map = new Map<string, { debit: number; credit: number }>();
+    // Exercice précédent pas encore clôturé : à-nouveaux provisoires
+    ouvertureProvisoire(donneesMensuelles, annee).forEach((solde, compte) => {
+      map.set(compte, { debit: Math.max(0, solde), credit: Math.max(0, -solde) });
+    });
 
     for (const [key, mois] of Object.entries(donneesMensuelles)) {
       const [anneeKey] = key.split("-");

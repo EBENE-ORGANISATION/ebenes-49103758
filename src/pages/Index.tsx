@@ -414,6 +414,7 @@ const Index = () => {
             <TabsContent value="compta">
               <Comptabilite
                 data={data}
+                piecesExistantes={piecesComptables}
                 annee={annee}
                 mois={mois}
                 employes={employesPaie}

@@ -28,8 +28,8 @@ describe("écritures de cession", () => {
     const achat = { id: 0, journal: "BQ", numeroPiece: "IM-4", libelle: "", statut: "valide", annee: 2024, mois: 1,
       lignes: [{ id: 1, compte: "245", intitule: "", debit: 1_000_000, credit: 0 }, { id: 2, compte: "521", intitule: "", debit: 0, credit: 1_000_000 }] };
     const donnees = { "2024-1": { ecritures: [achat, dot(2024)] }, "2025-12": { ecritures: [dot(2025)] }, "2026-7": { ecritures: es } } as never;
-    const cumules = new Map<string, number>();
-    for (const a of [2024, 2025, 2026]) soldesExercice(donnees, a).forEach((v, c) => cumules.set(c, (cumules.get(c) ?? 0) + v));
+    // Exercices non clôturés : 2026 reprend 2024-2025 en à-nouveaux provisoires
+    const cumules = soldesExercice(donnees, 2026);
     expect(Math.round(cumules.get("245") ?? 0)).toBe(0);
     expect(Math.round(cumules.get("2845") ?? 0)).toBe(0);
     const s26 = soldesExercice(donnees, 2026);

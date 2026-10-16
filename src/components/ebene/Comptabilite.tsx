@@ -58,6 +58,8 @@ interface Props {
   onRejeter?: (id: number, motif: string) => void;
   /** Toutes les données de l'année — sert au calcul d'anomalies et au Grand-Livre. */
   donneesMensuelles?: DonneesMensuelles;
+  /** Pièces déjà passées dans toute la société (numéros de saisie sans doublon). */
+  piecesExistantes?: Set<string>;
   /** Données de toute la société (états financiers). */
   donneesSociete?: DonneesMensuelles;
   /** Toute la société : personnel, immobilisations, stock (états financiers). */
@@ -90,6 +92,7 @@ export const Comptabilite = ({
   onValider,
   onRejeter,
   donneesMensuelles,
+  piecesExistantes,
   donneesSociete,
   employesSociete,
   immobilisationsSociete,
@@ -385,6 +388,7 @@ export const Comptabilite = ({
               annee={annee}
               mois={mois}
               sequenceEcritures={ecritures.length}
+              piecesExistantes={piecesExistantes}
               onSave={handleSaveEcriture}
               onCancel={() => setShowSaisie(false)}
               tauxTVA={taux?.tva ?? 0.18}
@@ -394,6 +398,7 @@ export const Comptabilite = ({
               annee={annee}
               mois={mois}
               sequenceEcritures={ecritures.length}
+              piecesExistantes={piecesExistantes}
               onSave={handleSaveEcriture}
               onCancel={() => setShowSaisie(false)}
             />
