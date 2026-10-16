@@ -28,7 +28,7 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 | 10 | Mon portail (employé) et délégations | MonPortail, GestionDelegations | à faire |
 | 11 | Paramètres société, identification, activités, apparence | ParametresSociete, IdentificationSociete, ActivitesManager | fait (téléversement du logo non testé) |
 | 12 | Administration : utilisateurs, journal d'audit, corbeille, archives, super-admin | AdminUsers, AuditLog, Corbeille, ArchivesModal, SuperAdmin | fait (création d'utilisateur non testée : comptes créés par vous) |
-| 13 | Impression et documents (modèle D) | components/impression | à faire |
+| 13 | Impression et documents (modèle D) | components/impression | fait (facture, devis, contrat à l'écran ; PDF/Word non téléchargés) |
 | 14 | Hors ligne, mises à jour, Electron, Android | OfflineBanner, UpdateBanner, electron, AndroidUpdateChecker | en partie (hors ligne fait ; Electron et Android à tester sur vos appareils) |
 | 15 | Droits et isolation RLS (transversal) | supabase/migrations | en partie (isolation entre sociétés vérifiée ; rôles employé et délégué : comptes de test à fournir) |
 
