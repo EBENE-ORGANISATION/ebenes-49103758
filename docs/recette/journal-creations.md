@@ -11,3 +11,4 @@
 | 2026-10-16 | Commercial/Compta | transactions | Dépense fournisseur TEST FOURNITURES SARL 118 000 (photo, en validation), écritures AC 1835 / BQ 1834 | 769 |
 | 2026-10-16 | Stock | mouvements_stock | Entrée BL-RECETTE-01 (100 ramettes à 2 400) puis supprimée : transaction 770 en corbeille, écritures 1836-1837 supprimées | 20 |
 | 2026-10-16 | Stock | ecritures | Constatation du stock d'octobre 2026 recalculée (INV-2026-10) | — |
+| 2026-10-16 | Immobilisations | immobilisations | Climatiseur salle de réunion (recette) 600 000, écriture BQ d'acquisition en brouillon | 13 |

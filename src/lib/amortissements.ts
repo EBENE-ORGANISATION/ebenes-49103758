@@ -74,7 +74,8 @@ export const planAmortissement = (immo: Immobilisation): PlanAmortissement => {
       } else {
         dot = annuite;
       }
-      dot = Math.min(dot, restant);
+      // Franc CFA : dotations arrondies au franc, la dernière solde exactement la base
+      dot = Math.min(Math.round(dot), restant);
       if (dot <= 0 && i > 0) break;
       cumul += dot;
       restant -= dot;
@@ -113,7 +114,7 @@ export const planAmortissement = (immo: Immobilisation): PlanAmortissement => {
         dot = dotDeg;
       }
     }
-    dot = Math.min(dot, vncDeb);
+    dot = Math.min(Math.round(dot), vncDeb);
     cumul += dot;
     vncDeb -= dot;
     lignes.push({

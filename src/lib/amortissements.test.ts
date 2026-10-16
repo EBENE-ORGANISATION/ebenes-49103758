@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Immobilisation } from "@/types/ebene";
-import { dotationAnnee, joursEcoules30360, joursRestants30360 } from "./amortissements";
+import { dotationAnnee, joursEcoules30360, joursRestants30360, planAmortissement } from "./amortissements";
 import { vncADate } from "./cessionImmo";
 
 const serveur = {
@@ -34,5 +34,19 @@ describe("prorata 30/360", () => {
     expect(vncADate(serveur, "2027-03-31")).toBeCloseTo(1_000_000, 6);
     // Cession au 30 novembre 2026 : 2 mois sur 3 de la dotation 2026
     expect(vncADate(serveur, "2026-11-30")).toBeCloseTo(1_200_000 - 100_000 * 60 / 90, 6);
+  });
+});
+
+describe("arrondi au franc", () => {
+  const base = { ...serveur, valeurOrigine: 1_000_000, dureeAmortissement: 3 } as Immobilisation;
+  it.each([
+    ["linéaire au 1er janvier", { ...base, dateAcquisition: "2026-01-01" }],
+    ["linéaire avec prorata", { ...base, dateAcquisition: "2026-05-17" }],
+    ["dégressif avec prorata", { ...base, methode: "degressif", dureeAmortissement: 5, dateAcquisition: "2026-08-09" }],
+  ])("%s : dotations entières, cumul final = valeur d'origine", (_nom, immo) => {
+    const { lignes } = planAmortissement(immo as Immobilisation);
+    expect(lignes.every((l) => Number.isInteger(l.dotation))).toBe(true);
+    expect(lignes.reduce((s, l) => s + l.dotation, 0)).toBe(1_000_000);
+    expect(lignes[lignes.length - 1].vnc).toBe(0);
   });
 });
