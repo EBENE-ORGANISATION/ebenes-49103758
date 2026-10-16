@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, X, Check, RefreshCw, Eye, Printer, XCircle, Camera, AlertTriangle, Pencil, Wallet, Landmark, Ban } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMontant, todayISO, dateFr } from "@/lib/ebene-utils";
+import { formatMontant, todayISO, dateFr, periodeDeDate } from "@/lib/ebene-utils";
+import { useExercices } from "@/hooks/data/useExercices";
 import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
 import { OCRFacture, type OCRDraft } from "./OCRFacture";
@@ -63,6 +64,23 @@ const STATUT_VALIDATION_BADGES: Record<StatutValidation, { cls: string; label: s
  * Fallback (sans config société) : ancien algorithme basé sur le scan des
  * numéros existants. Garde un comportement raisonnable hors-ligne.
  */
+/**
+ * Proforma : simple offre, hors de la suite des factures (une facture ne doit
+ * pas laisser de numéro inutilisé). Numérotée à part, PRO-AAAA-001, PRO-AAAA-002…
+ */
+const prochainNumeroProforma = (annee: number, donneesMensuelles: DonneesMensuelles) => {
+  const prefixe = `PRO-${annee}-`;
+  let max = 0;
+  Object.values(donneesMensuelles).forEach((m) => {
+    (m.factures || []).forEach((f) => {
+      if (!f.numero.startsWith(prefixe)) return;
+      const n = parseInt(f.numero.slice(prefixe.length), 10);
+      if (!isNaN(n)) max = Math.max(max, n);
+    });
+  });
+  return `${prefixe}${String(max + 1).padStart(3, "0")}`;
+};
+
 const prochainNumeroFallback = (
   estProforma: boolean,
   annee: number,
@@ -121,13 +139,17 @@ export const Factures = ({
   const [paiementFacture, setPaiementFacture] = useState<Facture | null>(null);
 
   const { currentSociete, societeConfig, refresh: refreshTenant } = useTenant();
+  const { estClos } = useExercices(currentSociete?.id ?? null);
+  // Année de la pièce (sa date), pour son numéro et le verrou de clôture
+  const [anneePiece] = periodeDeDate(date, annee, 1);
 
   // Numéro auto-généré selon la config de la société (aperçu)
   const numeroAuto = useMemo(() => {
-    if (societeConfig) return genererNumeroFacture(societeConfig, annee);
-    return prochainNumeroFallback(proforma, annee, donneesMensuelles);
+    if (proforma) return prochainNumeroProforma(anneePiece, donneesMensuelles);
+    if (societeConfig) return genererNumeroFacture(societeConfig, anneePiece);
+    return prochainNumeroFallback(proforma, anneePiece, donneesMensuelles);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [societeConfig?.format_facture, societeConfig?.compteur_facture, annee, proforma, donneesMensuelles]);
+  }, [societeConfig?.format_facture, societeConfig?.compteur_facture, anneePiece, proforma, donneesMensuelles]);
 
   // Pré-remplit le numéro à l'ouverture du formulaire (création) tant que
   // l'utilisateur ne l'a pas modifié manuellement.
@@ -172,10 +194,12 @@ export const Factures = ({
    * en base (le compteur avance atomiquement) ; sinon on respecte son choix
    * manuel sans avancer la séquence.
    */
-  const numeroDefinitif = async (apercu: string, saisi: string): Promise<string> => {
+  const numeroDefinitif = async (apercu: string, saisi: string, estProforma = false, anneeNumero = anneePiece): Promise<string> => {
     if (saisi && saisi !== apercu) return saisi;
+    // Une proforma n'avance pas le compteur des factures
+    if (estProforma) return apercu;
     if (!currentSociete?.id || !societeConfig) return apercu;
-    const reserve = await reserverNumero(currentSociete.id, "facture", annee);
+    const reserve = await reserverNumero(currentSociete.id, "facture", anneeNumero);
     if (!reserve) return apercu;
     void refreshTenant();
     return reserve;
@@ -186,12 +210,15 @@ export const Factures = ({
     if (activiteObligatoire && !activiteId) return alert(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!client.trim()) return alert("Le nom du client est obligatoire.");
     if (!date) return alert("Date obligatoire.");
+    // Avant de réserver un numéro : un exercice clôturé refuserait la facture
+    if (estClos(anneePiece)) return alert(`L'exercice ${anneePiece} est clôturé : aucune facture ne peut y être datée (un administrateur peut le rouvrir).`);
     const lignesNet = lignesEnregistrees(lignes);
     if (lignesNet.length === 0) return alert("Au moins une prestation valide.");
     const red = Math.max(0, parseFloat(reduction) || 0);
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
     const totalHT = Math.max(0, sousTotal - red);
-    const totalTva = avecTva ? totalHT * 0.18 : 0;
+    // Franc CFA : pas de centimes
+    const totalTva = avecTva ? Math.round(totalHT * 0.18) : 0;
     const taxe = Math.max(0, Math.round(parseFloat(taxeSejour) || 0));
     const totalTtc = totalHT + totalTva + taxe;
 
@@ -215,7 +242,7 @@ export const Factures = ({
       return;
     }
 
-    const numeroFinal = await numeroDefinitif(numeroAuto, numero.trim());
+    const numeroFinal = await numeroDefinitif(numeroAuto, numero.trim(), proforma);
     onAdd({
       numero: numeroFinal,
       client: client.trim(),
@@ -271,13 +298,11 @@ export const Factures = ({
       )}
 
       <div className="bg-info/10 border-l-4 border-info rounded-md p-3 text-sm space-y-1">
-        <p>💡 Quand une facture passe à <b>Payée</b> :</p>
+        <p>💡 Ce que fait l'application :</p>
         <ul className="list-disc pl-4 space-y-0.5 text-xs text-muted-foreground">
-          <li>Son montant TTC est ajouté aux <b>recettes</b> (Trésorerie)</li>
-          <li>Une <b>écriture SYSCOHADA</b> est générée automatiquement dans le journal VE
-              (4111 Clients / 706 Ventes / 4431 TVA)</li>
-          <li>L'écriture est visible dans <b>Comptabilité → Journal</b> et impacte le
-              <b>Grand-Livre</b>, la <b>Balance</b> et la <b>TVA</b></li>
+          <li>Facture <b>validée</b> : écriture de vente au journal VE (4111 Clients / 70 Ventes / TVA : 4431 pour les ventes, 4438 en attente pour les services)</li>
+          <li>Facture <b>payée</b> : encaissement en Banque (521) ou en Caisse (571), qui solde le client ; la TVA des services devient exigible (4432)</li>
+          <li>Ces écritures apparaissent dans <b>Comptabilité → Journal</b>, le <b>Grand livre</b>, la <b>Balance</b> et la <b>TVA</b></li>
         </ul>
       </div>
 
@@ -415,8 +440,12 @@ export const Factures = ({
               <Checkbox checked={avecTva} onCheckedChange={(v) => setAvecTva(!!v)} />
               <span className="text-sm font-medium">TVA 18%</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox checked={proforma} onCheckedChange={(v) => setProforma(!!v)} />
+            <label
+              className={`flex items-center gap-2 ${editingId != null ? "opacity-60" : "cursor-pointer"}`}
+              title={editingId != null ? "Une proforma devient facture avec le bouton « Convertir »" : undefined}
+            >
+              {/* En modification, la nature ne change pas : sinon une facture garderait un numéro sorti de la suite */}
+              <Checkbox checked={proforma} onCheckedChange={(v) => setProforma(!!v)} disabled={editingId != null} />
               <span className="text-sm font-medium">📋 Proforma</span>
             </label>
           </div>
@@ -570,11 +599,13 @@ export const Factures = ({
                         variant="outline"
                         className="gap-1 text-info border-info/30 hover:bg-info/10"
                         onClick={async () => {
-                          if (confirm("Convertir cette proforma en facture définitive ?")) {
+                          if (confirm("Convertir cette proforma en facture définitive, datée d'aujourd'hui ?")) {
+                            // La facture est émise aujourd'hui : numéro de l'année en cours
+                            const anneeEmission = Number(todayISO().slice(0, 4));
                             const apercu = societeConfig
-                              ? genererNumeroFacture(societeConfig, annee)
-                              : prochainNumeroFallback(false, annee, donneesMensuelles);
-                            onConvertir(f.id, await numeroDefinitif(apercu, ""));
+                              ? genererNumeroFacture(societeConfig, anneeEmission)
+                              : prochainNumeroFallback(false, anneeEmission, donneesMensuelles);
+                            onConvertir(f.id, await numeroDefinitif(apercu, "", false, anneeEmission));
                           }
                         }}
                       >

@@ -37,6 +37,19 @@ export const formatMontantSigne = (n: number): string => {
 export const moisKey = (annee: number, mois: number) => `${annee}-${mois}`;
 
 /**
+ * Période (année, mois) d'une pièce : celle de sa date (AAAA-MM-JJ), sinon la
+ * période proposée. Une pièce se range dans le mois de sa date, pas dans le
+ * mois affiché à l'écran (TVA du mois, exercice et son verrou de clôture).
+ */
+export const periodeDeDate = (date: string | null | undefined, annee: number, mois: number): [number, number] => {
+  const m = /^(\d{4})-(\d{2})-\d{2}/.exec(date ?? "");
+  if (!m) return [annee, mois];
+  const a = Number(m[1]);
+  const mo = Number(m[2]);
+  return mo >= 1 && mo <= 12 ? [a, mo] : [annee, mois];
+};
+
+/**
  * Date au format AAAA-MM-JJ selon le fuseau LOCAL de l'appareil.
  * (toISOString() donne la date UTC : en UTC+1, entre minuit et 1 h, ou pour
  * une date créée à minuit local, elle tombe sur la veille.)

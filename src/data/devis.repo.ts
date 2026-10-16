@@ -13,6 +13,7 @@ import type {
   ActiviteType,
 } from "@/types/ebene";
 import { toutesLesPages } from "./pagination";
+import { periodeDeDate } from "@/lib/ebene-utils";
 
 type DevisRow = Tables<"devis">;
 
@@ -112,7 +113,7 @@ export const devis = {
   ): Promise<Devis> {
     const { data, error } = await supabase
       .from("devis")
-      .insert(fromDevis(d, annee, mois, societeId))
+      .insert(fromDevis(d, ...periodeDeDate(d.date, annee, mois), societeId))
       .select()
       .single();
     if (error) throw error;
@@ -142,7 +143,11 @@ export const devis = {
         ...(patch.totalTtc !== undefined && { total_ttc: patch.totalTtc }),
         ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
         ...(patch.client !== undefined && { client: patch.client }),
-        ...(patch.date !== undefined && { date: patch.date }),
+        // Nouvelle date : le devis change de mois avec elle
+        ...(patch.date !== undefined && {
+          date: patch.date,
+          ...(() => { const [annee, mois] = periodeDeDate(patch.date, 0, 0); return annee ? { annee, mois } : {}; })(),
+        }),
         ...(patch.dateValidite !== undefined && { date_validite: patch.dateValidite ?? null }),
         ...(patch.avecTva !== undefined && { avec_tva: patch.avecTva }),
         ...(patch.activite !== undefined && { activite: patch.activite ?? null }),

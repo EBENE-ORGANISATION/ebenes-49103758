@@ -149,10 +149,11 @@ export const DevisSection = ({
     type: "facture" | "devis",
     apercu: string,
     saisi: string,
+    anneeNumero = annee,
   ): Promise<string> => {
     if (saisi && saisi !== apercu) return saisi;
     if (!currentSociete?.id || !societeConfig) return apercu;
-    const reserve = await reserverNumero(currentSociete.id, type, annee);
+    const reserve = await reserverNumero(currentSociete.id, type, anneeNumero);
     if (!reserve) return apercu;
     void refreshTenant();
     return reserve;
@@ -168,7 +169,8 @@ export const DevisSection = ({
     const red = Math.max(0, parseFloat(reduction) || 0);
     const sousTotal = lignesNet.reduce((a, l) => a + l.montant, 0);
     const totalHT = Math.max(0, sousTotal - red);
-    const totalTva = avecTva ? totalHT * 0.18 : 0;
+    // Franc CFA : pas de centimes
+    const totalTva = avecTva ? Math.round(totalHT * 0.18) : 0;
     const totalTtc = totalHT + totalTva;
 
     if (editingId != null && onUpdate) {
@@ -465,10 +467,12 @@ export const DevisSection = ({
                         className="gap-1 text-success border-success/30 hover:bg-success/10"
                         onClick={async () => {
                           if (confirm(t("devis.confirm_convert"))) {
+                            // Facture émise aujourd'hui : numéro de l'année en cours
+                            const anneeEmission = new Date().getFullYear();
                             const apercu = societeConfig
-                              ? genererNumeroFactureFmt(societeConfig, annee)
-                              : prochainNumeroFactureFallback(annee, donneesMensuelles);
-                            onConvertir(d.id, await numeroDefinitif("facture", apercu, ""));
+                              ? genererNumeroFactureFmt(societeConfig, anneeEmission)
+                              : prochainNumeroFactureFallback(anneeEmission, donneesMensuelles);
+                            onConvertir(d.id, await numeroDefinitif("facture", apercu, "", anneeEmission));
                           }
                         }}
                       >

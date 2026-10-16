@@ -23,8 +23,9 @@ import {
   COMPTES_IMMO_DEFAUT,
   StatutValidation,
   EcritureComptable,
+  MOIS_NOMS,
 } from "@/types/ebene";
-import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, formatMontant, formatSolde } from "@/lib/ebene-utils";
+import { moisKey, genererMatricule, messageErreur, tauxPourMois, todayISO, periodeDeDate, formatMontant, formatSolde } from "@/lib/ebene-utils";
 import { aEcritureVente, contrePassation, ecritureVenteFacture, ecrituresReglementFacture, estContrePassation } from "@/lib/ecrituresFacture";
 import { depassementConges, messageDepassementConges } from "@/lib/conges";
 import { manquesStock, messageManques, retoursFacture, sortiesFacture } from "@/lib/venteStock";
@@ -444,7 +445,7 @@ export const useEbeneStoreRemote = (
             });
           });
         })
-        .catch(() => toast.error("Erreur lors de l'ajout de la transaction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de la transaction")));
     },
     [tqTransactions, tqEcritures, markSignificantWrite, log, activiteSaisie, tauxHistorique, donneesConsolidees, caisses],
   );
@@ -544,7 +545,7 @@ export const useEbeneStoreRemote = (
               .map((e) => tqEcritures.rejeterEcriture(e.id, motif).catch(() => undefined)),
           );
         })
-        .catch(() => toast.error("Erreur lors du rejet de la transaction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet de la transaction")));
     },
     [tqTransactions, tqEcritures, ecrituresDe, log],
   );
@@ -552,12 +553,14 @@ export const useEbeneStoreRemote = (
   // ─── Factures → table relationnelle ──────────────────────────────────────
   const addFacture = useCallback(
     (annee: number, mois: number, f: Omit<Facture, "id">) => {
-      void tqFactures.createFacture(annee, mois, { ...f, activiteId: activiteSaisie(f.activiteId) })
+      const [a, m] = periodeDeDate(f.date, annee, mois);
+      void tqFactures.createFacture(a, m, { ...f, activiteId: activiteSaisie(f.activiteId) })
         .then((saved) => {
+          if (a !== annee || m !== mois) toast.info(`Facture enregistrée en ${MOIS_NOMS[m - 1]} ${a}, le mois de sa date.`);
           log("INSERT", "factures", saved.id, null, saved);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la création de la facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la création de la facture")));
       return 0; // ID définitif disponible après invalidation TQ
     },
     [tqFactures, activiteSaisie, log, markSignificantWrite],
@@ -566,7 +569,7 @@ export const useEbeneStoreRemote = (
   const updateFacture = useCallback(
     (_annee: number, _mois: number, id: number, patch: Partial<Facture>) => {
       void tqFactures.updateFacture(id, patch as Parameters<typeof tqFactures.updateFacture>[1])
-        .catch(() => toast.error("Erreur lors de la mise à jour de la facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de la facture")));
     },
     [tqFactures],
   );
@@ -790,7 +793,7 @@ export const useEbeneStoreRemote = (
         .then(() => toast.success(nouvelles.length
           ? `Stock constaté en comptabilité (${piece}).`
           : "Le stock est déjà à jour en comptabilité pour ce mois."))
-        .catch(() => toast.error("Erreur lors de la constatation du stock"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la constatation du stock")));
     },
     [articles, tqEcritures, tqMouvements.mouvementsStock, supprimerEcrituresLiees, log, markSignificantWrite],
   );
@@ -860,15 +863,20 @@ export const useEbeneStoreRemote = (
   const convertirProforma = useCallback(
     (annee: number, mois: number, factureId: number, nouveauNumero: string) => {
       const f = (tqFactures.factures[moisKey(annee, mois)] ?? []).find((x) => x.id === factureId);
+      // La facture est émise le jour de la conversion (elle change de mois si besoin)
+      const date = todayISO();
+      const [a, m] = periodeDeDate(date, annee, mois);
+      if (a !== annee || m !== mois) toast.info(`Facture enregistrée en ${MOIS_NOMS[m - 1]} ${a}, mois de sa date d'émission.`);
       void tqFactures.updateFacture(factureId, {
         statut: "en_attente",
         numero: nouveauNumero,
+        date,
       })
         .then(async () => {
           // Proforma déjà validé : la vente se comptabilise à la conversion
-          if (f && f.statutValidation === "valide") await passerVente(annee, mois, { ...f, statut: "en_attente", numero: nouveauNumero });
+          if (f && f.statutValidation === "valide") await passerVente(a, m, { ...f, statut: "en_attente", numero: nouveauNumero, date });
         })
-        .catch(() => toast.error("Erreur lors de la conversion du proforma"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la conversion du proforma")));
     },
     [tqFactures, passerVente],
   );
@@ -900,7 +908,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqFactures.rejeterFacture(id, motif)
         .then(() => log("REJETER_FACTURE", "factures", id, null, { id, motif }))
-        .catch(() => toast.error("Erreur lors du rejet de la facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet de la facture")));
     },
     [log, tqFactures],
   );
@@ -914,7 +922,7 @@ export const useEbeneStoreRemote = (
         activiteId: activiteSaisie(d.activiteId),
       })
         .then((saved) => log("INSERT", "devis", saved.id, null, saved))
-        .catch(() => toast.error("Erreur lors de la création du devis"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la création du devis")));
       return 0; // ID définitif disponible après invalidation TQ
     },
     [tqDevis, activiteSaisie, log],
@@ -933,7 +941,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number, patch: Partial<Devis>) => {
       void tqDevis.updateDevis(id, patch as Parameters<typeof tqDevis.updateDevis>[1])
         .then(() => log("UPDATE", "devis", id, null, patch))
-        .catch(() => toast.error("Erreur lors de la mise à jour du devis"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour du devis")));
     },
     [log, tqDevis],
   );
@@ -950,10 +958,14 @@ export const useEbeneStoreRemote = (
           : "Ce devis a déjà été converti en facture.");
         return null;
       }
-      void tqFactures.createFacture(annee, mois, {
+      // La facture est émise le jour de la conversion, pas à la date du devis
+      const dateFacture = todayISO();
+      const [aFact, mFact] = periodeDeDate(dateFacture, annee, mois);
+      if (aFact !== annee || mFact !== mois) toast.info(`Facture enregistrée en ${MOIS_NOMS[mFact - 1]} ${aFact}, mois de sa date d'émission.`);
+      void tqFactures.createFacture(aFact, mFact, {
         numero: numeroFacture,
         client: d.client,
-        date: d.date,
+        date: dateFacture,
         lignes: d.lignes,
         reduction: d.reduction,
         avecTva: d.avecTva,
@@ -975,7 +987,7 @@ export const useEbeneStoreRemote = (
               })
             )
         )
-        .catch(() => toast.error("Erreur lors de la conversion du devis en facture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la conversion du devis en facture")));
       return null; // ID disponible après invalidation TQ
     },
     [tqDevis, tqFactures, log],
@@ -986,7 +998,7 @@ export const useEbeneStoreRemote = (
     (annee: number, mois: number, employeId: number, prime: Omit<Prime, "id">) => {
       void tqPrimes.addPrime(annee, mois, employeId, prime)
         .then((saved) => log("INSERT", "primes", saved.id, null, saved))
-        .catch(() => toast.error("Erreur lors de l'ajout de la prime"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de la prime")));
     },
     [log, tqPrimes],
   );
@@ -1013,7 +1025,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, _employeId: number, primeId: number, motif: string) => {
       void tqPrimes.rejeterPrime(primeId, motif)
         .then(() => log("REJETER_PRIME", "primes", primeId, null, { id: primeId, motif }))
-        .catch(() => toast.error("Erreur lors du rejet de la prime"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet de la prime")));
     },
     [log, tqPrimes],
   );
@@ -1023,7 +1035,7 @@ export const useEbeneStoreRemote = (
     (annee: number, mois: number, a: Omit<Absence, "id">) => {
       void tqAbsences.addAbsence(annee, mois, a)
         .then((saved) => log("INSERT", "absences", saved.id, null, saved))
-        .catch(() => toast.error("Erreur lors de l'ajout de l'absence"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de l'absence")));
     },
     [log, tqAbsences],
   );
@@ -1061,7 +1073,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqAbsences.rejeterAbsence(id, motif)
         .then(() => log("REJETER_ABSENCE", "absences", id, null, { id, motif }))
-        .catch(() => toast.error("Erreur lors du rejet de l'absence"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet de l'absence")));
     },
     [log, tqAbsences],
   );
@@ -1070,7 +1082,7 @@ export const useEbeneStoreRemote = (
   const setHeuresSup = useCallback(
     (annee: number, mois: number, employeId: number, hs: HeuresSup) => {
       void tqHeuresSup.setHeuresSup(annee, mois, employeId, hs)
-        .catch(() => toast.error("Erreur lors de la mise à jour des heures sup"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour des heures sup")));
     },
     [tqHeuresSup],
   );
@@ -1088,7 +1100,7 @@ export const useEbeneStoreRemote = (
     (annee: number, mois: number, employeId: number, motif: string) => {
       void tqHeuresSup.rejeterHeuresSup(annee, mois, employeId, motif)
         .then(() => log("REJETER_HEURES_SUP", "heures_sup", employeId, null, { employeId, motif }))
-        .catch(() => toast.error("Erreur lors du rejet des heures sup"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet des heures sup")));
     },
     [log, tqHeuresSup],
   );
@@ -1097,7 +1109,7 @@ export const useEbeneStoreRemote = (
   const setRetenue = useCallback(
     (annee: number, mois: number, employeId: number, montant: number) => {
       void tqRetenues.setRetenue(annee, mois, employeId, montant)
-        .catch(() => toast.error("Erreur lors de la mise à jour de la retenue"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de la retenue")));
     },
     [tqRetenues],
   );
@@ -1106,7 +1118,7 @@ export const useEbeneStoreRemote = (
   const ajouterTaux = useCallback(
     (t: TauxFiscaux) => {
       void tqTaux.upsertTaux(t)
-        .catch(() => toast.error("Erreur lors de la sauvegarde du taux fiscal"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la sauvegarde du taux fiscal")));
     },
     [tqTaux],
   );
@@ -1163,7 +1175,7 @@ export const useEbeneStoreRemote = (
           }
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de la création de l'employé"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la création de l'employé")));
     },
     [societeId, employes, tqEmployes, markSignificantWrite],
   );
@@ -1186,7 +1198,7 @@ export const useEbeneStoreRemote = (
       if (!societeId) return;
       void tqEmployes.restoreEmploye(id)
         .then(() => toast.success("Employé restauré"))
-        .catch(() => toast.error("Erreur lors de la restauration"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la restauration")));
     },
     [societeId, tqEmployes],
   );
@@ -1205,7 +1217,7 @@ export const useEbeneStoreRemote = (
     (id: number, patch: Partial<Employe>) => {
       if (!societeId) return;
       void tqEmployes.updateEmploye(id, patch)
-        .catch(() => toast.error("Erreur lors de la mise à jour de l'employé"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de l'employé")));
     },
     [societeId, tqEmployes],
   );
@@ -1223,7 +1235,7 @@ export const useEbeneStoreRemote = (
     (id: number, motif: string) => {
       void tqEmployes.rejeterEmploye(id, motif)
         .then(() => log("REJETER_EMPLOYE", "employes", id, null, { id, motif }))
-        .catch(() => toast.error("Erreur lors du rejet"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet")));
     },
     [log, tqEmployes],
   );
@@ -1232,7 +1244,7 @@ export const useEbeneStoreRemote = (
   const addCategorieStock = useCallback(
     (nom: string) => {
       void tqCategories.addCategorieStock({ nom })
-        .catch(() => toast.error("Erreur lors de l'ajout de la catégorie"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de la catégorie")));
     },
     [tqCategories],
   );
@@ -1249,7 +1261,7 @@ export const useEbeneStoreRemote = (
   const addFournisseur = useCallback(
     (f: Omit<Fournisseur, "id">) => {
       void tqFournisseurs.addFournisseur(f)
-        .catch(() => toast.error("Erreur lors de l'ajout du fournisseur"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout du fournisseur")));
     },
     [tqFournisseurs],
   );
@@ -1257,7 +1269,7 @@ export const useEbeneStoreRemote = (
   const updateFournisseur = useCallback(
     (id: number, patch: Partial<Fournisseur>) => {
       void tqFournisseurs.updateFournisseur(id, patch)
-        .catch(() => toast.error("Erreur lors de la mise à jour du fournisseur"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour du fournisseur")));
     },
     [tqFournisseurs],
   );
@@ -1274,7 +1286,7 @@ export const useEbeneStoreRemote = (
   const addArticle = useCallback(
     (a: Omit<Article, "id">) => {
       void tqArticles.addArticle({ ...a, activiteId: activiteSaisie(a.activiteId) })
-        .catch(() => toast.error("Erreur lors de l'ajout de l'article"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de l'article")));
     },
     [tqArticles, activiteSaisie],
   );
@@ -1282,7 +1294,7 @@ export const useEbeneStoreRemote = (
   const updateArticle = useCallback(
     (id: number, patch: Partial<Article>) => {
       void tqArticles.updateArticle(id, patch)
-        .catch(() => toast.error("Erreur lors de la mise à jour de l'article"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de l'article")));
     },
     [tqArticles],
   );
@@ -1357,7 +1369,7 @@ export const useEbeneStoreRemote = (
     (s: Omit<Sanction, "id">) => {
       void tqSanctions.addSanction(s)
         .then((saved) => log("INSERT", "sanctions", saved.id, null, saved))
-        .catch(() => toast.error("Erreur lors de l'ajout de la sanction"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de la sanction")));
     },
     [log, tqSanctions],
   );
@@ -1384,7 +1396,7 @@ export const useEbeneStoreRemote = (
     (id: number, motif: string) => {
       void tqSanctions.rejeterSanction(id, motif)
         .then(() => log("REJETER_SANCTION", "sanctions", id, null, { id, motif }))
-        .catch(() => toast.error("Erreur lors du rejet"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet")));
     },
     [log, tqSanctions],
   );
@@ -1416,7 +1428,7 @@ export const useEbeneStoreRemote = (
             toast.error("Écriture d'acquisition non créée — à saisir dans le journal"),
           );
         })
-        .catch(() => toast.error("Erreur lors de l'ajout de l'immobilisation"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de l'immobilisation")));
       return 0; // ID définitif disponible après invalidation TQ
     },
     [tqImmobilisations, activiteSaisie, log, markSignificantWrite, tqEcritures],
@@ -1438,7 +1450,7 @@ export const useEbeneStoreRemote = (
     (id: number, patch: Partial<Immobilisation>) => {
       void tqImmobilisations.updateImmobilisation(id, patch)
         .then(() => log("UPDATE", "immobilisations", id, null, patch))
-        .catch(() => toast.error("Erreur lors de la mise à jour de l'immobilisation"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de l'immobilisation")));
     },
     [log, tqImmobilisations],
   );
@@ -1457,7 +1469,7 @@ export const useEbeneStoreRemote = (
       const dataAny = data as { tauxHistorique?: TauxFiscaux[] };
       if (Array.isArray(dataAny.tauxHistorique) && dataAny.tauxHistorique.length) {
         void tqTaux.upsertBatch(dataAny.tauxHistorique)
-          .catch(() => toast.error("Erreur lors de l'import des taux fiscaux"));
+          .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'import des taux fiscaux")));
       }
 
       toast.warning(
@@ -1493,7 +1505,7 @@ export const useEbeneStoreRemote = (
           log("INSERT", "ecritures_comptables", saved.id, null, saved);
           markSignificantWrite();
         })
-        .catch(() => toast.error("Erreur lors de l'ajout de l'écriture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de l'ajout de l'écriture")));
     },
     [tqEcritures, markSignificantWrite, log, activiteSaisie],
   );
@@ -1501,7 +1513,7 @@ export const useEbeneStoreRemote = (
   const updateEcriture = useCallback(
     (_annee: number, _mois: number, id: number, patch: Partial<EcritureComptable>) => {
       void tqEcritures.updateEcriture(id, patch)
-        .catch(() => toast.error("Erreur lors de la mise à jour de l'écriture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors de la mise à jour de l'écriture")));
     },
     [tqEcritures],
   );
@@ -1531,7 +1543,7 @@ export const useEbeneStoreRemote = (
     (_annee: number, _mois: number, id: number, motif: string) => {
       void tqEcritures.rejeterEcriture(id, motif)
         .then(() => log("REJETER_ECRITURE", "ecritures_comptables", id, null, { id, motif }))
-        .catch(() => toast.error("Erreur lors du rejet de l'écriture"));
+        .catch((e) => toast.error(messageErreur(e, "Erreur lors du rejet de l'écriture")));
     },
     [tqEcritures, log],
   );

@@ -887,7 +887,7 @@ const fr = {
     lines_other: "{{count}} lignes",
     edit_tooltip: "Modifier (uniquement si non converti)",
     convert: "Convertir en facture",
-    confirm_convert: "Convertir ce devis en facture définitive ?",
+    confirm_convert: "Convertir ce devis en facture définitive, datée d'aujourd'hui ?",
     confirm_delete: "Supprimer définitivement ce devis ?",
     s_brouillon: "Brouillon",
     s_envoye: "📤 Envoyé",

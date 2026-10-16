@@ -4,3 +4,4 @@
 
 | Date | Module | Table | Objet (n° / libellé) | Id |
 |------|--------|-------|----------------------|----|
+| 2026-10-16 | Commercial | factures | FAC-2026-014 « TEST Recette Client A » (sept. 2026, 2 activités) | 184 |

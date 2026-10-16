@@ -14,6 +14,7 @@ import type {
   ActiviteType,
 } from "@/types/ebene";
 import { toutesLesPages } from "./pagination";
+import { periodeDeDate } from "@/lib/ebene-utils";
 
 type FactureRow = Tables<"factures">;
 
@@ -117,7 +118,7 @@ export const factures = {
   ): Promise<Facture> {
     const { data, error } = await supabase
       .from("factures")
-      .insert(fromFacture(f, annee, mois, societeId))
+      .insert(fromFacture(f, ...periodeDeDate(f.date, annee, mois), societeId))
       .select()
       .single();
     if (error) throw error;
@@ -176,7 +177,11 @@ export const factures = {
         ...(patch.activiteId !== undefined && { activite_id: patch.activiteId ?? null }),
         ...(patch.compteTresorerie !== undefined && { compte_tresorerie: patch.compteTresorerie ?? null }),
         ...(patch.client !== undefined && { client: patch.client }),
-        ...(patch.date !== undefined && { date: patch.date }),
+        // Nouvelle date : la facture change de mois (et d'exercice) avec elle
+        ...(patch.date !== undefined && {
+          date: patch.date,
+          ...(() => { const [annee, mois] = periodeDeDate(patch.date, 0, 0); return annee ? { annee, mois } : {}; })(),
+        }),
         ...(patch.activite !== undefined && { activite: patch.activite ?? null }),
       })
       .eq("id", id)

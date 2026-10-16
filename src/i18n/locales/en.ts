@@ -889,7 +889,7 @@ const en: Translation = {
     lines_other: "{{count}} lines",
     edit_tooltip: "Edit (only if not converted)",
     convert: "Convert to invoice",
-    confirm_convert: "Convert this quote to a final invoice?",
+    confirm_convert: "Convert this quote to a final invoice dated today?",
     confirm_delete: "Permanently delete this quote?",
     s_brouillon: "Draft",
     s_envoye: "📤 Sent",
