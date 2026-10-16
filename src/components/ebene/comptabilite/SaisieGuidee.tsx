@@ -200,6 +200,8 @@ export const SaisieGuidee = ({
   const [step, setStep]           = useState<"type" | "details">("type");
   const [typeOp, setTypeOp]       = useState<TypeOperationGuide>("vente_services");
   const [montantHT, setMontantHT] = useState("");
+  // Règlement de TVA : TVA déductible du mois (le montant principal est la TVA collectée)
+  const [tvaDeductible, setTvaDeductible] = useState("");
   const [avecTva, setAvecTva]     = useState(true);
   const [tiers, setTiers]         = useState("");
   const [libelle, setLibelle]     = useState("");
@@ -213,7 +215,7 @@ export const SaisieGuidee = ({
   // F2 — Aperçu temps réel des lignes SYSCOHADA
   const lignesPreview: LigneEcriture[] =
     montant > 0
-      ? genererLignesEcriture(typeOp, { montantHT: montant, tva: tauxTVA, avecTva, tiers })
+      ? genererLignesEcriture(typeOp, { montantHT: montant, tva: tauxTVA, avecTva, tiers, compteBank: "521", tvaDeductible: parseFloat(tvaDeductible) || 0 })
       : [];
 
   const totalDebit  = lignesPreview.reduce((s, l) => s + l.debit,  0);
@@ -340,7 +342,7 @@ export const SaisieGuidee = ({
         {/* Montant (HT si l'opération porte de la TVA) */}
         <div className="space-y-1.5">
           <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            {OPS_SANS_TVA.includes(typeOp) || !avecTva ? "Montant (FCFA) *" : "Montant HT (FCFA) *"}
+            {typeOp === "tva_a_decaisser" ? "TVA collectée du mois (FCFA) *" : OPS_SANS_TVA.includes(typeOp) || !avecTva ? "Montant (FCFA) *" : "Montant HT (FCFA) *"}
           </Label>
           <Input
             type="number"
@@ -357,6 +359,16 @@ export const SaisieGuidee = ({
           )}
         </div>
       </div>
+
+      {typeOp === "tva_a_decaisser" && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">TVA déductible du mois (FCFA)</Label>
+          <Input type="number" min="0" value={tvaDeductible} onChange={(e) => setTvaDeductible(e.target.value)} placeholder="0" />
+          <p className="text-[11px] text-muted-foreground">
+            Montants de la déclaration (onglet Fiscalité). La différence est payée par la banque ; négative, elle devient un crédit de TVA à reporter.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">

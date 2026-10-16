@@ -289,6 +289,8 @@ export function genererLignesEcriture(
     tiers?: string;
     /** Code du compte banque à utiliser. Par défaut : "5211". */
     compteBank?: string;
+    /** Règlement de TVA : TVA déductible du mois (montantHT = TVA collectée). */
+    tvaDeductible?: number;
   },
 ): LigneEcriture[] {
   const {
@@ -434,16 +436,15 @@ export function genererLignesEcriture(
 
     // ── Clôtures périodiques ─────────────────────────────────────────────────
     case "tva_a_decaisser": {
-      // montantHT = total TVA collectée ; params.tva = total TVA déductible (optionnel)
-      const tvaDeductible = avecTva ? Math.round(montantHT * tva) : 0;
+      // Règlement de la TVA du mois : montantHT = TVA collectée, tvaDeductible saisie.
+      // La TVA nette est payée par la banque ; négative, elle devient un crédit à reporter.
+      const tvaDeductible = Math.max(0, Math.round(params.tvaDeductible ?? 0));
       const tvaNette = montantHT - tvaDeductible;
       return [
-        L("4431", "TVA facturée collectée",    montantHT,    0),
-        L("4452", "TVA récupérable",           0,            tvaDeductible),
-        L("4441", "État, TVA due",             0,            tvaNette > 0 ? tvaNette : 0),
-        ...(tvaNette < 0
-          ? [L("4449", "Crédit de TVA à reporter", Math.abs(tvaNette), 0)]
-          : []),
+        L("4431", "TVA facturée collectée", montantHT, 0),
+        ...(tvaDeductible > 0 ? [L("4452", "TVA récupérable", 0, tvaDeductible)] : []),
+        ...(tvaNette > 0 ? [L(compteBank, bankLabel, 0, tvaNette)] : []),
+        ...(tvaNette < 0 ? [L("4449", "Crédit de TVA à reporter", Math.abs(tvaNette), 0)] : []),
       ];
     }
 
