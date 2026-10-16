@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Article, CategorieArticle, Fournisseur, MoisData, MouvementStock,
   TypeMouvementStock, NatureArticle,
@@ -179,6 +179,9 @@ const ArticlesPanel = ({
     categorieId: null, fournisseurId: null, activiteId: currentActiviteId,
   };
   const [form, setForm] = useState<Omit<Article, "id">>(empty);
+  const { currentSociete } = useTenant();
+  const { activitesActives } = useActivites(currentSociete?.id ?? null);
+  const nomActivite = (id?: string | null) => (activitesActives.length >= 2 ? activitesActives.find((x) => x.id === id)?.nom : undefined);
 
   const startEdit = (a: Article) => {
     const { id: _id, ...rest } = a;
@@ -280,6 +283,7 @@ const ArticlesPanel = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold">{a.designation}</p>
                       <span className="badge-soft bg-muted text-foreground">{a.reference}</span>
+                      {nomActivite(a.activiteId) && <span className="badge-soft bg-info/10 text-info">{nomActivite(a.activiteId)}</span>}
                       {enAlerte && (
                         <span className="badge-soft bg-warning/15 text-warning flex items-center gap-1">
                           <AlertTriangle className="size-3" /> Sous seuil
@@ -418,7 +422,11 @@ const MouvementsPanel = ({
               <Select value={articleId} onValueChange={setArticleId}>
                 <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
                 <SelectContent>
-                  {articles.map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.designation} ({a.reference})</SelectItem>)}
+                  {articles.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {a.designation} ({a.reference}){activitesActives.length >= 2 && a.activiteId ? ` · ${activitesActives.find((x) => x.id === a.activiteId)?.nom ?? ""}` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Lab>
@@ -742,8 +750,11 @@ const InventaireModal = ({
   const [valeurs, setValeurs] = useState<Record<number, string>>({});
   const [reference, setReference] = useState(`INV-${todayISO()}`);
 
-  // Reset when opened
-  useMemo(() => {
+  const { currentSociete } = useTenant();
+  const { activitesActives } = useActivites(currentSociete?.id ?? null);
+
+  // Formulaire vide à chaque ouverture
+  useEffect(() => {
     if (open) {
       setValeurs({});
       setDate(todayISO());
@@ -772,6 +783,8 @@ const InventaireModal = ({
 
   const valider = () => {
     if (ecarts.length === 0) return toast.error("Aucun article saisi");
+    const negatif = ecarts.find((e) => e.physique < 0);
+    if (negatif) return toast.error(`Stock physique négatif pour ${negatif.article.designation} : un stock compté ne peut pas être négatif.`);
     let nb = 0;
     ecarts.forEach((e) => {
       if (e.ecart === 0) return;
@@ -839,12 +852,17 @@ const InventaireModal = ({
                     <tr key={a.id} className="border-t border-border">
                       <td className="py-2 px-3">
                         <p className="font-semibold">{a.designation}</p>
-                        <p className="text-xs text-muted-foreground">{a.reference} • {a.unite}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {a.reference} • {a.unite}
+                          {activitesActives.length >= 2 && a.activiteId ? ` • ${activitesActives.find((x) => x.id === a.activiteId)?.nom ?? ""}` : ""}
+                        </p>
                       </td>
                       <td className="py-2 px-3 text-right amount">{a.stock}</td>
                       <td className="py-2 px-3 text-right">
                         <Input
                           type="number"
+                          min="0"
+                          aria-label={`Stock physique de ${a.designation}`}
                           value={raw}
                           onChange={(e) => setValeurs({ ...valeurs, [a.id]: e.target.value })}
                           className="h-8 w-24 ml-auto text-right"

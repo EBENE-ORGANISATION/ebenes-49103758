@@ -17,6 +17,7 @@ import type {
   ActiviteType,
 } from "@/types/ebene";
 import { toutesLesPages } from "./pagination";
+import { periodeDeDate } from "@/lib/ebene-utils";
 
 type TransactionRow = Tables<"transactions">;
 
@@ -119,7 +120,7 @@ export const transactions = {
   ): Promise<Transaction> {
     const { data, error } = await supabase
       .from("transactions")
-      .insert(fromTransaction(t, annee, mois, societeId))
+      .insert(fromTransaction(t, ...periodeDeDate(t.date, annee, mois), societeId))
       .select()
       .single();
     if (error) throw error;

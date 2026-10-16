@@ -18,6 +18,7 @@ import type {
   StatutEcriture,
 } from "@/types/ebene";
 import { toutesLesPages } from "./pagination";
+import { periodeDeDate } from "@/lib/ebene-utils";
 
 type EcritureRow = Tables<"ecritures_comptables">;
 
@@ -97,7 +98,7 @@ export const ecritures = {
   ): Promise<EcritureComptable> {
     const { data, error } = await supabase
       .from("ecritures_comptables")
-      .insert(fromEcriture(e, annee, mois, societeId))
+      .insert(fromEcriture(e, ...periodeDeDate(e.date, annee, mois), societeId))
       .select()
       .single();
     if (error) throw error;

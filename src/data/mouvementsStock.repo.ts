@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { MouvementStock, TypeMouvementStock } from "@/types/ebene";
 import { toutesLesPages } from "./pagination";
+import { periodeDeDate } from "@/lib/ebene-utils";
 
 type MouvementRow = Tables<"mouvements_stock">;
 
@@ -74,7 +75,7 @@ export const mouvementsStock = {
   ): Promise<MouvementStock> {
     const { data, error } = await supabase
       .from("mouvements_stock")
-      .insert(fromMouvement(m, annee, mois, societeId))
+      .insert(fromMouvement(m, ...periodeDeDate(m.date, annee, mois), societeId))
       .select()
       .single();
     if (error) throw error;

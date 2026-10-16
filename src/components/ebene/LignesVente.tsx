@@ -45,7 +45,11 @@ export const LignesVente = ({
   const choisirArticle = (idx: number, articleId: number | null) => {
     const a = articles.find((x) => x.id === articleId);
     if (!a) return maj(idx, { articleId: null, quantite: undefined, prixUnitaire: undefined });
-    maj(idx, { articleId: a.id, description: a.designation, quantite: lignes[idx]?.quantite || "1", prixUnitaire: String(a.prixVente || 0) });
+    maj(idx, {
+      articleId: a.id, description: a.designation, quantite: lignes[idx]?.quantite || "1", prixUnitaire: String(a.prixVente || 0),
+      // La vente revient à l'activité qui détient l'article (son stock en sort)
+      ...(parLigne && a.activiteId ? { activiteId: a.activiteId } : {}),
+    });
   };
 
   return (
@@ -67,6 +71,7 @@ export const LignesVente = ({
                   {articles.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.reference} — {a.designation} (stock : {a.stock} {a.unite})
+                      {parLigne && a.activiteId ? ` · ${activitesActives.find((x) => x.id === a.activiteId)?.nom ?? ""}` : ""}
                     </option>
                   ))}
                 </select>

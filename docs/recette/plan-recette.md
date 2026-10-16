@@ -19,7 +19,7 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 | 1 | Connexion, compte, mot de passe, 2FA | pages/Auth, components/auth | fait (2FA lu dans le code, pas déclenché sur votre compte) |
 | 2 | Tableau de bord, en-tête, sélecteurs société/activité, mois | Dashboard, Header, SocieteSwitcher, ActiviteSwitcher, MoisNav, TresorerieCard | fait |
 | 3 | Commercial : devis, factures, lignes multi-activités, OCR, clients/fournisseurs | DevisSection, Factures, LignesVente, OCRFacture | fait (lignes d'articles du stock : module 4) |
-| 4 | Stock : articles, catégories, mouvements | Stock | à faire |
+| 4 | Stock : articles, catégories, mouvements | Stock | fait (entrée achetée, PMP, refus de sortie, suppression, constatation au bilan vérifiés) |
 | 5 | Immobilisations et amortissements | Immobilisations | à faire |
 | 6 | Comptabilité : saisie guidée/expert, journal, grand livre, balance, bilan, résultat, exercices, emprunts, liasse | comptabilite/* | à faire |
 | 7 | Fiscalité : TVA modèle OTR, IS, réintégrations/déductions, taux | Fiscalite, TauxImpots, TauxHistoriqueDialog | à faire |
