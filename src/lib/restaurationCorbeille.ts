@@ -48,6 +48,15 @@ const restaurerTransaction = async (id: number, societeId: string): Promise<void
   if (t.source === "salaires") {
     throw new RestaurationRefusee("Ce paiement de salaires vient de la paie : il se régénère depuis le bulletin, pas depuis la corbeille.");
   }
+  // Dépense d'une entrée en stock : elle vit avec son mouvement. Le mouvement
+  // supprimé, restaurer la dépense seule ferait un achat sans stock.
+  if (t.desc.startsWith("Achat stock —")) {
+    const { count } = await supabase.from("mouvements_stock").select("id", { count: "exact", head: true })
+      .eq("societe_id", societeId).eq("transaction_id", id);
+    if (!count) {
+      throw new RestaurationRefusee("Cette dépense accompagnait une entrée en stock supprimée : ressaisissez l'entrée en stock (Stock → Mouvements), sa dépense sera recréée avec elle.");
+    }
+  }
   await softRestore("transactions", id, societeId);
 
   const annee = t.annee ?? Number(t.date.slice(0, 4));
