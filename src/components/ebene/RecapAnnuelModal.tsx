@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DonneesMensuelles, MOIS_NOMS, Immobilisation, TauxFiscaux } from "@/types/ebene";
 import { formatMontant, formatSolde, moisKey, tauxPourMois } from "@/lib/ebene-utils";
-import { caHTMois, sumDepenses, sumRecettes } from "@/lib/tableauDeBord";
+import { caHTMois, fluxTresorerieMois } from "@/lib/tableauDeBord";
 import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,11 +29,10 @@ export const RecapAnnuelModal = ({ open, onOpenChange, annee, donneesMensuelles,
 
   const lignes = useMemo(() => {
     return MOIS_NOMS.map((nom, i) => {
-      // Mêmes calculs que le tableau de bord : opérations comptabilisées
-      // (ni rejetées, ni en attente) et écritures saisies sur Banque/Caisse
+      // Mêmes calculs que le tableau de bord : mouvements des comptes de trésorerie
+      // (classe 5) des écritures comptabilisées, paie comprise
       const m = donneesMensuelles[moisKey(annee, i + 1)];
-      const rec = m ? sumRecettes(m) : 0;
-      const dep = m ? sumDepenses(m) : 0;
+      const { entrees: rec, sorties: dep } = fluxTresorerieMois(m);
       const ca = m ? caHTMois(m, tauxPourMois(tauxHistorique, annee, i + 1).tva) : 0;
       const factures = (m?.factures || []).filter((f) => f.statut !== "proforma" && f.statut !== "annulee");
       return {

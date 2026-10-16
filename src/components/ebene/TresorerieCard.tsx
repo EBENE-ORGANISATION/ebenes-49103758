@@ -1,11 +1,17 @@
 import { useMemo } from "react";
-import { ecritureTresorerieAutonome } from "@/lib/ecrituresTresorerie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp } from "lucide-react";
-import { DonneesMensuelles, Employe, MoisData, TAUX_DEFAUT, type TauxFiscaux } from "@/types/ebene";
+import { DonneesMensuelles, Employe, TAUX_DEFAUT, type TauxFiscaux } from "@/types/ebene";
 import { calculerPaie } from "@/lib/paie";
-import { formatMontant, formatSolde, moisKey } from "@/lib/ebene-utils";
+import { formatMontant, formatSolde, moisKey, transactionComptabilisee } from "@/lib/ebene-utils";
 import { sommePrefixes } from "@/lib/etatsFinanciers";
+import {
+  embaucheAvantFinMois,
+  facturesEnAttenteFinMois,
+  fluxTresorerieMois,
+  soldesFinMois,
+  tresorerieFinMois,
+} from "@/lib/tableauDeBord";
 import { useTranslation } from "react-i18next";
 
 interface Props {
@@ -17,31 +23,13 @@ interface Props {
   taux?: TauxFiscaux;
 }
 
-const sumIfMois = (m: MoisData | undefined, type: "r" | "d") =>
-  (m?.transactions || [])
-    .filter((t) => t.type === type)
-    .reduce((s, t) => s + Math.abs(t.m), 0);
-
-/** Flux de trésorerie SYSCOHADA (comptes 52x/57x) pour un mois.
- *  type "r" = débit (entrées), type "d" = crédit (sorties).
- *  Les écritures liées à une facture sont exclues (déjà comptées via transactions). */
-const sumEcrituresMois = (m: MoisData | undefined, type: "r" | "d"): number => {
-  if (!m?.ecritures) return 0;
-  return m.ecritures
-    .filter(ecritureTresorerieAutonome)
-    .flatMap((e) => (Array.isArray(e.lignes) ? e.lignes : []))
-    .filter((l) => l.compte.startsWith("52") || l.compte.startsWith("57"))
-    .reduce((s, l) => s + (type === "r" ? l.debit : l.credit), 0);
-};
-
 /**
- * Carte « Trésorerie » :
- *  - Encaissements   = somme des transactions de recette (factures payées + manuelles)
- *  - Décaissements   = somme des transactions de dépense
- *  - Prévision 30 j  = trésorerie nette + factures en_attente du mois
- *                       − charges récurrentes estimées (masse salariale chargée
- *                       + moyenne des dépenses des 3 derniers mois)
- *                       − impôts et cotisations dus (CNSS/AMU, IRPP, TVA)
+ * Carte « Trésorerie », à la fin du mois affiché :
+ *  - Encaissements / décaissements = mouvements des comptes de classe 5 du mois
+ *  - Trésorerie cumulée = solde de la classe 5 depuis les derniers à-nouveaux
+ *  - Prévision 30 j  = trésorerie + factures en attente (tous mois)
+ *                       − coût employeur du mois − moyenne des dépenses des
+ *                       3 derniers mois − impôts et cotisations à reverser
  */
 export const TresorerieCard = ({
   donneesMensuelles,
@@ -55,31 +43,21 @@ export const TresorerieCard = ({
   const m = donneesMensuelles[k];
 
   const stats = useMemo(() => {
-    const encaissementsMois = sumIfMois(m, "r") + sumEcrituresMois(m, "r");
-    const decaissementsMois = sumIfMois(m, "d") + sumEcrituresMois(m, "d");
+    // Flux et soldes lus dans la comptabilité, à la fin du mois affiché
+    const { entrees: encaissementsMois, sorties: decaissementsMois } = fluxTresorerieMois(m);
     const soldeMois = encaissementsMois - decaissementsMois;
+    const tresorerie = tresorerieFinMois(donneesMensuelles, annee, mois);
 
-    // Trésorerie cumulée = solde net depuis le début (transactions + SYSCOHADA)
-    let tresorerie = 0;
-    Object.values(donneesMensuelles).forEach((mm) => {
-      if (!mm) return;
-      tresorerie +=
-        sumIfMois(mm, "r") + sumEcrituresMois(mm, "r")
-        - sumIfMois(mm, "d") - sumEcrituresMois(mm, "d");
-    });
-
-    // Factures en attente sur le mois courant (encaissements probables)
-    const facturesEnAttente = (m?.factures || [])
-      .filter((f) => f.statut === "en_attente")
+    // Factures en attente à ce jour, quel que soit leur mois d'émission
+    const facturesEnAttente = facturesEnAttenteFinMois(donneesMensuelles, annee, mois)
       .reduce((s, f) => s + f.totalTtc, 0);
 
     // Charges salariales du mois : coût employeur calculé comme les bulletins
     // (ancienneté, primes et HS validées, congés sans solde, taux du mois)
     const moisData = m ?? { transactions: [], factures: [], primes: {}, ecritures: [] };
-    const chargesSalariales = employes.reduce(
-      (s, e) => s + calculerPaie(e, moisData, annee, mois, taux).coutEmployeur,
-      0,
-    );
+    const chargesSalariales = employes
+      .filter((e) => embaucheAvantFinMois(e, annee, mois))
+      .reduce((s, e) => s + calculerPaie(e, moisData, annee, mois, taux).coutEmployeur, 0);
 
     //  - moyenne des dépenses (hors salaires auto) sur les 3 derniers mois clos
     let totalDepRecur = 0;
@@ -89,7 +67,7 @@ export const TresorerieCard = ({
       const mm = donneesMensuelles[moisKey(d.getFullYear(), d.getMonth() + 1)];
       if (!mm) continue;
       const dep = (mm.transactions || [])
-        .filter((t) => t.type === "d" && t.source !== "salaires")
+        .filter((t) => t.type === "d" && t.source !== "salaires" && transactionComptabilisee(t))
         .reduce((s, t) => s + Math.abs(t.m), 0);
       totalDepRecur += dep;
       nbMois++;
@@ -98,14 +76,7 @@ export const TresorerieCard = ({
 
     // Impôts et cotisations déjà dus, à reverser (écritures validées) :
     // CNSS/AMU (43), IRPP retenu (447), TVA due (443 − 445 si positive)
-    const soldes = new Map<string, number>();
-    Object.values(donneesMensuelles).forEach((mm) => {
-      (mm?.ecritures || [])
-        .filter((e) => e.statut !== "brouillon")
-        .forEach((e) => (Array.isArray(e.lignes) ? e.lignes : []).forEach((l) => {
-          soldes.set(l.compte, (soldes.get(l.compte) || 0) + l.debit - l.credit);
-        }));
-    });
+    const soldes = soldesFinMois(donneesMensuelles, annee, mois);
     const dette = (prefixes: string[]) => Math.max(0, -sommePrefixes(soldes, prefixes));
     const aReverser = dette(["43"]) + dette(["447"]) + dette(["443", "445"]);
 

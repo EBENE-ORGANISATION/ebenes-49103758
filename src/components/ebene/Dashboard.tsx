@@ -51,7 +51,7 @@ import { fiscaliteDepuisEcritures } from "@/lib/etatsFinanciers";
 import { calculerPaie } from "@/lib/paie";
 import { TAUX_DEFAUT } from "@/types/ebene";
 import { TresorerieCard } from "./TresorerieCard";
-import { caHTMois, sumDepenses, sumRecettes } from "@/lib/tableauDeBord";
+import { caHTMois, embaucheAvantFinMois, facturesEnAttenteFinMois, tresorerieFinMois } from "@/lib/tableauDeBord";
 import { partActivite, resultatParActivite } from "@/lib/resultatActivites";
 
 interface DashboardProps {
@@ -185,29 +185,21 @@ export const Dashboard = ({
 
     // Brut du mois calculé comme les bulletins (ancienneté, primes et HS
     // validées, congés sans solde déduits)
-    const masseSalariale = employes.reduce((s, e) => {
-      const p = calculerPaie(e, m, annee, mois, taux);
-      return s + (p.brut - p.deductionSansSolde) * partActivite(e, activiteFiltre);
-    }, 0);
+    const masseSalariale = employes
+      .filter((e) => embaucheAvantFinMois(e, annee, mois))
+      .reduce((s, e) => {
+        const p = calculerPaie(e, m, annee, mois, taux);
+        return s + (p.brut - p.deductionSansSolde) * partActivite(e, activiteFiltre);
+      }, 0);
 
-    const facturesImpayees = m.factures.filter((f) => f.statut === "en_attente");
+    // Impayées à ce jour, y compris celles émises les mois précédents
+    const facturesImpayees = facturesEnAttenteFinMois(donneesMensuelles, annee, mois);
     const montantImpaye    = facturesImpayees.reduce((s, f) => s + f.totalTtc, 0);
 
-    // Trésorerie cumulée (tous les mois)
-    let tresorerie = 0;
-    Object.values(donneesMensuelles).forEach((mm) => {
-      if (!mm) return;
-      tresorerie += sumRecettes(mm) - sumDepenses(mm);
-    });
-
-    // Trésorerie "précédente" = sans le mois courant
-    let tresoreriePrecedente = 0;
-    Object.entries(donneesMensuelles).forEach(([key, mm]) => {
-      if (!mm) return;
-      const [a, mo] = key.split("-").map(Number);
-      if (a === annee && mo === mois) return;
-      tresoreriePrecedente += sumRecettes(mm) - sumDepenses(mm);
-    });
+    // Trésorerie (classe 5) à la fin du mois affiché et à la fin du mois précédent
+    const tresorerie = tresorerieFinMois(donneesMensuelles, annee, mois);
+    const [aPrec, mPrec] = mois === 1 ? [annee - 1, 12] : [annee, mois - 1];
+    const tresoreriePrecedente = tresorerieFinMois(donneesMensuelles, aPrec, mPrec);
     const tendanceTresorerie = calcTendance(tresorerie, tresoreriePrecedente);
 
     return {
@@ -222,12 +214,9 @@ export const Dashboard = ({
   // ── Sparkline trésorerie 6 mois ──────────────────────────────────────────
   const sparklineTresorerie = useMemo(() => {
     const out: { v: number }[] = [];
-    let cumul = 0;
     for (let i = 5; i >= 0; i--) {
-      const d  = new Date(annee, mois - 1 - i, 1);
-      const mm = donneesMensuelles[moisKey(d.getFullYear(), d.getMonth() + 1)];
-      if (mm) cumul += sumRecettes(mm) - sumDepenses(mm);
-      out.push({ v: cumul });
+      const d = new Date(annee, mois - 1 - i, 1);
+      out.push({ v: tresorerieFinMois(donneesMensuelles, d.getFullYear(), d.getMonth() + 1) });
     }
     return out;
   }, [donneesMensuelles, annee, mois]);
@@ -270,11 +259,10 @@ export const Dashboard = ({
       // CNSS/AMU (parts salariale + patronale) et IRPP calculés comme sur les
       // bulletins, avec les taux du mois, pour les employés déjà embauchés.
       const tauxMois = tauxPourMois(tauxHistorique, a, mo) || TAUX_DEFAUT;
-      const finMois  = new Date(a, mo, 0);
       let cnss = 0;
       let irpp = 0;
       for (const e of employes) {
-        if (e.dateEmbauche && new Date(e.dateEmbauche) > finMois) continue;
+        if (!embaucheAvantFinMois(e, a, mo)) continue;
         const p = calculerPaie(e, mm, a, mo, tauxMois);
         cnss += p.cnssSal + p.amuSal + p.cnssEmp + p.amuEmp;
         irpp += p.irpp;
