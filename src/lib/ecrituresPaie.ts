@@ -15,7 +15,9 @@ export const pieceReglementSalaire = (b: Pick<BulletinPaieRecord, "annee" | "moi
  *  1. Paie (OD) : 661 salaire dû (brut − congés sans solde) et 6641 charges
  *     patronales au débit ; au crédit 422 net à payer, 431 CNSS, 433 AMU,
  *     447 IRPP retenu à la source, 4228 autres retenues. Toujours équilibrée.
- *  2. Règlement du net (BQ/CA) : 422 au débit, Banque ou Caisse au crédit.
+ *     Passée au dernier jour du mois du bulletin (la charge appartient au mois travaillé).
+ *  2. Règlement du net (BQ/CA) : 422 au débit, Banque ou Caisse au crédit,
+ *     à la date et dans le mois du paiement.
  * Les cotisations et l'IRPP restent dus jusqu'à leur reversement.
  */
 export const ecrituresPaie = (
@@ -41,11 +43,17 @@ export const ecrituresPaie = (
   const ecart = lignes.reduce((s, l) => s + l.credit - l.debit, 0);
   lignes[0].debit += ecart;
 
-  const [annee, mois] = [b.annee, b.mois];
-  const commun = { statut: "valide" as const, bulletinId: b.id, date: datePaiement, annee, mois };
+  // Décision du 2026-10-16 : la charge appartient au mois du bulletin (passée
+  // à son dernier jour) ; le règlement du net, à la date et au mois du paiement.
+  const finMois = `${b.annee}-${String(b.mois).padStart(2, "0")}-${String(new Date(b.annee, b.mois, 0).getDate()).padStart(2, "0")}`;
+  const [aPaie, mPaie] = datePaiement.slice(0, 7).split("-").map(Number);
+  const commun = { statut: "valide" as const, bulletinId: b.id };
   return [
     {
       ...commun,
+      date: finMois,
+      annee: b.annee,
+      mois: b.mois,
       journal: "OD",
       numeroPiece: pieceSalaire(b),
       libelle: `Paie ${b.employe_nom} — ${b.mois}/${b.annee}`,
@@ -53,6 +61,9 @@ export const ecrituresPaie = (
     },
     {
       ...commun,
+      date: datePaiement,
+      annee: aPaie,
+      mois: mPaie,
       journal: tresorerie === "571" ? "CA" : "BQ",
       numeroPiece: pieceReglementSalaire(b),
       libelle: `Salaire net ${b.employe_nom} — ${b.mois}/${b.annee}`,

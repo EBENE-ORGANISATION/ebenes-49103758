@@ -222,6 +222,11 @@ const Index = () => {
   const comptaWrite = can("compta", "write");
   const comptaValidate = can("compta", "validate");
   // Pièces déjà en comptabilité (dotations et cessions passées une seule fois)
+  // Pièces encore en brouillon (ex. acquisition d'immobilisation pas encore validée)
+  const piecesBrouillon = useMemo(
+    () => new Set(Object.values(store.donneesConsolidees).flatMap((m) => (m?.ecritures ?? []).filter((e) => e.statut === "brouillon").map((e) => e.numeroPiece))),
+    [store.donneesConsolidees],
+  );
   const piecesComptables = useMemo(
     () => new Set(Object.values(store.donneesConsolidees).flatMap((m) => (m?.ecritures ?? []).map((e) => e.numeroPiece))),
     [store.donneesConsolidees],
@@ -604,6 +609,7 @@ const Index = () => {
                   : undefined}
                 moisDotation={12}
                 piecesExistantes={piecesComptables}
+                piecesBrouillon={piecesBrouillon}
                 ecrituresValidees={comptaValidate}
               />
             </TabsContent>

@@ -339,7 +339,7 @@ export const BulletinsPaie = ({ employes, annee, mois, isChefGrh, societeInfo }:
                                     <li>L'<strong>écriture de paie</strong> (journal OD) : salaire 661, charges patronales 6641,
                                       net à payer 422, CNSS 431, AMU 433, IRPP 447</li>
                                     <li>Le <strong>règlement du net</strong> (journal BQ) : 422 → Banque 521</li>
-                                    <li className="text-muted-foreground">Cotisations et IRPP restent à reverser (saisie guidée).</li>
+                                    <li className="text-muted-foreground">Cotisations et IRPP restent à reverser (Fiscalité → Social → Reverser).</li>
                                   </ul>
                                   <p className="text-destructive font-medium text-xs">Cette action est irréversible.</p>
                                 </AlertDialogDescription>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/hooks/useTenant";
-import type { ReglementImmo } from "@/lib/ecrituresTresorerie";
+import { pieceImmobilisation, type ReglementImmo } from "@/lib/ecrituresTresorerie";
 import {
   EcritureComptable,
   Immobilisation,
@@ -57,6 +57,8 @@ interface Props {
   moisDotation?: number;
   /** Numéros des pièces déjà comptabilisées (dotations et cessions ne sont pas passées deux fois). */
   piecesExistantes?: Set<string>;
+  /** Pièces encore en brouillon : une acquisition non validée bloque la cession. */
+  piecesBrouillon?: Set<string>;
   /** L'utilisateur peut valider les écritures : dotations et cessions sont alors passées validées. */
   ecrituresValidees?: boolean;
 }
@@ -76,6 +78,7 @@ export const Immobilisations = ({
   onAddEcriture,
   moisDotation = 12,
   piecesExistantes,
+  piecesBrouillon,
   ecrituresValidees = false,
 }: Props) => {
   const statutEcritures = ecrituresValidees ? ("valide" as const) : ("brouillon" as const);
@@ -99,6 +102,11 @@ export const Immobilisations = ({
   const [cessionReglement, setCessionReglement] = useState<ReglementCession>("521");
 
   const openCession = (i: Immobilisation) => {
+    // Décision du 2026-10-16 : pas de cession tant que l'acquisition n'est pas comptabilisée
+    if (piecesBrouillon?.has(pieceImmobilisation(i.id))) {
+      toast.error(`Validez d'abord l'écriture d'acquisition ${pieceImmobilisation(i.id)} (Comptabilité → Journal) : sinon le compte d'immobilisation serait crédité sans avoir été débité.`);
+      return;
+    }
     setCessionImmo(i);
     setCessionDate(todayISO());
     setCessionValeur("");

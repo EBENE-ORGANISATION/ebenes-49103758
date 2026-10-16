@@ -16,3 +16,5 @@
 | 2026-10-16 | Immobilisations | ecritures | Dotations 2026 comptabilisées : OD-AMO-2026-0002 à 0011 (3 649 403 F) ; 10 doublons créés par le second clic puis supprimés (id 1855-1864) | — |
 | 2026-10-16 | Comptabilité | ecritures | OD-2026-0001 « Recette compta : facture téléphone (test) » 6281/571 10 000, validée | — |
 | 2026-10-16 | Comptabilité | transactions | Recette comptoir avec TVA 11 800 (caisse Hôtellerie 5711), validée, écriture TR-771 | 771 |
+| 2026-10-16 | Paie | bulletins_paie | Bulletin nov. 2026 de TEST Komla AGBEKO généré, validé, payé (transaction 772, OD-SAL-202611-11, RS-202611-11) | — |
+| 2026-10-16 | Immobilisations | immobilisations | « Test blocage cession (recette) » créée puis supprimée (IM-14 supprimée) | 14 |

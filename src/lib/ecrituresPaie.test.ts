@@ -56,3 +56,11 @@ describe("ecrituresPaie", () => {
     expect(reglement.journal).toBe("CA");
   });
 });
+
+describe("ecrituresPaie — dates (décision du 2026-10-16)", () => {
+  it("charge au dernier jour du mois du bulletin, règlement au jour et au mois du paiement", () => {
+    const [paie, reglement] = ecrituresPaie(bulletinYao, "2026-11-05");
+    expect(paie).toMatchObject({ date: `${bulletinYao.annee}-${String(bulletinYao.mois).padStart(2, "0")}-${new Date(bulletinYao.annee, bulletinYao.mois, 0).getDate()}`, annee: bulletinYao.annee, mois: bulletinYao.mois });
+    expect(reglement).toMatchObject({ date: "2026-11-05", annee: 2026, mois: 11 });
+  });
+});
