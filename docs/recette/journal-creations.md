@@ -5,3 +5,6 @@
 | Date | Module | Table | Objet (n° / libellé) | Id |
 |------|--------|-------|----------------------|----|
 | 2026-10-16 | Commercial | factures | FAC-2026-014 « TEST Recette Client A » (sept. 2026, 2 activités) | 184 |
+| 2026-10-16 | Commercial | factures | FAC-2026-014 validée, payée (BQ) puis annulée : écritures 1828-1833, transaction 768 (supprimée) | 184 |
+| 2026-10-16 | Commercial | devis | DEV-2026-009 « TEST Recette Client Devis », accepté puis converti | 11 |
+| 2026-10-16 | Commercial | factures | FAC-2026-015 issue de DEV-2026-009 (16/10/2026, en validation) | 186 |

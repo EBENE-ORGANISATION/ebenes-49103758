@@ -348,6 +348,20 @@ export const DevisSection = ({
             <span className="text-sm font-medium">{t("devis.vat_18")}</span>
           </label>
 
+          {/* Totaux en direct, calculés comme à l'enregistrement */}
+          {(() => {
+            const sousTotal = lignesEnregistrees(lignes).reduce((a, l) => a + l.montant, 0);
+            const ht = Math.max(0, sousTotal - Math.max(0, parseFloat(reduction) || 0));
+            const tva = avecTva ? Math.round(ht * 0.18) : 0;
+            return (
+              <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 text-sm tabular-nums border-t pt-3">
+                <span className="text-muted-foreground">Total HT <b className="text-foreground">{formatMontant(ht)}</b></span>
+                {avecTva && <span className="text-muted-foreground">TVA 18 % <b className="text-foreground">{formatMontant(tva)}</b></span>}
+                <span>Total TTC <b>{formatMontant(ht + tva)}</b></span>
+              </div>
+            );
+          })()}
+
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
               {editingId != null ? t("devis.save") : t("devis.create")}
@@ -486,6 +500,8 @@ export const DevisSection = ({
                       onClick={() => {
                         if (confirm(t("devis.confirm_delete"))) onRemove(d.id);
                       }}
+                      title="Supprimer le devis"
+                      aria-label={`Supprimer le devis ${d.numero}`}
                     >
                       <Trash2 className="size-4" />
                     </Button>

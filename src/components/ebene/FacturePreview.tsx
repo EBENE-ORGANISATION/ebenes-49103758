@@ -74,6 +74,7 @@ export const FacturePreview = ({ facture, onClose }: Props) => {
             activites={activites}
             societe={societe}
             payee={facture.statut === "payee"}
+            annulee={facture.statut === "annulee"}
             banques={identification.banques}
             mention={societeConfig?.mention_facture?.trim() || undefined}
           />

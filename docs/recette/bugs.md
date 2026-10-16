@@ -32,7 +32,9 @@ Gravité : 🔴 bloquant / faux calcul / faille · 🟠 fonction cassée · 🟡
 | 26 | Commercial | 🟡 | 35 erreurs d'enregistrement affichaient un message générique (« Erreur lors de la création de la facture ») même quand la base donnait la raison (exercice clôturé, contrôle quatre yeux…). | `messageErreur` partout dans le magasin de données. | corrigé |
 | 27 | Commercial | ⚪ | TVA non arrondie au franc (taux 18 % sur un HT non multiple de 50). | Arrondi au franc (factures et devis). | corrigé |
 | 28 | Commercial | 🟡 | Encadré d'aide : « Quand une facture passe à Payée… écriture VE » ; en réalité la vente est passée à la validation, l'encaissement au paiement. | Texte corrigé. | corrigé |
-| 29 | Commercial | 🟡 | Le formulaire n'affiche aucun total (HT, TVA, TTC) avant « Créer ». | — | à faire |
-| 30 | Commercial | ⚪ | Boutons icône sans nom (aperçu 👁) : illisibles pour un lecteur d'écran. | — | à faire |
+| 29 | Commercial | 🟡 | Le formulaire n'affiche aucun total (HT, TVA, TTC) avant « Créer ». | Totaux en direct (factures et devis). | corrigé |
+| 30 | Commercial | ⚪ | Boutons icône sans nom (aperçu 👁) : illisibles pour un lecteur d'écran. | Noms ajoutés (aperçu facture, suppression devis). | corrigé |
 | 31 | Commercial | 🟡 | Le compteur de factures ne repart pas à 1 chaque année (FAC-2025-016 après FAC-2026-014). | — | **décision** |
 | 32 | Stock | 🟡 | Deux articles portent le code TEST-ART-04 « Clé USB 32 Go » (stocks 45 et 2). | — | module 4 |
+| 33 | Commercial | 🟠 | Une facture **annulée** s'imprimait « Statut : À régler — Reste à payer 157 333 F ». | Statut « Annulée », montant TTC, filigrane ANNULÉE sur l'aperçu, le PDF et l'impression. | corrigé |
+| 34 | Commercial | ⚪ | Pièces de contre-passation préfixées « AN- » (AN-VE-FAC-…), comme les à-nouveaux (AN-2026). Sans effet sur les calculs (journal VE/BQ/OD), mais prête à confusion dans le journal. | — | noté |

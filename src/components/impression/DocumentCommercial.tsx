@@ -39,6 +39,8 @@ export interface DocumentCommercialProps {
   societe: SocieteDocument;
   /** Facture réglée. */
   payee?: boolean;
+  /** Facture annulée (contre-passée) : plus rien n'est dû. */
+  annulee?: boolean;
   banques?: { banque: string; compte?: string }[];
   /** Mention libre des paramètres société (pied de facture). */
   mention?: string;
@@ -85,17 +87,35 @@ export const DocumentCommercial = (p: DocumentCommercialProps) => {
       : [
           { label: "Date", valeur: dateFr(p.date) },
           ...(p.type === "facture"
-            ? [{ label: "Statut", valeur: <span style={{ color: p.payee ? "#1e5b2b" : ENCRE }}>{p.payee ? "Acquittée" : "À régler"}</span> }]
+            ? [{
+                label: "Statut",
+                valeur: p.annulee
+                  ? <span style={{ color: "#9b1c1c" }}>Annulée</span>
+                  : <span style={{ color: p.payee ? "#1e5b2b" : ENCRE }}>{p.payee ? "Acquittée" : "À régler"}</span>,
+              }]
             : [{ label: "Nature", valeur: "Document sans valeur comptable" }]),
           {
-            label: p.type === "facture" && !p.payee ? "Reste à payer" : "Montant TTC",
+            label: p.type === "facture" && !p.payee && !p.annulee ? "Reste à payer" : "Montant TTC",
             valeur: <span style={{ color: c }}>{formatMontant(p.totalTtc)}</span>,
             accent: true,
           },
         ];
 
   return (
-    <div id={p.id} data-page-a4="" style={page()}>
+    <div id={p.id} data-page-a4="" style={page({ position: "relative" })}>
+      {p.annulee && (
+        // Filigrane : une facture annulée imprimée ne doit pas passer pour une facture due
+        <div aria-hidden style={{
+          position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+          pointerEvents: "none", zIndex: 1,
+        }}>
+          <span style={{
+            transform: "rotate(-30deg)", fontFamily: SERIF, fontSize: "120px", fontWeight: 700,
+            color: "rgba(155, 28, 28, 0.13)", border: "6px solid rgba(155, 28, 28, 0.13)", padding: "8px 32px",
+            letterSpacing: "0.08em",
+          }}>ANNULÉE</span>
+        </div>
+      )}
       <Bande couleur={c} />
       <EnTete societe={p.societe} titre={TITRES[p.type]} sousTitre={p.numero} />
       <ChiffresCles items={cles} />

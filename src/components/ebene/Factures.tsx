@@ -450,6 +450,22 @@ export const Factures = ({
             </label>
           </div>
 
+          {/* Totaux en direct, calculés comme à l'enregistrement */}
+          {(() => {
+            const sousTotal = lignesEnregistrees(lignes).reduce((a, l) => a + l.montant, 0);
+            const ht = Math.max(0, sousTotal - Math.max(0, parseFloat(reduction) || 0));
+            const tva = avecTva ? Math.round(ht * 0.18) : 0;
+            const taxe = Math.max(0, Math.round(parseFloat(taxeSejour) || 0));
+            return (
+              <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 text-sm tabular-nums border-t pt-3">
+                <span className="text-muted-foreground">Total HT <b className="text-foreground">{formatMontant(ht)}</b></span>
+                {avecTva && <span className="text-muted-foreground">TVA 18 % <b className="text-foreground">{formatMontant(tva)}</b></span>}
+                {taxe > 0 && <span className="text-muted-foreground">Taxe de séjour <b className="text-foreground">{formatMontant(taxe)}</b></span>}
+                <span>Total TTC <b>{formatMontant(ht + tva + taxe)}</b></span>
+              </div>
+            );
+          })()}
+
           <div className="flex gap-2 pt-1">
             <Button onClick={submit} className="bg-success text-success-foreground hover:bg-success/90">
               {editingId != null ? "✓ Enregistrer" : "✓ Créer"}
@@ -553,7 +569,7 @@ export const Factures = ({
                     <span className="amount text-base text-foreground">
                       {formatMontant(f.totalTtc)}
                     </span>
-                    <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)}>
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => onPreview(f)} title="Aperçu et impression" aria-label={`Aperçu de la facture ${f.numero}`}>
                       <Eye className="size-4" />
                     </Button>
                     {onUpdateFacture && !engagee && (
