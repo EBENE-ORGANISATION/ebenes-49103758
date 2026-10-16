@@ -15,7 +15,11 @@ const corsHeaders = {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 interface OCRResult {
+  /** Émetteur de la facture (le vendeur). */
   fournisseur: string | null;
+  /** Destinataire de la facture (l'acheteur). */
+  client: string | null;
+  numero: string | null;
   date: string | null;
   montantHT: number | null;
   tva: number | null;
@@ -97,7 +101,7 @@ Deno.serve(async (req) => {
           role: "user",
           parts: [
             { inline_data: { mime_type: mediaType, data: rawBase64 } },
-            { text: "Extrais les informations de cette facture." },
+            { text: "Extrais les informations de cette facture : l'émetteur (vendeur) dans « fournisseur », le destinataire (acheteur) dans « client », le numéro de facture, la date et les montants." },
           ],
         }],
         generationConfig: {
@@ -106,12 +110,14 @@ Deno.serve(async (req) => {
             type: "OBJECT",
             properties: {
               fournisseur: { type: "STRING", nullable: true },
+              client: { type: "STRING", nullable: true },
+              numero: { type: "STRING", nullable: true },
               date: { type: "STRING", nullable: true },
               montantHT: { type: "NUMBER", nullable: true },
               tva: { type: "NUMBER", nullable: true },
               montantTTC: { type: "NUMBER", nullable: true },
             },
-            required: ["fournisseur", "date", "montantHT", "tva", "montantTTC"],
+            required: ["fournisseur", "client", "numero", "date", "montantHT", "tva", "montantTTC"],
           },
         },
       }),

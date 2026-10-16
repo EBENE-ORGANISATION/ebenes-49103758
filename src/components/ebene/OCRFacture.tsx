@@ -7,7 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
 
 export interface OCRDraft {
+  /** Émetteur (vendeur). */
   fournisseur: string | null;
+  /** Destinataire (acheteur). */
+  client?: string | null;
+  numero?: string | null;
   date: string | null;
   montantHT: number | null;
   tva: number | null;
@@ -17,8 +21,13 @@ export interface OCRDraft {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Appelé avec les valeurs extraites (ou un draft vide si l'extraction échoue). */
-  onExtracted: (draft: OCRDraft | null) => void;
+  /**
+   * Appelé avec les valeurs extraites (ou null si l'extraction échoue) et la
+   * photo, à joindre comme pièce justificative.
+   */
+  onExtracted: (draft: OCRDraft | null, image?: { nom: string; type: string; data: string }) => void;
+  /** Facture de vente émise par la société, ou facture d'achat d'un fournisseur. */
+  nature?: "vente" | "achat";
 }
 
 const fileToBase64 = (file: File) =>
@@ -29,7 +38,7 @@ const fileToBase64 = (file: File) =>
     r.readAsDataURL(file);
   });
 
-export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
+export const OCRFacture = ({ open, onOpenChange, onExtracted, nature = "vente" }: Props) => {
   const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -69,12 +78,13 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
       }
 
       const draft = (data?.data || null) as OCRDraft | null;
+      const image = { nom: file.name, type: file.type, data: dataUrl };
       if (!draft) {
         toast.warning(t("ocr.warn_no_data"));
-        onExtracted(null);
+        onExtracted(null, image);
       } else {
         toast.success(t("ocr.success"));
-        onExtracted(draft);
+        onExtracted(draft, image);
       }
       onOpenChange(false);
       reset();
@@ -94,9 +104,9 @@ export const OCRFacture = ({ open, onOpenChange, onExtracted }: Props) => {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ScanLine className="size-5" /> {t("ocr.title")}
+            <ScanLine className="size-5" /> {t(nature === "achat" ? "ocr.title_achat" : "ocr.title_vente")}
           </DialogTitle>
-          <DialogDescription>{t("ocr.description")}</DialogDescription>
+          <DialogDescription>{t(nature === "achat" ? "ocr.description_achat" : "ocr.description_vente")}</DialogDescription>
         </DialogHeader>
 
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center space-y-3">

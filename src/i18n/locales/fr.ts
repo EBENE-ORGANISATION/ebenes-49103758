@@ -736,6 +736,12 @@ const fr = {
     transactions_count: "{{nbT}} transactions • {{nbF}} factures",
   },
   ocr: {
+    title_vente: "Importer une facture de vente par photo",
+    title_achat: "Importer une facture fournisseur par photo",
+    description_vente:
+      "Photo d'une facture que vous avez émise (par exemple écrite à la main). L'IA lit le client, la date et les montants, puis pré-remplit la facture. Pour un achat, passez par Comptabilité → Ajouter Transaction → Importer par photo.",
+    description_achat:
+      "Photo d'une facture reçue d'un fournisseur. L'IA lit le fournisseur, la date et les montants, puis pré-remplit la dépense ; la photo est jointe comme justificatif.",
     title: "Importer une facture par photo",
     description:
       "Choisissez une photo lisible de la facture. L'IA extrait fournisseur, date et montants (HT, TVA, TTC), puis pré-remplit le formulaire.",

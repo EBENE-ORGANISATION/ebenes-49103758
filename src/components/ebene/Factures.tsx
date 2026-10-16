@@ -183,14 +183,15 @@ export const Factures = ({
   const applyOCRDraft = (draft: OCRDraft | null) => {
     setOpen(true);
     if (!draft) return; // formulaire vide en cas d'échec
-    if (draft.fournisseur) setClient(draft.fournisseur);
+    // Facture de vente : le client est le destinataire, pas l'émetteur
+    if (draft.client) setClient(draft.client);
     if (draft.date) setDate(draft.date);
     setAvecTva(!!draft.tva && draft.tva > 0);
     // Les lignes sont saisies hors taxes : un TTC seul est ramené au HT (sinon TVA comptée deux fois)
     const montant = draft.montantHT
       ?? (draft.montantTTC != null ? Math.round(draft.montantTTC - (draft.tva ?? 0)) : null);
     if (montant != null && montant > 0) {
-      setLignes([{ description: "Facture importée (OCR)", montant: String(montant) }]);
+      setLignes([{ description: draft.numero ? `Facture n° ${draft.numero} (importée par photo)` : "Facture importée par photo", montant: String(montant) }]);
     }
   };
 
@@ -691,7 +692,7 @@ Elle restera dans la liste, au statut « annulée ». ` +
         )}
       </div>
 
-      <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} />
+      <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} nature="vente" />
 
       {/* Choix du compte d'encaissement au règlement d'une facture */}
       <Dialog open={paiementFacture != null} onOpenChange={(o) => { if (!o) setPaiementFacture(null); }}>

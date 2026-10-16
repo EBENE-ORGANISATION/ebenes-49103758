@@ -738,6 +738,12 @@ const en: Translation = {
     transactions_count: "{{nbT}} transactions • {{nbF}} invoices",
   },
   ocr: {
+    title_vente: "Import a sales invoice from a photo",
+    title_achat: "Import a supplier invoice from a photo",
+    description_vente:
+      "Photo of an invoice you issued (for example handwritten). The AI reads the customer, date and amounts, then fills in the invoice. For a purchase, use Accounting → Add transaction → Import from photo.",
+    description_achat:
+      "Photo of an invoice received from a supplier. The AI reads the supplier, date and amounts, then fills in the expense; the photo is attached as supporting document.",
     title: "Import an invoice from a photo",
     description:
       "Pick a clear photo of the invoice. The AI extracts vendor, date and amounts (excl. tax, VAT, incl. tax) and pre-fills the form.",

@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle, BookOpen } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, FileText, Eye, Check, XCircle, AlertTriangle, BookOpen, Camera } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,7 @@ import { formatMontant, formatMontantSigne, todayISO, transactionComptabilisee, 
 import { toast } from "sonner";
 import { detectAnomalies, type Anomalie } from "@/lib/anomalies";
 import { ActiviteSelect } from "./ActiviteSelect";
+import { OCRFacture, type OCRDraft } from "./OCRFacture";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { SaisieGuidee } from "./comptabilite/SaisieGuidee";
 import { SaisieExpert } from "./comptabilite/SaisieExpert";
@@ -124,6 +125,7 @@ export const Comptabilite = ({
   /** Recette avec TVA : montant TTC, la TVA collectée est générée et déclarée. */
   const [recetteAvecTva, setRecetteAvecTva] = useState(false);
   const [previewPiece, setPreviewPiece] = useState<typeof piece>(null);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── États onglet Saisie SYSCOHADA (nouveaux) ────────────────────────────────
@@ -217,6 +219,22 @@ export const Comptabilite = ({
     setActivite("service");
     setActiviteId(currentActiviteId);
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // Facture fournisseur lue par photo : dépense pré-remplie, photo jointe (source « fournisseur »)
+  const appliquerOCRAchat = (draft: OCRDraft | null, image?: { nom: string; type: string; data: string }) => {
+    setOpen(true);
+    setType("d");
+    if (image) setPiece(image);
+    if (!draft) return;
+    if (draft.fournisseur) setFournisseur(draft.fournisseur);
+    if (draft.date) setDate(draft.date);
+    setDesc(["Facture", draft.numero ? `n° ${draft.numero}` : null, draft.fournisseur ? `— ${draft.fournisseur}` : null].filter(Boolean).join(" "));
+    const tva = draft.tva ?? 0;
+    setAchatAvecTva(tva > 0);
+    // Montant d'une dépense fournisseur : TTC (la TVA déductible est extraite à la comptabilisation)
+    const ttc = draft.montantTTC ?? (draft.montantHT != null ? draft.montantHT + tva : null);
+    if (ttc != null && ttc > 0) setMontant(String(Math.round(ttc)));
   };
 
   const activiteObligatoire = useActiviteObligatoire();
@@ -421,10 +439,12 @@ export const Comptabilite = ({
                 <Button onClick={() => setOpen(true)} className="gap-1.5">
                   <Plus className="size-4" /> Ajouter Transaction
                 </Button>
+                <Button variant="outline" onClick={() => setOcrOpen(true)} className="gap-1.5">
+                  <Camera className="size-4" /> Facture fournisseur par photo
+                </Button>
                 <span className="text-xs text-muted-foreground">
                   <Paperclip className="size-3 inline mr-1" />
-                  Pour importer une <strong>facture fournisseur</strong> (PDF / image), choisissez le type
-                  <em> Dépense</em> puis cliquez sur <em>Joindre facture</em>.
+                  Ou choisissez le type <em>Dépense</em> puis <em>Joindre facture</em> (PDF / image).
                 </span>
               </div>
             ) : (
@@ -717,6 +737,7 @@ export const Comptabilite = ({
               )}
             </div>
           </div>
+          <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={appliquerOCRAchat} nature="achat" />
         </TabsContent>
 
         {/* ── Onglet Journal des écritures SYSCOHADA ───────────────────────── */}
