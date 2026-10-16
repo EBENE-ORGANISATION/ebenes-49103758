@@ -14,8 +14,9 @@ import { ForceChangePasswordModal } from "./ForceChangePasswordModal";
 export const ForceChangePasswordGate = () => {
   const { user, mustChangePassword, clearMustChangePassword, recuperationMotDePasse, finirRecuperation, mfaRequired } = useAuth();
 
-  if (!user) return null;
-  const recuperation = recuperationMotDePasse && !mfaRequired;
+  // Le code 2FA d'abord : Supabase refuse le changement de mot de passe en aal1
+  if (!user || mfaRequired) return null;
+  const recuperation = recuperationMotDePasse;
   if (!mustChangePassword && !recuperation) return null;
 
   return (

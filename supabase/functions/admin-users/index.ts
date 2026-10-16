@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.74.0";
+import { niveauAuth } from "../_shared/niveauAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,7 +88,9 @@ Deno.serve(async (req: Request) => {
       .select("role")
       .eq("user_id", callerId);
     const roleSet = new Set((callerRoles || []).map((r: { role: string }) => r.role));
-    const isSuperAdmin = roleSet.has("admin_general") || roleSet.has("super_admin");
+    // Les droits du super-admin ne valent qu'après son code 2FA (session aal2)
+    const isSuperAdmin = (roleSet.has("admin_general") || roleSet.has("super_admin"))
+      && niveauAuth(authHeader) === "aal2";
     const isAdmin = roleSet.has("admin");
 
     const body = (await req.json()) as Body;

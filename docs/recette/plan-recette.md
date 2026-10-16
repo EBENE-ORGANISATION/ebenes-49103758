@@ -16,7 +16,7 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 ## Modules (ordre de passage)
 | # | Module | Fichiers principaux | Statut |
 |---|--------|---------------------|--------|
-| 1 | Connexion, compte, mot de passe, 2FA | pages/Auth, components/auth | à faire |
+| 1 | Connexion, compte, mot de passe, 2FA | pages/Auth, components/auth | fait (2FA lu dans le code, pas déclenché sur votre compte) |
 | 2 | Tableau de bord, en-tête, sélecteurs société/activité, mois | Dashboard, Header, SocieteSwitcher, ActiviteSwitcher, MoisNav, TresorerieCard | à faire |
 | 3 | Commercial : devis, factures, lignes multi-activités, OCR, clients/fournisseurs | DevisSection, Factures, LignesVente, OCRFacture | à faire |
 | 4 | Stock : articles, catégories, mouvements | Stock | à faire |

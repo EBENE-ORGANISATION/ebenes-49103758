@@ -2,6 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Le retour se fait toujours vers le site : l'adresse passée dans le lien n'est pas reprise
+// telle quelle (elle finissait dans la page sans contrôle).
+const SITE = (Deno.env.get("PUBLIC_SITE_URL") ?? "https://ebnservicess.com").replace(/\/+$/, "");
 
 function htmlPage(title: string, body: string) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
@@ -9,14 +12,15 @@ function htmlPage(title: string, body: string) {
   <style>body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:40px 20px;color:#1a1a1a}
   .card{max-width:480px;margin:40px auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,.06);text-align:center}
   h1{margin:0 0 12px;font-size:22px}p{color:#555;line-height:1.5}
-  a{display:inline-block;margin-top:24px;background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold}</style>
+  a{display:inline-block;margin-top:24px;background:#3d0000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold}</style>
   </head><body><div class="card">${body}</div></body></html>`;
 }
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
-  const redirect = url.searchParams.get("redirect") ?? "/";
+  // Application en HashRouter : les paramètres lus par l'écran de connexion vont après le #
+  const redirect = `${SITE}/#/auth`;
 
   if (!token) {
     return new Response(htmlPage("Lien invalide", `<h1>Lien invalide</h1><p>Aucun token fourni.</p>`), { headers: { "Content-Type": "text/html" }, status: 400 });
@@ -50,6 +54,6 @@ Deno.serve(async (req) => {
     last_seen_at: new Date().toISOString(),
   }).eq("id", row.id);
 
-  const target = `${redirect}${redirect.includes("?") ? "&" : "?"}device_confirmed=1`;
+  const target = `${redirect}?device_confirmed=1`;
   return new Response(htmlPage("Confirmé", `<h1>✅ Connexion confirmée</h1><p>Vous pouvez maintenant retourner sur l'appareil d'origine et vous reconnecter.</p><a href="${target}">Ouvrir l'application</a>`), { headers: { "Content-Type": "text/html" } });
 });

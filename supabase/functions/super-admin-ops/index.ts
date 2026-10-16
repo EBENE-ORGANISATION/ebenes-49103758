@@ -3,6 +3,7 @@
 // n'est JAMAIS exposé côté client. Chaque action vérifie que l'appelant a
 // bien le rôle `admin_general` (ou `super_admin`) avant d'exécuter.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { niveauAuth } from "../_shared/niveauAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +59,10 @@ Deno.serve(async (req) => {
   const isSuper = roleList.includes("admin_general") || roleList.includes("super_admin");
   if (!isSuper) {
     return json(403, { error: "Super admin required" });
+  }
+  // Le 2FA du super-admin est exigé ici, pas seulement à l'écran
+  if (niveauAuth(authHeader) !== "aal2") {
+    return json(403, { error: "Validation 2FA requise" });
   }
 
   // Client privilégié (bypass RLS)

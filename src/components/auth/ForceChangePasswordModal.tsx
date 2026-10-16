@@ -148,6 +148,12 @@ export const ForceChangePasswordModal = ({ userId, onDone, recuperation = false 
             {t("force_pwd.submit")}
           </Button>
         </form>
+
+        <div className="pt-2 border-t flex justify-center">
+          <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
+            Se déconnecter
+          </Button>
+        </div>
       </div>
     </div>
   );

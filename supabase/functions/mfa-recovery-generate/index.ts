@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { niveauAuth } from "../_shared/niveauAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,13 +49,7 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     // Exige AAL2 : on décode le JWT pour vérifier le niveau d'assurance
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    let aal: string | undefined;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      aal = payload.aal;
-    } catch { /* ignore */ }
-    if (aal !== "aal2") {
+    if (niveauAuth(authHeader) !== "aal2") {
       return new Response(JSON.stringify({ error: "Vérification 2FA requise avant génération" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

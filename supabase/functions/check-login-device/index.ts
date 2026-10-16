@@ -9,7 +9,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") ?? "https://ebnservicess.com";
 /** Nombre d'appareils actifs autorisés en même temps par compte. */
 const MAX_APPAREILS = 2;
 
@@ -109,7 +108,7 @@ Deno.serve(async (req) => {
       ip,
     });
 
-    const confirmUrl = `${SUPABASE_URL}/functions/v1/confirm-login-device?token=${token}&redirect=${encodeURIComponent(PUBLIC_SITE_URL)}`;
+    const confirmUrl = `${SUPABASE_URL}/functions/v1/confirm-login-device?token=${token}`;
 
     // Envoi via Lovable Emails (domaine vérifié notify.ebnservicess.com)
     const sendResp = await admin.functions.invoke("send-transactional-email", {
