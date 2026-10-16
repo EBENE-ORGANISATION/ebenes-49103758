@@ -9,6 +9,7 @@ import type {
 import { moisKey, isoLocal, formatMontant, formatSolde } from "@/lib/ebene-utils";
 import { soldeCaisse } from "@/lib/ecrituresTresorerie";
 import { supabase } from "@/integrations/supabase/client";
+import { dernierMois, ecrituresCumulees } from "@/lib/soldesComptables";
 
 export type AlerteSeverite = "info" | "warning" | "danger";
 export type AlerteCategorie = "facture" | "fiscal" | "rh" | "stock" | "tresorerie";
@@ -53,15 +54,14 @@ export const dettesPaie = (donnees: DonneesMensuelles, avant?: string): DettesPa
   const debit: DettesPaie = { cnss: 0, amu: 0, irpp: 0 };
   const cle = (compte: string): keyof DettesPaie | null =>
     compte.startsWith("431") ? "cnss" : compte.startsWith("433") ? "amu" : compte.startsWith("447") ? "irpp" : null;
-  for (const m of Object.values(donnees || {})) {
-    for (const e of m?.ecritures || []) {
-      if (e.statut === "brouillon") continue;
-      for (const l of e.lignes || []) {
-        const k = cle(l.compte);
-        if (!k) continue;
-        debit[k] += l.debit;
-        if (!avant || (e.date ?? "") < avant) credit[k] += l.credit;
-      }
+  // Depuis les derniers à-nouveaux (qui reprennent les dettes des exercices clos)
+  const [a, mo] = dernierMois(donnees);
+  for (const e of ecrituresCumulees(donnees, a, mo)) {
+    for (const l of e.lignes || []) {
+      const k = cle(l.compte);
+      if (!k) continue;
+      debit[k] += l.debit;
+      if (!avant || (e.date ?? "") < avant) credit[k] += l.credit;
     }
   }
   const du = (k: keyof DettesPaie) => Math.max(0, Math.round(credit[k] - debit[k]));

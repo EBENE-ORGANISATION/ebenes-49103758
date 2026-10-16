@@ -153,7 +153,8 @@ export const useEbeneStoreRemote = (
     prevSocieteIdRef.current = societeId;
   }, [societeId, qc]);
 
-  const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  // Vide tant que rien n'a été enregistré pendant la session
+  const [lastSaved, setLastSaved] = useState<Date | undefined>(undefined);
 
   // ─── Entités relationnelles (hooks TanStack Query) ─────────────────────────
   const tqEmployes = useEmployes(societeId);

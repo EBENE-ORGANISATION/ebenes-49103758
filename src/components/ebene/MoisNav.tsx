@@ -20,6 +20,10 @@ export const MoisNav = ({ mois, annee, annees, onMois, onAnnee }: Props) => {
   const estMoisCourant = now.getFullYear() === annee && now.getMonth() + 1 === mois;
   const estMoisPasse = new Date(annee, mois - 1, 1) < new Date(now.getFullYear(), now.getMonth(), 1);
 
+  // Les flèches s'arrêtent aux années proposées (sinon le sélecteur d'année reste vide)
+  const premier = annees.length > 0 && annee <= Math.min(...annees) && mois === 1;
+  const dernier = annees.length > 0 && annee >= Math.max(...annees) && mois === 12;
+
   const allerMoisPrecedent = () => {
     if (mois === 1) { onMois(12); onAnnee(annee - 1); }
     else onMois(mois - 1);
@@ -53,7 +57,9 @@ export const MoisNav = ({ mois, annee, annees, onMois, onAnnee }: Props) => {
             size="icon"
             className="h-9 w-9 shrink-0"
             onClick={allerMoisPrecedent}
+            disabled={premier}
             title="Mois précédent"
+            aria-label="Mois précédent"
           >
             <ChevronLeft className="size-4" />
           </Button>
@@ -92,7 +98,9 @@ export const MoisNav = ({ mois, annee, annees, onMois, onAnnee }: Props) => {
             size="icon"
             className="h-9 w-9 shrink-0"
             onClick={allerMoisSuivant}
+            disabled={dernier}
             title="Mois suivant"
+            aria-label="Mois suivant"
           >
             <ChevronRight className="size-4" />
           </Button>

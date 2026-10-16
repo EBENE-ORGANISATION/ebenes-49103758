@@ -27,4 +27,13 @@ describe("dettesPaie — cotisations et IRPP à reverser", () => {
   it("avant une date : seules les retenues antérieures, tous les reversements déduits", () => {
     expect(dettesPaie(donnees, "2026-10-01")).toEqual({ cnss: 0, amu: 10000, irpp: 8000 });
   });
+
+  it("les dettes reprises en à-nouveaux ne sont pas comptées deux fois", () => {
+    const an = { ...ecriture("2026-01-01", [["431", 0, 30000], ["101", 30000, 0]]), journal: "AN", numeroPiece: "AN-2026" };
+    const avecClôture = {
+      "2025-12": { ecritures: [ecriture("2025-12-31", [["431", 0, 30000]])] },
+      "2026-1": { ecritures: [an] },
+    } as never;
+    expect(dettesPaie(avecClôture).cnss).toBe(30000);
+  });
 });

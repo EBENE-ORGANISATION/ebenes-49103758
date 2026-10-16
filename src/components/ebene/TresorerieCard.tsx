@@ -21,6 +21,8 @@ interface Props {
   mois: number;
   /** Taux CNSS/AMU du mois (historique de la société). */
   taux?: TauxFiscaux;
+  /** Vue d'une activité : données de toute la société pour la trésorerie et les impôts. */
+  donneesSociete?: DonneesMensuelles;
 }
 
 /**
@@ -37,6 +39,7 @@ export const TresorerieCard = ({
   annee,
   mois,
   taux = TAUX_DEFAUT,
+  donneesSociete,
 }: Props) => {
   const { t } = useTranslation();
   const k = moisKey(annee, mois);
@@ -46,7 +49,9 @@ export const TresorerieCard = ({
     // Flux et soldes lus dans la comptabilité, à la fin du mois affiché
     const { entrees: encaissementsMois, sorties: decaissementsMois } = fluxTresorerieMois(m);
     const soldeMois = encaissementsMois - decaissementsMois;
-    const tresorerie = tresorerieFinMois(donneesMensuelles, annee, mois);
+    // Banques, caisses et dettes fiscales sont communes : toujours toute la société
+    const societe = donneesSociete ?? donneesMensuelles;
+    const tresorerie = tresorerieFinMois(societe, annee, mois);
 
     // Factures en attente à ce jour, quel que soit leur mois d'émission
     const facturesEnAttente = facturesEnAttenteFinMois(donneesMensuelles, annee, mois)
@@ -76,7 +81,7 @@ export const TresorerieCard = ({
 
     // Impôts et cotisations déjà dus, à reverser (écritures validées) :
     // CNSS/AMU (43), IRPP retenu (447), TVA due (443 − 445 si positive)
-    const soldes = soldesFinMois(donneesMensuelles, annee, mois);
+    const soldes = soldesFinMois(societe, annee, mois);
     const dette = (prefixes: string[]) => Math.max(0, -sommePrefixes(soldes, prefixes));
     const aReverser = dette(["43"]) + dette(["447"]) + dette(["443", "445"]);
 
@@ -98,7 +103,7 @@ export const TresorerieCard = ({
       previsionSorties,
       previsionNette,
     };
-  }, [m, donneesMensuelles, employes, annee, mois, taux]);
+  }, [m, donneesMensuelles, donneesSociete, employes, annee, mois, taux]);
 
   const previsionTone =
     stats.previsionNette > stats.tresorerie
@@ -134,7 +139,7 @@ export const TresorerieCard = ({
             icon={<TrendingUp className="size-5 text-primary" />}
             label={t("tresorerie.solde_label")}
             value={formatSolde(stats.soldeMois)}
-            sub={t("tresorerie.solde_sub", { value: formatSolde(stats.tresorerie) })}
+            sub={t("tresorerie.solde_sub", { value: formatSolde(stats.tresorerie) }) + (donneesSociete ? " (toute la société)" : "")}
             tone={stats.soldeMois >= 0 ? "success" : "destructive"}
           />
         </div>

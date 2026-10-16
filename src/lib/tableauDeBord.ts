@@ -4,7 +4,9 @@ import type { DonneesMensuelles, EcritureComptable, Employe, Facture, MoisData }
 import { transactionComptabilisee, tvaDepuisTransactions } from "@/lib/ebene-utils";
 import { fiscaliteDepuisEcritures, sommePrefixes } from "@/lib/etatsFinanciers";
 import { ecritureTresorerieAutonome } from "@/lib/ecrituresTresorerie";
-import { estANouveaux } from "@/lib/liasse/etatsLiasse";
+import { avecComptabilite, soldesFinMois } from "@/lib/soldesComptables";
+
+export { soldesFinMois };
 
 /** Comptes de trésorerie SYSCOHADA (classe 5, hors 59 dépréciations). */
 export const PREFIXES_TRESORERIE = ["50", "51", "52", "53", "54", "55", "56", "57", "58"];
@@ -15,34 +17,9 @@ const estTresorerie = (compte: string) => PREFIXES_TRESORERIE.some((p) => compte
 const cle = (annee: number, mois: number) => annee * 100 + mois;
 const anneeMois = (k: string) => k.split("-").map(Number) as [number, number];
 
-/**
- * Soldes des comptes (débit − crédit) à la fin du mois, comme le grand livre :
- * depuis les à-nouveaux du dernier exercice clos (ils reprennent déjà les soldes
- * des années précédentes), sinon depuis la première écriture. Additionner tous
- * les mois depuis l'origine compterait deux fois chaque exercice clos.
- */
-export const soldesFinMois = (donnees: DonneesMensuelles, annee: number, mois: number): Map<string, number> => {
-  let depart: number | null = null;
-  for (const [k, m] of Object.entries(donnees)) {
-    const [a] = anneeMois(k);
-    if (a > annee || (depart !== null && a <= depart)) continue;
-    if ((m?.ecritures || []).some((e) => comptable(e) && estANouveaux(e, a))) depart = a;
-  }
-  const soldes = new Map<string, number>();
-  for (const [k, m] of Object.entries(donnees)) {
-    const [a, mo] = anneeMois(k);
-    if (cle(a, mo) > cle(annee, mois) || (depart !== null && a < depart)) continue;
-    for (const e of (m?.ecritures || []).filter(comptable)) {
-      for (const l of lignesDe(e)) soldes.set(l.compte, (soldes.get(l.compte) || 0) + l.debit - l.credit);
-    }
-  }
-  return soldes;
-};
-
 /** Trésorerie (banques, caisses, chèques) à la fin du mois. */
 export const tresorerieFinMois = (donnees: DonneesMensuelles, annee: number, mois: number): number => {
-  const avecEcritures = Object.values(donnees).some((m) => (m?.ecritures || []).some(comptable));
-  if (avecEcritures) return sommePrefixes(soldesFinMois(donnees, annee, mois), PREFIXES_TRESORERIE);
+  if (avecComptabilite(donnees)) return sommePrefixes(soldesFinMois(donnees, annee, mois), PREFIXES_TRESORERIE);
   // Sans comptabilité : solde des opérations jusqu'au mois inclus
   return Object.entries(donnees).reduce((total, [k, m]) => {
     const [a, mo] = anneeMois(k);

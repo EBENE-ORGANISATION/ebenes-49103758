@@ -64,6 +64,8 @@ interface DashboardProps {
   activites?: Activite[];
   /** Activité filtrée courante (null = vue consolidée). */
   activiteFiltre?: string | null;
+  /** Données de toute la société : banques et caisses sont communes aux activités. */
+  donneesSociete?: DonneesMensuelles;
 }
 
 /**
@@ -151,7 +153,9 @@ export const Dashboard = ({
   mois,
   activites = [],
   activiteFiltre = null,
+  donneesSociete,
 }: DashboardProps) => {
+  const donneesTreso = donneesSociete ?? donneesMensuelles;
   const { t } = useTranslation();
 
   const [unit, setUnit] = useState<UnitMode>(() => {
@@ -197,9 +201,9 @@ export const Dashboard = ({
     const montantImpaye    = facturesImpayees.reduce((s, f) => s + f.totalTtc, 0);
 
     // Trésorerie (classe 5) à la fin du mois affiché et à la fin du mois précédent
-    const tresorerie = tresorerieFinMois(donneesMensuelles, annee, mois);
+    const tresorerie = tresorerieFinMois(donneesTreso, annee, mois);
     const [aPrec, mPrec] = mois === 1 ? [annee - 1, 12] : [annee, mois - 1];
-    const tresoreriePrecedente = tresorerieFinMois(donneesMensuelles, aPrec, mPrec);
+    const tresoreriePrecedente = tresorerieFinMois(donneesTreso, aPrec, mPrec);
     const tendanceTresorerie = calcTendance(tresorerie, tresoreriePrecedente);
 
     return {
@@ -209,17 +213,17 @@ export const Dashboard = ({
       montantImpaye,
       tresorerie, tresoreriePrecedente, tendanceTresorerie,
     };
-  }, [moisCourant, moisPrecedent, taux, employes, donneesMensuelles, annee, mois, activiteFiltre]);
+  }, [moisCourant, moisPrecedent, taux, employes, donneesMensuelles, donneesTreso, annee, mois, activiteFiltre]);
 
   // ── Sparkline trésorerie 6 mois ──────────────────────────────────────────
   const sparklineTresorerie = useMemo(() => {
     const out: { v: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(annee, mois - 1 - i, 1);
-      out.push({ v: tresorerieFinMois(donneesMensuelles, d.getFullYear(), d.getMonth() + 1) });
+      out.push({ v: tresorerieFinMois(donneesTreso, d.getFullYear(), d.getMonth() + 1) });
     }
     return out;
-  }, [donneesMensuelles, annee, mois]);
+  }, [donneesTreso, annee, mois]);
 
   // ── Série CA 12 mois ─────────────────────────────────────────────────────
   const serieCA = useMemo(() => {
@@ -405,7 +409,7 @@ export const Dashboard = ({
         {/* D2 : Trésorerie avec sparkline 6 mois */}
         <KpiCardSparkline
           icon={<Banknote className="size-5" />}
-          label={t("dashboard.treasury")}
+          label={activiteFiltre ? `${t("dashboard.treasury")} (toute la société)` : t("dashboard.treasury")}
           value={fmt(kpis.tresorerie)}
           tendance={kpis.tendanceTresorerie}
           tone={kpis.tresorerie >= 0 ? "success" : "destructive"}
@@ -518,6 +522,7 @@ export const Dashboard = ({
       {/* ── Trésorerie prévisionnelle ──────────────────────────────────────── */}
       <TresorerieCard
         donneesMensuelles={donneesMensuelles}
+        donneesSociete={activiteFiltre ? donneesTreso : undefined}
         employes={employes}
         annee={annee}
         mois={mois}

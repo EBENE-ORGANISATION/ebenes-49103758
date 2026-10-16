@@ -117,6 +117,7 @@ describe("recette avec TVA", () => {
 describe("soldeCaisse", () => {
   const t = (id: number, m: number, extra: Record<string, unknown> = {}) =>
     ({ id, date: "2026-10-05", desc: "x", type: m > 0 ? "r" : "d", m, source: "manuelle", statut: "valide", ...extra });
+  // Sans comptabilité : solde des opérations réglées en caisse
   const donnees = {
     "2026-10": {
       transactions: [
@@ -128,21 +129,39 @@ describe("soldeCaisse", () => {
         t(6, -30000, { tresorerie: "571", date: "2026-10-20" }),
       ],
       factures: [{ id: 9, compteTresorerie: "571" }],
-      ecritures: [
-        { id: 1, statut: "valide", numeroPiece: "CA-1", journal: "CA", libelle: "", date: "2026-10-06",
-          lignes: [{ id: 1, compte: "571", intitule: "", debit: 0, credit: 8000 }, { id: 2, compte: "6055", intitule: "", debit: 8000, credit: 0 }] },
-        { id: 2, statut: "valide", numeroPiece: "TR-1", journal: "CA", libelle: "", date: "2026-10-05",
-          lignes: [{ id: 1, compte: "571", intitule: "", debit: 50000, credit: 0 }] }, // déjà comptée par la transaction
-      ],
+      ecritures: [],
     },
   } as never;
 
-  it("recettes et dépenses en caisse, encaissements de factures, écritures saisies en caisse", () => {
-    expect(soldeCaisse(donnees)).toBe(50000 - 20000 + 118000 - 30000 - 8000);
+  it("sans comptabilité : recettes et dépenses en caisse, encaissements de factures", () => {
+    expect(soldeCaisse(donnees)).toBe(50000 - 20000 + 118000 - 30000);
   });
 
-  it("à une date donnée", () => {
-    expect(soldeCaisse(donnees, "2026-10-10")).toBe(50000 - 20000 + 118000 - 8000);
+  it("sans comptabilité : à une date donnée", () => {
+    expect(soldeCaisse(donnees, "2026-10-10")).toBe(50000 - 20000 + 118000);
+  });
+
+  // Avec comptabilité : compte 571 du grand livre, depuis les derniers à-nouveaux
+  const ecr = (id: number, journal: string, numeroPiece: string, date: string, d571: number, c571: number) => ({
+    id, statut: "valide", numeroPiece, journal, libelle: "", date,
+    lignes: [
+      { id: 1, compte: "571", intitule: "", debit: d571, credit: c571 },
+      { id: 2, compte: "4111", intitule: "", debit: c571, credit: d571 },
+    ],
+  });
+  const compta = {
+    "2025-03": { transactions: [], factures: [], ecritures: [ecr(1, "CA", "FAC-1", "2025-03-02", 400000, 0)] },
+    "2026-01": { transactions: [], factures: [], ecritures: [ecr(2, "AN", "AN-2026", "2026-01-01", 400000, 0)] },
+    "2026-10": {
+      transactions: [], factures: [],
+      ecritures: [ecr(3, "CA", "TR-5", "2026-10-05", 0, 20000), ecr(4, "CA", "TR-6", "2026-10-20", 0, 30000)],
+    },
+  } as never;
+
+  it("avec comptabilité : l'exercice clos n'est pas compté deux fois", () => {
+    expect(soldeCaisse(compta)).toBe(400000 - 20000 - 30000);
+    expect(soldeCaisse(compta, "2026-10-10")).toBe(400000 - 20000);
+    expect(soldeCaisse(compta, "2025-12-31")).toBe(400000);
   });
 });
 

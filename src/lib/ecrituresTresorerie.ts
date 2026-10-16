@@ -2,6 +2,7 @@
 import type { DonneesMensuelles, EcritureComptable, LigneEcriture, Transaction } from "@/types/ebene";
 import { getCompte } from "@/lib/planComptable";
 import { transactionComptabilisee } from "@/lib/ebene-utils";
+import { avecComptabilite, dernierMois, ecrituresCumulees } from "@/lib/soldesComptables";
 
 export type CompteTresorerie = "521" | "571";
 
@@ -204,6 +205,16 @@ export const soldeCaisse = (donnees: DonneesMensuelles, jusquau?: string, option
   const annexes = options.comptesAnnexes ?? [];
   const ligneDeLaCaisse = (c: string) =>
     compte === "571" ? c.startsWith("57") && !annexes.includes(c) : c === compte;
+  // Comptabilité tenue : solde du compte de caisse depuis les derniers à-nouveaux
+  if (avecComptabilite(donnees)) {
+    const [a, m] = jusquau ? (jusquau.slice(0, 7).split("-").map(Number) as [number, number]) : dernierMois(donnees);
+    let solde = 0;
+    for (const e of ecrituresCumulees(donnees, a, m)) {
+      if (jusquau && e.date && e.date > jusquau) continue;
+      for (const l of e.lignes || []) if (ligneDeLaCaisse(l.compte)) solde += l.debit - l.credit;
+    }
+    return Math.round(solde);
+  }
   const mois = Object.values(donnees || {});
   const factures = new Map(mois.flatMap((m) => m?.factures || []).map((f) => [f.id, f]));
   let solde = 0;

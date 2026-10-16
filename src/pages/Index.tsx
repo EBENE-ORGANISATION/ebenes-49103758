@@ -405,6 +405,7 @@ const Index = () => {
                   mois={mois}
                   activites={activites.filter((a) => a.actif)}
                   activiteFiltre={validActiviteId}
+                  donneesSociete={store.donneesConsolidees}
                 />
               </TabsContent>
             )}

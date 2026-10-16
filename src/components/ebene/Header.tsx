@@ -110,7 +110,7 @@ export const Header = ({
     };
     return {
       icon: <Check className="size-3 text-success" />,
-      label: `Sauvegardé ${savedAgo}`,
+      label: lastSaved ? `Sauvegardé ${savedAgo}` : "À jour",
       color: "text-success",
     };
   })();
@@ -344,7 +344,7 @@ export const Header = ({
                   size="sm"
                   className="hidden sm:flex gap-1.5 bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border border-primary-foreground/30"
                 >
-                  <Link to="/super-admin">
+                  <Link to={`/super-admin${sid}`}>
                     <Shield className="size-3.5" />
                     <span className="hidden lg:inline">Super Admin</span>
                   </Link>
@@ -405,7 +405,7 @@ export const Header = ({
                 <FolderOpen className="size-5" /> Historique Google Drive
               </DialogTitle>
               <DialogDescription>
-                Les 10 dernières sauvegardes. Cliquez sur Restaurer pour remplacer les données actuelles.
+                Les 10 dernières sauvegardes. « Restaurer » ne reprend que les taux fiscaux ; factures, employés et stock restent ceux de la base.
               </DialogDescription>
             </DialogHeader>
             {historyLoading ? (
