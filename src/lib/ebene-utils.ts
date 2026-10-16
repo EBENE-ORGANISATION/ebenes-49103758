@@ -483,6 +483,9 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   if (msg.includes("FACTURE_NON_VALIDEE")) {
     return "La facture doit d'abord être validée par le chef comptable avant d'être encaissée.";
   }
+  if (msg.includes("NUMERO_DEJA_UTILISE")) {
+    return msg.replace(/^.*NUMERO_DEJA_UTILISE:\s*/, "Numéro déjà émis : ") + ". Le compteur ne peut pas revenir en arrière dans l'année.";
+  }
   if (msg.includes("FACTURE_ENGAGEE")) {
     return "Une facture validée, payée ou annulée ne peut pas être supprimée : annulez-la.";
   }

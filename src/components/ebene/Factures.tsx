@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMontant, todayISO, dateFr, periodeDeDate } from "@/lib/ebene-utils";
 import { useExercices } from "@/hooks/data/useExercices";
+import { useApercuNumero } from "@/hooks/data/useApercuNumero";
 import { DevisSection } from "./DevisSection";
 import type { Devis } from "@/types/ebene";
 import { OCRFacture, type OCRDraft } from "./OCRFacture";
@@ -142,14 +143,16 @@ export const Factures = ({
   const { estClos } = useExercices(currentSociete?.id ?? null);
   // Année de la pièce (sa date), pour son numéro et le verrou de clôture
   const [anneePiece] = periodeDeDate(date, annee, 1);
+  const { apercu: apercuServeur, rafraichir: rafraichirNumero } = useApercuNumero("facture", anneePiece);
 
   // Numéro auto-généré selon la config de la société (aperçu)
   const numeroAuto = useMemo(() => {
     if (proforma) return prochainNumeroProforma(anneePiece, donneesMensuelles);
+    if (apercuServeur) return apercuServeur;
     if (societeConfig) return genererNumeroFacture(societeConfig, anneePiece);
     return prochainNumeroFallback(proforma, anneePiece, donneesMensuelles);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [societeConfig?.format_facture, societeConfig?.compteur_facture, anneePiece, proforma, donneesMensuelles]);
+  }, [societeConfig?.format_facture, societeConfig?.compteur_facture, anneePiece, proforma, donneesMensuelles, apercuServeur]);
 
   // Pré-remplit le numéro à l'ouverture du formulaire (création) tant que
   // l'utilisateur ne l'a pas modifié manuellement.
@@ -204,6 +207,7 @@ export const Factures = ({
     const reserve = await reserverNumero(currentSociete.id, "facture", anneeNumero);
     if (!reserve) return apercu;
     void refreshTenant();
+    void rafraichirNumero();
     return reserve;
   };
 

@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, X, RefreshCw, FileText, Pencil, Eye, ThumbsUp, ThumbsDown, Undo2 } from "lucide-react";
-import { formatMontant, todayISO, dateFr } from "@/lib/ebene-utils";
+import { formatMontant, todayISO, dateFr, periodeDeDate } from "@/lib/ebene-utils";
+import { useApercuNumero } from "@/hooks/data/useApercuNumero";
 import { useTenant } from "@/hooks/useTenant";
 import { useActiviteFilter } from "@/hooks/useActiviteFilter";
 import { ActiviteSelect } from "./ActiviteSelect";
@@ -116,11 +117,15 @@ export const DevisSection = ({
 
   const { currentSociete, societeConfig, refresh: refreshTenant } = useTenant();
 
+  // Année du devis (sa date) pour son numéro
+  const [anneeDevis] = periodeDeDate(date, annee, 1);
+  const { apercu: apercuServeur, rafraichir: rafraichirNumero } = useApercuNumero("devis", anneeDevis);
   const numeroAuto = useMemo(() => {
-    if (societeConfig) return genererNumeroDevis(societeConfig, annee);
-    return prochainNumeroDevisFallback(annee, donneesMensuelles);
+    if (apercuServeur) return apercuServeur;
+    if (societeConfig) return genererNumeroDevis(societeConfig, anneeDevis);
+    return prochainNumeroDevisFallback(anneeDevis, donneesMensuelles);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [societeConfig?.format_devis, societeConfig?.compteur_devis, annee, donneesMensuelles]);
+  }, [societeConfig?.format_devis, societeConfig?.compteur_devis, anneeDevis, donneesMensuelles, apercuServeur]);
 
   useEffect(() => {
     if (!open || editingId != null) return;
@@ -149,13 +154,14 @@ export const DevisSection = ({
     type: "facture" | "devis",
     apercu: string,
     saisi: string,
-    anneeNumero = annee,
+    anneeNumero = anneeDevis,
   ): Promise<string> => {
     if (saisi && saisi !== apercu) return saisi;
     if (!currentSociete?.id || !societeConfig) return apercu;
     const reserve = await reserverNumero(currentSociete.id, type, anneeNumero);
     if (!reserve) return apercu;
     void refreshTenant();
+    void rafraichirNumero();
     return reserve;
   };
 

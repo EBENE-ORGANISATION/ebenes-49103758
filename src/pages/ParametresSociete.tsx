@@ -35,8 +35,11 @@ import {
   DEFAULT_FORMAT_FACTURE,
   DEFAULT_FORMAT_DEVIS,
   formaterNumero,
-  resetCompteur,
+  definirCompteur,
+  cleAnneeNumero,
 } from "@/lib/numerotation";
+import { useApercuNumero } from "@/hooks/data/useApercuNumero";
+import { messageErreur } from "@/lib/ebene-utils";
 
 // Aperçu de chaque thème : fond de cadre, fond de page, couleur d'action.
 const APERCU_THEME: Record<ThemeApparence, [string, string, string]> = {
@@ -209,27 +212,28 @@ const ParametresSociete = () => {
     if (!currentSociete) return;
     setResetting(type);
     try {
-      await resetCompteur(currentSociete.id, type, 1);
+      // Compteur de l'année en cours (ou suite unique si le format n'a pas d'année)
+      const fmt = (type === "facture" ? societeConfig?.format_facture : societeConfig?.format_devis)
+        || (type === "facture" ? DEFAULT_FORMAT_FACTURE : DEFAULT_FORMAT_DEVIS);
+      await definirCompteur(currentSociete.id, type, cleAnneeNumero(fmt, new Date().getFullYear()), 1);
       await refresh();
+      void (type === "facture" ? apercuFacture : apercuDevis).rafraichir();
       toast.success(type === "facture" ? t("params.reset_done_invoice") : t("params.reset_done_quote"));
     } catch (e) {
-      toast.error(t("params.save_failed", { msg: (e as Error).message }));
+      toast.error(messageErreur(e, t("params.save_failed", { msg: (e as Error).message })));
     } finally {
       setResetting(null);
     }
   };
 
   const annee = new Date().getFullYear();
-  const previewFacture = formaterNumero(
-    draft.format_facture || DEFAULT_FORMAT_FACTURE,
-    annee,
-    Number(societeConfig?.compteur_facture ?? 1),
-  );
-  const previewDevis = formaterNumero(
-    draft.format_devis || DEFAULT_FORMAT_DEVIS,
-    annee,
-    Number(societeConfig?.compteur_devis ?? 1),
-  );
+  // Compteurs de l'année en cours, lus en base (compteur annuel)
+  const apercuFacture = useApercuNumero("facture", annee);
+  const apercuDevis = useApercuNumero("devis", annee);
+  const compteurFacture = apercuFacture.compteur ?? Number(societeConfig?.compteur_facture ?? 1);
+  const compteurDevis = apercuDevis.compteur ?? Number(societeConfig?.compteur_devis ?? 1);
+  const previewFacture = formaterNumero(draft.format_facture || DEFAULT_FORMAT_FACTURE, annee, compteurFacture);
+  const previewDevis = formaterNumero(draft.format_devis || DEFAULT_FORMAT_DEVIS, annee, compteurDevis);
 
   return (
     <div className="min-h-screen bg-background">
@@ -482,7 +486,7 @@ const ParametresSociete = () => {
                   <p className="text-[11px] text-muted-foreground">
                     {t("params.preview")} <span className="font-mono font-semibold">{previewFacture}</span>
                     <span className="ml-2 text-muted-foreground">
-                      {t("params.current_counter", { n: Number(societeConfig?.compteur_facture ?? 1) })}
+                      {t("params.current_counter", { n: compteurFacture })}
                     </span>
                   </p>
                   <AlertDialog>
@@ -522,7 +526,7 @@ const ParametresSociete = () => {
                   <p className="text-[11px] text-muted-foreground">
                     {t("params.preview")} <span className="font-mono font-semibold">{previewDevis}</span>
                     <span className="ml-2 text-muted-foreground">
-                      {t("params.current_counter", { n: Number(societeConfig?.compteur_devis ?? 1) })}
+                      {t("params.current_counter", { n: compteurDevis })}
                     </span>
                   </p>
                   <AlertDialog>

@@ -73,6 +73,35 @@ export const genererNumeroDevis = (
  * Retourne null en cas d'échec (pas de config, droits, réseau) : l'appelant
  * se rabat alors sur le numéro d'aperçu.
  */
+/** Le format contient l'année : la suite repart à 1 chaque année. */
+export const avecAnnee = (format: string): boolean => /\{YY(YY)?\}/.test(format);
+
+/** Clé d'année du compteur : l'année si le format la contient, sinon 0 (suite unique). */
+export const cleAnneeNumero = (format: string, annee: number): number => (avecAnnee(format) ? annee : 0);
+
+type TypeNumero = "facture" | "devis";
+// Fonctions de la migration 20261016150000 (absentes des types générés)
+const rpc = (nom: string, args: Record<string, unknown>) =>
+  supabase.rpc(nom as never, args as never) as unknown as Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+/** Fonction absente : migration des compteurs annuels pas encore appliquée. */
+const fonctionAbsente = (e: { code?: string } | null) => !!e && (e.code === "PGRST202" || e.code === "42883");
+
+/** Prochain compteur libre de l'année (aperçu, sans réserver) ; null si indisponible. */
+export const prochainCompteur = async (societeId: string, type: TypeNumero, cleAnnee: number): Promise<number | null> => {
+  const { data, error } = await rpc("prochain_numero", { p_societe: societeId, p_type: type, p_annee: cleAnnee });
+  return error ? null : Number(data);
+};
+
+/**
+ * Règle le prochain numéro d'une année (Paramètres société, administrateur).
+ * La base refuse une valeur déjà émise (NUMERO_DEJA_UTILISE).
+ */
+export const definirCompteur = async (societeId: string, type: TypeNumero, cleAnnee: number, valeur: number): Promise<void> => {
+  const { error } = await rpc("definir_compteur", { p_societe: societeId, p_type: type, p_annee: cleAnnee, p_valeur: valeur });
+  if (fonctionAbsente(error)) { await resetCompteur(societeId, type, valeur); return; }
+  if (error) throw new Error(error.message);
+};
+
 export const reserverNumero = async (
   societeId: string,
   type: "facture" | "devis",
@@ -94,6 +123,12 @@ export const reserverNumero = async (
       if (readErr || !cfg) return null;
 
       const row = cfg as Record<string, unknown>;
+      const fmtSociete = (row[colFormat] as string | null) || formatDefaut;
+      // Compteur par année (migration 20261016150000), réservé atomiquement en base
+      const res = await rpc("reserver_numero", { p_societe: societeId, p_type: type, p_annee: cleAnneeNumero(fmtSociete, annee) });
+      if (!res.error && res.data != null) return formaterNumero(fmtSociete, annee, Number(res.data), mois);
+      if (!fonctionAbsente(res.error)) return null;
+
       const brut = row[colCompteur] as number | null;
       const courant = Math.max(1, Number(brut ?? 1));
 
