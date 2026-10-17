@@ -42,8 +42,9 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 ## Livrables produits (2026-10-16)
 
 - Guide 2.6.0 : `docs/guide/` (page web publiée, PDF A4 de 32 pages).
-- Vidéos (hors dépôt, `brag-output-2026-10-16-tutoriels/`, page d'accueil `index.html`) :
-  - 20 tutos courts, un par fonction (0 min 32 à 2 min 15), classés Démarrer / Expert ;
-  - 12 tutos par module (0 min 32 à 5 min 37) ;
-  - film de présentation en quatre longueurs : 2 min 17, 3 min 54, 18 min 42 et 25 min 36.
-- Le portail employé (module 10) est exclu des vidéos tant qu'il reste en suspens ; les chapitres sont renumérotés.
+- Vidéos (hors dépôt, `brag-output-2026-10-16-tutoriels/`, page d'accueil `index.html`), toutes en 1080p :
+  - 19 tutos courts, un par fonction (0 min 32 à 2 min 15), classés Démarrer / Expert ;
+  - 11 tutos par module (0 min 32 à 5 min 37) ;
+  - film de présentation en quatre longueurs : 2 min 07, 3 min 37, 18 min 00 et 24 min 49.
+- Partage WhatsApp (2026-10-17) : chaque vidéo pèse moins de 15 Mo et se lit dans la conversation, sauf les deux longs films (39 et 53 Mo), allégés sans découpe, à envoyer comme document.
+- Exclus des vidéos : la connexion (à la demande de l'utilisateur, 2026-10-17) et le portail employé (module 10, en suspens) ; chapitres renumérotés.
