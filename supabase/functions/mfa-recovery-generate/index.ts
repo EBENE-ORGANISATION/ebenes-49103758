@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { niveauAuth } from "../_shared/niveauAuth.ts";
+import { empreinteCode } from "../_shared/codesSecours.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,13 +19,6 @@ function generateCode(): string {
   crypto.getRandomValues(bytes);
   const chars = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
   return `${chars.slice(0, 4)}-${chars.slice(4)}`;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 Deno.serve(async (req) => {
@@ -65,7 +59,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 10; i++) {
       const c = generateCode();
       codes.push(c);
-      rows.push({ user_id: userId, code_hash: await sha256Hex(c) });
+      rows.push({ user_id: userId, code_hash: await empreinteCode(c) });
     }
 
     // Invalide tous les codes existants puis insère les nouveaux

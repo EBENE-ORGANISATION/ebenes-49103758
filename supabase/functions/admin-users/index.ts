@@ -131,12 +131,22 @@ Deno.serve(async (req: Request) => {
      */
     const userInScope = async (uid: string): Promise<boolean> => {
       if (isSuperAdmin) return true;
+      // Jamais le super-admin
+      const { data: rolesCible } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid);
+      if ((rolesCible || []).some((r: { role: string }) => r.role === "admin_general" || r.role === "super_admin")) {
+        return false;
+      }
+      // Toutes les sociétés du compte doivent être dans le périmètre de l'admin :
+      // un compte partagé avec une autre société reste géré par le super-admin.
       const { data } = await admin
         .from("user_societes")
         .select("societe_id")
-        .eq("user_id", uid)
-        .in("societe_id", allowedSocieteIds);
-      return (data || []).length > 0;
+        .eq("user_id", uid);
+      const socs = (data || []).map((r: { societe_id: string }) => r.societe_id);
+      return socs.length > 0 && socs.every((s) => allowedSocieteIds.includes(s));
     };
 
     switch (body.action) {
@@ -278,7 +288,23 @@ Deno.serve(async (req: Request) => {
           .eq("email", email)
           .maybeSingle();
         if (existing?.user_id) {
-          // Rattache à la société cible si pas déjà fait
+          // Un admin de société ne rattache jamais un compte existant : sinon il
+          // pourrait s'approprier n'importe quel compte (puis changer son mot de passe).
+          if (!isSuperAdmin) {
+            const { data: dejaLie } = await admin
+              .from("user_societes")
+              .select("societe_id")
+              .eq("user_id", existing.user_id)
+              .eq("societe_id", targetSocieteId ?? "");
+            if ((dejaLie || []).length > 0) {
+              return json({ ok: true, user_id: existing.user_id, already_existed: true });
+            }
+            return json({
+              ok: false,
+              error: "Un compte existe déjà avec cet e-mail. Demandez au super-admin de le rattacher à votre société.",
+            });
+          }
+          // Super-admin : rattache à la société cible si pas déjà fait
           if (targetSocieteId) {
             await admin.from("user_societes").upsert(
               { user_id: existing.user_id, societe_id: targetSocieteId, created_by: callerId },
@@ -292,10 +318,8 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        // Mot de passe temporaire à 12 caractères
-        const tempPassword =
-          Math.random().toString(36).slice(-8) +
-          Math.random().toString(36).slice(-4).toUpperCase();
+        // Mot de passe temporaire à 14 caractères (générateur cryptographique)
+        const tempPassword = motDePasseTemporaire();
 
         const { data: created, error } = await admin.auth.admin.createUser({
           email,
@@ -333,12 +357,12 @@ Deno.serve(async (req: Request) => {
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#1a1a1a">Bienvenue sur votre Portail Employé</h2>
-                <p>Bonjour <strong>${nomDisplay}</strong>,</p>
+                <p>Bonjour <strong>${escapeHtml(nomDisplay)}</strong>,</p>
                 <p>Votre accès au portail self-service EBENE a été créé. Vous pouvez maintenant
                    consulter vos bulletins de paie, suivre vos congés et échanger avec
                    l'administration.</p>
                 <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0">
-                  <p style="margin:0 0 6px"><strong>Email :</strong> ${email}</p>
+                  <p style="margin:0 0 6px"><strong>Email :</strong> ${escapeHtml(email)}</p>
                   <p style="margin:0"><strong>Mot de passe temporaire :</strong>
                     <span style="font-family:monospace;font-size:1.1em">${tempPassword}</span>
                   </p>
@@ -378,7 +402,8 @@ Deno.serve(async (req: Request) => {
       case "send_device_otp": {
         // Génère un code à 6 chiffres, le stocke (hash SHA-256) et l'envoie par email.
         // Accessible à tout utilisateur authentifié (employee inclus).
-        const targetEmail = body.email?.trim().toLowerCase() ?? userData.user.email ?? "";
+        // Toujours l'adresse du compte connecté, jamais une adresse fournie par l'appelant.
+        const targetEmail = userData.user.email?.trim().toLowerCase() ?? "";
         if (!targetEmail) return json({ error: "Email introuvable" }, 400);
 
         // Supprimer TOUS les OTP précédents (valides ou expirés) pour cet utilisateur
@@ -387,7 +412,7 @@ Deno.serve(async (req: Request) => {
           .delete()
           .eq("user_id", callerId);
 
-        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
         const enc = new TextEncoder();
         const hashBuf = await crypto.subtle.digest("SHA-256", enc.encode(code));
         const codeHash = Array.from(new Uint8Array(hashBuf))
@@ -458,10 +483,13 @@ Deno.serve(async (req: Request) => {
         if (!body.bulletin_id) return json({ error: "bulletin_id requis" }, 400);
         const { data: bul } = await admin
           .from("bulletins_paie")
-          .select("employe_nom, employe_user_id, mois, annee, net_a_payer, paid_at")
+          .select("employe_nom, employe_user_id, mois, annee, net_a_payer, paid_at, societe_id")
           .eq("id", body.bulletin_id)
           .maybeSingle();
         if (!bul) return json({ error: "Bulletin introuvable" }, 404);
+        if (!isSuperAdmin && !allowedSocieteIds.includes(bul.societe_id)) {
+          return json({ error: "Bulletin hors de votre périmètre" }, 403);
+        }
 
         // Récupère l'email de l'employé depuis auth.users
         let employeEmail: string | null = null;
@@ -492,7 +520,7 @@ Deno.serve(async (req: Request) => {
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2>Votre bulletin de paie ${periode}</h2>
-                <p>Bonjour <strong>${bul.employe_nom}</strong>,</p>
+                <p>Bonjour <strong>${escapeHtml(bul.employe_nom ?? "")}</strong>,</p>
                 <p>Votre salaire du mois de <strong>${periode}</strong> a été versé.</p>
                 <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;text-align:center">
                   <p style="margin:0;font-size:.9em;color:#666">Net à payer</p>
@@ -551,6 +579,19 @@ Deno.serve(async (req: Request) => {
     return json({ error: (e as Error).message }, 500);
   }
 });
+
+function escapeHtml(v: string): string {
+  return v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+function motDePasseTemporaire(): string {
+  const pick = (alphabet: string, n: number) =>
+    Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => alphabet[b % alphabet.length]).join("");
+  // Garantit majuscule, minuscule, chiffre et caractère spécial (règles de l'écran)
+  return pick("ABCDEFGHJKLMNPQRSTUVWXYZ", 1) + pick("abcdefghijkmnopqrstuvwxyz", 1)
+    + pick("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789", 10)
+    + pick("23456789", 1) + pick("!@#$%*?", 1);
+}
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

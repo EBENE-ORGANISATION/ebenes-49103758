@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { empreinteCode } from "../_shared/codesSecours.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,12 +11,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function sha256Hex(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+const ESSAIS_MAX_PAR_HEURE = 5;
 
 /**
  * Utilise un code de récupération pour DÉSENROLER tous les facteurs TOTP
@@ -43,6 +39,23 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    // Limite les essais : 5 codes faux par heure et par compte
+    const { count: echecs } = await admin
+      .from("audit_log")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("action", "MFA_RECOVERY_FAILED")
+      .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    if ((echecs ?? 0) >= ESSAIS_MAX_PAR_HEURE) {
+      return new Response(JSON.stringify({ error: "Trop d'essais. Réessayez dans une heure." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const raw = String(body?.code ?? "").trim().toUpperCase().replace(/\s+/g, "");
     if (!/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/.test(raw)) {
@@ -51,11 +64,7 @@ Deno.serve(async (req) => {
       });
     }
     const normalized = raw.includes("-") ? raw : `${raw.slice(0, 4)}-${raw.slice(4)}`;
-    const hash = await sha256Hex(normalized);
-
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const hash = await empreinteCode(normalized);
 
     // Trouve un code non utilisé qui correspond
     const { data: match } = await admin
@@ -67,6 +76,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!match) {
+      await admin.from("audit_log").insert({
+        user_id: userId,
+        action: "MFA_RECOVERY_FAILED",
+        table_name: "mfa_recovery_codes",
+      });
       return new Response(JSON.stringify({ error: "Code invalide ou déjà utilisé" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

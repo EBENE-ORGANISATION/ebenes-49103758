@@ -21,9 +21,39 @@ function generateToken(): string {
     .join('')
 }
 
-// Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
-// gateway validates the caller's JWT (anon or service_role) before the request
-// reaches this code. No in-function auth check is needed.
+// Accès : réservé aux autres fonctions du serveur (clé service_role).
+// verify_jwt = true laisse passer la clé publique « anon » : sans ce contrôle,
+// n'importe qui pourrait envoyer des e-mails depuis notre domaine.
+// Le rôle lu dans le jeton est fiable : la passerelle en a vérifié la signature.
+function roleDuJeton(token: string): string | undefined {
+  const corps = token.split('.')[1]
+  if (!corps) return undefined
+  try {
+    const b64 = corps.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(corps.length / 4) * 4, '=')
+    return JSON.parse(atob(b64)).role
+  } catch {
+    return undefined
+  }
+}
+
+function egaliteConstante(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+function appelantServeur(req: Request, serviceKey: string): boolean {
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!token) return false
+  return egaliteConstante(token, serviceKey) || roleDuJeton(token) === 'service_role'
+}
+
+// Les liens des e-mails ne mènent qu'à notre site.
+const SITE = (Deno.env.get('PUBLIC_SITE_URL') ?? 'https://ebnservicess.com').replace(/\/+$/, '')
+function lienAutorise(url: unknown): boolean {
+  return typeof url === 'string' && (url === SITE || url.startsWith(SITE + '/'))
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -40,6 +70,16 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: 'Server configuration error' }),
       {
         status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  if (!appelantServeur(req, supabaseServiceKey)) {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden' }),
+      {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
@@ -68,6 +108,18 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
+  }
+
+  for (const [cle, valeur] of Object.entries(templateData)) {
+    if (/url$/i.test(cle) && !lienAutorise(valeur)) {
+      return new Response(
+        JSON.stringify({ error: `Lien non autorisé : ${cle}` }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
   }
 
   if (!templateName) {

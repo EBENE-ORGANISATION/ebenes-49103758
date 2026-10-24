@@ -44,12 +44,11 @@ export const useFiscalDelegations = (
     }) => {
       if (!societeId || !currentUserId) throw new Error("Paramètres manquants");
 
-      // Résoudre l'user_id depuis l'email via une requête profils
-      const { data: profile, error: profErr } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.trim().toLowerCase())
-        .single();
+      // Résoudre l'id du profil depuis l'email (fonction serveur : un admin ne lit
+      // pas tous les profils)
+      const { data: profilId, error: profErr } = await supabase
+        .rpc("profil_id_par_email" as never, { _email: email } as never);
+      const profile = profilId ? { id: profilId as unknown as string } : null;
 
       if (profErr || !profile)
         throw new Error(`Aucun utilisateur EBENE trouvé pour l'email : ${email}`);

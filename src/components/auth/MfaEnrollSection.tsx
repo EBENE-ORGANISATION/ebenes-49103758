@@ -68,11 +68,9 @@ export const MfaEnrollSection = () => {
   }, []);
 
   const loadRecoveryCount = useCallback(async () => {
-    const { count } = await supabase
-      .from("mfa_recovery_codes")
-      .select("id", { count: "exact", head: true })
-      .is("used_at", null);
-    setRecoveryCount(count ?? 0);
+    // Les empreintes des codes ne sont pas lisibles : le serveur renvoie seulement leur nombre
+    const { data } = await supabase.rpc("nb_codes_secours" as never);
+    setRecoveryCount(Number(data ?? 0));
   }, []);
 
   useEffect(() => {
