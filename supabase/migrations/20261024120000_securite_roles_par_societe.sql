@@ -101,6 +101,10 @@ begin
 end;
 $$;
 
+-- Fonctions de trigger : pas d'appel via l'API
+revoke all on function public.audit_user_societes() from public, anon, authenticated;
+revoke all on function public.bloquer_role_super_admin() from public, anon, authenticated;
+
 drop trigger if exists audit_user_societes on public.user_societes;
 create trigger audit_user_societes
   after insert or update or delete on public.user_societes
