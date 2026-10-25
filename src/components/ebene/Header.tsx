@@ -160,8 +160,8 @@ export const Header = ({
   const actions: ActionMenu[] = [
     showRecap && { cle: "recap", icone: BarChart3, libelle: "Récap Annuel", onSelect: onShowRecap },
     showArchives && { cle: "archives", icone: Archive, libelle: "Archives", onSelect: onShowArchives },
-    showJsonIO && { cle: "export", icone: Download, libelle: "Exporter JSON", onSelect: onExport, separe: true },
-    showJsonIO && { cle: "import", icone: Upload, libelle: "Importer JSON", onSelect: () => fileRef.current?.click() },
+    showJsonIO && { cle: "export", icone: Download, libelle: "Exporter Excel", onSelect: onExport, separe: true },
+    showJsonIO && { cle: "import", icone: Upload, libelle: "Importer Excel", onSelect: () => fileRef.current?.click() },
     onDriveBackup && { cle: "drive", icone: CloudUpload, libelle: "Sauvegarder Drive", onSelect: () => void onDriveBackup(), separe: true },
     onDriveBackup && { cle: "historique", icone: FolderOpen, libelle: "Historique Drive", onSelect: () => void openHistory() },
     showCorbeille && { cle: "corbeille", icone: Trash2, libelle: "Corbeille", to: `/corbeille${sid}`, separe: true },
@@ -388,7 +388,7 @@ export const Header = ({
         <input
           ref={fileRef}
           type="file"
-          accept="application/json"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

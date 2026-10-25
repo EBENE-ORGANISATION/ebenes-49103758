@@ -76,8 +76,8 @@ const fr = {
   header: {
     subtitle: "Commerce Général — Système de Gestion",
     saved_at: "Sauvegardé {{when}}",
-    export_json: "Exporter JSON",
-    import_json: "Importer JSON",
+    export_json: "Exporter Excel",
+    import_json: "Importer Excel",
     archives: "Archives",
     yearly_recap: "Récap Annuel",
     users: "Utilisateurs",
@@ -695,11 +695,13 @@ const fr = {
     save: "✓ Enregistrer",
   },
   index_page: {
-    archive_filename: "Archive_{{date}}.json",
-    archive_exported: "Archive exportée",
-    confirm_import: "⚠️ Cela va écraser toutes les données actuelles. Continuer ?",
+    archive_filename: "Donnees_{{societe}}_{{date}}.xlsx",
+    archive_exported: "Classeur Excel exporté",
+    export_failed: "Export Excel impossible",
+    confirm_import: "Importer {{n}} jeu(x) de taux fiscaux ? Ils remplacent les taux aux mêmes dates d'effet. Les autres données ne sont pas modifiées.",
+    import_no_sheet: "Onglet « {{onglet}} » introuvable ou vide : choisissez un classeur exporté par Ébène Suite.",
     import_success: "Import réussi",
-    import_invalid: "Fichier invalide ou corrompu",
+    import_invalid: "Fichier illisible : choisissez un classeur Excel (.xlsx) exporté par Ébène Suite.",
     superadmin_console_title: "Console Ébène Suite",
     superadmin_console_desc:
       "Vous êtes connecté en mode super-admin sur l'application mère. Sélectionnez une société dans le sélecteur en haut à droite pour accéder à ses modules métier, ou ouvrez la console super-admin pour gérer les sociétés, utilisateurs et paramètres globaux.",

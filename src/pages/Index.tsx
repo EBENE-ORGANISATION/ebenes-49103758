@@ -16,9 +16,10 @@ import { OfflineBanner } from "@/components/ebene/OfflineBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEbeneStoreRemote as useEbeneStore, nettoyerAncienCacheLocalStorage } from "@/hooks/useEbeneStoreRemote";
 import { Facture } from "@/types/ebene";
-import { tauxPourMois, todayISO } from "@/lib/ebene-utils";
+import { tauxPourMois, todayISO, messageErreur } from "@/lib/ebene-utils";
 import { toast } from "sonner";
-import { enregistrerFichier } from "@/lib/fichiers";
+import { enregistrerFichier, TYPE_XLSX } from "@/lib/fichiers";
+import { classeurXlsx, feuillesExport, lireTauxClasseur, ErreurClasseur, FEUILLE_TAUX } from "@/lib/exportClasseur";
 import { useAuth } from "@/hooks/useAuth";
 import { getAlertes } from "@/lib/alertes";
 import { useTenant } from "@/hooks/useTenant";
@@ -167,41 +168,45 @@ const Index = () => {
 
   // (La redirection des comptes 'employe' purs vers le portail se fait plus bas,
   //  après le dernier hook — voir juste avant le return principal.)
-  const exportJSON = () => {
-    const payload = {
-      version: "1.3",
-      exportDate: new Date().toISOString(),
-      donneesMensuelles: store.donneesMensuelles,
-      employes: store.employes,
-      paramsAnnuels: store.paramsAnnuels,
-      tauxHistorique: store.tauxHistorique,
-      articles: store.articles,
-      fournisseurs: store.fournisseurs,
-      categoriesStock: store.categoriesStock,
-      sanctions: store.sanctions,
-      immobilisations: store.immobilisations,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    void enregistrerFichier(t("index_page.archive_filename", { date: todayISO() }), blob);
-    toast.success(t("index_page.archive_exported"));
+  const exportExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const feuilles = feuillesExport(
+        {
+          donneesMensuelles: store.donneesMensuelles,
+          employes: store.employes,
+          paramsAnnuels: store.paramsAnnuels,
+          tauxHistorique: store.tauxHistorique,
+          articles: store.articles,
+          fournisseurs: store.fournisseurs,
+          categoriesStock: store.categoriesStock,
+          sanctions: store.sanctions,
+          immobilisations: store.immobilisations,
+        },
+        { societe: currentSociete?.nom ?? "", activites, maintenant: new Date() },
+      );
+      const societe = (currentSociete?.nom ?? "Societe").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      await enregistrerFichier(t("index_page.archive_filename", { societe, date: todayISO() }), classeurXlsx(XLSX, feuilles), TYPE_XLSX);
+      toast.success(t("index_page.archive_exported"));
+    } catch (e) {
+      toast.error(messageErreur(e, t("index_page.export_failed")));
+    }
   };
 
-  const importJSON = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(String(e.target?.result || ""));
-        if (!data || typeof data !== "object") throw new Error("invalide");
-        if (!confirm(t("index_page.confirm_import"))) return;
-        // importerDonnees indique lui-même ce qui a été importé (import partiel)
-        store.importerDonnees(data);
-      } catch {
-        toast.error(t("index_page.import_invalid"));
-      }
-    };
-    reader.readAsText(file);
+  const importExcel = async (file: File) => {
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+      const ws = wb.Sheets[FEUILLE_TAUX];
+      if (!ws) throw new ErreurClasseur(t("index_page.import_no_sheet", { onglet: FEUILLE_TAUX }));
+      const tauxHistorique = lireTauxClasseur(XLSX.utils.sheet_to_json<Record<string, unknown>>(ws));
+      if (!tauxHistorique.length) throw new ErreurClasseur(t("index_page.import_no_sheet", { onglet: FEUILLE_TAUX }));
+      if (!confirm(t("index_page.confirm_import", { n: tauxHistorique.length }))) return;
+      // importerDonnees indique lui-même ce qui a été importé (import partiel)
+      store.importerDonnees({ tauxHistorique });
+    } catch (e) {
+      toast.error(e instanceof ErreurClasseur ? e.message : t("index_page.import_invalid"));
+    }
   };
 
   // Helpers : un no-op + toast pour les actions interdites selon le service
@@ -337,8 +342,8 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header
-        onExport={exportJSON}
-        onImport={importJSON}
+        onExport={() => void exportExcel()}
+        onImport={(f) => void importExcel(f)}
         onShowRecap={() => setShowRecap(true)}
         onShowArchives={() => setShowArchives(true)}
         lastSaved={store.lastSaved}

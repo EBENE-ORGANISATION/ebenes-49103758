@@ -19,7 +19,7 @@ export const HEADER_FEATURE_LABELS: Record<HeaderFeature, string> = {
   alertes: "🔔 Alertes (cloche)",
   recap_annuel: "📊 Récap Annuel",
   archives: "🗂️ Archives",
-  json_io: "💾 Exporter / Importer JSON",
+  json_io: "💾 Exporter / Importer Excel",
   users_admin: "👥 Gestion utilisateurs",
   audit_log: "🕘 Journal d'audit",
 };

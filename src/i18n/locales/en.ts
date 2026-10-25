@@ -78,8 +78,8 @@ const en: Translation = {
   header: {
     subtitle: "General Trade — Management System",
     saved_at: "Saved {{when}}",
-    export_json: "Export JSON",
-    import_json: "Import JSON",
+    export_json: "Export Excel",
+    import_json: "Import Excel",
     archives: "Archives",
     yearly_recap: "Yearly Recap",
     users: "Users",
@@ -697,11 +697,13 @@ const en: Translation = {
     save: "✓ Save",
   },
   index_page: {
-    archive_filename: "Archive_{{date}}.json",
-    archive_exported: "Archive exported",
-    confirm_import: "⚠️ This will overwrite all current data. Continue?",
+    archive_filename: "Data_{{societe}}_{{date}}.xlsx",
+    archive_exported: "Excel workbook exported",
+    export_failed: "Excel export failed",
+    confirm_import: "Import {{n}} set(s) of tax rates? They replace the rates with the same effective dates. Other data is not changed.",
+    import_no_sheet: "Sheet “{{onglet}}” missing or empty: choose a workbook exported by Ébène Suite.",
     import_success: "Import successful",
-    import_invalid: "Invalid or corrupted file",
+    import_invalid: "Unreadable file: choose an Excel workbook (.xlsx) exported by Ébène Suite.",
     superadmin_console_title: "Ébène Suite Console",
     superadmin_console_desc:
       "You are connected as super-admin on the parent application. Select a company in the top-right switcher to access its business modules, or open the super-admin console to manage companies, users and global settings.",
