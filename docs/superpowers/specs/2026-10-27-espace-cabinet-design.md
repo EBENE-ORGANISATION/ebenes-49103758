@@ -124,8 +124,9 @@ Un cabinet ne gère **jamais** les utilisateurs ni les rôles du client, et ne p
 
 ### 6.1 Fonctions
 - `acces_cabinet(uid, societe) → mission effective` (ou null) : applique les règles du § 5. `SECURITY DEFINER`, `search_path` fixé, `EXECUTE` révoqué pour `anon`.
-- `has_societe_access(uid, societe)` est étendue : vrai aussi si `acces_cabinet(uid, societe)` n'est pas null. Toutes les règles existantes en lecture fonctionnent donc sans être réécrites.
-- `est_personnel(uid, societe)` : vrai pour un membre de cabinet ayant accès au dossier (même sans rôle global).
+- `has_societe_access(uid, societe)` n'est **pas** étendue : elle ouvre aussi des tables d'administration (services, droits, délégations de service). *(Révisé le 2026-10-27 au moment du plan.)*
+- `est_personnel(uid, societe)` est étendue : vraie pour un membre de cabinet ayant accès au dossier (même sans rôle global).
+- Chaque table métier reçoit une règle **permissive** propre au cabinet (lecture si niveau ≥ lecture, écriture si niveau ≥ saisie) et une règle **restrictive** en lecture comme en écriture (§ 6.2), qui reste le filet de sécurité quelles que soient les autres règles.
 
 ### 6.2 Règles restrictives d'écriture
 Sur chaque table métier, une règle **RESTRICTIVE** pour INSERT / UPDATE / DELETE :
@@ -144,9 +145,9 @@ Une personne qui a à la fois un accès direct et un accès cabinet sur la même
 ### 6.4 Audit
 `audit_log` reçoit une colonne `cabinet_id`, remplie par `audit_trigger_fn()` quand l'auteur agit au titre d'un cabinet. Le journal d'audit du client affiche « Cabinet X — nom du collaborateur ».
 
-## 7. Fonction Edge `cabinet-ops`
+## 7. Opérations sur les cabinets
 
-Toutes les opérations qui créent des accès passent par elle (service_role, aal2 exigé pour le super-admin, contrôle du rôle de l'appelant) :
+*(Révisé le 2026-10-27 au moment du plan.)* Les opérations sont des fonctions de base `SECURITY DEFINER` (`cabinet_*`), qui contrôlent elles-mêmes le rôle de l'appelant (aal2 pour le super-admin) : elles se testent directement en SQL. Une fonction Edge `cabinet-ops` ne sert qu'à créer des comptes par e-mail (nouveau membre, futur administrateur du client), en appelant ensuite ces fonctions :
 
 | Action | Qui | Effet |
 |---|---|---|
@@ -200,13 +201,16 @@ Chaque étape : migrations appliquées par l'utilisateur, fonctions déployées 
 - **Tests unitaires** : calcul de la mission effective, traduction mission → droits par module, tableau de bord.
 - **Recette** : parcours complet sur TEST avec des comptes créés par l'utilisateur (responsable, collaborateur, stagiaire, administrateur client).
 
-## 11. Questions encore ouvertes
+## 11. Questions
 
-1. **Facturation** : qui paie (cabinet ou client) ; que se passe-t-il au-delà de 10 dossiers (blocage ou supplément).
-2. **Dossier créé par le cabinet** : la société appartient-elle au client dès sa création (il peut l'emporter s'il part), même si le cabinet l'a créée ? Proposition : oui, toujours.
-3. **Données du cabinet après un départ** : le cabinet garde-t-il une copie (export Excel au moment du départ) ? Proposition : export possible pendant la lecture seule, rien après.
-4. **Missions** : les cinq missions du § 5 conviennent-elles, ou faut-il pouvoir composer une mission sur mesure ?
-5. **Notifications** : e-mail au client à chaque validation par le cabinet, ou seulement un récapitulatif ?
+Décidé le 2026-10-27 :
+- **Dossier créé par le cabinet** : la société appartient toujours au client, qui l'emporte s'il part.
+- **Après un départ** : le cabinet peut exporter pendant la lecture seule, rien après.
+- **Missions** : les cinq missions du § 5, sans mission sur mesure.
+
+Encore ouvertes (sans effet sur l'étape 1) :
+1. **Facturation** : qui paie (cabinet ou client) ; que se passe-t-il au-delà de 10 dossiers (blocage ou supplément). Étape 4.
+2. **Notifications** : e-mail au client à chaque validation par le cabinet, ou un récapitulatif. Étape 3.
 
 ## 12. Hors périmètre
 
