@@ -163,7 +163,7 @@ Une personne qui a à la fois un accès direct et un accès cabinet sur la même
 | `valider_depart` / `annuler_depart` | super-admin | `termine` ou retour `actif` |
 | `rattacher` | super-admin | lien direct, toute mission |
 
-Dossier créé par le cabinet sans utilisateur client : le responsable peut inviter le futur administrateur du client (création de compte par `admin-users`, rôle admin limité à cette société). Tant qu'aucun administrateur client n'existe, seul le super-admin peut changer la mission.
+*(Révisé le 2026-10-28 après relecture de la tâche 5.)* **Seul le super-admin crée l'administrateur d'un client** (`inviter_admin_client`), après avoir vérifié qui est le dirigeant : un responsable qui inviterait une adresse qu'il contrôle obtiendrait un administrateur client, donc tous les droits directs, la gestion des comptes du client et la dispense des quatre yeux. Un compte existant n'est accepté que s'il n'a pas d'autre société (le rôle admin est global). Un responsable n'ajoute à son cabinet que des **comptes nouveaux**, avec une réponse identique que l'adresse existe ou non. À la création d'un dossier, le cabinet saisit l'identification minimale du client (NIF, RCCM, forme juridique, début d'exercice), puisqu'il n'a ensuite que la lecture sur les paramètres. Tant qu'aucun administrateur client n'existe, seul le super-admin peut changer la mission.
 
 ## 8. Écrans
 
