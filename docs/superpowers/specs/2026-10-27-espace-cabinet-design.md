@@ -125,7 +125,8 @@ Un cabinet ne gère **jamais** les utilisateurs ni les rôles du client, et ne p
 ### 6.1 Fonctions
 - `acces_cabinet(uid, societe) → mission effective` (ou null) : applique les règles du § 5. `SECURITY DEFINER`, `search_path` fixé, `EXECUTE` révoqué pour `anon`.
 - `has_societe_access(uid, societe)` n'est **pas** étendue : elle ouvre aussi des tables d'administration (services, droits, délégations de service). *(Révisé le 2026-10-27 au moment du plan.)*
-- `est_personnel(uid, societe)` est étendue : vraie pour un membre de cabinet ayant accès au dossier (même sans rôle global).
+- `est_personnel(uid, societe)` n'est **pas** étendue non plus : une règle existante très large (`ecritures_societe_access`, FOR ALL) aurait donné à tout membre de cabinet l'écriture complète sur les écritures. *(Révisé le 2026-10-27 après relecture de la tâche 2.)*
+- Les droits d'un membre de cabinet sont calculés **une fois par requête** : `cabinet_societes(module, niveau_min)` renvoie la liste des sociétés concernées, et la règle compare `societe_id` à cette liste.
 - Chaque table métier reçoit une règle **permissive** propre au cabinet (lecture si niveau ≥ lecture, écriture si niveau ≥ saisie) et une règle **restrictive** en lecture comme en écriture (§ 6.2), qui reste le filet de sécurité quelles que soient les autres règles.
 
 ### 6.2 Règles restrictives d'écriture

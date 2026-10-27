@@ -88,7 +88,8 @@ L'utilisateur applique les migrations définitives après le passage des tests (
     - on prend le minimum de la mission du dossier et de celle de l'attribution (pour le responsable, la mission du dossier) ;
     - on plafonne à 2 pour un stagiaire ;
     - on plafonne à 1 si le lien est en `depart_demande`.
-  - `est_personnel(_user_id, _societe_id)` est complétée par `OR public.agit_comme_cabinet(_user_id, _societe_id)`.
+  - *(Révisé après relecture.)* `est_personnel` n'est **pas** modifiée. S'y ajoutent `cabinet_societes(_module text, _min int) RETURNS uuid[]` et `cabinet_societes_agit() RETURNS uuid[]`, qui portent sur l'appelant et servent aux règles de la tâche 3. Un super-admin n'agit jamais comme cabinet. Une garde en tête de migration refuse l'installation si un lien non terminé existe déjà.
+  - **Déploiement : les migrations des tâches 2, 3 et 4 s'appliquent ensemble.**
 
 - [ ] **2.1 Écrire le test** `cabinet_droits.sql`, avec la matrice complète : 5 missions × 8 modules contre les valeurs du § 5, en dur dans le test. Puis ces cas, avec la valeur attendue de `cabinet_niveau` :
   - responsable, dossier `tenue_complete`, `compta` → 3 ;
@@ -117,9 +118,9 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 - Consomme : `cabinet_niveau`, `agit_comme_cabinet`.
 - Produit : `module_de_table(_table text) RETURNS text`, la correspondance du § 6.2 de la spec. Les tables `societes`, `societe_config`, `societe_identification` et `activites` relèvent de `parametres`. La table `exercices` relève de `compta`.
 - Produit : trois règles sur chaque table de cette correspondance, avec `societe_id` comme colonne de société (`id` pour `societes`) :
-  - une règle permissive `cabinet_lecture` FOR SELECT, `USING (cabinet_niveau(...) >= 1)` ;
-  - une règle permissive `cabinet_ecriture` FOR INSERT, UPDATE et DELETE : niveau ≥ 2 en USING et en WITH CHECK ;
-  - une règle **RESTRICTIVE** `cabinet_plafond` FOR ALL : `NOT agit_comme_cabinet(...)` OR un niveau suffisant pour l'opération. Pour SELECT, ≥ 1 ; pour les écritures, ≥ 2. Concrètement, deux règles restrictives, une SELECT et une pour les écritures.
+  - *(Révisé après relecture de la tâche 2 : calcul une fois par requête.)* Une règle permissive `cabinet_lecture` FOR SELECT, `USING (societe_id = ANY ((SELECT public.cabinet_societes('<module>', 1))))` ;
+  - une règle permissive `cabinet_ecriture` FOR INSERT, UPDATE et DELETE : même forme avec un niveau 2, en USING et en WITH CHECK ;
+  - deux règles **RESTRICTIVES** `cabinet_plafond_lecture` et `cabinet_plafond_ecriture` : `societe_id <> ALL ((SELECT public.cabinet_societes_agit())) OR societe_id = ANY ((SELECT public.cabinet_societes('<module>', n)))`, avec n = 1 pour SELECT et n = 2 pour les écritures. Pour un utilisateur sans cabinet, le tableau est vide et la règle ne coûte qu'une comparaison. Le test vérifie par `EXPLAIN` que la liste est calculée une seule fois.
 - Produit : une règle **RESTRICTIVE** de refus total pour un membre de cabinet, sur les tables `services`, `service_membres`, `permission_overrides`, `user_activites`, `cross_service_grants`, `custom_services`, `custom_postes`, `user_custom_postes` et `portail_messages`. Elle s'écrit : `NOT EXISTS (membre actif d'un cabinet lié à cette société)`.
 
 - [ ] **3.1 Écrire le test** `cabinet_regles_acces.sql`, en sessions simulées, sur 2 cabinets et 3 sociétés de test. Le collaborateur C1 est attribué en `compta_fiscalite` sur la société A ; le cabinet 2 suit la société C. Le test doit vérifier que C1 :
@@ -149,6 +150,7 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 - Créer : `supabase/tests/cabinet_validation_audit.sql`
 
 **Interfaces :**
+- Relecture de la tâche 2 : la dispense de quatre yeux accordée aux administrateurs (`is_admin`, rôle global) ne s'applique pas quand l'auteur agit comme cabinet sur la société de la ligne. Sinon, un collaborateur administrateur de la société de son propre cabinet validerait sa propre saisie chez un client.
 - Modifie `controle_quatre_yeux()`. Si `agit_comme_cabinet(uid, NEW.societe_id)` et `cabinet_niveau(uid, NEW.societe_id, module_de_table(TG_TABLE_NAME)) < 3`, le passage au statut validé est refusé avec `RAISE EXCEPTION 'CABINET_VALIDATION'`. La règle « pas sa propre saisie » ne change pas.
 - Ajoute `audit_log.cabinet_id uuid`, que `audit_trigger_fn()` remplit quand l'auteur agit comme cabinet sur la société de la ligne.
 - `messageErreur()` (`src/lib/ebene-utils.ts`) traduit `CABINET_VALIDATION` par : « Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire. »
@@ -174,7 +176,7 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 **Interfaces :**
 - Produit (SQL ; chaque fonction contrôle elle-même l'appelant ; une erreur métier lève `RAISE EXCEPTION 'CABINET_<CODE>: <texte>'`) :
   - `cabinet_creer(_nom text, _responsable uuid, _max_dossiers int DEFAULT 10) RETURNS uuid`, pour le super-admin en aal2 ;
-  - `cabinet_definir_membre(_cabinet uuid, _user uuid, _role role_cabinet, _actif boolean) RETURNS void`, pour le responsable du cabinet ou le super-admin ; refusé s'il ne reste aucun responsable actif ;
+  - `cabinet_definir_membre(_cabinet uuid, _user uuid, _role role_cabinet, _actif boolean) RETURNS void`, pour le responsable du cabinet ou le super-admin ; refusé s'il ne reste aucun responsable actif, et refusé pour un super-admin (`CABINET_SUPER_ADMIN`) ;
   - `cabinet_creer_dossier(_cabinet uuid, _nom text) RETURNS uuid` (l'id de la société), pour le responsable. La fonction :
     - crée la société par le même chemin que `CreerSocieteModal` ;
     - crée le lien `actif`, avec l'origine `cabinet` et la mission `tenue_complete` ;
