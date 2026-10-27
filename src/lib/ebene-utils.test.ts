@@ -168,6 +168,30 @@ describe("messageErreur (espace cabinet)", () => {
     );
   });
 
+  it("affiche le texte des autres refus CABINET_<CODE>", () => {
+    expect(messageErreur(new Error("CABINET_LIMITE: Limite de 10 dossiers atteinte pour ce cabinet."), "x")).toBe(
+      "Limite de 10 dossiers atteinte pour ce cabinet.",
+    );
+    expect(
+      messageErreur({ message: "CABINET_DERNIER_RESPONSABLE: Le cabinet doit garder au moins un responsable actif." }, "x"),
+    ).toBe("Le cabinet doit garder au moins un responsable actif.");
+    expect(messageErreur(new Error("CABINET_SUPER_ADMIN: Un super-administrateur ne peut pas être membre d'un cabinet."), "x"))
+      .toBe("Un super-administrateur ne peut pas être membre d'un cabinet.");
+  });
+
+  it("garde la traduction explicite de CABINET_VALIDATION et CABINET_PAIEMENT", () => {
+    expect(messageErreur(new Error("CABINET_VALIDATION: votre mission dans ce dossier ne permet pas de valider"), "x"))
+      .toBe("Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire.");
+    expect(messageErreur(new Error("CABINET_PAIEMENT: votre mission ne couvre pas la comptabilité"), "x")).not.toBe(
+      "votre mission ne couvre pas la comptabilité",
+    );
+  });
+
+  it("garde le message par défaut pour un code CABINET sans texte", () => {
+    expect(messageErreur(new Error("CABINET_LIMITE"), "x")).toBe("x");
+    expect(messageErreur(new Error("CABINET_LIMITE:   "), "x")).toBe("x");
+  });
+
   it("garde le message par défaut pour une erreur inconnue", () => {
     expect(messageErreur(new Error("autre chose"), "x")).toBe("x");
   });

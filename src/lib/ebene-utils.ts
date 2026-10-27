@@ -501,5 +501,11 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   if (msg.includes("SOCIETE_IMMUABLE")) {
     return "Une pièce ne peut pas être déplacée vers une autre société.";
   }
+  // Autres refus de l'espace cabinet (fonctions cabinet_*, cabinet-ops) :
+  // « CABINET_<CODE>: <texte en français> » ; on affiche le texte.
+  const cabinet = msg.match(/CABINET_[A-Z_]+:\s*([\s\S]+)$/);
+  if (cabinet && cabinet[1].trim()) {
+    return cabinet[1].trim();
+  }
   return defaut;
 };

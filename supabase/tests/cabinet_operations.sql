@@ -22,8 +22,12 @@ BEGIN;
 --     10 SA2   autre super-admin (admin_general), jamais membre
 --     11 R1B   futur second responsable du cabinet 1
 --     12 U12   compte sans rôle (ajouté par le super-admin)
+--     13 R3    futur responsable du cabinet 3 (max_dossiers = 0)
+--     14 U14   compte avec un accès direct à un client du cabinet 1 (I3)
+--   comptes du quota …-0004-0000000000NN (1 à 20)
 --   sociétés      …-0001-0000000000NN : 01 A (cliente, a un administrateur),
---                 02 X (autre société)
+--                 02 X (autre société), 03 P (propre société du cabinet 3),
+--                 04 Y (rattachements)
 --   cabinet 2     …-0002-000000000002 (R2, C2), sans dossier
 -- Le cabinet 1 et ses dossiers sont créés par les fonctions testées ; leurs
 -- id sont rangés dans la table temporaire cab5_ids.
@@ -42,7 +46,7 @@ BEGIN
   FOREACH f IN ARRAY ARRAY[
     'public.cabinet_creer(text, uuid, int)',
     'public.cabinet_definir_membre(uuid, uuid, public.role_cabinet, boolean)',
-    'public.cabinet_creer_dossier(uuid, text)',
+    'public.cabinet_creer_dossier(uuid, text, text, text, text, date)',
     'public.cabinet_rattacher(uuid, uuid, public.mission_cabinet)',
     'public.cabinet_attribuer(uuid, uuid, public.mission_cabinet)',
     'public.cabinet_retirer_attribution(uuid, uuid)',
@@ -57,6 +61,10 @@ BEGIN
     ASSERT has_function_privilege('authenticated', f, 'EXECUTE'), f || ' : non exécutable par authenticated';
     ASSERT has_function_privilege('service_role', f, 'EXECUTE'), f || ' : non exécutable par service_role';
   END LOOP;
+
+  -- L'ancienne version à deux paramètres de cabinet_creer_dossier n'existe plus.
+  ASSERT to_regprocedure('public.cabinet_creer_dossier(uuid, text)') IS NULL,
+    'cabinet_creer_dossier(uuid, text) existe encore';
 
   -- Fonctions internes : fermées aux rôles client.
   FOREACH f IN ARRAY ARRAY[
@@ -107,12 +115,24 @@ FROM (VALUES
   ('00000000-cab5-0000-0000-000000000009', 'cab5-in@exemple.invalid',    'Membre inactif'),
   ('00000000-cab5-0000-0000-000000000010', 'cab5-sa2@exemple.invalid',   'Autre super admin'),
   ('00000000-cab5-0000-0000-000000000011', 'cab5-r1b@exemple.invalid',   'Responsable 1 bis'),
-  ('00000000-cab5-0000-0000-000000000012', 'cab5-u12@exemple.invalid',   'Compte sans rôle')
+  ('00000000-cab5-0000-0000-000000000012', 'cab5-u12@exemple.invalid',   'Compte sans rôle'),
+  ('00000000-cab5-0000-0000-000000000013', 'cab5-r3@exemple.invalid',    'Responsable 3'),
+  ('00000000-cab5-0000-0000-000000000014', 'cab5-u14@exemple.invalid',   'Accès direct')
 ) AS u(id, email, nom);
+
+-- 20 comptes pour le quota d'ajouts (…-0004-0000000000NN).
+INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+SELECT format('00000000-cab5-0000-0004-%s', lpad(g.i::text, 12, '0'))::uuid,
+       '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+       format('cab5-quota-%s@exemple.invalid', g.i), '{}'::jsonb,
+       jsonb_build_object('nom', format('Quota %s', g.i)), now(), now()
+FROM generate_series(1, 20) AS g(i);
 
 INSERT INTO public.societes (id, nom) VALUES
   ('00000000-cab5-0000-0001-000000000001', 'CAB5 TEST A'),
-  ('00000000-cab5-0000-0001-000000000002', 'CAB5 TEST X');
+  ('00000000-cab5-0000-0001-000000000002', 'CAB5 TEST X'),
+  ('00000000-cab5-0000-0001-000000000003', 'CAB5 TEST P'),
+  ('00000000-cab5-0000-0001-000000000004', 'CAB5 TEST Y');
 
 INSERT INTO public.user_societes (user_id, societe_id) VALUES
   ('00000000-cab5-0000-0000-000000000007', '00000000-cab5-0000-0001-000000000001'),
@@ -582,6 +602,167 @@ BEGIN
   PERFORM pg_temp.cab5_attendre('collaborateur du cabinet', c1, 'aal2', q, '42501 CABINET_INTERDIT');
   PERFORM pg_temp.cab5_attendre('responsable du cabinet', r1, 'aal2', q, '42501 CABINET_INTERDIT');
   PERFORM pg_temp.cab5_attendre('super-admin en aal1', sa, 'aal1', q, '42501 CABINET_INTERDIT');
+END $$;
+
+-- ═══ 10. Compléments de la relecture de sécurité ══════════════════════════
+-- Liens terminés et en invitation, limite, identification, max_dossiers = 0,
+-- refus de cabinet_rattacher, double accès (I3), limite connue I5, quota (I1).
+DO $$
+DECLARE
+  k1  constant uuid := pg_temp.cab5_id('k1');
+  da  constant uuid := pg_temp.cab5_id('da');
+  s08 constant uuid := pg_temp.cab5_id('s08');
+  s09 constant uuid := pg_temp.cab5_id('s09');
+  s10 constant uuid := pg_temp.cab5_id('s10');
+  s02 constant uuid := pg_temp.cab5_id('s02');
+  d10 constant uuid := (SELECT x.id FROM public.cabinet_dossiers x WHERE x.societe_id = pg_temp.cab5_id('s10'));
+  soc_p constant uuid := '00000000-cab5-0000-0001-000000000003';
+  soc_y constant uuid := '00000000-cab5-0000-0001-000000000004';
+  sa  constant uuid := '00000000-cab5-0000-0000-000000000001';
+  r1  constant uuid := '00000000-cab5-0000-0000-000000000002';
+  c1  constant uuid := '00000000-cab5-0000-0000-000000000003';
+  adx constant uuid := '00000000-cab5-0000-0000-000000000008';
+  u12 constant uuid := '00000000-cab5-0000-0000-000000000012';
+  r3  constant uuid := '00000000-cab5-0000-0000-000000000013';
+  u14 constant uuid := '00000000-cab5-0000-0000-000000000014';
+  q_dossier text := 'SELECT public.cabinet_creer_dossier(%L, %L, %L, %L, %L, %L)::text';
+  q_rattacher text := 'SELECT public.cabinet_rattacher(%L, %L, %L)::text';
+  q_membre text := 'SELECT public.cabinet_definir_membre(%L, %L, %L, %L)::text';
+  compte_r1 constant text := 'SELECT count(*)::text FROM public.mes_dossiers_cabinet()';
+  v_res text;
+  v_k3 uuid;
+  v_societe uuid;
+  v_quota uuid;
+  i int;
+BEGIN
+  -- Dossiers créés sans identification : NIF et RCCM vides, aucune ligne
+  -- societe_identification.
+  ASSERT (SELECT sx.nif = '' AND sx.rccm = '' FROM public.societes sx WHERE sx.id = pg_temp.cab5_id('s01')),
+    'dossier 01 : NIF ou RCCM inattendus';
+  ASSERT NOT EXISTS (SELECT 1 FROM public.societe_identification si WHERE si.societe_id = pg_temp.cab5_id('s01')),
+    'dossier 01 : identification créée sans données';
+
+  -- ─ Lien terminé : ni attribution, ni changement de mission, ni collaborateurs.
+  UPDATE public.cabinet_dossiers x SET etat = 'termine', termine_le = now() WHERE x.societe_id IN (s09, s10);
+  PERFORM pg_temp.cab5_attendre('attribuer sur un lien terminé', r1, 'aal2',
+    format('SELECT public.cabinet_attribuer(%L, %L, %L)::text', d10, c1, 'lecture'), 'P0001 CABINET_DOSSIER_TERMINE');
+  PERFORM pg_temp.cab5_attendre('changer la mission d''un lien terminé', sa, 'aal2',
+    format('SELECT public.cabinet_changer_mission(%L, %L)::text', d10, 'lecture'), 'P0001 CABINET_DOSSIER_TERMINE');
+  PERFORM pg_temp.cab5_attendre('collaborateurs d''un lien terminé', sa, 'aal2',
+    format('SELECT count(*)::text FROM public.cabinet_collaborateurs_dossier(%L)', s10), 'ok:0');
+
+  -- ─ mes_dossiers_cabinet : ni termine (09, 10), ni invitation (08).
+  PERFORM pg_temp.cab5_attendre('R1 : liens terminés exclus', r1, 'aal2', compte_r1, 'ok:9');
+  UPDATE public.cabinet_dossiers x SET etat = 'invitation' WHERE x.societe_id = s08;
+  PERFORM pg_temp.cab5_attendre('R1 : invitation exclue', r1, 'aal2', compte_r1, 'ok:8');
+  PERFORM pg_temp.cab5_attendre('R1 : 08, 09 et 10 absents', r1, 'aal2',
+    format('SELECT count(*)::text FROM public.mes_dossiers_cabinet() WHERE societe_id IN (%L, %L, %L)', s08, s09, s10), 'ok:0');
+  UPDATE public.cabinet_dossiers x SET etat = 'actif' WHERE x.societe_id = s08;
+
+  -- ─ Identification : validation, puis création. 9 liens non terminés
+  --   (01 à 08 et A) : la limite ne compte pas les liens terminés.
+  PERFORM pg_temp.cab5_attendre('forme juridique inconnue', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', NULL, NULL, 'XYZ', NULL), 'P0001 CABINET_PARAMETRE');
+  PERFORM pg_temp.cab5_attendre('nom de 201 caractères', r1, 'aal2',
+    format(q_dossier, k1, repeat('n', 201), NULL, NULL, NULL, NULL), 'P0001 CABINET_PARAMETRE');
+  PERFORM pg_temp.cab5_attendre('NIF de 51 caractères', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', repeat('1', 51), NULL, NULL, NULL), 'P0001 CABINET_PARAMETRE');
+  PERFORM pg_temp.cab5_attendre('RCCM de 101 caractères', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', NULL, repeat('R', 101), NULL, NULL), 'P0001 CABINET_PARAMETRE');
+  PERFORM pg_temp.cab5_attendre('début d''exercice invalide', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', NULL, NULL, NULL, '1800-01-01'), 'P0001 CABINET_PARAMETRE');
+  PERFORM pg_temp.cab5_attendre('nom de 200 caractères accepté', r1, 'aal2',
+    format(q_dossier, k1, repeat('n', 200), NULL, NULL, NULL, NULL), 'ok:');
+  -- 10 liens non terminés : refus ; on termine le dossier au nom de 200 caractères.
+  PERFORM pg_temp.cab5_attendre('limite atteinte de nouveau', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', NULL, NULL, NULL, NULL), 'P0001 CABINET_LIMITE');
+  UPDATE public.cabinet_dossiers x SET etat = 'termine', termine_le = now()
+  WHERE x.societe_id = (SELECT sx.id FROM public.societes sx WHERE sx.nom = repeat('n', 200));
+
+  v_res := pg_temp.cab5_attendre('création avec identification', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Identifié', ' 1000123456 ', 'TG-LOM 2026 B 0001', 'SARL', '2026-01-01'), 'ok:');
+  v_societe := substr(v_res, 4)::uuid;
+  ASSERT (SELECT sx.nom = 'CAB5 Identifié' AND sx.nif = '1000123456' AND sx.rccm = 'TG-LOM 2026 B 0001'
+          FROM public.societes sx WHERE sx.id = v_societe), 'identification : NIF, RCCM ou nom inattendus';
+  ASSERT (SELECT si.donnees = '{"formeJuridique": "SARL", "premiereAnnee": 2026}'::jsonb
+          FROM public.societe_identification si WHERE si.societe_id = v_societe),
+    'identification : forme juridique ou première année inattendues';
+  ASSERT (SELECT x.etat = 'actif' AND x.origine = 'cabinet' FROM public.cabinet_dossiers x WHERE x.societe_id = v_societe),
+    'identification : lien inattendu';
+  PERFORM pg_temp.cab5_attendre('limite après la création', r1, 'aal2',
+    format(q_dossier, k1, 'CAB5 Refusé', NULL, NULL, NULL, NULL),
+    'P0001 CABINET_LIMITE: Limite de 10 dossiers atteinte pour ce cabinet.');
+
+  -- ─ max_dossiers = 0 : aucune création.
+  v_res := pg_temp.cab5_attendre('cabinet 3 (limite 0)', sa, 'aal2',
+    format('SELECT public.cabinet_creer(%L, %L, 0)::text', 'CAB5 Cabinet 3', r3), 'ok:');
+  v_k3 := substr(v_res, 4)::uuid;
+  PERFORM pg_temp.cab5_attendre('cabinet 3 : premier dossier', r3, 'aal2',
+    format(q_dossier, v_k3, 'CAB5 Zéro', NULL, NULL, NULL, NULL),
+    'P0001 CABINET_LIMITE: Limite de 0 dossiers atteinte pour ce cabinet.');
+
+  -- ─ cabinet_rattacher : société propre, société inconnue, cabinet inactif.
+  UPDATE public.cabinets cx SET societe_propre_id = soc_p WHERE cx.id = v_k3;
+  PERFORM pg_temp.cab5_attendre('rattacher la société propre', sa, 'aal2',
+    format(q_rattacher, v_k3, soc_p, 'lecture'), 'P0001 CABINET_SOCIETE_PROPRE');
+  PERFORM pg_temp.cab5_attendre('rattacher une société inconnue', sa, 'aal2',
+    format(q_rattacher, v_k3, '00000000-cab5-0000-0001-0000000000ff', 'lecture'), 'P0001 CABINET_SOCIETE_INTROUVABLE');
+  UPDATE public.cabinets cx SET actif = false WHERE cx.id = v_k3;
+  PERFORM pg_temp.cab5_attendre('rattacher à un cabinet inactif', sa, 'aal2',
+    format(q_rattacher, v_k3, soc_y, 'lecture'), 'P0001 CABINET_INACTIF');
+  UPDATE public.cabinets cx SET actif = true WHERE cx.id = v_k3;
+
+  -- ─ I3, rattacher : un membre actif du cabinet 1 (C1) a un accès direct à Y.
+  INSERT INTO public.user_societes (user_id, societe_id) VALUES (c1, soc_y);
+  PERFORM pg_temp.cab5_attendre('rattacher Y (C1 y a un accès direct)', sa, 'aal2',
+    format(q_rattacher, k1, soc_y, 'lecture'), 'P0001 CABINET_ACCES_DIRECT');
+  DELETE FROM public.user_societes us WHERE us.user_id = c1 AND us.societe_id = soc_y;
+  PERFORM pg_temp.cab5_attendre('rattacher Y (sans accès direct)', sa, 'aal2',
+    format(q_rattacher, k1, soc_y, 'lecture'), 'ok:');
+
+  -- ─ I3, définir un membre : U14 a un accès direct au dossier 02 (en cours).
+  INSERT INTO public.user_societes (user_id, societe_id) VALUES (u14, s02);
+  PERFORM pg_temp.cab5_attendre('R1 ajoute U14 (accès direct à 02)', r1, 'aal2',
+    format(q_membre, k1, u14, 'collaborateur', true), 'P0001 CABINET_ACCES_DIRECT');
+  PERFORM pg_temp.cab5_attendre('super-admin ajoute U14 (accès direct à 02)', sa, 'aal2',
+    format(q_membre, k1, u14, 'collaborateur', true), 'P0001 CABINET_ACCES_DIRECT');
+  -- Un client dont le lien est terminé (10) ne bloque pas.
+  DELETE FROM public.user_societes us WHERE us.user_id = u14 AND us.societe_id = s02;
+  INSERT INTO public.user_societes (user_id, societe_id) VALUES (u14, s10);
+  PERFORM pg_temp.cab5_attendre('R1 ajoute U14 (accès direct à un lien terminé)', r1, 'aal2',
+    format(q_membre, k1, u14, 'collaborateur', true), 'ok:');
+  DELETE FROM public.user_societes us WHERE us.user_id = u14 AND us.societe_id = s10;
+  -- Une désactivation reste possible malgré un accès direct.
+  INSERT INTO public.user_societes (user_id, societe_id) VALUES (u14, s02);
+  PERFORM pg_temp.cab5_attendre('R1 désactive U14 (accès direct à 02)', r1, 'aal2',
+    format(q_membre, k1, u14, 'collaborateur', false), 'ok:');
+  DELETE FROM public.user_societes us WHERE us.user_id = u14 AND us.societe_id = s02;
+
+  -- ─ I5, limite connue : l'administrateur de X, simplement rattaché à A,
+  --   passe cabinet_admin_client et change la mission de A.
+  INSERT INTO public.user_societes (user_id, societe_id) VALUES (adx, '00000000-cab5-0000-0001-000000000001');
+  PERFORM pg_temp.cab5_attendre('I5 : administrateur de X rattaché à A', adx, 'aal2',
+    format('SELECT public.cabinet_changer_mission(%L, %L)::text', da, 'lecture'), 'ok:');
+  DELETE FROM public.user_societes us
+  WHERE us.user_id = adx AND us.societe_id = '00000000-cab5-0000-0001-000000000001';
+
+  -- ─ I1, quota : 20 ajouts par cabinet en 24 heures pour un responsable.
+  i := 0;
+  WHILE (SELECT count(*) FROM public.cabinet_membres m WHERE m.cabinet_id = k1) < 20 LOOP
+    i := i + 1;
+    v_quota := format('00000000-cab5-0000-0004-%s', lpad(i::text, 12, '0'))::uuid;
+    PERFORM pg_temp.cab5_attendre(format('quota : ajout %s', i), r1, 'aal2',
+      format(q_membre, k1, v_quota, 'collaborateur', true), 'ok:');
+  END LOOP;
+  ASSERT i BETWEEN 1 AND 18, format('quota : %s ajouts pour atteindre 20 membres', i);
+  v_quota := format('00000000-cab5-0000-0004-%s', lpad((i + 1)::text, 12, '0'))::uuid;
+  PERFORM pg_temp.cab5_attendre('quota : 21e ajout par le responsable', r1, 'aal2',
+    format(q_membre, k1, v_quota, 'collaborateur', true), 'P0001 CABINET_QUOTA_JOUR');
+  -- Un changement de rôle n'est pas un ajout ; le super-admin n'est pas limité.
+  PERFORM pg_temp.cab5_attendre('quota : changement de rôle', r1, 'aal2',
+    format(q_membre, k1, u12, 'stagiaire', true), 'ok:');
+  PERFORM pg_temp.cab5_attendre('quota : ajout par le super-admin', sa, 'aal2',
+    format(q_membre, k1, v_quota, 'collaborateur', true), 'ok:');
 END $$;
 
 -- ═══ 9. Aucune écriture dans user_roles / user_societes ════════════════════
