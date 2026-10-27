@@ -8,6 +8,8 @@ BEGIN;
 --      société à laquelle on a accès (avant : n'importe quelle société) ;
 --   3. alertes_lues : un administrateur ne lit que les alertes de ses sociétés
 --      (avant : toutes les sociétés, le rôle admin étant global).
+-- Suppose appliquées les migrations de l'espace cabinet (20261027120000 à
+-- 20261027123000), en production depuis le 28/10/2026.
 -- Avant la migration, le test échoue et affiche la mesure (les défauts) ;
 -- après, il passe.
 -- Tourne sur la production dans une transaction annulée ; rien ne reste en base.
@@ -19,6 +21,8 @@ BEGIN;
 --     03 ADB administrateur de B seulement
 --     04 CPT membre comptable de A (rôle membre_compta)
 --     05 employé de B seulement (cible d'une affectation hors société)
+--     06 CAB collaborateur du cabinet …-0002-000000000001, tenue_complete sur A
+--        (lien …-0003-000000000001 actif), sans ligne user_societes
 --   sociétés      …-0001-0000000000NN : 01 A, 02 B
 --   services perso …-0005-0000000000NN : 01 de A, 02 de B
 --   postes perso   …-0006-0000000000NN : 01 de A, 02 de B
@@ -42,7 +46,8 @@ FROM (VALUES
   ('00000000-5ec0-0000-0000-000000000002', 'secrls-emp-a@exemple.invalid', 'Employé A'),
   ('00000000-5ec0-0000-0000-000000000003', 'secrls-adm-b@exemple.invalid', 'Administrateur B'),
   ('00000000-5ec0-0000-0000-000000000004', 'secrls-cpt-a@exemple.invalid', 'Comptable A'),
-  ('00000000-5ec0-0000-0000-000000000005', 'secrls-emp-b@exemple.invalid', 'Employé B')
+  ('00000000-5ec0-0000-0000-000000000005', 'secrls-emp-b@exemple.invalid', 'Employé B'),
+  ('00000000-5ec0-0000-0000-000000000006', 'secrls-cab@exemple.invalid',   'Collaborateur cabinet')
 ) AS u(id, email, nom);
 
 INSERT INTO public.societes (id, nom) VALUES
@@ -78,6 +83,16 @@ INSERT INTO public.alertes_lues (user_id, societe_id, alerte_id) VALUES
   ('00000000-5ec0-0000-0000-000000000002', '00000000-5ec0-0000-0001-000000000001', 'secrls-alerte'),
   ('00000000-5ec0-0000-0000-000000000005', '00000000-5ec0-0000-0001-000000000002', 'secrls-alerte');
 
+INSERT INTO public.cabinets (id, nom) VALUES
+  ('00000000-5ec0-0000-0002-000000000001', 'SECRLS Cabinet');
+INSERT INTO public.cabinet_membres (cabinet_id, user_id, role) VALUES
+  ('00000000-5ec0-0000-0002-000000000001', '00000000-5ec0-0000-0000-000000000006', 'collaborateur');
+INSERT INTO public.cabinet_dossiers (id, cabinet_id, societe_id, mission, etat, origine) VALUES
+  ('00000000-5ec0-0000-0003-000000000001', '00000000-5ec0-0000-0002-000000000001',
+   '00000000-5ec0-0000-0001-000000000001', 'tenue_complete', 'actif', 'cabinet');
+INSERT INTO public.cabinet_attributions (dossier_id, user_id, mission) VALUES
+  ('00000000-5ec0-0000-0003-000000000001', '00000000-5ec0-0000-0000-000000000006', 'tenue_complete');
+
 -- ─── Mesure ─────────────────────────────────────────────────────────────────
 -- Fonction temporaire (disparaît avec la transaction), appelée en postgres :
 -- elle prend la session de chaque utilisateur (SET LOCAL ROLE authenticated
@@ -103,7 +118,8 @@ BEGIN
       ('ADA', '00000000-5ec0-0000-0000-000000000001', 'secrls-adm-a@exemple.invalid'),
       ('EMP', '00000000-5ec0-0000-0000-000000000002', 'secrls-emp-a@exemple.invalid'),
       ('ADB', '00000000-5ec0-0000-0000-000000000003', 'secrls-adm-b@exemple.invalid'),
-      ('CPT', '00000000-5ec0-0000-0000-000000000004', 'secrls-cpt-a@exemple.invalid')
+      ('CPT', '00000000-5ec0-0000-0000-000000000004', 'secrls-cpt-a@exemple.invalid'),
+      ('CAB', '00000000-5ec0-0000-0000-000000000006', 'secrls-cab@exemple.invalid')
     ) AS t(lib, id, email)
   LOOP
     EXECUTE 'SET LOCAL ROLE authenticated';
@@ -210,7 +226,16 @@ BEGIN
     'ADB|ucp_poste_autre_soc|42501', 'ADB|ucp_user_hors_soc|42501',
     'ADB|audit_soc_a|42501', 'ADB|audit_soc_b|ok', 'ADB|audit_sans_soc|42501',
     'ADB|audit_autre_user|42501', 'ADB|audit_faux_email|42501',
-    'ADB|alertes_a|0', 'ADB|alertes_b|1'
+    'ADB|alertes_a|0', 'ADB|alertes_b|1',
+    -- Membre de cabinet sur A : aucun poste personnalisé (cabinet_refus), audit
+    -- dans A seulement, aucune alerte lue d'autrui.
+    'CAB|cs_lire|0',   'CAB|cs_maj|0',   'CAB|cs_ajout|42501',  'CAB|cs_suppr|0',
+    'CAB|cp_lire|0',   'CAB|cp_maj|0',   'CAB|cp_ajout|42501',  'CAB|cp_suppr|0',
+    'CAB|ucp_lire|0',  'CAB|ucp_maj|0',  'CAB|ucp_ajout|42501', 'CAB|ucp_suppr|0',
+    'CAB|ucp_poste_autre_soc|42501', 'CAB|ucp_user_hors_soc|42501',
+    'CAB|audit_soc_a|ok', 'CAB|audit_soc_b|42501', 'CAB|audit_sans_soc|42501',
+    'CAB|audit_autre_user|42501', 'CAB|audit_faux_email|42501',
+    'CAB|alertes_a|0', 'CAB|alertes_b|0'
   ];
 
   SELECT string_agg(l, E'\n' ORDER BY l) INTO ecart FROM (

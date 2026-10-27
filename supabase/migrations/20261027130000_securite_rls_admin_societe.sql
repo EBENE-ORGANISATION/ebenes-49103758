@@ -10,9 +10,9 @@
 -- 2. audit_log : WITH CHECK (user_id = auth.uid()) laissait écrire une ligne
 --    pour n'importe quelle société, sans société, ou au nom d'un autre e-mail.
 --    Désormais : pour soi, avec l'e-mail de sa session, dans une société à
---    laquelle on a accès. Le trigger audit_trigger_fn (SECURITY DEFINER,
---    propriétaire postgres) et les fonctions Edge (service_role) ne passent pas
---    par cette règle.
+--    laquelle on a accès, directement ou au titre d'un cabinet. Le trigger
+--    audit_trigger_fn (SECURITY DEFINER, propriétaire postgres) et les
+--    fonctions Edge (service_role) ne passent pas par cette règle.
 -- 3. alertes_lues : « is_admin » étant global, tout administrateur lisait les
 --    alertes lues de toutes les sociétés. Désormais limité à ses sociétés.
 --
@@ -177,7 +177,10 @@ create policy user_custom_postes_delete on public.user_custom_postes
 
 -- ─── 2. audit_log ───────────────────────────────────────────────────────────
 -- logAction (src/lib/audit.ts) envoie toujours la société courante ; les lignes
--- sans société viennent du trigger ou des fonctions Edge.
+-- sans société viennent du trigger ou des fonctions Edge. Un membre de cabinet
+-- n'a pas de ligne user_societes chez ses clients : il y écrit au titre du
+-- cabinet (cabinet_societes_agit, cabinet_id recalculé par
+-- trg_audit_log_cabinet_client).
 drop policy if exists audit_log_insert on public.audit_log;
 create policy audit_log_insert on public.audit_log
   for insert to authenticated
@@ -185,10 +188,14 @@ create policy audit_log_insert on public.audit_log
     user_id = (select auth.uid())
     and user_email is not distinct from ((select auth.jwt()) ->> 'email')
     and societe_id is not null
-    and public.has_societe_access((select auth.uid()), societe_id)
+    and (public.has_societe_access((select auth.uid()), societe_id)
+         or societe_id = any ((select public.cabinet_societes_agit())::uuid[]))
   );
 
 -- ─── 3. alertes_lues ────────────────────────────────────────────────────────
+-- Pas de branche cabinet : un membre de cabinet lit ses propres lignes (il n'en
+-- a pas chez un client, l'insertion exigeant has_societe_access) et jamais
+-- celles des utilisateurs du client.
 drop policy if exists alertes_lues_select_own on public.alertes_lues;
 create policy alertes_lues_select_own on public.alertes_lues
   for select to authenticated
