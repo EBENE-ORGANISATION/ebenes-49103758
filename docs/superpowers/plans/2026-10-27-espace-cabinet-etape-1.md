@@ -221,6 +221,10 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 - Produit : `useDossiersCabinet(): { dossiers: DossierCabinet[]; isLoading: boolean }`, qui appelle `mes_dossiers_cabinet()` par TanStack Query (clé `["dossiers_cabinet", userId]`).
 - Modifie `AuthProvider`. Il lit le `sid` de l'URL de la même façon que `useTenant` (`location.search`). Si ce `sid` figure dans `useDossiersCabinet()`, alors `perms = permissionsMission(...)` remplace `computePermissions(...)`, et `isAdmin` reste faux.
 
+- Relecture de la tâche 4 :
+  - `src/hooks/usePeutValider.ts` : pour un dossier ouvert au titre d'un cabinet, la validation dépend de la mission (niveau 3), jamais du rôle global `admin`. Sinon, le bouton « Valider » s'affiche et la base refuse.
+  - `messageErreur` : quand le refus `EXERCICE_REOUVERTURE` ou `EXERCICE_CLOTURE` vise un membre de cabinet, afficher « Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire. » au lieu de « Seul un administrateur peut rouvrir… ». Le test vitest couvre les deux textes.
+
 - [ ] **6.1 Écrire le test** `missionCabinet.test.ts`. Il doit vérifier :
   - la matrice complète des 5 missions, avec les valeurs du § 5 en dur ;
   - qu'un stagiaire en `tenue_complete` a `compta: "write"` ;
