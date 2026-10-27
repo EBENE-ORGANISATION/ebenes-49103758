@@ -186,6 +186,8 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 - Produit (Edge `cabinet-ops`, POST) : les actions `ajouter_membre` (`email`, `nom`, `role`) et `inviter_admin_client` (`societe_id`, `email`, `nom`). La fonction crée le compte, ou retrouve un compte existant, envoie l'e-mail d'invitation par `send-transactional-email`, puis appelle la fonction SQL correspondante. Pour `inviter_admin_client`, elle donne le rôle `admin` et la ligne `user_societes`, par service_role. L'appelant doit être le responsable du cabinet lié à cette société.
 - Produit (application) : dans `src/lib/cabinetOps.ts`, un enveloppement typé de chaque fonction SQL (appel `supabase.rpc`) et de la fonction Edge (`supabase.functions.invoke`). `messageErreur` affiche le texte qui suit `CABINET_<CODE>:`.
 
+- Relecture de la tâche 1 : « administrateur du client » se teste **uniquement** par `cabinet_admin_client(uid, societe)` (créée en tâche 1), jamais en réécrivant la condition. Avec des rôles globaux, une personne `admin` ailleurs et simplement rattachée à la société passe ce test : les opérations d'écriture qui s'en servent (`cabinet_changer_mission`) l'acceptent, à signaler dans le résumé de la tâche. Les fonctions d'aide de la tâche 1 ne portent que sur l'appelant : une fonction `cabinet_*` qui examine un autre utilisateur lit les tables directement.
+
 - [ ] **5.1 Écrire le test SQL.** Il doit vérifier que :
   - le cabinet est créé par le super-admin, et refusé à un non-super-admin ;
   - le responsable crée 10 dossiers, et le 11ᵉ est refusé avec `CABINET_LIMITE` (vigilance 5) ;
@@ -283,6 +285,8 @@ L'utilisateur applique les migrations définitives après le passage des tests (
   - le signalement des doubles accès : un membre de cabinet qui a aussi une ligne `user_societes` sur un dossier de son cabinet.
 - Produit, côté client : le cabinet, la mission (modifiable par l'administrateur client), la date de début du lien et la liste des collaborateurs qui ont accès. Le texte précise : « Les actions du cabinet sont signées dans le journal d'audit. »
 
+- Produit (relecture de la tâche 1) : une fonction SQL `cabinet_collaborateurs_dossier(_societe uuid) RETURNS TABLE(user_id uuid, nom text, role role_cabinet, mission mission_cabinet)`, réservée à `cabinet_admin_client` ou au super-admin, car la règle de `profiles` ne donne pas les noms des collaborateurs à l'administrateur du client. Elle sert au bloc client et à l'audit (tâche 10).
+
 - [ ] **9.1 Écrire le test** `MonCabinetClient.test.tsx`. Il vérifie que le choix d'une mission plus basse appelle `cabinet_changer_mission` avec la bonne valeur, et que le bloc n'apparaît pas pour une société sans cabinet.
 - [ ] **9.2 Lancer** → échec. **9.3 Implémenter. 9.4 Relancer** → OK.
 - [ ] **9.5 Vérifier dans l'application, sur TEST** : créer le « Cabinet Test » et son responsable (compte créé par l'utilisateur), rattacher la société TEST, puis baisser et remonter la mission depuis TEST.
@@ -295,6 +299,8 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 - Supprimer : `src/components/ebene/GestionDelegations.tsx`, `src/hooks/useFiscalDelegations.ts` et leur usage dans `src/components/ebene/Fiscalite.tsx`
 - Créer : `supabase/migrations/20261027125000_suppression_fiscal_delegations.sql` (`DROP TABLE public.fiscal_delegations`, vide en production le 27/10/2026 ; la migration vérifie qu'elle est vide avant)
 - Modifier : `docs/recette/plan-recette.md` (module 10 : délégations remplacées par l'espace cabinet)
+
+- Modifier : `supabase/functions/super-admin-ops/index.ts` (`delete_societe`). Depuis la tâche 1, `cabinet_dossiers.societe_id` est en `ON DELETE RESTRICT` : la suppression d'une société qui a eu un cabinet doit être refusée avec le message « Cette société a été suivie par un cabinet : son historique empêche la suppression. »
 
 - [ ] **10.1 Écrire le test** `src/pages/AuditLog.test.tsx` : une ligne avec `cabinet_id` affiche « Cabinet Test — Collaborateur 1 », et le filtre « Cabinet » ne garde que ces lignes.
 - [ ] **10.2 Lancer** → échec. **10.3 Implémenter et supprimer.** Puis `grep -rn "fiscal_delegations\|GestionDelegations" src` ne doit plus rien trouver, en dehors de `types.ts`, qui est régénéré.
