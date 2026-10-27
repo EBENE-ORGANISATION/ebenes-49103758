@@ -32,11 +32,13 @@
 
 ## Base de test
 
-Les tests SQL (`supabase/tests/cabinet_*.sql`) tournent dans une transaction annulée (`BEGIN … ROLLBACK`). Ils créent leurs propres utilisateurs, sociétés et cabinets, et simulent des sessions par `SET LOCAL role authenticated` et `set_config('request.jwt.claims', '{"sub":"…","aal":"aal2"}', true)`. Ils s'exécutent avec l'outil SQL de Supabase **sur une base où les migrations sont appliquées**. Deux possibilités, au choix de l'utilisateur avant la tâche 1 :
-- **(a)** une branche Supabase de développement, payante (le coût est affiché et validé avant création) ;
-- **(b)** la production, puisque les tâches 1 et 2 n'ajoutent que des objets nouveaux. Les tâches 3 et 4 modifient des règles existantes : on les y applique seulement une fois les tests passés sur (a), ou après relecture si (a) est refusée.
+*(Décidé le 2026-10-27 : la branche Supabase ne peut pas être construite, car les migrations du dépôt ne se rejouent pas sur une base neuve.)*
 
-Chaque fichier de test se termine par `RAISE NOTICE 'OK <nom>'`. Le moindre `ASSERT` qui échoue interrompt la transaction : c'est l'échec attendu tant que le code n'existe pas.
+Les tests SQL (`supabase/tests/cabinet_*.sql`) tournent **sur la production, dans une transaction annulée** : `BEGIN;`, puis la ou les migrations de la tâche (et des tâches précédentes pas encore appliquées), puis les fixtures et les vérifications, puis `ROLLBACK;`. Les changements de structure de Postgres s'annulent aussi : rien ne reste en base. Les fixtures (utilisateurs, sociétés, cabinets) sont créées dans la transaction, avec des uuid fixes. Les sessions sont simulées par `SET LOCAL role authenticated` et `set_config('request.jwt.claims', '{"sub":"…","role":"authenticated","aal":"aal2"}', true)`. Les tests se lancent à un moment calme, car les tables touchées restent verrouillées quelques secondes.
+
+Chaque fichier de test commence par `BEGIN;` et se termine par `RAISE NOTICE 'OK <nom>'` puis `ROLLBACK;`. Le moindre `ASSERT` qui échoue interrompt la transaction : c'est l'échec attendu tant que le code n'existe pas. Pour un test qui dépend des migrations, le lanceur concatène `BEGIN;`, les migrations, puis le corps du test (sans son propre `BEGIN;`). Les tests le prévoient : leur corps est délimité par `-- debut test` et `-- fin test`.
+
+L'utilisateur applique les migrations définitives après le passage des tests (étapes « l'utilisateur applique »).
 
 ---
 
