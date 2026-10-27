@@ -492,5 +492,14 @@ export const messageErreur = (e: unknown, defaut: string): string => {
   if (msg.includes("FACTURE_ENGAGEE")) {
     return "Une facture validée, payée ou annulée ne peut pas être supprimée : annulez-la.";
   }
+  if (msg.includes("CABINET_VALIDATION")) {
+    return "Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire.";
+  }
+  if (msg.includes("CABINET_PAIEMENT")) {
+    return "Votre mission dans ce dossier ne couvre pas la comptabilité : le paiement du salaire revient au client ou à un collaborateur en tenue complète.";
+  }
+  if (msg.includes("SOCIETE_IMMUABLE")) {
+    return "Une pièce ne peut pas être déplacée vers une autre société.";
+  }
   return defaut;
 };

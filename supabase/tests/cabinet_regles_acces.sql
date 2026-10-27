@@ -3,7 +3,9 @@ BEGIN;
 -- Test de la tâche 3 (espace cabinet) : règles d'accès des tables métier et
 -- des tables d'administration, société immuable.
 -- Suppose appliquées juste avant les migrations 20261027120000_cabinet_schema.sql,
--- 20261027121000_cabinet_droits.sql et 20261027122000_cabinet_regles_acces.sql.
+-- 20261027121000_cabinet_droits.sql, 20261027122000_cabinet_regles_acces.sql
+-- et 20261027123000_cabinet_validation_audit.sql (cas « tâche 4 » en fin de
+-- fichier).
 -- Tourne sur la production dans une transaction annulée ; rien ne reste en base.
 --
 -- Fixtures (uuid fixes, préfixe 00000000-cab3-) :
@@ -967,43 +969,66 @@ BEGIN
 END $$;
 UPDATE public.cabinets SET actif = true WHERE id = '00000000-cab3-0000-0002-000000000001';
 
--- ═══ Tâche 4 : cas attendus en échec aujourd'hui (ne pas exiger encore) ════
--- Le responsable 1 a le rôle global admin : is_admin le dispense des
--- contrôles de réouverture et des quatre yeux. La tâche 4 doit fermer ces
--- trois cas ; retirer les marques de commentaire à ce moment-là.
---
--- UPDATE public.exercices SET statut = 'cloture'
--- WHERE societe_id = '00000000-cab3-0000-0001-000000000001' AND annee = 2026;
--- SET LOCAL role authenticated;
--- SELECT set_config('request.jwt.claims',
---   '{"sub":"00000000-cab3-0000-0000-000000000001","role":"authenticated","aal":"aal2"}', true);
--- DO $$
--- DECLARE
---   a constant uuid := '00000000-cab3-0000-0001-000000000001';
--- BEGIN
---   -- 1. Réouverture d'un exercice clos par un responsable admin : refusée.
---   BEGIN
---     UPDATE public.exercices SET statut = 'ouvert' WHERE societe_id = a AND annee = 2026;
---     RAISE EXCEPTION 'tâche 4 : exercice rouvert par le cabinet';
---   EXCEPTION WHEN insufficient_privilege THEN NULL;
---   END;
---   -- 2. UPDATE de l'année d'un exercice clos : refusé.
---   BEGIN
---     UPDATE public.exercices SET annee = 2027 WHERE societe_id = a AND annee = 2026;
---     RAISE EXCEPTION 'tâche 4 : année d''un exercice clos modifiée';
---   EXCEPTION WHEN insufficient_privilege THEN NULL;
---   END;
---   -- 3. Validation de sa propre saisie par un responsable admin : refusée.
---   INSERT INTO public.ecritures_comptables (societe_id, annee, mois, journal, libelle, numero_piece)
---     VALUES (a, 2025, 2, 'OD', 'CAB3 saisie R1 à valider', 'CAB3-R1-VAL');
---   BEGIN
---     UPDATE public.ecritures_comptables SET statut = 'valide'
---     WHERE societe_id = a AND numero_piece = 'CAB3-R1-VAL';
---     RAISE EXCEPTION 'tâche 4 : propre saisie validée par le cabinet';
---   EXCEPTION WHEN insufficient_privilege THEN NULL;
---   END;
--- END $$;
--- RESET role;
+-- ═══ Tâche 4 : responsable admin, exercice clos et quatre yeux chez A ══════
+-- Le responsable 1 a le rôle global admin : chez un client du cabinet, il ne
+-- bénéficie ni de la dispense de réouverture ni de celle des quatre yeux
+-- (migration 20261027123000_cabinet_validation_audit.sql).
+UPDATE public.exercices SET statut = 'cloture'
+WHERE societe_id = '00000000-cab3-0000-0001-000000000001' AND annee = 2026;
+SET LOCAL role authenticated;
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-cab3-0000-0000-000000000001","role":"authenticated","aal":"aal2"}', true);
+DO $$
+DECLARE
+  a constant uuid := '00000000-cab3-0000-0001-000000000001';
+  n bigint;
+BEGIN
+  -- 1. Réouverture d'un exercice clos par un responsable admin : refusée.
+  BEGIN
+    UPDATE public.exercices SET statut = 'ouvert' WHERE societe_id = a AND annee = 2026;
+    RAISE EXCEPTION 'tâche 4 : exercice rouvert par le cabinet';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE 'EXERCICE_REOUVERTURE%' THEN
+      RAISE EXCEPTION 'tâche 4, réouverture : attendu EXERCICE_REOUVERTURE, obtenu %', SQLERRM;
+    END IF;
+  END;
+  -- 2. UPDATE de l'année d'un exercice clos : refusé.
+  BEGIN
+    UPDATE public.exercices SET annee = 2027 WHERE societe_id = a AND annee = 2026;
+    RAISE EXCEPTION 'tâche 4 : année d''un exercice clos modifiée';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE 'EXERCICE_CLOTURE%' THEN
+      RAISE EXCEPTION 'tâche 4, année : attendu EXERCICE_CLOTURE, obtenu %', SQLERRM;
+    END IF;
+  END;
+  -- 3. Suppression d'un exercice clos : sans effet (règles) ou refusée (trigger).
+  BEGIN
+    DELETE FROM public.exercices WHERE societe_id = a AND annee = 2026;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    ASSERT n = 0, 'tâche 4 : exercice clos supprimé par le cabinet';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  -- 4. Validation de sa propre saisie par un responsable admin : refusée.
+  INSERT INTO public.ecritures_comptables (societe_id, annee, mois, journal, libelle, numero_piece)
+    VALUES (a, 2025, 2, 'OD', 'CAB3 saisie R1 à valider', 'CAB3-R1-VAL');
+  BEGIN
+    UPDATE public.ecritures_comptables SET statut = 'valide'
+    WHERE societe_id = a AND numero_piece = 'CAB3-R1-VAL';
+    RAISE EXCEPTION 'tâche 4 : propre saisie validée par le cabinet';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE 'QUATRE_YEUX%' THEN
+      RAISE EXCEPTION 'tâche 4, quatre yeux : attendu QUATRE_YEUX, obtenu %', SQLERRM;
+    END IF;
+  END;
+END $$;
+RESET role;
+SELECT set_config('request.jwt.claims', '', true);
+DO $$
+BEGIN
+  ASSERT (SELECT statut FROM public.exercices
+          WHERE societe_id = '00000000-cab3-0000-0001-000000000001' AND annee = 2026) = 'cloture',
+    'tâche 4 : exercice 2026 de A plus clos';
+END $$;
 
 RESET role;
 SELECT set_config('request.jwt.claims', '', true);

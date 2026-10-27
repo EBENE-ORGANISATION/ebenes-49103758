@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { EcritureComptable, Facture, Transaction } from "@/types/ebene";
-import { dateFr, isoLocal, salaireReferenceFinContrat, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
+import { dateFr, isoLocal, messageErreur, salaireReferenceFinContrat, tauxPourMois, transactionComptabilisee, tvaDepuisTransactions } from "./ebene-utils";
 import { TAUX_DEFAUT } from "@/types/ebene";
 
 describe("dates locales", () => {
@@ -143,5 +143,32 @@ describe("salaireReferenceFinContrat", () => {
     // 6 ans : 2 % + 4 × 1 % = 6 % de la base
     expect(salaireReferenceFinContrat({ salaire: 200_000, sursalaire: 20_000 }, 6.4)).toBeCloseTo(232_000, 6);
     expect(salaireReferenceFinContrat({ salaire: 200_000 }, 1.5)).toBe(200_000);
+  });
+});
+
+describe("messageErreur (espace cabinet)", () => {
+  it("traduit le refus de validation d'un membre de cabinet", () => {
+    expect(messageErreur(new Error("CABINET_VALIDATION"), "x")).toBe(
+      "Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire.",
+    );
+    expect(messageErreur({ message: "CABINET_VALIDATION: mission insuffisante" }, "x")).toBe(
+      "Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire.",
+    );
+  });
+
+  it("traduit le refus de paiement d'un bulletin par un cabinet sans mission comptable", () => {
+    expect(messageErreur(new Error("CABINET_PAIEMENT: votre mission ne couvre pas la comptabilité"), "x")).toBe(
+      "Votre mission dans ce dossier ne couvre pas la comptabilité : le paiement du salaire revient au client ou à un collaborateur en tenue complète.",
+    );
+  });
+
+  it("traduit le refus de changer la société d'une pièce", () => {
+    expect(messageErreur(new Error("SOCIETE_IMMUABLE: une ligne ne change pas de société."), "x")).toBe(
+      "Une pièce ne peut pas être déplacée vers une autre société.",
+    );
+  });
+
+  it("garde le message par défaut pour une erreur inconnue", () => {
+    expect(messageErreur(new Error("autre chose"), "x")).toBe("x");
   });
 });
