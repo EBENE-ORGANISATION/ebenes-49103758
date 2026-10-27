@@ -151,6 +151,11 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 
 **Interfaces :**
 - Relecture de la tâche 2 : la dispense de quatre yeux accordée aux administrateurs (`is_admin`, rôle global) ne s'applique pas quand l'auteur agit comme cabinet sur la société de la ligne. Sinon, un collaborateur administrateur de la société de son propre cabinet validerait sa propre saisie chez un client.
+- Relecture de la tâche 3 (à faire dans cette tâche, et à tester avec un responsable de cabinet qui a le rôle global `admin`) :
+  - `controle_reouverture_exercice()` passe en `BEFORE UPDATE OR DELETE` : refus du DELETE d'un exercice clos, et de tout changement de `annee` ou `societe_id` sur une ligne close, sauf pour un administrateur direct. Pour un auteur qui agit comme cabinet, la réouverture est **toujours** refusée, quel que soit son niveau (§ 5 de la spec).
+  - Dans `controle_reouverture_exercice()` et `controle_quatre_yeux()`, la dispense devient `(is_admin(uid) OR is_admin_general(uid)) AND NOT agit_comme_cabinet(uid, societe)`.
+  - `cree_par` ne doit plus être falsifiable à l'insertion : trigger `BEFORE INSERT` avec `NEW.cree_par := coalesce(auth.uid(), NEW.cree_par)` sur les tables à quatre yeux.
+  - Activer les cas « tâche 4 » laissés commentés dans `supabase/tests/cabinet_regles_acces.sql`.
 - Modifie `controle_quatre_yeux()`. Si `agit_comme_cabinet(uid, NEW.societe_id)` et `cabinet_niveau(uid, NEW.societe_id, module_de_table(TG_TABLE_NAME)) < 3`, le passage au statut validé est refusé avec `RAISE EXCEPTION 'CABINET_VALIDATION'`. La règle « pas sa propre saisie » ne change pas.
 - Ajoute `audit_log.cabinet_id uuid`, que `audit_trigger_fn()` remplit quand l'auteur agit comme cabinet sur la société de la ligne.
 - `messageErreur()` (`src/lib/ebene-utils.ts`) traduit `CABINET_VALIDATION` par : « Votre mission dans ce dossier ne permet pas de valider : un autre collaborateur ou le client doit le faire. »
