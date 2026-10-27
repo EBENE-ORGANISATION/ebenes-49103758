@@ -20,7 +20,8 @@
 -- Règles communes (cabinet_liens_internes) : lien actif ou depart_demande,
 -- cabinet actif, membre actif, responsable ou attribué sur le dossier, aucune
 -- ligne user_societes pour ce couple (l'accès direct prime), et l'utilisateur
--- n'est pas super-admin (rôle admin_general, quel que soit son niveau aal).
+-- n'est pas super-admin (rôle admin_general ou super_admin, quel que soit son
+-- niveau aal).
 --
 -- Appelant : agit_comme_cabinet et cabinet_niveau ne répondent que pour
 -- l'appelant (_uid = auth.uid()), ou pour un appel hors session utilisateur
@@ -122,9 +123,11 @@ AS $function$
       SELECT 1 FROM public.user_societes us
       WHERE us.user_id = _uid AND us.societe_id = d.societe_id
     )
+    -- Super-admin : test sur le texte du rôle, comme trg_bloquer_role_super_admin
+    -- (24/10/2026), et non is_admin_general (qui dépend du niveau aal).
     AND NOT EXISTS (
       SELECT 1 FROM public.user_roles r
-      WHERE r.user_id = _uid AND r.role::text = 'admin_general'
+      WHERE r.user_id = _uid AND r.role::text IN ('admin_general', 'super_admin')
     )
 $function$;
 
@@ -163,8 +166,9 @@ $function$;
 
 -- ─── Sociétés de l'appelant (pour les règles de la tâche 3) ────────────────
 -- Sans dépendance à la ligne : à utiliser sous la forme
---   societe_id = ANY ((SELECT public.cabinet_societes('compta', 1)))
--- pour n'être calculées qu'une fois par requête.
+--   societe_id = ANY ((SELECT public.cabinet_societes('compta', 1))::uuid[])
+-- pour n'être calculées qu'une fois par requête (le cast ::uuid[] est
+-- nécessaire : sans lui, ANY ((SELECT …)) est lu comme ANY(sous-requête)).
 CREATE OR REPLACE FUNCTION public.cabinet_societes(_module text, _min int)
 RETURNS uuid[]
 LANGUAGE sql

@@ -22,6 +22,8 @@ BEGIN;
 --     11 comptable rattaché à D (société sans cabinet)
 --     12 employé seul rattaché à D (rôle employe)
 --     13 super-admin (admin_general), collaborateur cabinet 1 : tenue_complete sur A
+--     14 super-admin (rôle super_admin, si la valeur existe dans app_role),
+--        collaborateur cabinet 1 : tenue_complete sur A
 --   sociétés      …-0001-0000000000NN :
 --     01 A  02 B  03 C  04 D (sans lien)  05 E  06 F  07 G  08 H  09 I
 --   cabinets      …-0002-0000000000NN : 01 cabinet 1, 02 cabinet 2, 03 cabinet 3
@@ -150,7 +152,8 @@ FROM (VALUES
   ('00000000-cab0-0000-0000-000000000010', 'cab0-double@exemple.invalid',     'Double accès'),
   ('00000000-cab0-0000-0000-000000000011', 'cab0-compta-d@exemple.invalid',   'Comptable D'),
   ('00000000-cab0-0000-0000-000000000012', 'cab0-employe-d@exemple.invalid',  'Employé D'),
-  ('00000000-cab0-0000-0000-000000000013', 'cab0-super@exemple.invalid',      'Super admin membre')
+  ('00000000-cab0-0000-0000-000000000013', 'cab0-super@exemple.invalid',      'Super admin membre'),
+  ('00000000-cab0-0000-0000-000000000014', 'cab0-super2@exemple.invalid',     'Super admin (super_admin) membre')
 ) AS u(id, email, nom);
 
 -- Le trigger handle_new_societe crée societe_config et les services intégrés.
@@ -178,6 +181,15 @@ INSERT INTO public.user_roles (user_id, role) VALUES
   ('00000000-cab0-0000-0000-000000000011', 'comptable'::public.app_role),
   ('00000000-cab0-0000-0000-000000000012', 'employe'::public.app_role),
   ('00000000-cab0-0000-0000-000000000013', 'admin_general'::public.app_role);
+-- Rôle super_admin : seulement si la valeur existe dans l'enum app_role.
+DO $$
+BEGIN
+  IF 'super_admin' = ANY (enum_range(NULL::public.app_role)::text[]) THEN
+    EXECUTE 'INSERT INTO public.user_roles (user_id, role) VALUES (''00000000-cab0-0000-0000-000000000014'', ''super_admin'')';
+  ELSE
+    RAISE NOTICE 'app_role sans valeur super_admin : cas 14 non vérifié';
+  END IF;
+END $$;
 RESET role;
 
 INSERT INTO public.cabinets (id, nom) VALUES
@@ -196,7 +208,8 @@ INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif) VALUES
   ('00000000-cab0-0000-0002-000000000001', '00000000-cab0-0000-0000-000000000008', 'collaborateur', true),
   ('00000000-cab0-0000-0002-000000000003', '00000000-cab0-0000-0000-000000000009', 'responsable',   true),
   ('00000000-cab0-0000-0002-000000000001', '00000000-cab0-0000-0000-000000000010', 'collaborateur', true),
-  ('00000000-cab0-0000-0002-000000000001', '00000000-cab0-0000-0000-000000000013', 'collaborateur', true);
+  ('00000000-cab0-0000-0002-000000000001', '00000000-cab0-0000-0000-000000000013', 'collaborateur', true),
+  ('00000000-cab0-0000-0002-000000000001', '00000000-cab0-0000-0000-000000000014', 'collaborateur', true);
 
 INSERT INTO public.cabinet_dossiers (id, cabinet_id, societe_id, mission, etat, origine, termine_le) VALUES
   ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0002-000000000001',
@@ -228,7 +241,8 @@ INSERT INTO public.cabinet_attributions (dossier_id, user_id, mission) VALUES
   ('00000000-cab0-0000-0003-000000000002', '00000000-cab0-0000-0000-000000000007', 'tenue_complete'),
   ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0000-000000000008', 'tenue_complete'),
   ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0000-000000000010', 'tenue_complete'),
-  ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0000-000000000013', 'tenue_complete');
+  ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0000-000000000013', 'tenue_complete'),
+  ('00000000-cab0-0000-0003-000000000001', '00000000-cab0-0000-0000-000000000014', 'tenue_complete');
 
 -- ─── Cas, chacun dans la session de l'intéressé ─────────────────────────────
 -- Les tableaux de sociétés sont comparés triés (uuid croissants : A < B < C < E < I).
@@ -538,6 +552,36 @@ BEGIN
                                        '00000000-cab0-0000-0001-000000000001'),
     'super-admin aal1 : agit_comme_cabinet vrai';
   ASSERT public.cabinet_societes_agit() = '{}'::uuid[], 'super-admin aal1 : cabinet_societes_agit';
+END $$;
+
+-- Rôle super_admin (texte), en aal1 comme en aal2 : n'agit pas comme cabinet.
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-cab0-0000-0000-000000000014","role":"authenticated","aal":"aal1"}', true);
+DO $$
+DECLARE
+  u constant uuid := '00000000-cab0-0000-0000-000000000014';
+  a constant uuid := '00000000-cab0-0000-0001-000000000001';
+BEGIN
+  IF 'super_admin' = ANY (enum_range(NULL::public.app_role)::text[]) THEN
+    ASSERT NOT public.agit_comme_cabinet(u, a), 'super_admin aal1 : agit_comme_cabinet vrai';
+    ASSERT public.cabinet_niveau(u, a, 'compta') = 0, 'super_admin aal1 : cabinet_niveau <> 0';
+    ASSERT public.cabinet_societes_agit() = '{}'::uuid[], 'super_admin aal1 : cabinet_societes_agit';
+    ASSERT public.cabinet_societes('compta', 1) = '{}'::uuid[], 'super_admin aal1 : cabinet_societes';
+  ELSE
+    -- Sans la valeur, le membre agit comme cabinet : la règle porte sur le rôle seul.
+    ASSERT public.agit_comme_cabinet(u, a), 'membre sans rôle super-admin : agit faux';
+  END IF;
+END $$;
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-cab0-0000-0000-000000000014","role":"authenticated","aal":"aal2"}', true);
+DO $$
+BEGIN
+  IF 'super_admin' = ANY (enum_range(NULL::public.app_role)::text[]) THEN
+    ASSERT NOT public.agit_comme_cabinet('00000000-cab0-0000-0000-000000000014',
+                                         '00000000-cab0-0000-0001-000000000001'),
+      'super_admin aal2 : agit_comme_cabinet vrai';
+    ASSERT public.cabinet_societes_agit() = '{}'::uuid[], 'super_admin aal2 : cabinet_societes_agit';
+  END IF;
 END $$;
 
 -- ─── Retrait d'une attribution : effet immédiat ────────────────────────────
