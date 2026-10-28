@@ -7,8 +7,12 @@
 //       Responsable actif d'un cabinet actif (son cabinet) : NOUVEAUX comptes
 //       seulement. Une adresse qui correspond à un compte existant, quel qu'il
 //       soit, reçoit la réponse générique MSG_ADRESSE (sans dire si le compte
-//       existe). Le quota de 20 ajouts par cabinet sur 24 heures est contrôlé
-//       en base (CABINET_QUOTA_JOUR, dans cabinet_definir_membre).
+//       existe). Avant toute recherche de compte, cabinet_reserver_ajout
+//       (jeton de l'appelant) enregistre la tentative et applique le quota de
+//       20 tentatives par cabinet sur 24 heures (CABINET_QUOTA_JOUR, même
+//       réponse quelle que soit l'adresse ; le super-admin n'est pas compté).
+//       La base refuse aussi tout compte qui n'est pas tout juste créé
+//       (CABINET_COMPTE_EXISTANT), traduit ici en MSG_ADRESSE.
 //       Super-admin en aal2 (cabinet_id obligatoire) : compte nouveau ou
 //       existant, réponse détaillée.
 //       Le compte est créé, puis cabinet_definir_membre est appelée AVEC LE
@@ -26,9 +30,11 @@
 //   * renvoyer_invitation { user_id }
 //       Nouveau lien de choix du mot de passe pour un compte qui ne s'est
 //       jamais connecté (last_sign_in_at nul). Super-admin en aal2 : membre de
-//       cabinet ou administrateur d'un client suivi par un cabinet.
-//       Responsable : membre de son propre cabinet seulement (réponse
-//       générique sinon).
+//       cabinet, ou compte au rôle admin rattaché à un client suivi par un
+//       cabinet. Responsable : membre de son propre cabinet seulement
+//       (réponse générique sinon). Une invitation au plus toutes les
+//       10 minutes par compte (email_send_log, modèle cabinet-invitation) :
+//       429 générique sinon.
 //
 // E-mail : send-transactional-email, modèle cabinet-invitation. Nouveau
 // compte : lien de réinitialisation (generateLink recovery) ouvert sur le site
@@ -61,6 +67,9 @@ const MSG_ADRESSE = "Impossible d'ajouter cette adresse : contactez le super-adm
 const MSG_ADMIN_CLIENT_SA = "Seul le super-administrateur crée l'administrateur d'un client.";
 const MSG_AUTRES_SOCIETES = "Ce compte deviendrait administrateur de ses autres sociétés : utilisez une autre adresse.";
 const MSG_RENVOI = "Impossible de renvoyer l'invitation à ce compte.";
+const MSG_RENVOI_DELAI = "Une invitation vient d'être envoyée : réessayez dans quelques minutes.";
+const DELAI_RENVOI_MS = 10 * 60 * 1000;
+const MODELE_INVITATION = "cabinet-invitation";
 
 const LONGUEUR_NOM = 200;
 const LONGUEUR_EMAIL = 254;
@@ -193,6 +202,15 @@ async function ajouterMembre(ctx: Contexte): Promise<Response> {
     cabinetId = sien;
   }
 
+  // Quota : la tentative est enregistrée AVANT toute recherche de compte
+  // (comptée qu'elle aboutisse ou non). Quota atteint : même réponse quelle
+  // que soit l'adresse.
+  const { error: quotaErr } = await userClient.rpc("cabinet_reserver_ajout", { _cabinet: cabinetId });
+  if (quotaErr) {
+    return json({ error: erreurClient(quotaErr.message, "cabinet_reserver_ajout") },
+      quotaErr.code === "42501" ? 403 : quotaErr.message?.startsWith("CABINET_QUOTA_JOUR") ? 429 : 400);
+  }
+
   const { data: cabinet } = await admin.from("cabinets").select("nom").eq("id", cabinetId).maybeSingle();
   if (!cabinet) return json({ error: "Cabinet introuvable" }, 404);
 
@@ -213,8 +231,8 @@ async function ajouterMembre(ctx: Contexte): Promise<Response> {
     compte = cree;
   }
 
-  // La base décide (appelant, super-admin visé, autre cabinet, accès direct,
-  // quota, dernier responsable).
+  // La base décide (appelant, compte tout juste créé pour un responsable,
+  // super-admin visé, autre cabinet, accès direct, quota, dernier responsable).
   const { error: rpcErr } = await userClient.rpc("cabinet_definir_membre", {
     _cabinet: cabinetId,
     _user: compte.userId,
@@ -223,6 +241,9 @@ async function ajouterMembre(ctx: Contexte): Promise<Response> {
   });
   if (rpcErr) {
     if (!compte.existait) await admin.auth.admin.deleteUser(compte.userId);
+    // Compte qui n'est pas tout juste créé : la réponse générique d'une
+    // adresse existante.
+    if (rpcErr.message?.startsWith("CABINET_COMPTE_EXISTANT")) return json({ error: MSG_ADRESSE }, 400);
     return json({ error: erreurClient(rpcErr.message, "cabinet_definir_membre") },
       rpcErr.code === "42501" ? 403 : 400);
   }
@@ -346,12 +367,30 @@ async function renvoyerInvitation(ctx: Contexte): Promise<Response> {
   if (u.user.last_sign_in_at) return json({ error: MSG_RENVOI }, 400);
   const email = u.user.email;
 
+  // Délai minimal entre deux invitations au même compte (tout envoi du
+  // modèle, premier envoi compris, quel que soit son statut).
+  const depuis = new Date(Date.now() - DELAI_RENVOI_MS).toISOString();
+  const { count: recents, error: logErr } = await admin
+    .from("email_send_log")
+    .select("id", { count: "exact", head: true })
+    .eq("template_name", MODELE_INVITATION)
+    .in("recipient_email", [...new Set([email, email.toLowerCase()])])
+    .gte("created_at", depuis);
+  if (logErr) {
+    console.error("cabinet-ops (email_send_log) :", logErr);
+    return json({ error: MSG_GENERIQUE }, 500);
+  }
+  if ((recents ?? 0) > 0) return json({ error: MSG_RENVOI_DELAI }, 429);
+
   let donnees: Record<string, unknown>;
   if (membreInfos) {
     const { data: m } = await admin.from("cabinet_membres").select("role").eq("user_id", cible).maybeSingle();
     donnees = { objet: "membre", cabinetNom: membreInfos.cabinets.nom, roleLibelle: m?.role };
   } else {
-    // Super-admin : administrateur d'un client suivi par un cabinet.
+    // Super-admin : compte au rôle admin, rattaché à un client suivi par un
+    // cabinet.
+    const { data: rolesCible } = await admin.from("user_roles").select("role").eq("user_id", cible);
+    if (!(rolesCible || []).some((r: { role: string }) => r.role === "admin")) return json({ error: MSG_RENVOI }, 400);
     const { data: socs } = await admin.from("user_societes").select("societe_id").eq("user_id", cible);
     const ids = (socs || []).map((s: { societe_id: string }) => s.societe_id);
     const { data: lien } = ids.length
@@ -393,7 +432,9 @@ async function creerCompte(admin: SupabaseClient, email: string, nom: string): P
     user_metadata: { nom },
   });
   if (error || !cree.user) {
-    const deja = /already|registered|exists/i.test(error?.message ?? "");
+    // Code de GoTrue (email_exists) ; le texte en repli (anciennes versions).
+    const deja = (error as { code?: string } | null)?.code === "email_exists"
+      || /already|registered|exists/i.test(error?.message ?? "");
     if (!deja) console.error("cabinet-ops (createUser) :", error);
     return deja ? "existe" : null;
   }
@@ -422,7 +463,7 @@ async function envoyerInvitation(
     }
     const { data, error } = await admin.functions.invoke("send-transactional-email", {
       body: {
-        templateName: "cabinet-invitation",
+        templateName: MODELE_INVITATION,
         recipientEmail: email,
         idempotencyKey: `${cle}-${Date.now()}`,
         templateData: { ...donnees, lienUrl, nouveauCompte: !compte.existait },

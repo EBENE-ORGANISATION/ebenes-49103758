@@ -18,8 +18,12 @@ END $g$;
 -- Fonctions exposées (SECURITY DEFINER, search_path = public, EXECUTE :
 -- authenticated et service_role ; chacune contrôle elle-même l'appelant) :
 --   * cabinet_creer(nom, responsable, max_dossiers)   super-admin (aal2)
+--   * cabinet_reserver_ajout(cabinet)                 responsable du cabinet ou super-admin
+--                                                     (quota d'ajouts, appelée par cabinet-ops)
 --   * cabinet_definir_membre(cabinet, user, role, actif)
 --                                                     responsable du cabinet ou super-admin
+--   * cabinet_detacher_membre(cabinet, user)          super-admin, ou responsable pour un
+--                                                     membre jamais connecté
 --   * cabinet_creer_dossier(cabinet, nom, nif, rccm, forme_juridique, debut_exercice)
 --                                                     responsable du cabinet
 --   * cabinet_rattacher(cabinet, societe, mission)    super-admin
@@ -76,12 +80,34 @@ END $g$;
 --     possible. Le double accès peut encore naître ensuite, par admin-users
 --     (l'administrateur du client rattache la personne) : l'écran super-admin
 --     le signale (tâche 9).
---   * Quota (I1) : un responsable ajoute au plus 20 membres par cabinet sur
---     24 heures glissantes (cabinet_membres.created_at, membres créés par
---     n'importe qui), sinon CABINET_QUOTA_JOUR. Contrôlé en base, dans
---     cabinet_definir_membre (seule voie d'ajout) ; le super-admin n'est pas
---     limité. La fonction Edge cabinet-ops supprime le compte qu'elle vient de
---     créer si la base refuse.
+--   * Quota (I1, puis C1 et M3 de la seconde relecture) : 20 TENTATIVES
+--     d'ajout par cabinet sur 24 heures glissantes, abouties ou non. La
+--     fonction Edge cabinet-ops appelle cabinet_reserver_ajout AVANT toute
+--     recherche de compte : la tentative est enregistrée dans
+--     cabinet_ajouts_tentatives (sa propre transaction, gardée même si l'ajout
+--     échoue ensuite) ; au-delà, CABINET_QUOTA_JOUR, la même réponse quelle
+--     que soit l'adresse (plus de test gratuit de l'existence d'un compte).
+--     Seconde barrière dans cabinet_definir_membre : 20 insertions sur
+--     24 heures (cabinet_membres.ajoute_par, colonne ajoutée ici). Ni les
+--     tentatives ni les ajouts du super-admin ne comptent. La fonction Edge
+--     supprime le compte qu'elle vient de créer si la base refuse.
+--   * Comptes nouveaux seulement (C2) : pour un appelant qui n'est pas
+--     super-admin, une INSERTION dans cabinet_definir_membre (pas la mise à
+--     jour d'un membre de son cabinet) exige un compte tout juste créé
+--     (private.cabinet_compte_neuf : créé il y a moins de 10 minutes, jamais
+--     connecté, ni user_roles, ni user_societes, ni membre d'un cabinet).
+--     Sinon un code unique, CABINET_COMPTE_EXISTANT, contrôlé AVANT les
+--     autres refus qui décriraient le compte (UTILISATEUR, SUPER_ADMIN,
+--     AUTRE_CABINET, ACCES_DIRECT) : appelée directement, la fonction ne
+--     révèle rien de plus que cabinet-ops (qui rend MSG_ADRESSE).
+--   * Détacher un membre (I1) : cabinet_detacher_membre supprime ses
+--     attributions dans le cabinet puis sa ligne cabinet_membres ; le compte
+--     redevient libre. Super-admin : tout membre ; responsable : un membre
+--     jamais connecté (auth.users.last_sign_in_at nul), pas lui-même. Un
+--     responsable actif ne se détache jamais (changer d'abord son rôle ou le
+--     désactiver). Les tentatives d'ajout restent comptées. Aucune de ces
+--     fonctions n'écrit dans audit_log (pas de trigger d'audit sur les tables
+--     cabinet).
 --   * Identification à la création d'un dossier (I4) : NIF et RCCM dans
 --     societes (nif, rccm) ; forme juridique et première année d'exercice
 --     dans societe_identification.donnees (clés formeJuridique et
@@ -154,6 +180,26 @@ AS $function$
   )
 $function$;
 
+-- Compte tout juste créé (C2) : créé il y a moins de 10 minutes, jamais
+-- connecté, sans rôle global ni rattachement à une société, membre d'aucun
+-- cabinet. Faux pour un id inconnu ou nul.
+CREATE OR REPLACE FUNCTION private.cabinet_compte_neuf(_uid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users u
+    WHERE u.id = _uid
+      AND u.created_at > now() - interval '10 minutes'
+      AND u.last_sign_in_at IS NULL
+  )
+  AND NOT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = _uid)
+  AND NOT EXISTS (SELECT 1 FROM public.user_societes us WHERE us.user_id = _uid)
+  AND NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id = _uid)
+$function$;
+
 -- Identifiant d'adresse (slug) unique, à partir du nom, comme slugify()
 -- (src/lib/superAdminApi.ts) : minuscules, sans accents, tirets, 60
 -- caractères. En cas de doublon, suffixe tiré de l'id de la société.
@@ -192,6 +238,77 @@ $function$;
 REVOKE ALL ON FUNCTION private.cabinet_role_super_admin(uuid) FROM public, anon, authenticated;
 REVOKE ALL ON FUNCTION private.cabinet_responsable_actif(uuid, uuid) FROM public, anon, authenticated;
 REVOKE ALL ON FUNCTION private.cabinet_slug(text, uuid) FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION private.cabinet_compte_neuf(uuid) FROM public, anon, authenticated;
+
+-- ─── Quota d'ajouts : tentatives et auteur des ajouts (C1, M3) ─────────────
+-- Une ligne par tentative d'ajout de membre (cabinet_reserver_ajout), aboutie
+-- ou non. Écrite seulement par cabinet_reserver_ajout ; lue par le
+-- super-admin.
+CREATE TABLE IF NOT EXISTS public.cabinet_ajouts_tentatives (
+  id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cabinet_id uuid        NOT NULL REFERENCES public.cabinets(id) ON DELETE CASCADE,
+  auteur     uuid        NOT NULL,
+  at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cabinet_ajouts_tentatives_cabinet_at_idx
+  ON public.cabinet_ajouts_tentatives (cabinet_id, at DESC);
+
+ALTER TABLE public.cabinet_ajouts_tentatives ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cabinet_ajouts_tentatives FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON public.cabinet_ajouts_tentatives FROM authenticated;
+GRANT SELECT ON public.cabinet_ajouts_tentatives TO authenticated;
+GRANT ALL ON public.cabinet_ajouts_tentatives TO service_role;
+
+DROP POLICY IF EXISTS cabinet_ajouts_tentatives_select ON public.cabinet_ajouts_tentatives;
+CREATE POLICY cabinet_ajouts_tentatives_select ON public.cabinet_ajouts_tentatives FOR SELECT TO authenticated
+  USING ((SELECT public.is_admin_general((SELECT auth.uid()))));
+
+-- Auteur d'un ajout de membre : la seconde barrière du quota ne compte pas
+-- les ajouts du super-admin. Nul pour les lignes antérieures (comptées).
+ALTER TABLE public.cabinet_membres ADD COLUMN IF NOT EXISTS ajoute_par uuid;
+
+-- ─── cabinet_reserver_ajout ─────────────────────────────────────────────────
+-- Responsable actif du cabinet (cabinet actif) ou super-admin (aal2). Appelée
+-- par cabinet-ops (jeton de l'appelant) AVANT toute recherche de compte.
+-- Verrou sur la ligne du cabinet ; hors super-admin, 20 tentatives au plus
+-- sur 24 heures glissantes (CABINET_QUOTA_JOUR), sinon la tentative est
+-- enregistrée. Les tentatives du super-admin sont enregistrées sans compter.
+CREATE OR REPLACE FUNCTION public.cabinet_reserver_ajout(_cabinet uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  est_super boolean;
+  tentatives int;
+BEGIN
+  est_super := uid IS NOT NULL AND public.is_admin_general(uid);
+  IF uid IS NULL
+     OR NOT (est_super OR private.cabinet_responsable_actif(uid, _cabinet)) THEN
+    RAISE EXCEPTION 'CABINET_INTERDIT: Seul un responsable du cabinet peut gérer son équipe.'
+      USING ERRCODE = '42501';
+  END IF;
+  -- Verrou : deux tentatives simultanées ne dépassent pas le quota.
+  PERFORM 1 FROM public.cabinets c WHERE c.id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
+  END IF;
+  IF NOT est_super THEN
+    SELECT count(*) INTO tentatives
+    FROM public.cabinet_ajouts_tentatives t
+    WHERE t.cabinet_id = _cabinet
+      AND t.at > now() - interval '24 hours'
+      AND NOT private.cabinet_role_super_admin(t.auteur);
+    IF tentatives >= 20 THEN
+      RAISE EXCEPTION 'CABINET_QUOTA_JOUR: Vingt ajouts ont déjà été tentés pour ce cabinet en 24 heures : réessayez demain.';
+    END IF;
+  END IF;
+  INSERT INTO public.cabinet_ajouts_tentatives (cabinet_id, auteur) VALUES (_cabinet, uid);
+END
+$function$;
 
 -- ─── cabinet_creer ──────────────────────────────────────────────────────────
 -- Super-admin (aal2). Crée le cabinet et son premier responsable (compte
@@ -230,8 +347,8 @@ BEGIN
   VALUES (btrim(_nom), _max_dossiers, uid)
   RETURNING id INTO nouveau;
 
-  INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif)
-  VALUES (nouveau, _responsable, 'responsable', true);
+  INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif, ajoute_par)
+  VALUES (nouveau, _responsable, 'responsable', true, uid);
 
   RETURN nouveau;
 END
@@ -239,11 +356,13 @@ $function$;
 
 -- ─── cabinet_definir_membre ─────────────────────────────────────────────────
 -- Ajoute un membre ou change son rôle / son état. Responsable actif du
--- cabinet (cabinet actif) ou super-admin. Refus : super-admin visé, membre
--- d'un autre cabinet, plus aucun responsable actif après le changement,
--- accès direct à une société suivie par ce cabinet (CABINET_ACCES_DIRECT,
--- sauf pour une désactivation), plus de 20 ajouts en 24 heures par un
--- responsable (CABINET_QUOTA_JOUR).
+-- cabinet (cabinet actif) ou super-admin. Pour un responsable, un ajout ne
+-- vise qu'un compte tout juste créé (CABINET_COMPTE_EXISTANT sinon, avant
+-- tout autre refus sur le compte). Refus : super-admin visé, membre d'un
+-- autre cabinet, plus aucun responsable actif après le changement, accès
+-- direct à une société suivie par ce cabinet (CABINET_ACCES_DIRECT, sauf pour
+-- une désactivation), plus de 20 ajouts en 24 heures hors super-admin
+-- (CABINET_QUOTA_JOUR, seconde barrière après cabinet_reserver_ajout).
 -- Les attributions d'un membre désactivé sont gardées (sans effet tant qu'il
 -- est inactif).
 CREATE OR REPLACE FUNCTION public.cabinet_definir_membre(_cabinet uuid, _user uuid, _role public.role_cabinet, _actif boolean)
@@ -273,6 +392,14 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
   END IF;
+  -- Responsable : un ajout ne vise qu'un compte tout juste créé. Contrôlé
+  -- avant les refus qui décriraient le compte (un seul code).
+  IF NOT est_super
+     AND NOT EXISTS (SELECT 1 FROM public.cabinet_membres m
+                     WHERE m.user_id = _user AND m.cabinet_id = _cabinet)
+     AND NOT private.cabinet_compte_neuf(_user) THEN
+    RAISE EXCEPTION 'CABINET_COMPTE_EXISTANT: Impossible d''ajouter ce compte : contactez le super-administrateur.';
+  END IF;
   IF _user IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = _user) THEN
     RAISE EXCEPTION 'CABINET_UTILISATEUR: Utilisateur introuvable.';
   END IF;
@@ -297,11 +424,14 @@ BEGIN
     RAISE EXCEPTION 'CABINET_ACCES_DIRECT: Cette personne a déjà un accès direct à un client du cabinet.';
   END IF;
 
-  -- Quota d'ajouts d'un responsable (24 heures glissantes).
+  -- Seconde barrière du quota (24 heures glissantes) : ajouts faits hors
+  -- super-admin (ajoute_par nul compris).
   IF NOT existe AND NOT est_super THEN
     SELECT count(*) INTO ajouts_jour
     FROM public.cabinet_membres m
-    WHERE m.cabinet_id = _cabinet AND m.created_at > now() - interval '24 hours';
+    WHERE m.cabinet_id = _cabinet
+      AND m.created_at > now() - interval '24 hours'
+      AND NOT coalesce(private.cabinet_role_super_admin(m.ajoute_par), false);
     IF ajouts_jour >= 20 THEN
       RAISE EXCEPTION 'CABINET_QUOTA_JOUR: Vingt membres ont déjà été ajoutés à ce cabinet en 24 heures : réessayez demain.';
     END IF;
@@ -311,14 +441,67 @@ BEGIN
     UPDATE public.cabinet_membres m SET role = _role, actif = _actif
     WHERE m.user_id = _user AND m.cabinet_id = _cabinet;
   ELSE
-    INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif)
-    VALUES (_cabinet, _user, _role, _actif);
+    INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif, ajoute_par)
+    VALUES (_cabinet, _user, _role, _actif, uid);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.cabinet_membres m
                  WHERE m.cabinet_id = _cabinet AND m.role = 'responsable' AND m.actif) THEN
     RAISE EXCEPTION 'CABINET_DERNIER_RESPONSABLE: Le cabinet doit garder au moins un responsable actif.';
   END IF;
+END
+$function$;
+
+-- ─── cabinet_detacher_membre ────────────────────────────────────────────────
+-- Retire un membre du cabinet (ses attributions puis sa ligne) : le compte
+-- n'est plus bloqué par cabinet_membres.user_id UNIQUE. Super-admin (aal2) :
+-- tout membre. Responsable actif du cabinet : un membre qui ne s'est jamais
+-- connecté, pas lui-même (CABINET_DEJA_CONNECTE, CABINET_SOI_MEME). Jamais un
+-- responsable actif (CABINET_RESPONSABLE) : changer d'abord son rôle ou le
+-- désactiver.
+CREATE OR REPLACE FUNCTION public.cabinet_detacher_membre(_cabinet uuid, _user uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  est_super boolean;
+  m public.cabinet_membres%ROWTYPE;
+BEGIN
+  est_super := uid IS NOT NULL AND public.is_admin_general(uid);
+  IF uid IS NULL
+     OR NOT (est_super OR private.cabinet_responsable_actif(uid, _cabinet)) THEN
+    RAISE EXCEPTION 'CABINET_INTERDIT: Seul un responsable du cabinet peut gérer son équipe.'
+      USING ERRCODE = '42501';
+  END IF;
+  -- Verrou : les changements d'équipe d'un cabinet passent un par un.
+  PERFORM 1 FROM public.cabinets c WHERE c.id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
+  END IF;
+  SELECT * INTO m FROM public.cabinet_membres x
+  WHERE x.user_id = _user AND x.cabinet_id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_MEMBRE: Cette personne n''est pas membre du cabinet.';
+  END IF;
+  IF NOT est_super THEN
+    IF _user = uid THEN
+      RAISE EXCEPTION 'CABINET_SOI_MEME: Un responsable ne se détache pas lui-même du cabinet.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM auth.users u WHERE u.id = _user AND u.last_sign_in_at IS NOT NULL) THEN
+      RAISE EXCEPTION 'CABINET_DEJA_CONNECTE: Ce membre s''est déjà connecté : désactivez-le, ou demandez au super-administrateur de le détacher.';
+    END IF;
+  END IF;
+  IF m.role = 'responsable' AND m.actif THEN
+    RAISE EXCEPTION 'CABINET_RESPONSABLE: Un responsable actif ne se détache pas : changez d''abord son rôle ou désactivez-le.';
+  END IF;
+
+  DELETE FROM public.cabinet_attributions a
+  USING public.cabinet_dossiers d
+  WHERE a.dossier_id = d.id AND d.cabinet_id = _cabinet AND a.user_id = _user;
+  DELETE FROM public.cabinet_membres x WHERE x.id = m.id;
 END
 $function$;
 
@@ -704,7 +887,9 @@ DECLARE
 BEGIN
   FOREACH f IN ARRAY ARRAY[
     'public.cabinet_creer(text, uuid, int)',
+    'public.cabinet_reserver_ajout(uuid)',
     'public.cabinet_definir_membre(uuid, uuid, public.role_cabinet, boolean)',
+    'public.cabinet_detacher_membre(uuid, uuid)',
     'public.cabinet_creer_dossier(uuid, text, text, text, text, date)',
     'public.cabinet_rattacher(uuid, uuid, public.mission_cabinet)',
     'public.cabinet_attribuer(uuid, uuid, public.mission_cabinet)',
@@ -730,8 +915,12 @@ VALUES ('20261027124000', 'cabinet_operations', ARRAY[$migration_sql$-- Espace c
 -- Fonctions exposées (SECURITY DEFINER, search_path = public, EXECUTE :
 -- authenticated et service_role ; chacune contrôle elle-même l'appelant) :
 --   * cabinet_creer(nom, responsable, max_dossiers)   super-admin (aal2)
+--   * cabinet_reserver_ajout(cabinet)                 responsable du cabinet ou super-admin
+--                                                     (quota d'ajouts, appelée par cabinet-ops)
 --   * cabinet_definir_membre(cabinet, user, role, actif)
 --                                                     responsable du cabinet ou super-admin
+--   * cabinet_detacher_membre(cabinet, user)          super-admin, ou responsable pour un
+--                                                     membre jamais connecté
 --   * cabinet_creer_dossier(cabinet, nom, nif, rccm, forme_juridique, debut_exercice)
 --                                                     responsable du cabinet
 --   * cabinet_rattacher(cabinet, societe, mission)    super-admin
@@ -788,12 +977,34 @@ VALUES ('20261027124000', 'cabinet_operations', ARRAY[$migration_sql$-- Espace c
 --     possible. Le double accès peut encore naître ensuite, par admin-users
 --     (l'administrateur du client rattache la personne) : l'écran super-admin
 --     le signale (tâche 9).
---   * Quota (I1) : un responsable ajoute au plus 20 membres par cabinet sur
---     24 heures glissantes (cabinet_membres.created_at, membres créés par
---     n'importe qui), sinon CABINET_QUOTA_JOUR. Contrôlé en base, dans
---     cabinet_definir_membre (seule voie d'ajout) ; le super-admin n'est pas
---     limité. La fonction Edge cabinet-ops supprime le compte qu'elle vient de
---     créer si la base refuse.
+--   * Quota (I1, puis C1 et M3 de la seconde relecture) : 20 TENTATIVES
+--     d'ajout par cabinet sur 24 heures glissantes, abouties ou non. La
+--     fonction Edge cabinet-ops appelle cabinet_reserver_ajout AVANT toute
+--     recherche de compte : la tentative est enregistrée dans
+--     cabinet_ajouts_tentatives (sa propre transaction, gardée même si l'ajout
+--     échoue ensuite) ; au-delà, CABINET_QUOTA_JOUR, la même réponse quelle
+--     que soit l'adresse (plus de test gratuit de l'existence d'un compte).
+--     Seconde barrière dans cabinet_definir_membre : 20 insertions sur
+--     24 heures (cabinet_membres.ajoute_par, colonne ajoutée ici). Ni les
+--     tentatives ni les ajouts du super-admin ne comptent. La fonction Edge
+--     supprime le compte qu'elle vient de créer si la base refuse.
+--   * Comptes nouveaux seulement (C2) : pour un appelant qui n'est pas
+--     super-admin, une INSERTION dans cabinet_definir_membre (pas la mise à
+--     jour d'un membre de son cabinet) exige un compte tout juste créé
+--     (private.cabinet_compte_neuf : créé il y a moins de 10 minutes, jamais
+--     connecté, ni user_roles, ni user_societes, ni membre d'un cabinet).
+--     Sinon un code unique, CABINET_COMPTE_EXISTANT, contrôlé AVANT les
+--     autres refus qui décriraient le compte (UTILISATEUR, SUPER_ADMIN,
+--     AUTRE_CABINET, ACCES_DIRECT) : appelée directement, la fonction ne
+--     révèle rien de plus que cabinet-ops (qui rend MSG_ADRESSE).
+--   * Détacher un membre (I1) : cabinet_detacher_membre supprime ses
+--     attributions dans le cabinet puis sa ligne cabinet_membres ; le compte
+--     redevient libre. Super-admin : tout membre ; responsable : un membre
+--     jamais connecté (auth.users.last_sign_in_at nul), pas lui-même. Un
+--     responsable actif ne se détache jamais (changer d'abord son rôle ou le
+--     désactiver). Les tentatives d'ajout restent comptées. Aucune de ces
+--     fonctions n'écrit dans audit_log (pas de trigger d'audit sur les tables
+--     cabinet).
 --   * Identification à la création d'un dossier (I4) : NIF et RCCM dans
 --     societes (nif, rccm) ; forme juridique et première année d'exercice
 --     dans societe_identification.donnees (clés formeJuridique et
@@ -866,6 +1077,26 @@ AS $function$
   )
 $function$;
 
+-- Compte tout juste créé (C2) : créé il y a moins de 10 minutes, jamais
+-- connecté, sans rôle global ni rattachement à une société, membre d'aucun
+-- cabinet. Faux pour un id inconnu ou nul.
+CREATE OR REPLACE FUNCTION private.cabinet_compte_neuf(_uid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users u
+    WHERE u.id = _uid
+      AND u.created_at > now() - interval '10 minutes'
+      AND u.last_sign_in_at IS NULL
+  )
+  AND NOT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = _uid)
+  AND NOT EXISTS (SELECT 1 FROM public.user_societes us WHERE us.user_id = _uid)
+  AND NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id = _uid)
+$function$;
+
 -- Identifiant d'adresse (slug) unique, à partir du nom, comme slugify()
 -- (src/lib/superAdminApi.ts) : minuscules, sans accents, tirets, 60
 -- caractères. En cas de doublon, suffixe tiré de l'id de la société.
@@ -904,6 +1135,77 @@ $function$;
 REVOKE ALL ON FUNCTION private.cabinet_role_super_admin(uuid) FROM public, anon, authenticated;
 REVOKE ALL ON FUNCTION private.cabinet_responsable_actif(uuid, uuid) FROM public, anon, authenticated;
 REVOKE ALL ON FUNCTION private.cabinet_slug(text, uuid) FROM public, anon, authenticated;
+REVOKE ALL ON FUNCTION private.cabinet_compte_neuf(uuid) FROM public, anon, authenticated;
+
+-- ─── Quota d'ajouts : tentatives et auteur des ajouts (C1, M3) ─────────────
+-- Une ligne par tentative d'ajout de membre (cabinet_reserver_ajout), aboutie
+-- ou non. Écrite seulement par cabinet_reserver_ajout ; lue par le
+-- super-admin.
+CREATE TABLE IF NOT EXISTS public.cabinet_ajouts_tentatives (
+  id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cabinet_id uuid        NOT NULL REFERENCES public.cabinets(id) ON DELETE CASCADE,
+  auteur     uuid        NOT NULL,
+  at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cabinet_ajouts_tentatives_cabinet_at_idx
+  ON public.cabinet_ajouts_tentatives (cabinet_id, at DESC);
+
+ALTER TABLE public.cabinet_ajouts_tentatives ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cabinet_ajouts_tentatives FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON public.cabinet_ajouts_tentatives FROM authenticated;
+GRANT SELECT ON public.cabinet_ajouts_tentatives TO authenticated;
+GRANT ALL ON public.cabinet_ajouts_tentatives TO service_role;
+
+DROP POLICY IF EXISTS cabinet_ajouts_tentatives_select ON public.cabinet_ajouts_tentatives;
+CREATE POLICY cabinet_ajouts_tentatives_select ON public.cabinet_ajouts_tentatives FOR SELECT TO authenticated
+  USING ((SELECT public.is_admin_general((SELECT auth.uid()))));
+
+-- Auteur d'un ajout de membre : la seconde barrière du quota ne compte pas
+-- les ajouts du super-admin. Nul pour les lignes antérieures (comptées).
+ALTER TABLE public.cabinet_membres ADD COLUMN IF NOT EXISTS ajoute_par uuid;
+
+-- ─── cabinet_reserver_ajout ─────────────────────────────────────────────────
+-- Responsable actif du cabinet (cabinet actif) ou super-admin (aal2). Appelée
+-- par cabinet-ops (jeton de l'appelant) AVANT toute recherche de compte.
+-- Verrou sur la ligne du cabinet ; hors super-admin, 20 tentatives au plus
+-- sur 24 heures glissantes (CABINET_QUOTA_JOUR), sinon la tentative est
+-- enregistrée. Les tentatives du super-admin sont enregistrées sans compter.
+CREATE OR REPLACE FUNCTION public.cabinet_reserver_ajout(_cabinet uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  est_super boolean;
+  tentatives int;
+BEGIN
+  est_super := uid IS NOT NULL AND public.is_admin_general(uid);
+  IF uid IS NULL
+     OR NOT (est_super OR private.cabinet_responsable_actif(uid, _cabinet)) THEN
+    RAISE EXCEPTION 'CABINET_INTERDIT: Seul un responsable du cabinet peut gérer son équipe.'
+      USING ERRCODE = '42501';
+  END IF;
+  -- Verrou : deux tentatives simultanées ne dépassent pas le quota.
+  PERFORM 1 FROM public.cabinets c WHERE c.id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
+  END IF;
+  IF NOT est_super THEN
+    SELECT count(*) INTO tentatives
+    FROM public.cabinet_ajouts_tentatives t
+    WHERE t.cabinet_id = _cabinet
+      AND t.at > now() - interval '24 hours'
+      AND NOT private.cabinet_role_super_admin(t.auteur);
+    IF tentatives >= 20 THEN
+      RAISE EXCEPTION 'CABINET_QUOTA_JOUR: Vingt ajouts ont déjà été tentés pour ce cabinet en 24 heures : réessayez demain.';
+    END IF;
+  END IF;
+  INSERT INTO public.cabinet_ajouts_tentatives (cabinet_id, auteur) VALUES (_cabinet, uid);
+END
+$function$;
 
 -- ─── cabinet_creer ──────────────────────────────────────────────────────────
 -- Super-admin (aal2). Crée le cabinet et son premier responsable (compte
@@ -942,8 +1244,8 @@ BEGIN
   VALUES (btrim(_nom), _max_dossiers, uid)
   RETURNING id INTO nouveau;
 
-  INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif)
-  VALUES (nouveau, _responsable, 'responsable', true);
+  INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif, ajoute_par)
+  VALUES (nouveau, _responsable, 'responsable', true, uid);
 
   RETURN nouveau;
 END
@@ -951,11 +1253,13 @@ $function$;
 
 -- ─── cabinet_definir_membre ─────────────────────────────────────────────────
 -- Ajoute un membre ou change son rôle / son état. Responsable actif du
--- cabinet (cabinet actif) ou super-admin. Refus : super-admin visé, membre
--- d'un autre cabinet, plus aucun responsable actif après le changement,
--- accès direct à une société suivie par ce cabinet (CABINET_ACCES_DIRECT,
--- sauf pour une désactivation), plus de 20 ajouts en 24 heures par un
--- responsable (CABINET_QUOTA_JOUR).
+-- cabinet (cabinet actif) ou super-admin. Pour un responsable, un ajout ne
+-- vise qu'un compte tout juste créé (CABINET_COMPTE_EXISTANT sinon, avant
+-- tout autre refus sur le compte). Refus : super-admin visé, membre d'un
+-- autre cabinet, plus aucun responsable actif après le changement, accès
+-- direct à une société suivie par ce cabinet (CABINET_ACCES_DIRECT, sauf pour
+-- une désactivation), plus de 20 ajouts en 24 heures hors super-admin
+-- (CABINET_QUOTA_JOUR, seconde barrière après cabinet_reserver_ajout).
 -- Les attributions d'un membre désactivé sont gardées (sans effet tant qu'il
 -- est inactif).
 CREATE OR REPLACE FUNCTION public.cabinet_definir_membre(_cabinet uuid, _user uuid, _role public.role_cabinet, _actif boolean)
@@ -985,6 +1289,14 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
   END IF;
+  -- Responsable : un ajout ne vise qu'un compte tout juste créé. Contrôlé
+  -- avant les refus qui décriraient le compte (un seul code).
+  IF NOT est_super
+     AND NOT EXISTS (SELECT 1 FROM public.cabinet_membres m
+                     WHERE m.user_id = _user AND m.cabinet_id = _cabinet)
+     AND NOT private.cabinet_compte_neuf(_user) THEN
+    RAISE EXCEPTION 'CABINET_COMPTE_EXISTANT: Impossible d''ajouter ce compte : contactez le super-administrateur.';
+  END IF;
   IF _user IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = _user) THEN
     RAISE EXCEPTION 'CABINET_UTILISATEUR: Utilisateur introuvable.';
   END IF;
@@ -1009,11 +1321,14 @@ BEGIN
     RAISE EXCEPTION 'CABINET_ACCES_DIRECT: Cette personne a déjà un accès direct à un client du cabinet.';
   END IF;
 
-  -- Quota d'ajouts d'un responsable (24 heures glissantes).
+  -- Seconde barrière du quota (24 heures glissantes) : ajouts faits hors
+  -- super-admin (ajoute_par nul compris).
   IF NOT existe AND NOT est_super THEN
     SELECT count(*) INTO ajouts_jour
     FROM public.cabinet_membres m
-    WHERE m.cabinet_id = _cabinet AND m.created_at > now() - interval '24 hours';
+    WHERE m.cabinet_id = _cabinet
+      AND m.created_at > now() - interval '24 hours'
+      AND NOT coalesce(private.cabinet_role_super_admin(m.ajoute_par), false);
     IF ajouts_jour >= 20 THEN
       RAISE EXCEPTION 'CABINET_QUOTA_JOUR: Vingt membres ont déjà été ajoutés à ce cabinet en 24 heures : réessayez demain.';
     END IF;
@@ -1023,14 +1338,67 @@ BEGIN
     UPDATE public.cabinet_membres m SET role = _role, actif = _actif
     WHERE m.user_id = _user AND m.cabinet_id = _cabinet;
   ELSE
-    INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif)
-    VALUES (_cabinet, _user, _role, _actif);
+    INSERT INTO public.cabinet_membres (cabinet_id, user_id, role, actif, ajoute_par)
+    VALUES (_cabinet, _user, _role, _actif, uid);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.cabinet_membres m
                  WHERE m.cabinet_id = _cabinet AND m.role = 'responsable' AND m.actif) THEN
     RAISE EXCEPTION 'CABINET_DERNIER_RESPONSABLE: Le cabinet doit garder au moins un responsable actif.';
   END IF;
+END
+$function$;
+
+-- ─── cabinet_detacher_membre ────────────────────────────────────────────────
+-- Retire un membre du cabinet (ses attributions puis sa ligne) : le compte
+-- n'est plus bloqué par cabinet_membres.user_id UNIQUE. Super-admin (aal2) :
+-- tout membre. Responsable actif du cabinet : un membre qui ne s'est jamais
+-- connecté, pas lui-même (CABINET_DEJA_CONNECTE, CABINET_SOI_MEME). Jamais un
+-- responsable actif (CABINET_RESPONSABLE) : changer d'abord son rôle ou le
+-- désactiver.
+CREATE OR REPLACE FUNCTION public.cabinet_detacher_membre(_cabinet uuid, _user uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  est_super boolean;
+  m public.cabinet_membres%ROWTYPE;
+BEGIN
+  est_super := uid IS NOT NULL AND public.is_admin_general(uid);
+  IF uid IS NULL
+     OR NOT (est_super OR private.cabinet_responsable_actif(uid, _cabinet)) THEN
+    RAISE EXCEPTION 'CABINET_INTERDIT: Seul un responsable du cabinet peut gérer son équipe.'
+      USING ERRCODE = '42501';
+  END IF;
+  -- Verrou : les changements d'équipe d'un cabinet passent un par un.
+  PERFORM 1 FROM public.cabinets c WHERE c.id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
+  END IF;
+  SELECT * INTO m FROM public.cabinet_membres x
+  WHERE x.user_id = _user AND x.cabinet_id = _cabinet FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'CABINET_MEMBRE: Cette personne n''est pas membre du cabinet.';
+  END IF;
+  IF NOT est_super THEN
+    IF _user = uid THEN
+      RAISE EXCEPTION 'CABINET_SOI_MEME: Un responsable ne se détache pas lui-même du cabinet.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM auth.users u WHERE u.id = _user AND u.last_sign_in_at IS NOT NULL) THEN
+      RAISE EXCEPTION 'CABINET_DEJA_CONNECTE: Ce membre s''est déjà connecté : désactivez-le, ou demandez au super-administrateur de le détacher.';
+    END IF;
+  END IF;
+  IF m.role = 'responsable' AND m.actif THEN
+    RAISE EXCEPTION 'CABINET_RESPONSABLE: Un responsable actif ne se détache pas : changez d''abord son rôle ou désactivez-le.';
+  END IF;
+
+  DELETE FROM public.cabinet_attributions a
+  USING public.cabinet_dossiers d
+  WHERE a.dossier_id = d.id AND d.cabinet_id = _cabinet AND a.user_id = _user;
+  DELETE FROM public.cabinet_membres x WHERE x.id = m.id;
 END
 $function$;
 
@@ -1416,7 +1784,9 @@ DECLARE
 BEGIN
   FOREACH f IN ARRAY ARRAY[
     'public.cabinet_creer(text, uuid, int)',
+    'public.cabinet_reserver_ajout(uuid)',
     'public.cabinet_definir_membre(uuid, uuid, public.role_cabinet, boolean)',
+    'public.cabinet_detacher_membre(uuid, uuid)',
     'public.cabinet_creer_dossier(uuid, text, text, text, text, date)',
     'public.cabinet_rattacher(uuid, uuid, public.mission_cabinet)',
     'public.cabinet_attribuer(uuid, uuid, public.mission_cabinet)',

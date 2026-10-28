@@ -108,9 +108,20 @@ export const operationsCabinet = (client: ClientCabinet) => ({
   creerCabinet: (nom: string, responsableId: string, maxDossiers = 10) =>
     appeler<string>(client, "cabinet_creer", { _nom: nom, _responsable: responsableId, _max_dossiers: maxDossiers }),
 
-  /** Responsable ou super-admin : ajoute un membre (compte existant), change son rôle ou son état. */
+  /**
+   * Responsable ou super-admin : change le rôle ou l'état d'un membre. Un ajout direct n'est
+   * accepté que du super-admin (sinon CABINET_COMPTE_EXISTANT) : passer par ajouterMembre.
+   */
   definirMembre: (cabinetId: string, userId: string, role: RoleCabinet, actif: boolean) =>
     appeler<void>(client, "cabinet_definir_membre", { _cabinet: cabinetId, _user: userId, _role: role, _actif: actif }),
+
+  /**
+   * Retire un membre du cabinet (ses attributions comprises) ; le compte redevient libre.
+   * Super-admin : tout membre ; responsable : un membre jamais connecté, pas lui-même.
+   * Jamais un responsable actif.
+   */
+  detacherMembre: (cabinetId: string, userId: string) =>
+    appeler<void>(client, "cabinet_detacher_membre", { _cabinet: cabinetId, _user: userId }),
 
   /** Responsable : crée la société cliente et le lien (tenue complète) ; rend l'id de la société. */
   creerDossier: (cabinetId: string, nom: string, identification: IdentificationDossier = {}) =>

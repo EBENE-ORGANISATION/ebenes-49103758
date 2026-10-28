@@ -165,6 +165,12 @@ Une personne qui a à la fois un accès direct et un accès cabinet sur la même
 
 *(Révisé le 2026-10-28 après relecture de la tâche 5.)* **Seul le super-admin crée l'administrateur d'un client** (`inviter_admin_client`), après avoir vérifié qui est le dirigeant : un responsable qui inviterait une adresse qu'il contrôle obtiendrait un administrateur client, donc tous les droits directs, la gestion des comptes du client et la dispense des quatre yeux. Un compte existant n'est accepté que s'il n'a pas d'autre société (le rôle admin est global). Un responsable n'ajoute à son cabinet que des **comptes nouveaux**, avec une réponse identique que l'adresse existe ou non. À la création d'un dossier, le cabinet saisit l'identification minimale du client (NIF, RCCM, forme juridique, début d'exercice), puisqu'il n'a ensuite que la lecture sur les paramètres. Tant qu'aucun administrateur client n'existe, seul le super-admin peut changer la mission.
 
+*(Révisé le 2026-10-28 après la seconde relecture de la tâche 5.)*
+- **Quota par tentatives** : `cabinet-ops` appelle `cabinet_reserver_ajout` (jeton de l'appelant) avant toute recherche de compte ; chaque tentative, aboutie ou non, est inscrite dans `cabinet_ajouts_tentatives` ; au-delà de 20 par cabinet sur 24 heures, `CABINET_QUOTA_JOUR`, la même réponse quelle que soit l'adresse. `cabinet_definir_membre` garde une seconde barrière (20 insertions, colonne `cabinet_membres.ajoute_par`). Le super-admin n'est jamais compté.
+- **Comptes nouveaux en base** : appelée par un responsable, une insertion dans `cabinet_definir_membre` exige un compte créé il y a moins de 10 minutes, jamais connecté, sans rôle, sans société, membre d'aucun cabinet ; sinon le seul code `CABINET_COMPTE_EXISTANT` (vérifié avant tout autre refus qui décrirait le compte), que `cabinet-ops` rend comme une adresse existante.
+- **Détacher un membre** (`cabinet_detacher_membre`) : supprime ses attributions et sa ligne, le compte redevient libre. Super-admin : tout membre ; responsable : un membre jamais connecté, pas lui-même. Jamais un responsable actif.
+- **Renvoi d'invitation** : au plus une invitation toutes les 10 minutes par compte (`email_send_log`), sinon 429 ; côté super-admin, un non-membre doit avoir le rôle admin et être rattaché au client suivi.
+
 ## 8. Écrans
 
 1. **Sélecteur de société** : deux groupes, « Mes sociétés » et « Clients du cabinet » (avec la mission en badge). La recherche par nom devient utile au-delà de 8 dossiers.

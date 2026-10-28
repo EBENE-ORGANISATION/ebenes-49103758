@@ -22,6 +22,7 @@ describe("cabinetOps : appels SQL", () => {
 
     expect(await ops.creerCabinet("Cabinet A", "u-1")).toBe("id-1");
     await ops.definirMembre("k-1", "u-2", "stagiaire", false);
+    await ops.detacherMembre("k-1", "u-3");
     await ops.creerDossier("k-1", "Client B");
     await ops.rattacher("k-1", "s-1", "lecture");
     await ops.attribuer("d-1", "u-2", "declarations");
@@ -32,6 +33,7 @@ describe("cabinetOps : appels SQL", () => {
     expect(rpc.mock.calls).toEqual([
       ["cabinet_creer", { _nom: "Cabinet A", _responsable: "u-1", _max_dossiers: 10 }],
       ["cabinet_definir_membre", { _cabinet: "k-1", _user: "u-2", _role: "stagiaire", _actif: false }],
+      ["cabinet_detacher_membre", { _cabinet: "k-1", _user: "u-3" }],
       ["cabinet_creer_dossier", {
         _cabinet: "k-1", _nom: "Client B", _nif: null, _rccm: null, _forme_juridique: null, _debut_exercice: null,
       }],
