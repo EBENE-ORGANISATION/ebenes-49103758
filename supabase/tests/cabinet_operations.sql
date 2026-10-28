@@ -29,6 +29,9 @@ BEGIN;
 --     17 U17   compte avec un rôle global (admin)
 --     18 U18   compte rattaché à une société (user_societes X)
 --     19 U19   compte tout juste créé, jamais connecté (ajout accepté)
+--     20 U20   compte tout juste créé mais non confirmé (inscription publique)
+--     21 U21   compte tout juste créé (réservation déjà utilisée, puis expirée)
+-- Tous les comptes ont email_confirmed_at renseigné, sauf U20.
 --   comptes du quota …-0004-0000000000NN (1 à 20)
 --   sociétés      …-0001-0000000000NN : 01 A (cliente, a un administrateur),
 --                 02 X (autre société), 03 P (propre société du cabinet 3),
@@ -100,6 +103,20 @@ BEGIN
   ASSERT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_schema = 'public' AND table_name = 'cabinet_membres' AND column_name = 'ajoute_par'),
     'cabinet_membres.ajoute_par absente';
+  ASSERT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'cabinet_ajouts_tentatives' AND column_name = 'utilisee'),
+    'cabinet_ajouts_tentatives.utilisee absente';
+  -- cabinet_membres_detaches : mêmes droits que cabinet_ajouts_tentatives.
+  ASSERT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.cabinet_membres_detaches'::regclass),
+    'cabinet_membres_detaches : RLS non activée';
+  ASSERT has_table_privilege('authenticated', 'public.cabinet_membres_detaches', 'SELECT'),
+    'cabinet_membres_detaches : SELECT non accordé à authenticated';
+  ASSERT NOT has_table_privilege('authenticated', 'public.cabinet_membres_detaches',
+    'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'),
+    'cabinet_membres_detaches : écriture accordée à authenticated';
+  ASSERT NOT has_table_privilege('anon', 'public.cabinet_membres_detaches',
+    'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'),
+    'cabinet_membres_detaches : droit accordé à anon';
 
   -- mission_couvre : pure, comme niveau_mission.
   f := 'public.mission_couvre(public.mission_cabinet, public.mission_cabinet)';
@@ -125,9 +142,9 @@ SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT set_config('request.jwt.claims', '', true);
 
 -- Le trigger on_auth_user_created crée les profils (nom tiré des métadonnées).
-INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
 SELECT u.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-       u.email, '{}'::jsonb, jsonb_build_object('nom', u.nom), now(), now()
+       u.email, '{}'::jsonb, jsonb_build_object('nom', u.nom), now(), now(), now()
 FROM (VALUES
   ('00000000-cab5-0000-0000-000000000001', 'cab5-sa@exemple.invalid',    'Super admin'),
   ('00000000-cab5-0000-0000-000000000002', 'cab5-r1@exemple.invalid',    'Responsable 1'),
@@ -147,8 +164,12 @@ FROM (VALUES
   ('00000000-cab5-0000-0000-000000000016', 'cab5-u16@exemple.invalid',   'Compte connecté'),
   ('00000000-cab5-0000-0000-000000000017', 'cab5-u17@exemple.invalid',   'Compte avec rôle'),
   ('00000000-cab5-0000-0000-000000000018', 'cab5-u18@exemple.invalid',   'Compte rattaché'),
-  ('00000000-cab5-0000-0000-000000000019', 'cab5-u19@exemple.invalid',   'Compte frais')
+  ('00000000-cab5-0000-0000-000000000019', 'cab5-u19@exemple.invalid',   'Compte frais'),
+  ('00000000-cab5-0000-0000-000000000020', 'cab5-u20@exemple.invalid',   'Compte non confirmé'),
+  ('00000000-cab5-0000-0000-000000000021', 'cab5-u21@exemple.invalid',   'Compte frais 2')
 ) AS u(id, email, nom);
+UPDATE auth.users SET email_confirmed_at = NULL
+WHERE id = '00000000-cab5-0000-0000-000000000020';
 -- Comptes « existants » (C2) : ancien, déjà connecté.
 UPDATE auth.users SET created_at = now() - interval '1 hour'
 WHERE id = '00000000-cab5-0000-0000-000000000015';
@@ -156,11 +177,11 @@ UPDATE auth.users SET last_sign_in_at = now()
 WHERE id = '00000000-cab5-0000-0000-000000000016';
 
 -- 20 comptes pour le quota d'ajouts (…-0004-0000000000NN).
-INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
 SELECT format('00000000-cab5-0000-0004-%s', lpad(g.i::text, 12, '0'))::uuid,
        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
        format('cab5-quota-%s@exemple.invalid', g.i), '{}'::jsonb,
-       jsonb_build_object('nom', format('Quota %s', g.i)), now(), now()
+       jsonb_build_object('nom', format('Quota %s', g.i)), now(), now(), now()
 FROM generate_series(1, 20) AS g(i);
 
 INSERT INTO public.societes (id, nom) VALUES
@@ -237,6 +258,18 @@ BEGIN
 END
 $f$;
 
+-- Réservation d'ajout (cabinet_reserver_ajout) par _uid, attendue acceptée :
+-- toute insertion par un responsable en consomme une.
+CREATE FUNCTION pg_temp.cab5_reserver(_uid uuid, _cabinet uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $f$
+BEGIN
+  PERFORM pg_temp.cab5_attendre('réservation', _uid, 'aal2',
+    format('SELECT public.cabinet_reserver_ajout(%L)::text', _cabinet), 'ok:');
+END
+$f$;
+
 -- ═══ 1. cabinet_creer : super-admin en aal2 seulement ══════════════════════
 DO $$
 DECLARE
@@ -296,8 +329,11 @@ DECLARE
   u12 constant uuid := '00000000-cab5-0000-0000-000000000012';
   q text := 'SELECT public.cabinet_definir_membre(%L, %L, %L, %L)::text';
 BEGIN
+  PERFORM pg_temp.cab5_reserver(r1, k1);
   PERFORM pg_temp.cab5_attendre('R1 ajoute C1', r1, 'aal2', format(q, k1, c1, 'collaborateur', true), 'ok:');
+  PERFORM pg_temp.cab5_reserver(r1, k1);
   PERFORM pg_temp.cab5_attendre('R1 ajoute ST', r1, 'aal2', format(q, k1, st, 'stagiaire', true), 'ok:');
+  PERFORM pg_temp.cab5_reserver(r1, k1);
   PERFORM pg_temp.cab5_attendre('R1 ajoute un membre inactif', r1, 'aal2', format(q, k1, inm, 'collaborateur', false), 'ok:');
 
   -- Un super-admin ne devient jamais membre, quel que soit l'appelant. Pour
@@ -336,6 +372,7 @@ BEGIN
     format(q, k1, r1, 'responsable', false), 'P0001 CABINET_DERNIER_RESPONSABLE');
   PERFORM pg_temp.cab5_attendre('super-admin désactive le dernier responsable', sa, 'aal2',
     format(q, k1, r1, 'responsable', false), 'P0001 CABINET_DERNIER_RESPONSABLE');
+  PERFORM pg_temp.cab5_reserver(r1, k1);
   PERFORM pg_temp.cab5_attendre('R1 ajoute un second responsable', r1, 'aal2',
     format(q, k1, r1b, 'responsable', true), 'ok:');
   PERFORM pg_temp.cab5_attendre('R1B se désactive (R1 reste)', r1b, 'aal2',
@@ -663,6 +700,8 @@ DECLARE
   u17 constant uuid := '00000000-cab5-0000-0000-000000000017';
   u18 constant uuid := '00000000-cab5-0000-0000-000000000018';
   u19 constant uuid := '00000000-cab5-0000-0000-000000000019';
+  u20 constant uuid := '00000000-cab5-0000-0000-000000000020';
+  u21 constant uuid := '00000000-cab5-0000-0000-000000000021';
   q  text := 'SELECT public.cabinet_definir_membre(%L, %L, %L, %L)::text';
   qd text := 'SELECT public.cabinet_detacher_membre(%L, %L)::text';
   qr text := 'SELECT public.cabinet_reserver_ajout(%L)::text';
@@ -684,8 +723,33 @@ BEGIN
     format(q, k1, '00000000-cab5-0000-0000-0000000000ff', 'collaborateur', true), 'P0001 CABINET_COMPTE_EXISTANT');
   ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id IN (u15, u16, u17, u18)),
     'C2 : compte existant ajouté malgré les refus';
+  -- Sans réservation : refusé, même pour un compte frais (appel direct).
+  PERFORM pg_temp.cab5_attendre('C2 : insertion sans réservation', r1, 'aal2',
+    format(q, k1, u19, 'collaborateur', true), 'P0001 CABINET_COMPTE_EXISTANT');
+  PERFORM pg_temp.cab5_reserver(r1, k1);
+  -- Compte d'inscription publique (e-mail non confirmé) : refusé ; l'échec
+  -- rend la réservation.
+  PERFORM pg_temp.cab5_attendre('C2 : R1 ajoute un compte non confirmé', r1, 'aal2',
+    format(q, k1, u20, 'collaborateur', true), 'P0001 CABINET_COMPTE_EXISTANT');
   PERFORM pg_temp.cab5_attendre('C2 : R1 ajoute un compte frais', r1, 'aal2',
     format(q, k1, u19, 'collaborateur', true), 'ok:');
+  ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_ajouts_tentatives t
+                     WHERE t.cabinet_id = k1 AND t.auteur = r1 AND NOT t.utilisee),
+    'C2 : réservation non consommée';
+  ASSERT (SELECT count(*) FROM public.cabinet_ajouts_tentatives t
+          WHERE t.cabinet_id = k1 AND t.auteur = r1 AND t.utilisee) = 5,
+    'C2 : une réservation par insertion (C1, ST, inactif, R1B, U19) attendue';
+  -- Une réservation ne sert qu'une fois ; une réservation de plus de
+  -- 10 minutes ne sert plus.
+  PERFORM pg_temp.cab5_attendre('C2 : réservation déjà utilisée', r1, 'aal2',
+    format(q, k1, u21, 'collaborateur', true), 'P0001 CABINET_COMPTE_EXISTANT');
+  PERFORM pg_temp.cab5_reserver(r1, k1);
+  UPDATE public.cabinet_ajouts_tentatives t SET at = now() - interval '11 minutes'
+  WHERE t.cabinet_id = k1 AND t.auteur = r1 AND NOT t.utilisee;
+  PERFORM pg_temp.cab5_attendre('C2 : réservation expirée', r1, 'aal2',
+    format(q, k1, u21, 'collaborateur', true), 'P0001 CABINET_COMPTE_EXISTANT');
+  ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id IN (u20, u21)),
+    'C2 : U20 ou U21 ajouté malgré les refus';
   ASSERT (SELECT m.ajoute_par = r1 AND m.cabinet_id = k1 FROM public.cabinet_membres m WHERE m.user_id = u19),
     'C2 : U19 non ajouté par R1';
   -- Le super-admin n'est pas soumis à la règle ; la mise à jour d'un membre
@@ -718,9 +782,20 @@ BEGIN
   PERFORM pg_temp.cab5_attendre('I1 : R1 détache U19 (jamais connecté)', r1, 'aal2', format(qd, k1, u19), 'ok:');
   ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id = u19), 'I1 : U19 encore membre';
   ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_attributions a WHERE a.user_id = u19), 'I1 : attribution de U19 gardée';
+  ASSERT EXISTS (SELECT 1 FROM public.cabinet_membres_detaches t
+                 WHERE t.cabinet_id = k1 AND t.user_id = u19 AND t.par = r1 AND t.role = 'collaborateur'),
+    'I1 : détachement de U19 non tracé';
   PERFORM pg_temp.cab5_attendre('I1 : super-admin détache U16 (déjà connecté)', sa, 'aal2', format(qd, k1, u16), 'ok:');
   ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_membres m WHERE m.user_id = u16), 'I1 : U16 encore membre';
+  ASSERT (SELECT count(*) FROM public.cabinet_membres_detaches t WHERE t.cabinet_id = k1) = 2
+         AND EXISTS (SELECT 1 FROM public.cabinet_membres_detaches t WHERE t.user_id = u16 AND t.par = sa),
+    'I1 : détachement de U16 non tracé';
+  PERFORM pg_temp.cab5_attendre('I1 : R1 lit les détachements', r1, 'aal2',
+    'SELECT count(*)::text FROM public.cabinet_membres_detaches', 'ok:0');
+  PERFORM pg_temp.cab5_attendre('I1 : super-admin lit les détachements', sa, 'aal2',
+    format('SELECT count(*)::text FROM public.cabinet_membres_detaches WHERE cabinet_id = %L', k1), 'ok:2');
   -- Le compte détaché redevient libre (encore frais ici : un autre cabinet l'ajoute).
+  PERFORM pg_temp.cab5_reserver(r2, k2);
   PERFORM pg_temp.cab5_attendre('I1 : R2 ajoute U19 détaché au cabinet 2', r2, 'aal2',
     format(q, k2, u19, 'collaborateur', true), 'ok:');
 
@@ -728,8 +803,8 @@ BEGIN
   --   l'appelle avant toute recherche de compte : la 21ᵉ tentative reçoit la
   --   même réponse que l'adresse existe ou non (la réservation ne voit pas
   --   l'adresse).
-  ASSERT NOT EXISTS (SELECT 1 FROM public.cabinet_ajouts_tentatives t WHERE t.cabinet_id = k1),
-    'C1 : tentatives déjà présentes';
+  -- Remise à zéro des tentatives du cabinet 1 (celles des ajouts précédents).
+  DELETE FROM public.cabinet_ajouts_tentatives t WHERE t.cabinet_id = k1;
   PERFORM pg_temp.cab5_attendre('C1 : C1 réserve', c1, 'aal2', format(qr, k1), '42501 CABINET_INTERDIT');
   PERFORM pg_temp.cab5_attendre('C1 : R2 réserve sur le cabinet 1', r2, 'aal2', format(qr, k1), '42501 CABINET_INTERDIT');
   PERFORM pg_temp.cab5_attendre('C1 : R1 réserve sur le cabinet 2', r1, 'aal2', format(qr, k2), '42501 CABINET_INTERDIT');
@@ -927,17 +1002,22 @@ BEGIN
   ASSERT (SELECT count(*) FROM public.cabinet_membres m
           WHERE m.cabinet_id = k1 AND m.ajoute_par = sa) = 4,
     'quota : ajoute_par du super-admin non renseigné';
+  -- Les tentatives de 9 bis vieillissent de 25 heures : le quota de
+  -- réservations ne gêne pas la seconde barrière.
+  UPDATE public.cabinet_ajouts_tentatives t SET at = now() - interval '25 hours' WHERE t.cabinet_id = k1;
   i := 0;
   WHILE (SELECT count(*) FROM public.cabinet_membres m
          WHERE m.cabinet_id = k1 AND m.created_at > now() - interval '24 hours'
            AND NOT coalesce(private.cabinet_role_super_admin(m.ajoute_par), false)) < 20 LOOP
     i := i + 1;
     v_quota := format('00000000-cab5-0000-0004-%s', lpad(i::text, 12, '0'))::uuid;
+    PERFORM pg_temp.cab5_reserver(r1, k1);
     PERFORM pg_temp.cab5_attendre(format('quota : ajout %s', i), r1, 'aal2',
       format(q_membre, k1, v_quota, 'collaborateur', true), 'ok:');
   END LOOP;
   ASSERT i = 16, format('quota : %s ajouts pour atteindre 20 (16 attendus)', i);
   v_quota := format('00000000-cab5-0000-0004-%s', lpad((i + 1)::text, 12, '0'))::uuid;
+  PERFORM pg_temp.cab5_reserver(r1, k1);
   PERFORM pg_temp.cab5_attendre('quota : 21e ajout par le responsable', r1, 'aal2',
     format(q_membre, k1, v_quota, 'collaborateur', true), 'P0001 CABINET_QUOTA_JOUR');
   -- Un changement de rôle n'est pas un ajout ; le super-admin n'est pas limité.

@@ -85,8 +85,13 @@
 --   * Comptes nouveaux seulement (C2) : pour un appelant qui n'est pas
 --     super-admin, une INSERTION dans cabinet_definir_membre (pas la mise à
 --     jour d'un membre de son cabinet) exige un compte tout juste créé
---     (private.cabinet_compte_neuf : créé il y a moins de 10 minutes, jamais
---     connecté, ni user_roles, ni user_societes, ni membre d'un cabinet).
+--     (private.cabinet_compte_neuf : créé il y a moins de 10 minutes, e-mail
+--     confirmé, jamais connecté, ni user_roles, ni user_societes, ni membre
+--     d'un cabinet ; un compte d'inscription publique n'est pas confirmé) ET
+--     une réservation cabinet_reserver_ajout du même auteur, pour ce
+--     cabinet, de moins de 10 minutes, consommée par l'insertion
+--     (cabinet_ajouts_tentatives.utilisee) : un appel direct ne contourne
+--     plus le quota, et détacher puis réajouter coûte une tentative.
 --     Sinon un code unique, CABINET_COMPTE_EXISTANT, contrôlé AVANT les
 --     autres refus qui décriraient le compte (UTILISATEUR, SUPER_ADMIN,
 --     AUTRE_CABINET, ACCES_DIRECT) : appelée directement, la fonction ne
@@ -96,9 +101,9 @@
 --     redevient libre. Super-admin : tout membre ; responsable : un membre
 --     jamais connecté (auth.users.last_sign_in_at nul), pas lui-même. Un
 --     responsable actif ne se détache jamais (changer d'abord son rôle ou le
---     désactiver). Les tentatives d'ajout restent comptées. Aucune de ces
---     fonctions n'écrit dans audit_log (pas de trigger d'audit sur les tables
---     cabinet).
+--     désactiver). Les tentatives d'ajout restent comptées. Trace dans
+--     cabinet_membres_detaches (audit_log exige une société, qu'un
+--     détachement n'a pas ; pas de trigger d'audit sur les tables cabinet).
 --   * Identification à la création d'un dossier (I4) : NIF et RCCM dans
 --     societes (nif, rccm) ; forme juridique et première année d'exercice
 --     dans societe_identification.donnees (clés formeJuridique et
@@ -185,6 +190,7 @@ AS $function$
     WHERE u.id = _uid
       AND u.created_at > now() - interval '10 minutes'
       AND u.last_sign_in_at IS NULL
+      AND u.email_confirmed_at IS NOT NULL
   )
   AND NOT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = _uid)
   AND NOT EXISTS (SELECT 1 FROM public.user_societes us WHERE us.user_id = _uid)
@@ -239,7 +245,9 @@ CREATE TABLE IF NOT EXISTS public.cabinet_ajouts_tentatives (
   id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   cabinet_id uuid        NOT NULL REFERENCES public.cabinets(id) ON DELETE CASCADE,
   auteur     uuid        NOT NULL,
-  at         timestamptz NOT NULL DEFAULT now()
+  at         timestamptz NOT NULL DEFAULT now(),
+  -- Vrai une fois consommée par une insertion (cabinet_definir_membre).
+  utilisee   boolean     NOT NULL DEFAULT false
 );
 CREATE INDEX IF NOT EXISTS cabinet_ajouts_tentatives_cabinet_at_idx
   ON public.cabinet_ajouts_tentatives (cabinet_id, at DESC);
@@ -258,6 +266,31 @@ CREATE POLICY cabinet_ajouts_tentatives_select ON public.cabinet_ajouts_tentativ
 -- Auteur d'un ajout de membre : la seconde barrière du quota ne compte pas
 -- les ajouts du super-admin. Nul pour les lignes antérieures (comptées).
 ALTER TABLE public.cabinet_membres ADD COLUMN IF NOT EXISTS ajoute_par uuid;
+
+-- Trace des détachements (cabinet_detacher_membre) : audit_log exige une
+-- société, qu'un détachement n'a pas. Écrite seulement par la fonction ;
+-- lue par le super-admin.
+CREATE TABLE IF NOT EXISTS public.cabinet_membres_detaches (
+  id         uuid                PRIMARY KEY DEFAULT gen_random_uuid(),
+  cabinet_id uuid                NOT NULL REFERENCES public.cabinets(id) ON DELETE CASCADE,
+  user_id    uuid                NOT NULL,
+  role       public.role_cabinet NOT NULL,
+  par        uuid                NOT NULL,
+  at         timestamptz         NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cabinet_membres_detaches_cabinet_idx
+  ON public.cabinet_membres_detaches (cabinet_id, at DESC);
+
+ALTER TABLE public.cabinet_membres_detaches ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cabinet_membres_detaches FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON public.cabinet_membres_detaches FROM authenticated;
+GRANT SELECT ON public.cabinet_membres_detaches TO authenticated;
+GRANT ALL ON public.cabinet_membres_detaches TO service_role;
+
+DROP POLICY IF EXISTS cabinet_membres_detaches_select ON public.cabinet_membres_detaches;
+CREATE POLICY cabinet_membres_detaches_select ON public.cabinet_membres_detaches FOR SELECT TO authenticated
+  USING ((SELECT public.is_admin_general((SELECT auth.uid()))));
 
 -- ─── cabinet_reserver_ajout ─────────────────────────────────────────────────
 -- Responsable actif du cabinet (cabinet actif) ou super-admin (aal2). Appelée
@@ -383,13 +416,26 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'CABINET_INTROUVABLE: Cabinet introuvable.';
   END IF;
-  -- Responsable : un ajout ne vise qu'un compte tout juste créé. Contrôlé
-  -- avant les refus qui décriraient le compte (un seul code).
+  -- Responsable, insertion : un compte tout juste créé (et confirmé), et une
+  -- réservation (cabinet_reserver_ajout) du même auteur pour ce cabinet, de
+  -- moins de 10 minutes et non encore utilisée, consommée ici (une
+  -- réservation, une insertion ; rendue si la fonction échoue ensuite).
+  -- Contrôlé avant les refus qui décriraient le compte (un seul code).
   IF NOT est_super
      AND NOT EXISTS (SELECT 1 FROM public.cabinet_membres m
-                     WHERE m.user_id = _user AND m.cabinet_id = _cabinet)
-     AND NOT private.cabinet_compte_neuf(_user) THEN
-    RAISE EXCEPTION 'CABINET_COMPTE_EXISTANT: Impossible d''ajouter ce compte : contactez le super-administrateur.';
+                     WHERE m.user_id = _user AND m.cabinet_id = _cabinet) THEN
+    IF NOT private.cabinet_compte_neuf(_user) THEN
+      RAISE EXCEPTION 'CABINET_COMPTE_EXISTANT: Impossible d''ajouter ce compte : contactez le super-administrateur.';
+    END IF;
+    UPDATE public.cabinet_ajouts_tentatives t SET utilisee = true
+    WHERE t.id = (SELECT x.id FROM public.cabinet_ajouts_tentatives x
+                  WHERE x.cabinet_id = _cabinet AND x.auteur = uid AND NOT x.utilisee
+                    AND x.at > now() - interval '10 minutes'
+                  ORDER BY x.at
+                  LIMIT 1);
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'CABINET_COMPTE_EXISTANT: Impossible d''ajouter ce compte : contactez le super-administrateur.';
+    END IF;
   END IF;
   IF _user IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = _user) THEN
     RAISE EXCEPTION 'CABINET_UTILISATEUR: Utilisateur introuvable.';
@@ -493,6 +539,8 @@ BEGIN
   USING public.cabinet_dossiers d
   WHERE a.dossier_id = d.id AND d.cabinet_id = _cabinet AND a.user_id = _user;
   DELETE FROM public.cabinet_membres x WHERE x.id = m.id;
+  INSERT INTO public.cabinet_membres_detaches (cabinet_id, user_id, role, par)
+  VALUES (_cabinet, _user, m.role, uid);
 END
 $function$;
 

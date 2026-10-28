@@ -11,8 +11,10 @@
 //       (jeton de l'appelant) enregistre la tentative et applique le quota de
 //       20 tentatives par cabinet sur 24 heures (CABINET_QUOTA_JOUR, même
 //       réponse quelle que soit l'adresse ; le super-admin n'est pas compté).
-//       La base refuse aussi tout compte qui n'est pas tout juste créé
-//       (CABINET_COMPTE_EXISTANT), traduit ici en MSG_ADRESSE.
+//       La base refuse aussi tout compte qui n'est pas tout juste créé et
+//       confirmé, ou toute insertion sans réservation non utilisée de moins
+//       de 10 minutes (consommée par l'insertion) : CABINET_COMPTE_EXISTANT,
+//       traduit ici en MSG_ADRESSE.
 //       Super-admin en aal2 (cabinet_id obligatoire) : compte nouveau ou
 //       existant, réponse détaillée.
 //       Le compte est créé, puis cabinet_definir_membre est appelée AVEC LE
@@ -423,6 +425,8 @@ async function compteParEmail(admin: SupabaseClient, email: string): Promise<str
 
 /**
  * Nouveau compte confirmé, sans mot de passe (choisi par le lien de l'e-mail).
+ * email_confirm: true est requis : private.cabinet_compte_neuf refuse un
+ * compte non confirmé (inscription publique).
  * « existe » si l'adresse est déjà prise côté auth (compte sans profil).
  */
 async function creerCompte(admin: SupabaseClient, email: string, nom: string): Promise<Compte | "existe" | null> {
