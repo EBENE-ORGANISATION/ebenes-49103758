@@ -51,7 +51,7 @@
 **Interfaces :**
 - Produit : table `public.suivi_declarations(id uuid PK DEFAULT gen_random_uuid(), societe_id uuid NOT NULL REFERENCES societes ON DELETE CASCADE, annee smallint NOT NULL, mois smallint NOT NULL CHECK (mois BETWEEN 1 AND 12), type text NOT NULL CHECK (type IN ('TVA','CNSS','IRPP','patente')), statut text NOT NULL CHECK (statut IN ('deposee','payee')), date date NOT NULL DEFAULT current_date, par uuid, note text, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (societe_id, annee, mois, type), CHECK (type <> 'patente' OR mois IN (3, 6, 9, 12)))`.
 
-- [ ] **Étape 1 : écrire le test SQL** `supabase/tests/suivi_declarations.sql`. Il vérifie :
+- [x] **Étape 1 : écrire le test SQL** `supabase/tests/suivi_declarations.sql`. Il vérifie :
   - un administrateur de la société (accès direct) insère, modifie et supprime ;
   - un membre du service comptable de la société (`in_service_compta`) insère ;
   - un simple employé de la société lit, mais ne peut pas écrire ;
@@ -63,8 +63,8 @@
   - une seconde insertion sur la même clé échoue (`unique_violation`) ;
   - `patente` avec `mois = 4` est refusée ;
   - une ligne d'`audit_log` est écrite et signée du cabinet quand c'est un collaborateur.
-- [ ] **Étape 2 :** Claude lance le test sur la production en transaction annulée, sans la migration. Attendu : échec, la table est absente.
-- [ ] **Étape 3 : écrire la migration.**
+- [x] **Étape 2 :** Claude lance le test sur la production en transaction annulée, sans la migration. Attendu : échec, la table est absente.
+- [x] **Étape 3 : écrire la migration.**
   - **Accès direct**, sur le modèle de `informations_fiscales` dans la baseline :
     - SELECT : `est_personnel(auth.uid(), societe_id)` ;
     - écriture : `is_admin_general`, ou `has_societe_access` combiné avec `is_admin` ou `in_service_compta`.
@@ -75,8 +75,8 @@
     - garde : `module_de_table('suivi_declarations') = 'fiscalite'`.
   - **Champ `par`** : trigger BEFORE INSERT OR UPDATE qui force `par := auth.uid()`.
   - **Audit** : trigger `audit_suivi_declarations` AFTER INSERT OR UPDATE OR DELETE, exécutant `audit_trigger_fn()`.
-- [ ] **Étape 4 :** Claude relance le test avec la migration. Attendu : `OK suivi_declarations`, puis `sans_cabinet.sql` vert.
-- [ ] **Étape 5 :** `npx.cmd tsc --noEmit -p tsconfig.app.json` vert ; commit « Suivi des déclarations : table et règles d'accès ».
+- [x] **Étape 4 :** Claude relance le test avec la migration. Attendu : `OK suivi_declarations`, puis `sans_cabinet.sql` vert.
+- [x] **Étape 5 :** `npx.cmd tsc --noEmit -p tsconfig.app.json` vert ; commit « Suivi des déclarations : table et règles d'accès ».
 
 ### Tâche 2 : fonction `tableau_cabinet`
 
@@ -111,7 +111,7 @@
   - `charge` vaut `null` si l'appelant n'est pas responsable. Pour un responsable, une entrée par membre actif ; `pieces` est la somme des pièces de ses dossiers.
   - Appelant sans cabinet : `CABINET_INTERDIT` (42501). `_mois` hors de 1 à 12 : `CABINET_PARAMETRE`.
 
-- [ ] **Étape 1 : écrire le test SQL** `supabase/tests/tableau_cabinet.sql`.
+- [x] **Étape 1 : écrire le test SQL** `supabase/tests/tableau_cabinet.sql`.
   - **Fixtures** :
     - un cabinet avec un responsable, un collaborateur (attribué au dossier A) et un stagiaire ;
     - le dossier A contient :
@@ -132,10 +132,10 @@
     - appelant sans cabinet : `CABINET_INTERDIT` ;
     - `_mois = 13` : `CABINET_PARAMETRE` ;
     - fonction `SECURITY DEFINER`, `search_path` fixé, pas d'exécution pour `anon`.
-- [ ] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec, la fonction est absente.
-- [ ] **Étape 3 : écrire la fonction.** Les règles métier sont au début du plan. Le dû CNSS/IRPP et la liquidation de TVA se calculent sur `jsonb_array_elements(lignes)` ; elles vont dans deux fonctions `private` : `private.tva_liquidee(_societe uuid, _annee int, _mois int) -> boolean` et `private.du_social(_societe uuid, _prefixes text[], _avant date) -> numeric`.
-- [ ] **Étape 4 :** Claude relance les tests de la tâche 1, de la tâche 2 et `sans_cabinet.sql`. Attendu : tous verts.
-- [ ] **Étape 5 :** commit « Tableau du cabinet : fonction tableau_cabinet ». L'utilisateur lance le fichier de déploiement.
+- [x] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec, la fonction est absente.
+- [x] **Étape 3 : écrire la fonction.** Les règles métier sont au début du plan. Le dû CNSS/IRPP et la liquidation de TVA se calculent sur `jsonb_array_elements(lignes)` ; elles vont dans deux fonctions `private` : `private.tva_liquidee(_societe uuid, _annee int, _mois int) -> boolean` et `private.du_social(_societe uuid, _prefixes text[], _avant date) -> numeric`.
+- [x] **Étape 4 :** Claude relance les tests de la tâche 1, de la tâche 2 et `sans_cabinet.sql`. Attendu : tous verts.
+- [x] **Étape 5 :** commit « Tableau du cabinet : fonction tableau_cabinet ». L'utilisateur lance le fichier de déploiement.
 
 ### Tâche 3 : onglet « Tableau de bord » dans Mon cabinet
 
@@ -152,7 +152,7 @@
   - `useTableauCabinet(annee: number, mois: number)` : `useQuery`, clé `["tableau_cabinet", annee, mois]` ;
   - `useMarquerDeclaration()` : `useMutation` qui fait un upsert sur `suivi_declarations` (`onConflict: "societe_id,annee,mois,type"`), puis invalide `tableau_cabinet`.
 
-- [ ] **Étape 1 : écrire les tests.**
+- [x] **Étape 1 : écrire les tests.**
   - `periodeParDefaut` :
     - `new Date(2026, 10, 2)` donne `{ annee: 2026, mois: 10 }` ;
     - `new Date(2027, 0, 5)` donne `{ annee: 2026, mois: 12 }`.
@@ -164,13 +164,13 @@
     - un clic sur une échéance « À faire » d'un dossier où la fiscalité est au niveau 2 ou plus ouvre un choix « Déposée » / « Payée » qui appelle la mutation avec `{ societe_id, annee, mois, type, statut }` ;
     - si la fiscalité est au niveau 1 (mission `paie_social`), aucun bouton ;
     - le sélecteur de période (mois et année) change les arguments du hook.
-- [ ] **Étape 2 :** `npx.cmd vitest run src/lib/tableauCabinet.test.ts src/components/cabinet/TableauCabinet.test.tsx`. Attendu : échec, les modules sont absents.
-- [ ] **Étape 3 : implémenter.**
+- [x] **Étape 2 :** `npx.cmd vitest run src/lib/tableauCabinet.test.ts src/components/cabinet/TableauCabinet.test.tsx`. Attendu : échec, les modules sont absents.
+- [x] **Étape 3 : implémenter.**
   - L'onglet « Tableau de bord » vient en premier dans `Cabinet.tsx` et s'ouvre par défaut.
   - Le niveau en fiscalité d'un dossier se calcule avec `permissionsMission(dossier.mission, role, dossier.etat).fiscalite` ; le rôle vient du membre connecté (`useCabinet`).
   - Pas de nouvelle dépendance. Mise en page cohérente avec `DossiersCabinet.tsx` : un tableau sur ordinateur, des cartes sur téléphone.
-- [ ] **Étape 4 :** les tests de l'étape 1, puis `npx.cmd vitest run` en entier et `tsc` : tout vert.
-- [ ] **Étape 5 :** commit « Mon cabinet : tableau de bord ».
+- [x] **Étape 4 :** les tests de l'étape 1, puis `npx.cmd vitest run` en entier et `tsc` : tout vert.
+- [x] **Étape 5 :** commit « Mon cabinet : tableau de bord ».
 
 ### Tâche 4 : recette sur TEST
 

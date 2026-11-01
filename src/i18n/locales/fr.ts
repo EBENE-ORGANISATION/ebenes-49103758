@@ -1,4 +1,21 @@
 const fr = {
+  tableau_cabinet: {
+    titre: "Tableau de bord", mois: "Mois", annee: "Année",
+    dossier: "Dossier", echeances: "Échéances", pieces: "Pièces à traiter", avancement: "Avancement",
+    chargement: "Chargement du tableau de bord…", erreur: "Impossible de charger le tableau de bord.",
+    vide: "Aucun dossier à suivre pour cette période.",
+    etats: { faite: "Faite", a_faire: "À faire", en_retard: "En retard", sans_objet: "Sans objet" },
+    types: { TVA: "TVA", CNSS: "CNSS", IRPP: "IRPP", patente: "Patente" },
+    deposee: "Déposée", payee: "Payée", echeance: "Échéance : {{date}}",
+    marquee: "{{statut}} par {{nom}} le {{date}}", auteur_inconnu: "un membre du cabinet",
+    total_pieces: "{{nombre}} pièces à traiter",
+    detail_pieces: "Transactions : {{transactions}} · Factures : {{factures}} · Écritures en brouillon : {{ecritures_brouillon}} · Sans justificatif : {{sans_justificatif}}",
+    dernier_mois: "Dernier mois saisi : {{mois}}", aucune_saisie: "aucune saisie",
+    bulletins: "{{faits}} / {{attendus}} bulletins",
+    exercice_cloture: "Exercice {{annee}} clôturé", exercice_ouvert: "Exercice {{annee}} non clôturé",
+    charge: "Charge de l’équipe", charge_membre: "{{dossiers}} dossiers · {{pieces}} pièces",
+    succes: "Déclaration marquée.", erreur_marquer: "Impossible de marquer la déclaration.",
+  },
   cabinet9: {
   "cabinets": "Cabinets",
   "depuis": "Depuis le {{date}}",

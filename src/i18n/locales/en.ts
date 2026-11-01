@@ -1,6 +1,23 @@
 import type { Translation } from "./fr";
 
 const en: Translation = {
+  tableau_cabinet: {
+    titre: "Dashboard", mois: "Month", annee: "Year",
+    dossier: "Client file", echeances: "Deadlines", pieces: "Items to process", avancement: "Progress",
+    chargement: "Loading dashboard…", erreur: "Unable to load the dashboard.",
+    vide: "No client files to follow for this period.",
+    etats: { faite: "Done", a_faire: "To do", en_retard: "Overdue", sans_objet: "Not applicable" },
+    types: { TVA: "VAT", CNSS: "CNSS", IRPP: "IRPP", patente: "Business licence tax" },
+    deposee: "Filed", payee: "Paid", echeance: "Due: {{date}}",
+    marquee: "{{statut}} by {{nom}} on {{date}}", auteur_inconnu: "a cabinet member",
+    total_pieces: "{{nombre}} items to process",
+    detail_pieces: "Transactions: {{transactions}} · Invoices: {{factures}} · Draft entries: {{ecritures_brouillon}} · Without supporting document: {{sans_justificatif}}",
+    dernier_mois: "Last month entered: {{mois}}", aucune_saisie: "no entries",
+    bulletins: "{{faits}} / {{attendus}} payslips",
+    exercice_cloture: "Financial year {{annee}} closed", exercice_ouvert: "Financial year {{annee}} not closed",
+    charge: "Team workload", charge_membre: "{{dossiers}} client files · {{pieces}} items",
+    succes: "Declaration marked.", erreur_marquer: "Unable to mark the declaration.",
+  },
   cabinet9: {
     cabinets: "Firms", depuis: "Since {{date}}", mission: "Assignment",
     audit: "The firm's actions are signed in the audit log.", responsable: "Manager",

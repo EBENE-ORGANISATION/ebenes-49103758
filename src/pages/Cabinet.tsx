@@ -5,6 +5,7 @@ import { useLienAccueil } from "@/hooks/useTenant";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EquipeCabinet } from "@/components/cabinet/EquipeCabinet";
 import { DossiersCabinet } from "@/components/cabinet/DossiersCabinet";
+import { TableauCabinet } from "@/components/cabinet/TableauCabinet";
 
 export default function Cabinet() {
   const donnees = useCabinet();
@@ -15,8 +16,9 @@ export default function Cabinet() {
     <h1 className="text-2xl font-bold">{t("cabinet.titre")}</h1>
     {donnees.isLoading ? <p role="status">{t("cabinet.chargement")}</p> : donnees.isError ? <p role="alert">{t("cabinet.erreur")}</p> : !donnees.cabinet ? <p>{t("cabinet.interdit")}</p> : <>
       <h2 className="text-xl">{donnees.cabinet.nom}</h2>
-      <Tabs defaultValue="dossiers">
-        <TabsList><TabsTrigger value="dossiers">{t("cabinet.dossiers")}</TabsTrigger>{donnees.role === "responsable" && <TabsTrigger value="equipe">{t("cabinet.equipe")}</TabsTrigger>}</TabsList>
+      <Tabs defaultValue="tableau">
+        <TabsList><TabsTrigger value="tableau">{t("tableau_cabinet.titre")}</TabsTrigger><TabsTrigger value="dossiers">{t("cabinet.dossiers")}</TabsTrigger>{donnees.role === "responsable" && <TabsTrigger value="equipe">{t("cabinet.equipe")}</TabsTrigger>}</TabsList>
+        <TabsContent value="tableau"><TableauCabinet /></TabsContent>
         <TabsContent value="dossiers"><DossiersCabinet donnees={donnees} /></TabsContent>
         {donnees.role === "responsable" && <TabsContent value="equipe"><EquipeCabinet cabinetId={donnees.cabinet.id} membres={donnees.membres} executer={donnees.executer} enCours={donnees.enCours} /></TabsContent>}
       </Tabs>
