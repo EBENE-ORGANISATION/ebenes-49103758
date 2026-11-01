@@ -282,6 +282,7 @@ const en: Translation = {
     access_denied: "Access denied",
     access_denied_desc: "Only the company administrator can change these settings.",
     company_label: "Company:",
+    choose_company: "Choose the company to configure in the list above.",
     section_logo: "Logo",
     upload_logo: "Upload a logo",
     remove_logo: "Remove",

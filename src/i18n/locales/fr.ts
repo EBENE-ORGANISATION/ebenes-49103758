@@ -290,6 +290,7 @@ const fr = {
     access_denied: "Accès refusé",
     access_denied_desc: "Seul l'administrateur de la société peut modifier ces paramètres.",
     company_label: "Société :",
+    choose_company: "Choisissez la société à paramétrer dans la liste ci-dessus.",
     section_logo: "Logo",
     upload_logo: "Téléverser un logo",
     remove_logo: "Retirer",

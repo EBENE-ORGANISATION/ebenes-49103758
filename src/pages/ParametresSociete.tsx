@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -72,7 +72,8 @@ const ColorField = ({ label, value, onChange, disabled }: { label: string; value
 const ParametresSociete = () => {
   const { t } = useTranslation();
   const { isAdmin, isSuperAdmin } = useAuth();
-  const { currentSociete, societeConfig, societes, setCurrentSocieteId, isLoading, refresh } = useTenant();
+  const { currentSociete, societeConfig, societes, isLoading, refresh } = useTenant();
+  const navigate = useNavigate();
   const accueil = useLienAccueil();
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -254,7 +255,7 @@ const ParametresSociete = () => {
               <Label className="text-xs text-muted-foreground">{t("params.company_label")}</Label>
               <Select
                 value={currentSociete?.id ?? ""}
-                onValueChange={(v) => setCurrentSocieteId(v)}
+                onValueChange={(v) => navigate({ pathname: "/admin/societe", search: `sid=${encodeURIComponent(v)}` })}
               >
                 <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -267,8 +268,10 @@ const ParametresSociete = () => {
           )}
         </div>
 
-        {isLoading || !currentSociete ? (
+        {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="size-6 animate-spin" /></div>
+        ) : !currentSociete ? (
+          <Card className="p-6 text-center text-sm text-muted-foreground">{t("params.choose_company")}</Card>
         ) : (
           <>
             <Card className="p-5 space-y-4">
