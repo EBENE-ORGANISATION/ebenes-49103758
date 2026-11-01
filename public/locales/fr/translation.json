@@ -1,4 +1,18 @@
 {
+  "societe_switcher": {
+    "my_companies": "Mes sociétés",
+    "firm_clients": "Clients du cabinet",
+    "search": "Rechercher une société",
+    "departure": "Départ en cours",
+    "no_results": "Aucune société trouvée",
+    "missions": {
+      "tenue_complete": "Tenue complète",
+      "compta_fiscalite": "Comptabilité et fiscalité",
+      "paie_social": "Paie et social",
+      "declarations": "Déclarations",
+      "lecture": "Lecture seule"
+    }
+  },
   "erreurs_cabinet": {
     "exercice_clos": "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire."
   },

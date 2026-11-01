@@ -939,6 +939,12 @@ const en: Translation = {
     denied_msg: "You don't have the required permissions to access this page.",
   },
   societe_switcher: {
+    my_companies: "My companies",
+    firm_clients: "Firm clients",
+    search: "Search for a company",
+    departure: "Departure in progress",
+    no_results: "No companies found",
+    missions: {"tenue_complete":"Full bookkeeping","compta_fiscalite":"Accounting and tax","paie_social":"Payroll and social","declarations":"Returns","lecture":"Read only"},
     parent_app: "Ébène Suite",
     societes: "Companies",
     super_admin: "Super-admin",

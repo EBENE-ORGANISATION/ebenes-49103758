@@ -937,6 +937,12 @@ const fr = {
     denied_msg: "Vous n'avez pas les permissions nécessaires pour accéder à cette page.",
   },
   societe_switcher: {
+    my_companies: "Mes sociétés",
+    firm_clients: "Clients du cabinet",
+    search: "Rechercher une société",
+    departure: "Départ en cours",
+    no_results: "Aucune société trouvée",
+    missions: {"tenue_complete":"Tenue complète","compta_fiscalite":"Comptabilité et fiscalité","paie_social":"Paie et social","declarations":"Déclarations","lecture":"Lecture seule"},
     parent_app: "Ébène Suite",
     societes: "Sociétés",
     super_admin: "Super-admin",

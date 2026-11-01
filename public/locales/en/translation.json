@@ -1,4 +1,18 @@
 {
+  "societe_switcher": {
+    "my_companies": "My companies",
+    "firm_clients": "Firm clients",
+    "search": "Search for a company",
+    "departure": "Departure in progress",
+    "no_results": "No companies found",
+    "missions": {
+      "tenue_complete": "Full bookkeeping",
+      "compta_fiscalite": "Accounting and tax",
+      "paie_social": "Payroll and social",
+      "declarations": "Returns",
+      "lecture": "Read only"
+    }
+  },
   "erreurs_cabinet": {
     "exercice_clos": "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire."
   },
