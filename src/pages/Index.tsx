@@ -209,9 +209,7 @@ const Index = () => {
     }
   };
 
-  // Helpers : un no-op + toast pour les actions interdites selon le service
-  const blocked = (msg: string) => () => toast.error(msg);
-  const blockedId = (msg: string) => (_id: number) => toast.error(msg);
+  // Messages des paramètres fiscaux.
   const tp = (k: string) => t(`index_page.perms.${k}`);
 
   // Niveaux par module
@@ -436,10 +434,10 @@ const Index = () => {
                 articlesSociete={store.articlesSociete}
                 onAdd={comptaWrite
                   ? (t) => store.addTransaction(annee, mois, t)
-                  : blocked(tp("compta_read_only"))}
+                  : undefined}
                 onRemove={comptaValidate
                   ? (id) => store.removeTransaction(annee, mois, id)
-                  : blockedId(tp("compta_delete"))}
+                  : undefined}
                 isChefCompta={comptaValidate}
                 onValider={(id) => store.validerTransaction(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterTransaction(annee, mois, id, motif)}
@@ -489,38 +487,38 @@ const Index = () => {
                 data={data}
                 onAdd={factWrite
                   ? (f) => store.addFacture(annee, mois, f)
-                  : ((_f: Omit<Facture, "id">) => { toast.error(tp("fact_read_only")); return 0; })}
+                  : undefined}
                 onRemove={factValidate
                   ? (id) => store.removeFacture(annee, mois, id)
-                  : blockedId(tp("compta_delete"))}
+                  : undefined}
                 onAnnuler={factValidate
                   ? (id) => store.annulerFacture(annee, mois, id)
-                  : blockedId(tp("fact_action"))}
+                  : undefined}
                 onMarquerPayee={factWrite
                   ? (id, compte) => store.marquerPayee(annee, mois, id, compte)
-                  : blockedId(tp("fact_action"))}
+                  : undefined}
                 onConvertir={factWrite
                   ? (id, num) => store.convertirProforma(annee, mois, id, num)
-                  : (() => toast.error(tp("fact_action")))}
+                  : undefined}
                 onPreview={setPreviewFacture}
                 isChefCompta={factValidate}
                 onValider={(id) => store.validerFacture(annee, mois, id)}
                 onRejeter={(id, motif) => store.rejeterFacture(annee, mois, id, motif)}
                 onUpdateFacture={factWrite
                   ? (id, patch) => store.updateFacture(annee, mois, id, patch)
-                  : (() => toast.error(tp("fact_modify")))}
+                  : undefined}
                 onAddDevis={factWrite
                   ? (d) => store.addDevis(annee, mois, d)
-                  : ((_d) => { toast.error(tp("fact_devis_read_only")); return 0; })}
+                  : undefined}
                 onRemoveDevis={factValidate
                   ? (id) => store.removeDevis(annee, mois, id)
-                  : blockedId(tp("compta_delete"))}
+                  : undefined}
                 onConvertirDevis={factWrite
                   ? (id, num) => { store.convertirDevisEnFacture(annee, mois, id, num); }
-                  : (() => toast.error(tp("fact_action")))}
+                  : undefined}
                 onUpdateDevis={factWrite
                   ? (id, patch) => store.updateDevis(annee, mois, id, patch)
-                  : (() => toast.error(tp("fact_modify")))}
+                  : undefined}
               />
             </TabsContent>
             )}
@@ -534,19 +532,19 @@ const Index = () => {
                 articles={store.articles}
                 fournisseurs={store.fournisseurs}
                 categories={store.categoriesStock}
-                onAddArticle={stockWrite ? store.addArticle : blocked(tp("stock_action"))}
-                onUpdateArticle={stockWrite ? store.updateArticle : (() => toast.error(tp("stock_action")))}
-                onRemoveArticle={stockValidate ? store.removeArticle : blockedId(tp("stock_delete"))}
-                onAddFournisseur={stockWrite ? store.addFournisseur : blocked(tp("stock_action"))}
-                onUpdateFournisseur={stockWrite ? store.updateFournisseur : (() => toast.error(tp("stock_action")))}
-                onRemoveFournisseur={stockValidate ? store.removeFournisseur : blockedId(tp("stock_delete"))}
-                onAddCategorie={stockWrite ? store.addCategorieStock : blocked(tp("stock_action"))}
-                onRemoveCategorie={stockValidate ? store.removeCategorieStock : blockedId(tp("stock_delete"))}
+                onAddArticle={stockWrite ? store.addArticle : undefined}
+                onUpdateArticle={stockWrite ? store.updateArticle : undefined}
+                onRemoveArticle={stockValidate ? store.removeArticle : undefined}
+                onAddFournisseur={stockWrite ? store.addFournisseur : undefined}
+                onUpdateFournisseur={stockWrite ? store.updateFournisseur : undefined}
+                onRemoveFournisseur={stockValidate ? store.removeFournisseur : undefined}
+                onAddCategorie={stockWrite ? store.addCategorieStock : undefined}
+                onRemoveCategorie={stockValidate ? store.removeCategorieStock : undefined}
                 onConstaterStock={stockValidate && comptaWrite ? store.constaterStock : undefined}
                 onTransferer={stockWrite ? store.transfererStock : undefined}
                 onAddEntreeAchat={stockWrite ? store.addEntreeStockAchat : undefined}
-                onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : (() => { toast.error(tp("stock_action")); return 0; })}
-                onRemoveMouvement={stockValidate ? store.removeMouvementStock : ((_a: number, _m: number, _id: number) => toast.error(tp("stock_delete")))}
+                onAddMouvement={stockWrite ? (a, m, mv) => store.addMouvementStock(a, m, mv) : undefined}
+                onRemoveMouvement={stockValidate ? store.removeMouvementStock : undefined}
                 isChefCompta={stockValidate}
               />
             </TabsContent>
@@ -562,19 +560,19 @@ const Index = () => {
                 allAbsences={Object.values(store.donneesMensuelles).flatMap((m) => m.absences || [])}
                 sanctions={store.sanctions}
                 isChefGrh={grhValidate}
-                onAddEmploye={grhWrite ? store.addEmploye : blocked(tp("grh_read_only"))}
-                onUpdateEmploye={grhWrite ? store.updateEmploye : (() => toast.error(tp("grh_modify")))}
-                onRemoveEmploye={grhValidate ? store.removeEmploye : blockedId(tp("grh_delete"))}
-                onValiderEmploye={grhValidate ? store.validerEmploye : blockedId(tp("grh_validation"))}
-                onRejeterEmploye={grhValidate ? store.rejeterEmploye : ((_id: number, _m: string) => toast.error(tp("grh_validation")))}
-                onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : (() => toast.error(tp("grh_action")))}
-                onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : (() => toast.error(tp("grh_delete_action")))}
-                onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : (() => toast.error(tp("grh_action")))}
-                onRemoveAbsence={grhValidate ? (id) => store.removeAbsence(annee, mois, id) : (() => toast.error(tp("grh_delete_action")))}
-                onSetHeuresSup={grhWrite ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : (() => toast.error(tp("grh_action")))}
-                onSetRetenue={grhWrite ? (eid, m) => store.setRetenue(annee, mois, eid, m) : (() => toast.error(tp("grh_action")))}
-                onAddSanction={grhWrite ? store.addSanction : blocked(tp("grh_action"))}
-                onRemoveSanction={grhValidate ? store.removeSanction : blockedId(tp("grh_delete_action"))}
+                onAddEmploye={grhWrite ? store.addEmploye : undefined}
+                onUpdateEmploye={grhWrite ? store.updateEmploye : undefined}
+                onRemoveEmploye={grhValidate ? store.removeEmploye : undefined}
+                onValiderEmploye={grhValidate ? store.validerEmploye : undefined}
+                onRejeterEmploye={grhValidate ? store.rejeterEmploye : undefined}
+                onAddPrime={grhWrite ? (eid, p) => store.addPrime(annee, mois, eid, p) : undefined}
+                onRemovePrime={grhValidate ? (eid, pid) => store.removePrime(annee, mois, eid, pid) : undefined}
+                onAddAbsence={grhWrite ? (a) => store.addAbsence(annee, mois, a) : undefined}
+                onRemoveAbsence={grhValidate ? (id) => store.removeAbsence(annee, mois, id) : undefined}
+                onSetHeuresSup={grhWrite ? (eid, hs) => store.setHeuresSup(annee, mois, eid, hs) : undefined}
+                onSetRetenue={grhWrite ? (eid, m) => store.setRetenue(annee, mois, eid, m) : undefined}
+                onAddSanction={grhWrite ? store.addSanction : undefined}
+                onRemoveSanction={grhValidate ? store.removeSanction : undefined}
                 onValiderPrime={(eid, pid) => store.validerPrime(annee, mois, eid, pid)}
                 onRejeterPrime={(eid, pid, motif) => store.rejeterPrime(annee, mois, eid, pid, motif)}
                 onValiderAbsence={(id) => store.validerAbsence(annee, mois, id)}
@@ -603,10 +601,10 @@ const Index = () => {
                 immobilisations={store.immobilisations}
                 onAdd={immoWrite
                   ? store.addImmobilisation
-                  : ((_i) => { toast.error(tp("immo_action")); return 0; })}
+                  : undefined}
                 onRemove={immoValidate
                   ? store.removeImmobilisation
-                  : blockedId(tp("immo_delete"))}
+                  : undefined}
                 onUpdate={immoWrite ? store.updateImmobilisation : undefined}
                 canEdit={immoWrite}
                 onAddEcriture={comptaWrite

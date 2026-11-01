@@ -31,15 +31,15 @@ interface Props {
   annee: number;
   donneesMensuelles: DonneesMensuelles;
   data: MoisData;
-  onAdd: (f: Omit<Facture, "id">) => number;
-  onRemove: (id: number) => void;
+  onAdd?: (f: Omit<Facture, "id">) => number;
+  onRemove?: (id: number) => void;
   /** Articles du stock : une ligne peut vendre un article (sortie à la validation). */
   articles?: Article[];
   /** Annule une facture validée ou payée (contre-passation de ses écritures). */
   onAnnuler?: (id: number) => void;
   /** `compte` : 571 Caisse ou 521 Banque — compte d'encaissement du règlement. */
-  onMarquerPayee: (id: number, compte: "521" | "571") => void;
-  onConvertir: (id: number, num: string) => void;
+  onMarquerPayee?: (id: number, compte: "521" | "571") => void;
+  onConvertir?: (id: number, num: string) => void;
   onPreview: (f: Facture) => void;
   /** Si true, affiche les boutons Valider / Rejeter (chef compta). */
   isChefCompta?: boolean;
@@ -250,7 +250,7 @@ export const Factures = ({
     }
 
     const numeroFinal = await numeroDefinitif(numeroAuto, numero.trim(), proforma);
-    onAdd({
+    onAdd?.({
       numero: numeroFinal,
       client: client.trim(),
       date,
@@ -291,18 +291,16 @@ export const Factures = ({
 
   return (
     <div className="space-y-5">
-      {onAddDevis && onRemoveDevis && onConvertirDevis && (
-        <DevisSection
-          annee={annee}
-          articles={articles}
-          donneesMensuelles={donneesMensuelles}
-          data={data}
-          onAdd={onAddDevis}
-          onRemove={onRemoveDevis}
-          onConvertir={onConvertirDevis}
-          onUpdate={onUpdateDevis}
-        />
-      )}
+      <DevisSection
+        annee={annee}
+        articles={articles}
+        donneesMensuelles={donneesMensuelles}
+        data={data}
+        onAdd={onAddDevis}
+        onRemove={onRemoveDevis}
+        onConvertir={onConvertirDevis}
+        onUpdate={onUpdateDevis}
+      />
 
       <div className="bg-info/10 border-l-4 border-info rounded-md p-3 text-sm space-y-1">
         <p>💡 Ce que fait l'application :</p>
@@ -313,14 +311,18 @@ export const Factures = ({
         </ul>
       </div>
 
-      {!open ? (
+      {(editingId != null ? onUpdateFacture : onAdd) && (!open ? (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setOpen(true)} className="gap-1.5">
+          {onAdd && (
+            <Button onClick={() => setOpen(true)} className="gap-1.5">
             <Plus className="size-4" /> Nouvelle Facture / Proforma
           </Button>
-          <Button variant="outline" onClick={() => setOcrOpen(true)} className="gap-1.5">
+          )}
+          {onAdd && (
+            <Button variant="outline" onClick={() => setOcrOpen(true)} className="gap-1.5">
             <Camera className="size-4" /> 📷 Importer par photo
           </Button>
+          )}
         </div>
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
@@ -482,7 +484,7 @@ export const Factures = ({
             </Button>
           </div>
         </div>
-      )}
+      ))}
 
       <div className="space-y-2">
         {sorted.length === 0 ? (
@@ -616,7 +618,7 @@ export const Factures = ({
                         <XCircle className="size-4" />
                       </Button>
                     )}
-                    {f.statut === "proforma" && (
+                    {f.statut === "proforma" && onConvertir && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -628,14 +630,14 @@ export const Factures = ({
                             const apercu = societeConfig
                               ? genererNumeroFacture(societeConfig, anneeEmission)
                               : prochainNumeroFallback(false, anneeEmission, donneesMensuelles);
-                            onConvertir(f.id, await numeroDefinitif(apercu, "", false, anneeEmission));
+                            onConvertir?.(f.id, await numeroDefinitif(apercu, "", false, anneeEmission));
                           }
                         }}
                       >
                         <RefreshCw className="size-3.5" /> Convertir
                       </Button>
                     )}
-                    {f.statut === "en_attente" && (
+                    {onMarquerPayee && f.statut === "en_attente" && (
                       <Button
                         size="sm"
                         className="gap-1 bg-success text-success-foreground hover:bg-success/90"
@@ -670,19 +672,19 @@ Elle restera dans la liste, au statut « annulée ». ` +
                         </Button>
                       )
                     ) : (
-                      <Button
+                      (onRemove && (<Button
                         size="icon"
                         variant="ghost"
                         className="size-8 text-destructive hover:bg-destructive/10"
                         onClick={() => {
                           if (confirm("Supprimer cette facture ?")) {
-                            onRemove(f.id);
+                            onRemove?.(f.id);
                           }
                         }}
                         title="Supprimer (facture non validée)"
                       >
                         <Trash2 className="size-4" />
-                      </Button>
+                      </Button>))
                     )}
                   </div>
                 </div>
@@ -692,10 +694,10 @@ Elle restera dans la liste, au statut « annulée ». ` +
         )}
       </div>
 
-      <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} nature="vente" />
+      <OCRFacture open={!!onAdd && ocrOpen} onOpenChange={setOcrOpen} onExtracted={applyOCRDraft} nature="vente" />
 
       {/* Choix du compte d'encaissement au règlement d'une facture */}
-      <Dialog open={paiementFacture != null} onOpenChange={(o) => { if (!o) setPaiementFacture(null); }}>
+      <Dialog open={!!onMarquerPayee && paiementFacture != null} onOpenChange={(o) => { if (!o) setPaiementFacture(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Règlement de la facture {paiementFacture?.numero}</DialogTitle>
@@ -713,19 +715,19 @@ Elle restera dans la liste, au statut « annulée ». ` +
               ["571", "Caisse", "Espèces (compte 571)", Wallet],
               ["521", "Banque", "Virement, chèque, mobile money (compte 521)", Landmark],
             ] as const).map(([compte, titre, detail, Icone]) => (
-              <Button
+              (onMarquerPayee && (<Button
                 key={compte}
                 variant="outline"
                 className="h-auto flex-col gap-1 py-4"
                 onClick={() => {
-                  if (paiementFacture) onMarquerPayee(paiementFacture.id, compte);
+                  if (paiementFacture) onMarquerPayee?.(paiementFacture.id, compte);
                   setPaiementFacture(null);
                 }}
               >
                 <Icone className="size-5" />
                 <span className="font-semibold">{titre}</span>
                 <span className="text-xs text-muted-foreground font-normal whitespace-normal text-center">{detail}</span>
-              </Button>
+              </Button>))
             ))}
           </div>
         </DialogContent>

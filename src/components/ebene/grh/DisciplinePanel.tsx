@@ -20,8 +20,8 @@ import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 interface Props {
   employes: Employe[];
   sanctions: Sanction[];
-  onAdd: (s: Omit<Sanction, "id">) => void;
-  onRemove: (id: number) => void;
+  onAdd?: (s: Omit<Sanction, "id">) => void;
+  onRemove?: (id: number) => void;
   isChefGrh: boolean;
   onValider: (id: number) => void;
   onRejeter: (id: number, motif: string) => void;
@@ -72,7 +72,7 @@ export const DisciplinePanel = ({
       if (isNaN(j) || j <= 0) return alert(t("grh_discipline.err_days"));
       payload.joursMiseAPied = j;
     }
-    onAdd(payload);
+    onAdd?.(payload);
     reset();
   };
 
@@ -94,7 +94,7 @@ export const DisciplinePanel = ({
         </p>
       </div>
 
-      {showForm ? (
+      {onAdd && (showForm ? (
         <div className="card-elevated p-5 space-y-3">
           <h3 className="font-bold flex items-center gap-2">
             <AlertTriangle className="size-4 text-warning" /> {t("grh_discipline.record_title")}
@@ -174,10 +174,10 @@ export const DisciplinePanel = ({
           </div>
         </div>
       ) : (
-        <Button onClick={() => setShowForm(true)} className="gap-1.5">
+        (onAdd && (<Button onClick={() => setShowForm(true)} className="gap-1.5">
           <Plus className="size-4" /> {t("grh_discipline.new_btn")}
-        </Button>
-      )}
+        </Button>))
+      ))}
 
       {sortedSanctions.length === 0 ? (
         <p className="text-center text-muted-foreground py-8 italic">
@@ -253,13 +253,13 @@ export const DisciplinePanel = ({
                         <XCircle className="size-4" />
                       </Button>
                     )}
-                    {isChefGrh && (
+                    {isChefGrh && onRemove && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="size-8 text-destructive hover:bg-destructive/10"
                         onClick={() => {
-                          if (confirm(t("grh_discipline.confirm_delete"))) onRemove(s.id);
+                          if (confirm(t("grh_discipline.confirm_delete"))) onRemove?.(s.id);
                         }}
                       >
                         <Trash2 className="size-4" />

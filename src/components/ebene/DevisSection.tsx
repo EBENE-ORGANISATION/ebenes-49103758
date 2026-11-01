@@ -39,9 +39,9 @@ interface Props {
   annee: number;
   donneesMensuelles: DonneesMensuelles;
   data: MoisData;
-  onAdd: (d: Omit<Devis, "id">) => number;
-  onRemove: (id: number) => void;
-  onConvertir: (id: number, numeroFacture: string) => void;
+  onAdd?: (d: Omit<Devis, "id">) => number;
+  onRemove?: (id: number) => void;
+  onConvertir?: (id: number, numeroFacture: string) => void;
   /** Mise à jour d'un devis non encore converti / refusé. */
   onUpdate?: (id: number, patch: Partial<Devis>) => void;
   /** Articles du stock : une ligne peut reprendre un article (repris à la conversion en facture). */
@@ -199,7 +199,7 @@ export const DevisSection = ({
     }
 
     const numeroFinal = await numeroDefinitif("devis", numeroAuto, numero.trim());
-    onAdd({
+    onAdd?.({
       numero: numeroFinal,
       client: client.trim(),
       date,
@@ -234,10 +234,10 @@ export const DevisSection = ({
         </span>
       </div>
 
-      {!open ? (
-        <Button onClick={() => setOpen(true)} variant="outline" className="gap-1.5">
+      {(editingId != null ? onUpdate : onAdd) && (!open ? (
+        (onAdd && (<Button onClick={() => setOpen(true)} variant="outline" className="gap-1.5">
           <Plus className="size-4" /> {t("devis.new")}
-        </Button>
+        </Button>))
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-4">
           <h4 className="font-bold">{editingId != null ? t("devis.modify") : t("devis.new_title")}</h4>
@@ -377,7 +377,7 @@ export const DevisSection = ({
             </Button>
           </div>
         </div>
-      )}
+      ))}
 
       <div className="space-y-2">
         {sorted.length === 0 ? (
@@ -480,7 +480,7 @@ export const DevisSection = ({
                       </Button>
                     )}
                     {/* Un devis refusé par le client ne peut pas devenir une facture */}
-                    {d.statut !== "converti" && d.statut !== "refuse" && (
+                    {d.statut !== "converti" && d.statut !== "refuse" && onConvertir && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -492,25 +492,27 @@ export const DevisSection = ({
                             const apercu = societeConfig
                               ? genererNumeroFactureFmt(societeConfig, anneeEmission)
                               : prochainNumeroFactureFallback(anneeEmission, donneesMensuelles);
-                            onConvertir(d.id, await numeroDefinitif("facture", apercu, "", anneeEmission));
+                            onConvertir?.(d.id, await numeroDefinitif("facture", apercu, "", anneeEmission));
                           }
                         }}
                       >
                         <RefreshCw className="size-3.5" /> {t("devis.convert")}
                       </Button>
                     )}
-                    <Button
+                    {onRemove && (
+                      <Button
                       size="icon"
                       variant="ghost"
                       className="size-8 text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        if (confirm(t("devis.confirm_delete"))) onRemove(d.id);
+                        if (confirm(t("devis.confirm_delete"))) onRemove?.(d.id);
                       }}
                       title="Supprimer le devis"
                       aria-label={`Supprimer le devis ${d.numero}`}
                     >
                       <Trash2 className="size-4" />
                     </Button>
+                    )}
                   </div>
                 </div>
               </div>

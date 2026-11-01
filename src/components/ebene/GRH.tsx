@@ -61,19 +61,19 @@ interface Props {
   mois: number;
   sanctions: Sanction[];
   isChefGrh: boolean;
-  onAddEmploye: (e: Omit<Employe, "id">) => void;
-  onUpdateEmploye: (id: number, patch: Partial<Employe>) => void;
-  onRemoveEmploye: (id: number) => void;
-  onValiderEmploye: (id: number) => void;
-  onRejeterEmploye: (id: number, motif: string) => void;
-  onAddPrime: (employeId: number, p: Omit<Prime, "id">) => void;
-  onRemovePrime: (employeId: number, primeId: number) => void;
-  onAddAbsence: (a: Omit<Absence, "id">) => void;
-  onRemoveAbsence: (id: number) => void;
-  onSetHeuresSup: (employeId: number, hs: HeuresSup) => void;
-  onSetRetenue: (employeId: number, montant: number) => void;
-  onAddSanction: (s: Omit<Sanction, "id">) => void;
-  onRemoveSanction: (id: number) => void;
+  onAddEmploye?: (e: Omit<Employe, "id">) => void;
+  onUpdateEmploye?: (id: number, patch: Partial<Employe>) => void;
+  onRemoveEmploye?: (id: number) => void;
+  onValiderEmploye?: (id: number) => void;
+  onRejeterEmploye?: (id: number, motif: string) => void;
+  onAddPrime?: (employeId: number, p: Omit<Prime, "id">) => void;
+  onRemovePrime?: (employeId: number, primeId: number) => void;
+  onAddAbsence?: (a: Omit<Absence, "id">) => void;
+  onRemoveAbsence?: (id: number) => void;
+  onSetHeuresSup?: (employeId: number, hs: HeuresSup) => void;
+  onSetRetenue?: (employeId: number, montant: number) => void;
+  onAddSanction?: (s: Omit<Sanction, "id">) => void;
+  onRemoveSanction?: (id: number) => void;
   onValiderPrime: (employeId: number, primeId: number) => void;
   onRejeterPrime: (employeId: number, primeId: number, motif: string) => void;
   onValiderAbsence: (id: number) => void;
@@ -169,7 +169,7 @@ export const GRH = ({
     if (!primeLib.trim()) return alert("Libellé requis");
     const m = parseFloat(primeMnt);
     if (isNaN(m) || m <= 0) return alert("Montant invalide");
-    onAddPrime(employeId, { libelle: primeLib.trim(), montant: m });
+    onAddPrime?.(employeId, { libelle: primeLib.trim(), montant: m });
     setPrimeLib("");
     setPrimeMnt("");
     setPrimeOpen(null);
@@ -210,7 +210,7 @@ export const GRH = ({
         toast.error("Réponse invalide du serveur.");
         return;
       }
-      onUpdateEmploye(e.id, { userId: payload.user_id });
+      onUpdateEmploye?.(e.id, { userId: payload.user_id });
       if (payload.already_existed) {
         toast.success(
           `Compte existant trouvé pour ${e.email}. Lié à la fiche.`
@@ -274,12 +274,12 @@ export const GRH = ({
         </TabsList>
 
         <TabsContent value="effectif" className="space-y-4">
-          {showForm ? (
+          {(editing ? onUpdateEmploye : onAddEmploye) && (showForm ? (
             <EmployeForm
               initial={editing || undefined}
               onSubmit={(d) => {
-                if (editing) onUpdateEmploye(editing.id, d);
-                else onAddEmploye(d);
+                if (editing) onUpdateEmploye?.(editing.id, d);
+                else onAddEmploye?.(d);
                 setShowForm(false);
                 setEditing(null);
               }}
@@ -290,12 +290,16 @@ export const GRH = ({
             />
           ) : (
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setShowForm(true)} className="gap-1.5">
+              {onAddEmploye && (
+                <Button onClick={() => setShowForm(true)} className="gap-1.5">
                 <Plus className="size-4" /> Ajouter un employé
               </Button>
-              <ImportEmployesExcel onImport={onAddEmploye} />
+              )}
+              {onAddEmploye && (
+                <ImportEmployesExcel onImport={onAddEmploye} />
+              )}
             </div>
-          )}
+          ))}
 
           {employes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 border-2 border-dashed border-border rounded-xl">
@@ -308,11 +312,13 @@ export const GRH = ({
                   Commencez par ajouter votre premier employé ou importez une liste depuis Excel.
                 </p>
               </div>
-              <div className="flex gap-2 mt-1">
-                <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
+              {onAddEmploye && (
+                <div className="flex gap-2 mt-1">
+                  <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
                   <Plus className="size-4" /> Ajouter un employé
                 </Button>
-              </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -360,26 +366,26 @@ export const GRH = ({
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 lg:shrink-0">
-                        {isChefGrh && sv && sv !== "valide" && (
+                        {isChefGrh && sv && sv !== "valide" && onValiderEmploye && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="gap-1 h-8 text-xs text-success border-success/30 hover:bg-success/10"
-                            onClick={() => onValiderEmploye(e.id)}
+                            onClick={() => onValiderEmploye?.(e.id)}
                             disabled={!peutValider(e.creePar)}
                             title={peutValider(e.creePar) ? "Valider cet employé" : MESSAGE_QUATRE_YEUX}
                           >
                             <Check className="size-3" /> Valider
                           </Button>
                         )}
-                        {isChefGrh && sv !== "rejete" && sv && sv !== "valide" && (
+                        {isChefGrh && sv !== "rejete" && sv && sv !== "valide" && onRejeterEmploye && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="gap-1 h-8 text-xs text-warning border-warning/30 hover:bg-warning/10"
                             onClick={() => {
                               const motif = window.prompt("Motif du rejet :", "");
-                              if (motif && motif.trim()) onRejeterEmploye(e.id, motif.trim());
+                              if (motif && motif.trim()) onRejeterEmploye?.(e.id, motif.trim());
                             }}
                             title="Rejeter cet employé"
                           >
@@ -404,10 +410,12 @@ export const GRH = ({
                         <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setContrat(e)}>
                           <FileText className="size-3" /> Contrat
                         </Button>
-                        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setHsOpen(hsOpen === e.id ? null : e.id)}>
+                        {onSetHeuresSup && (
+                          <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setHsOpen(hsOpen === e.id ? null : e.id)}>
                           <Clock className="size-3" /> HS
                         </Button>
-                        {isChefGrh && (!e.userId || !e.email) && (
+                        )}
+                        {isChefGrh && onUpdateEmploye && (!e.userId || !e.email) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -433,15 +441,17 @@ export const GRH = ({
                             <KeyRound className="size-2.5" /> Portail OK
                           </span>
                         )}
-                        <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditing(e); setShowForm(true); }}>
+                        {onUpdateEmploye && (
+                          <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditing(e); setShowForm(true); }}>
                           <Pencil className="size-4" />
                         </Button>
-                        {isChefGrh && (
+                        )}
+                        {isChefGrh && onRemoveEmploye && (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="size-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => { if (confirm(`Supprimer ${e.nom} ?`)) onRemoveEmploye(e.id); }}
+                            onClick={() => { if (confirm(`Supprimer ${e.nom} ?`)) onRemoveEmploye?.(e.id); }}
                           >
                             <Trash2 className="size-4" />
                           </Button>
@@ -449,12 +459,12 @@ export const GRH = ({
                       </div>
                     </div>
 
-                    {hsOpen === e.id && (
+                    {onSetHeuresSup && hsOpen === e.id && (
                       <div className="mt-3">
                         <HeuresSupPanel
                           employe={e}
                           data={data}
-                          onSave={(hs) => { onSetHeuresSup(e.id, hs); setHsOpen(null); }}
+                          onSave={(hs) => { onSetHeuresSup?.(e.id, hs); setHsOpen(null); }}
                         />
                       </div>
                     )}
@@ -519,13 +529,13 @@ export const GRH = ({
                         <p className="text-xs font-bold text-muted-foreground uppercase">
                           Primes du mois ({((data.primes || {})[e.id] || []).length}) • Retenues
                         </p>
-                        {primeOpen !== e.id && (
+                        {primeOpen !== e.id && onAddPrime && (
                           <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setPrimeOpen(e.id)}>
                             <Plus className="size-3" /> Prime
                           </Button>
                         )}
                       </div>
-                      {primeOpen === e.id && (
+                      {onAddPrime && primeOpen === e.id && (
                         <div className="flex gap-2 mb-2">
                           <Input placeholder="Libellé" value={primeLib} onChange={(ev) => setPrimeLib(ev.target.value)} className="flex-1 h-9" />
                           <Input type="number" placeholder="Montant" value={primeMnt} onChange={(ev) => setPrimeMnt(ev.target.value)} className="w-28 h-9" />
@@ -571,7 +581,9 @@ export const GRH = ({
                                 ⊘
                               </button>
                             )}
-                            <button className="text-destructive hover:underline" onClick={() => onRemovePrime(e.id, p.id)}>×</button>
+                            {onRemovePrime && (
+                              <button className="text-destructive hover:underline" onClick={() => onRemovePrime?.(e.id, p.id)}>×</button>
+                            )}
                           </div>
                           {p.statutValidation === "rejete" && p.motifRejet && (
                             <p className="text-xs italic text-destructive w-full mt-0.5">
@@ -582,12 +594,15 @@ export const GRH = ({
                       ))}
                       <div className="mt-2 flex items-center gap-2 text-xs">
                         <span className="text-muted-foreground">Retenues diverses :</span>
-                        <Input
+                        {onSetRetenue && (
+                          <Input
                           type="number"
                           defaultValue={(data.retenues || {})[e.id] || 0}
-                          onBlur={(ev) => onSetRetenue(e.id, parseFloat(ev.target.value) || 0)}
+                          onBlur={(ev) => onSetRetenue?.(e.id, parseFloat(ev.target.value) || 0)}
                           className="w-32 h-7 text-xs"
                         />
+                        )}
+                        {!onSetRetenue && <span>{formatMontant((data.retenues || {})[e.id] || 0)}</span>}
                       </div>
                     </div>
                   </div>

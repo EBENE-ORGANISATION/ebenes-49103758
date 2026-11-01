@@ -50,8 +50,8 @@ interface Props {
   mois: number;
   employes: Employe[];
   taux: TauxFiscaux;
-  onAdd: (t: Omit<Transaction, "id">) => void;
-  onRemove: (id: number) => void;
+  onAdd?: (t: Omit<Transaction, "id">) => void;
+  onRemove?: (id: number) => void;
   /** Si true, affiche les boutons Valider / Rejeter (chef compta). */
   isChefCompta?: boolean;
   onValider?: (id: number) => void;
@@ -247,7 +247,7 @@ export const Comptabilite = ({
     if (!desc.trim()) return toast.error("La description est obligatoire.");
     if (isNaN(m) || m <= 0) return toast.error("Montant invalide.");
     if (!date) return toast.error("Date obligatoire.");
-    onAdd({
+    onAdd?.({
       date,
       desc: desc.trim(),
       type,
@@ -306,10 +306,12 @@ export const Comptabilite = ({
       {!isLoading && (
         <>
       <Tabs defaultValue="tresorerie" className="w-full">
-        <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-7 w-full mb-4 h-auto">
-          <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
+        <TabsList className={`tabs-scroll justify-start lg:grid ${onAddEcriture ? "lg:grid-cols-7" : "lg:grid-cols-6"} w-full mb-4 h-auto`}>
+          {onAddEcriture && (
+            <TabsTrigger value="saisie" className="py-2 text-xs sm:text-sm">
             📒 Saisie
           </TabsTrigger>
+          )}
           <TabsTrigger value="tresorerie" className="py-2 text-xs sm:text-sm">
             💰 Trésorerie
           </TabsTrigger>
@@ -331,7 +333,8 @@ export const Comptabilite = ({
         </TabsList>
 
         {/* ── Onglet Saisie SYSCOHADA ──────────────────────────────────────── */}
-        <TabsContent value="saisie" className="space-y-4">
+        {onAddEcriture && (
+          <TabsContent value="saisie" className="space-y-4">
           {!showSaisie ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -404,6 +407,7 @@ export const Comptabilite = ({
             />
           )}
         </TabsContent>
+        )}
 
         {/* ── Onglet Trésorerie — code existant intact ─────────────────────── */}
         <TabsContent value="tresorerie">
@@ -439,7 +443,7 @@ export const Comptabilite = ({
               />
             </div>
 
-            {!open ? (
+            {onAdd && (!open ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => setOpen(true)} className="gap-1.5">
                   <Plus className="size-4" /> Ajouter Transaction
@@ -608,7 +612,7 @@ export const Comptabilite = ({
                   </Button>
                 </div>
               </div>
-            )}
+            ))}
 
             <div className="space-y-2">
               {sorted.length === 0 ? (
@@ -717,7 +721,7 @@ export const Comptabilite = ({
                             <XCircle className="size-4" />
                           </Button>
                         )}
-                        {isChefCompta && (
+                        {isChefCompta && onRemove && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -730,7 +734,7 @@ export const Comptabilite = ({
                                   ? confirm("Cette transaction est liée à une facture payée. La supprimer remettra la facture en attente. Confirmer ?")
                                   : confirm("Supprimer cette transaction ?")
                               ) {
-                                onRemove(t.id);
+                                onRemove?.(t.id);
                               }
                             }}
                           >
@@ -744,7 +748,7 @@ export const Comptabilite = ({
               )}
             </div>
           </div>
-          <OCRFacture open={ocrOpen} onOpenChange={setOcrOpen} onExtracted={appliquerOCRAchat} nature="achat" />
+          <OCRFacture open={!!onAdd && ocrOpen} onOpenChange={setOcrOpen} onExtracted={appliquerOCRAchat} nature="achat" />
         </TabsContent>
 
         {/* ── Onglet Journal des écritures SYSCOHADA ───────────────────────── */}

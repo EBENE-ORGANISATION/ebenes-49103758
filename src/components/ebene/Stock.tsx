@@ -30,18 +30,18 @@ interface Props {
   articles: Article[];
   fournisseurs: Fournisseur[];
   categories: CategorieArticle[];
-  onAddArticle: (a: Omit<Article, "id">) => void;
-  onUpdateArticle: (id: number, patch: Partial<Article>) => void;
-  onRemoveArticle: (id: number) => void;
-  onAddFournisseur: (f: Omit<Fournisseur, "id">) => void;
-  onUpdateFournisseur: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
-  onRemoveFournisseur: (id: number) => void;
-  onAddCategorie: (nom: string) => void;
-  onRemoveCategorie: (id: number) => void;
-  onAddMouvement: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+  onAddArticle?: (a: Omit<Article, "id">) => void;
+  onUpdateArticle?: (id: number, patch: Partial<Article>) => void;
+  onRemoveArticle?: (id: number) => void;
+  onAddFournisseur?: (f: Omit<Fournisseur, "id">) => void;
+  onUpdateFournisseur?: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
+  onRemoveFournisseur?: (id: number) => void;
+  onAddCategorie?: (nom: string) => void;
+  onRemoveCategorie?: (id: number) => void;
+  onAddMouvement?: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
   /** Entrée achetée : mouvement + dépense d'achat (et ses écritures). */
   onAddEntreeAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
-  onRemoveMouvement: (annee: number, mois: number, id: number) => void;
+  onRemoveMouvement?: (annee: number, mois: number, id: number) => void;
   /** Transfert de stock vers une autre activité. */
   onTransferer?: (annee: number, mois: number, t: { articleId: number; quantite: number; activiteDestination: string; date: string; reference?: string }) => void;
   /** Constate la valeur du stock de fin de mois en comptabilité (chef compta). */
@@ -82,10 +82,11 @@ export const Stock = (props: Props) => {
         <StatCard label="En alerte (≤ seuil)" value={String(stats.enAlerte)} tone={stats.enAlerte > 0 ? "warning" : "info"} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setShowInventaire(true)} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
+      {(onAddMouvement || onConstaterStock) && (
+        <div className="flex flex-wrap items-center gap-2">
+        {onAddMouvement && (<Button onClick={() => setShowInventaire(true)} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
           <ClipboardList className="size-4" /> Faire un inventaire
-        </Button>
+        </Button>)}
         {onConstaterStock && (
           <Button
             variant="outline"
@@ -100,10 +101,11 @@ export const Stock = (props: Props) => {
             <BookOpen className="size-4" /> Constater le stock au bilan
           </Button>
         )}
-        <span className="text-xs text-muted-foreground">
+        {onAddMouvement && (<span className="text-xs text-muted-foreground">
           Saisissez le stock physique constaté ; les écarts génèrent des ajustements automatiques.
-        </span>
+        </span>)}
       </div>
+      )}
 
       <Tabs defaultValue="articles" className="w-full">
         <TabsList className="tabs-scroll justify-start sm:grid sm:grid-cols-4 w-full mb-4 sm:mb-5 h-auto">
@@ -151,7 +153,7 @@ export const Stock = (props: Props) => {
       </Tabs>
 
       <InventaireModal
-        open={showInventaire}
+        open={!!onAddMouvement && showInventaire}
         onOpenChange={setShowInventaire}
         articles={articles}
         annee={annee}
@@ -167,7 +169,7 @@ const ArticlesPanel = ({
   articles, fournisseurs, categories, onAdd, onUpdate, onRemove, isChefCompta,
 }: {
   articles: Article[]; fournisseurs: Fournisseur[]; categories: CategorieArticle[];
-  onAdd: (a: Omit<Article, "id">) => void; onUpdate: (id: number, p: Partial<Article>) => void; onRemove: (id: number) => void;
+  onAdd?: (a: Omit<Article, "id">) => void; onUpdate?: (id: number, p: Partial<Article>) => void; onRemove?: (id: number) => void;
   isChefCompta?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
@@ -195,7 +197,7 @@ const ArticlesPanel = ({
     if (activiteObligatoire && !form.activiteId) return toast.error(MESSAGE_ACTIVITE_OBLIGATOIRE);
     if (!form.reference.trim()) return toast.error("Référence obligatoire");
     if (!form.designation.trim()) return toast.error("Désignation obligatoire");
-    if (editing) onUpdate(editing.id, form); else onAdd(form);
+    if (editing) onUpdate?.(editing.id, form); else onAdd?.(form);
     setForm(empty);
     setEditing(null);
     setOpen(false);
@@ -204,10 +206,10 @@ const ArticlesPanel = ({
 
   return (
     <div className="space-y-3">
-      {!open ? (
-        <Button onClick={() => { setForm(empty); setEditing(null); setOpen(true); }} className="gap-1.5">
+      {(editing ? onUpdate : onAdd) && (!open ? (
+        (onAdd && (<Button onClick={() => { setForm(empty); setEditing(null); setOpen(true); }} className="gap-1.5">
           <Plus className="size-4" /> Nouvel article
-        </Button>
+        </Button>))
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-3">
           <h3 className="font-bold">{editing ? "Modifier" : "Nouvel"} article</h3>
@@ -253,7 +255,7 @@ const ArticlesPanel = ({
             <Button variant="outline" onClick={() => { setOpen(false); setEditing(null); }} className="gap-1.5"><X className="size-4" /> Annuler</Button>
           </div>
         </div>
-      )}
+      ))}
 
       {articles.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-14 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
@@ -266,9 +268,11 @@ const ArticlesPanel = ({
               Créez votre premier article pour commencer à gérer votre inventaire.
             </p>
           </div>
-          <Button size="sm" onClick={() => { setForm(empty); setEditing(null); setOpen(true); }} className="gap-1.5 mt-1">
+          {onAdd && (
+            <Button size="sm" onClick={() => { setForm(empty); setEditing(null); setOpen(true); }} className="gap-1.5 mt-1">
             <Plus className="size-4" /> Créer un article
           </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -299,9 +303,11 @@ const ArticlesPanel = ({
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="size-8" onClick={() => startEdit(a)}><Pencil className="size-4" /></Button>
-                    {isChefCompta && (
-                      <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${a.designation} ?`)) onRemove(a.id); }}><Trash2 className="size-4" /></Button>
+                    {onUpdate && (
+                      <Button size="icon" variant="ghost" className="size-8" aria-label={`Modifier ${a.designation}`} onClick={() => startEdit(a)}><Pencil className="size-4" /></Button>
+                    )}
+                    {isChefCompta && onRemove && (
+                      <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" aria-label={`Supprimer ${a.designation}`} onClick={() => { if (confirm(`Supprimer ${a.designation} ?`)) onRemove?.(a.id); }}><Trash2 className="size-4" /></Button>
                     )}
                   </div>
                 </div>
@@ -320,10 +326,10 @@ const MouvementsPanel = ({
 }: {
   annee: number; mois: number; mouvements: MouvementStock[]; articles: Article[];
   fournisseurs: Fournisseur[];
-  onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+  onAdd?: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
   onAddAchat?: (annee: number, mois: number, m: Omit<MouvementStock, "id">, achat: AchatStock) => void;
   onTransferer?: (annee: number, mois: number, t: { articleId: number; quantite: number; activiteDestination: string; date: string; reference?: string }) => void;
-  onRemove: (annee: number, mois: number, id: number) => void;
+  onRemove?: (annee: number, mois: number, id: number) => void;
   isChefCompta?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
@@ -375,7 +381,7 @@ const MouvementsPanel = ({
         compte: compteAchat, tresorerie: payeSur, avecTva: achatAvecTva, fournisseur: fournisseurAchat,
       });
     } else {
-      onAdd(annee, mois, mvt);
+      onAdd?.(annee, mois, mvt);
       toast.success("Mouvement enregistré");
     }
     setArticleId(""); setQuantite(""); setPu(""); setMotif(""); setReference("");
@@ -386,8 +392,8 @@ const MouvementsPanel = ({
 
   return (
     <div className="space-y-3">
-      {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5"><Plus className="size-4" /> Nouveau mouvement</Button>
+      {onAdd && (!open ? (
+        (onAdd && (<Button onClick={() => setOpen(true)} className="gap-1.5"><Plus className="size-4" /> Nouveau mouvement</Button>))
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-3">
           <h3 className="font-bold">Nouveau mouvement</h3>
@@ -497,7 +503,7 @@ const MouvementsPanel = ({
             <Button variant="outline" onClick={() => setOpen(false)} className="gap-1.5"><X className="size-4" /> Annuler</Button>
           </div>
         </div>
-      )}
+      ))}
 
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-14 text-center space-y-3 border-2 border-dashed border-border rounded-xl">
@@ -510,9 +516,11 @@ const MouvementsPanel = ({
               Enregistrez les entrées, sorties ou ajustements de stock.
             </p>
           </div>
-          <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5 mt-1">
+          {onAdd && (
+            <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5 mt-1">
             <Plus className="size-4" /> Nouveau mouvement
           </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -534,8 +542,8 @@ const MouvementsPanel = ({
                     {m.motif && <p className="text-xs italic text-muted-foreground">{m.motif}</p>}
                   </div>
                 </div>
-                {isChefCompta && (
-                  <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm("Supprimer ce mouvement ? (le stock sera ajusté en sens inverse)")) onRemove(annee, mois, m.id); }}>
+                {isChefCompta && onRemove && (
+                  <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm("Supprimer ce mouvement ? (le stock sera ajusté en sens inverse)")) onRemove?.(annee, mois, m.id); }}>
                     <Trash2 className="size-4" />
                   </Button>
                 )}
@@ -553,9 +561,9 @@ const FournisseursPanel = ({
   fournisseurs, onAdd, onUpdate, onRemove, isChefCompta,
 }: {
   fournisseurs: Fournisseur[];
-  onAdd: (f: Omit<Fournisseur, "id">) => void;
-  onUpdate: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
-  onRemove: (id: number) => void;
+  onAdd?: (f: Omit<Fournisseur, "id">) => void;
+  onUpdate?: (id: number, patch: Partial<Omit<Fournisseur, "id">>) => void;
+  onRemove?: (id: number) => void;
   isChefCompta?: boolean;
 }) => {
   const empty: Omit<Fournisseur, "id"> = { nom: "", contact: "", telephone: "", email: "", adresse: "" };
@@ -567,7 +575,7 @@ const FournisseursPanel = ({
 
   const submitAdd = () => {
     if (!form.nom.trim()) return toast.error("Nom obligatoire");
-    onAdd(form);
+    onAdd?.(form);
     setForm(empty);
     setOpenAdd(false);
     toast.success("Fournisseur créé");
@@ -582,7 +590,7 @@ const FournisseursPanel = ({
   const submitEdit = () => {
     if (!editForm.nom.trim()) return toast.error("Nom obligatoire");
     if (editId === null) return;
-    onUpdate(editId, editForm);
+    onUpdate?.(editId, editForm);
     setEditId(null);
     toast.success("Fournisseur mis à jour");
   };
@@ -592,10 +600,10 @@ const FournisseursPanel = ({
   return (
     <div className="space-y-3">
       {/* ── Formulaire d'ajout ─────────────────────────────────────────── */}
-      {!openAdd ? (
-        <Button onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5">
+      {onAdd && (!openAdd ? (
+        (onAdd && (<Button onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5">
           <Plus className="size-4" /> Nouveau fournisseur
-        </Button>
+        </Button>))
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-5 space-y-3">
           <h3 className="font-bold">Nouveau fournisseur</h3>
@@ -615,7 +623,7 @@ const FournisseursPanel = ({
             </Button>
           </div>
         </div>
-      )}
+      ))}
 
       {/* ── Liste ─────────────────────────────────────────────────────── */}
       {fournisseurs.length === 0 ? (
@@ -629,15 +637,17 @@ const FournisseursPanel = ({
               Ajoutez vos fournisseurs pour les associer à vos articles et commandes.
             </p>
           </div>
-          <Button size="sm" onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5 mt-1">
+          {onAdd && (
+            <Button size="sm" onClick={() => { setOpenAdd(true); setEditId(null); }} className="gap-1.5 mt-1">
             <Plus className="size-4" /> Ajouter un fournisseur
           </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
           {fournisseurs.map((f) => (
             <div key={f.id} className="list-item space-y-0">
-              {editId === f.id ? (
+              {editId === f.id && onUpdate ? (
                 /* ── Formulaire d'édition inline ─────────────────────── */
                 <div className="p-3 space-y-3">
                   <h4 className="font-semibold text-sm">Modifier — {f.nom}</h4>
@@ -667,7 +677,8 @@ const FournisseursPanel = ({
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
+                    {onUpdate && (
+                      <Button
                       size="icon" variant="ghost"
                       className="size-8 text-muted-foreground hover:text-foreground"
                       title="Modifier"
@@ -675,12 +686,13 @@ const FournisseursPanel = ({
                     >
                       <Pencil className="size-4" />
                     </Button>
-                    {isChefCompta && (
+                    )}
+                    {isChefCompta && onRemove && (
                       <Button
                         size="icon" variant="ghost"
                         className="size-8 text-destructive hover:bg-destructive/10"
                         title="Supprimer"
-                        onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove(f.id); }}
+                        onClick={() => { if (confirm(`Supprimer ${f.nom} ?`)) onRemove?.(f.id); }}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -698,30 +710,32 @@ const FournisseursPanel = ({
 
 // ─── Catégories ────────────────────────────────────────────────────────────
 const CategoriesPanel = ({ categories, onAdd, onRemove, isChefCompta }: {
-  categories: CategorieArticle[]; onAdd: (nom: string) => void; onRemove: (id: number) => void; isChefCompta?: boolean;
+  categories: CategorieArticle[]; onAdd?: (nom: string) => void; onRemove?: (id: number) => void; isChefCompta?: boolean;
 }) => {
   const [nom, setNom] = useState("");
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      {onAdd && (
+        <div className="flex gap-2">
         <Input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nouvelle catégorie..." />
-        <Button onClick={() => { if (!nom.trim()) return; onAdd(nom.trim()); setNom(""); }} className="gap-1.5"><Plus className="size-4" /> Ajouter</Button>
+        {onAdd && (<Button onClick={() => { if (!nom.trim()) return; onAdd?.(nom.trim()); setNom(""); }} className="gap-1.5"><Plus className="size-4" /> Ajouter</Button>)}
       </div>
+      )}
       {categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border-2 border-dashed border-border rounded-xl">
           <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
             <Tag className="size-6 text-muted-foreground" />
           </div>
           <p className="font-semibold text-sm">Aucune catégorie</p>
-          <p className="text-xs text-muted-foreground">Utilisez le formulaire ci-dessus pour créer une catégorie.</p>
+          {onAdd && <p className="text-xs text-muted-foreground">Utilisez le formulaire ci-dessus pour créer une catégorie.</p>}
         </div>
       ) : (
         <div className="space-y-2">
           {categories.map((c) => (
             <div key={c.id} className="list-item flex items-center justify-between gap-2">
               <p className="font-medium">{c.nom}</p>
-              {isChefCompta && (
-                <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${c.nom} ?`)) onRemove(c.id); }}><Trash2 className="size-4" /></Button>
+              {isChefCompta && onRemove && (
+                <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={() => { if (confirm(`Supprimer ${c.nom} ?`)) onRemove?.(c.id); }}><Trash2 className="size-4" /></Button>
               )}
             </div>
           ))}
@@ -744,7 +758,7 @@ const InventaireModal = ({
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   articles: Article[]; annee: number; mois: number;
-  onAdd: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
+  onAdd?: (annee: number, mois: number, m: Omit<MouvementStock, "id">) => number;
 }) => {
   const [date, setDate] = useState(todayISO());
   const [valeurs, setValeurs] = useState<Record<number, string>>({});
@@ -788,7 +802,7 @@ const InventaireModal = ({
     let nb = 0;
     ecarts.forEach((e) => {
       if (e.ecart === 0) return;
-      onAdd(annee, mois, {
+      onAdd?.(annee, mois, {
         date,
         articleId: e.article.id,
         type: "ajustement",

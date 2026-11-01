@@ -21,8 +21,8 @@ import { usePeutValider, MESSAGE_QUATRE_YEUX } from "@/hooks/usePeutValider";
 interface Props {
   employes: Employe[];
   absences: Absence[];
-  onAdd: (a: Omit<Absence, "id">) => void;
-  onRemove: (id: number) => void;
+  onAdd?: (a: Omit<Absence, "id">) => void;
+  onRemove?: (id: number) => void;
   isChefGrh: boolean;
   onValider: (id: number) => void;
   onRejeter: (id: number, motif: string) => void;
@@ -98,7 +98,7 @@ export const AbsencesPanel = ({
     const motifFinal = motifLegal
       ? `[${MOTIFS_LEGAUX.find((m) => m.value === motifLegal)?.label ?? motifLegal}]${motif ? " — " + motif : ""}`
       : motif;
-    onAdd({ employeId: eid, type, dateDebut: debut, dateFin: fin, jours, motif: motifFinal });
+    onAdd?.({ employeId: eid, type, dateDebut: debut, dateFin: fin, jours, motif: motifFinal });
     setMotif("");
     setMotifLegal("");
     setOpen(false);
@@ -108,10 +108,10 @@ export const AbsencesPanel = ({
 
   return (
     <div className="space-y-4">
-      {!open ? (
-        <Button onClick={() => setOpen(true)} className="gap-1.5">
+      {onAdd && (!open ? (
+        (onAdd && (<Button onClick={() => setOpen(true)} className="gap-1.5">
           <Plus className="size-4" /> {t("grh_absences.new_btn")}
-        </Button>
+        </Button>))
       ) : (
         <div className="bg-muted/40 border-2 border-border rounded-xl p-4 space-y-3">
           <h4 className="font-bold">{t("grh_absences.new_title")}</h4>
@@ -196,7 +196,7 @@ export const AbsencesPanel = ({
             <Button variant="ghost" onClick={() => setOpen(false)}><X className="size-4" /></Button>
           </div>
         </div>
-      )}
+      ))}
 
       {absences.length === 0 ? (
         <p className="text-center text-muted-foreground py-6 italic">{t("grh_absences.empty")}</p>
@@ -253,12 +253,12 @@ export const AbsencesPanel = ({
                       <XCircle className="size-4" />
                     </Button>
                   )}
-                  {isChefGrh && (
+                  {isChefGrh && onRemove && (
                     <Button
                       size="icon"
                       variant="ghost"
                       className="size-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => onRemove(a.id)}
+                      onClick={() => onRemove?.(a.id)}
                     >
                       <Trash2 className="size-4" />
                     </Button>

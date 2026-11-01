@@ -46,8 +46,8 @@ interface Props {
   annee: number;
   immobilisations: Immobilisation[];
   /** reglement : contrepartie de l'écriture d'acquisition (Banque, Caisse ou fournisseur d'immobilisations). */
-  onAdd: (i: Omit<Immobilisation, "id">, reglement: ReglementImmo) => void;
-  onRemove: (id: number) => void;
+  onAdd?: (i: Omit<Immobilisation, "id">, reglement: ReglementImmo) => void;
+  onRemove?: (id: number) => void;
   /** Mise à jour partielle (utilisée pour la cession). Optionnel. */
   onUpdate?: (id: number, patch: Partial<Immobilisation>) => void;
   canEdit: boolean;
@@ -81,6 +81,7 @@ export const Immobilisations = ({
   piecesBrouillon,
   ecrituresValidees = false,
 }: Props) => {
+  const afficherActions = canEdit && !!(onUpdate || onRemove);
   const statutEcritures = ecrituresValidees ? ("valide" as const) : ("brouillon" as const);
   const { currentSociete } = useTenant();
   const [showForm, setShowForm] = useState(false);
@@ -258,7 +259,7 @@ export const Immobilisations = ({
     const d = Number(duree);
     if (!v || v <= 0) return toast.error("Valeur d'origine invalide");
     if (!d || d <= 0) return toast.error("Durée d'amortissement invalide");
-    onAdd({
+    onAdd?.({
       libelle: libelle.trim(),
       categorie,
       dateAcquisition: dateAcq,
@@ -343,7 +344,7 @@ export const Immobilisations = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {canEdit && (
+        {canEdit && onAdd && (
           <Button onClick={() => setShowForm((v) => !v)} size="sm" className="gap-1.5">
             <Plus className="size-4" /> {showForm ? "Annuler" : "Nouvelle immobilisation"}
           </Button>
@@ -371,7 +372,7 @@ export const Immobilisations = ({
         </span>
       </div>
 
-      {showForm && canEdit && (
+      {showForm && canEdit && onAdd && (
         <div className="rounded-md border p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/30">
           <div className="sm:col-span-2">
             <Label>Libellé</Label>
@@ -448,13 +449,13 @@ export const Immobilisations = ({
               <TableHead className="text-right">Cumul {annee}</TableHead>
               <TableHead className="text-right">VNC {annee}</TableHead>
               <TableHead className="text-center w-20 text-xs text-muted-foreground">Écriture OD</TableHead>
-              {canEdit && <TableHead className="w-12"></TableHead>}
+              {afficherActions && <TableHead className="w-12"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {lignes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canEdit ? 11 : 10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={afficherActions ? 11 : 10} className="text-center text-muted-foreground py-8">
                   Aucune immobilisation enregistrée.
                 </TableCell>
               </TableRow>
@@ -516,7 +517,7 @@ export const Immobilisations = ({
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  {canEdit && (
+                  {afficherActions && (
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {statut === "actif" && onUpdate && (
@@ -529,7 +530,7 @@ export const Immobilisations = ({
                             <ArrowRightLeft className="size-4 text-info" />
                           </Button>
                         )}
-                        <Button
+                        {onRemove && (<Button
                           size="icon"
                           variant="ghost"
                           // Dotations ou cession déjà passées : le bien sort par cession ou mise au rebut
@@ -540,12 +541,12 @@ export const Immobilisations = ({
                           aria-label={`Supprimer ${i.libelle}`}
                           onClick={() => {
                             if (confirm(`Supprimer "${i.libelle}" ? Son écriture d'acquisition est supprimée aussi.`)) {
-                              onRemove(i.id);
+                              onRemove?.(i.id);
                             }
                           }}
                         >
                           <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                        </Button>)}
                       </div>
                     </TableCell>
                   )}
@@ -560,7 +561,7 @@ export const Immobilisations = ({
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.cumul)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatMontant(totals.vnc)}</TableCell>
                 <TableCell></TableCell>
-                {canEdit && <TableCell></TableCell>}
+                {afficherActions && <TableCell></TableCell>}
               </TableRow>
             )}
           </TableBody>
