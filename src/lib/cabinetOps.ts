@@ -34,6 +34,15 @@ export interface CollaborateurDossier {
   mission: MissionCabinet;
 }
 
+export interface EquipierCabinet {
+  user_id: string;
+  nom: string;
+  email: string | null;
+  role: RoleCabinet;
+  actif: boolean;
+  deja_connecte: boolean | null;
+}
+
 /** Réponse de cabinet-ops. */
 export interface ResultatInvitation {
   ok: true;
@@ -107,6 +116,8 @@ const invoquer = async (client: ClientCabinet, body: Record<string, unknown>): P
 
 /** Les opérations, sur un client donné. */
 export const operationsCabinet = (client: ClientCabinet) => ({
+  equipe: async (cabinetId: string) =>
+    (await appeler<EquipierCabinet[] | null>(client, "cabinet_equipe", { _cabinet: cabinetId })) ?? [],
   /** Super-admin (aal2) : crée le cabinet et son premier responsable ; rend l'id du cabinet. */
   creerCabinet: (nom: string, responsableId: string, maxDossiers = 10) =>
     appeler<string>(client, "cabinet_creer", { _nom: nom, _responsable: responsableId, _max_dossiers: maxDossiers }),

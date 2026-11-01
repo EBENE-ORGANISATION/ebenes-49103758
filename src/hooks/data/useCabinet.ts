@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { messageErreur } from "@/lib/ebene-utils";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { cabinetOps } from "@/lib/cabinetOps";
 
 type Ligne<T extends keyof Database["public"]["Tables"]> = Database["public"]["Tables"][T]["Row"];
-export type MembreCabinet = Ligne<"cabinet_membres"> & { nom: string };
+export type MembreCabinet = Ligne<"cabinet_membres"> & { nom: string; deja_connecte?: boolean | null };
 export type DossierGestion = Ligne<"cabinet_dossiers"> & { nom: string };
 export type AttributionCabinet = Ligne<"cabinet_attributions">;
 
@@ -33,13 +34,12 @@ export function useCabinet() {
       const equipe = membres.data ?? [];
       const [attributions, profils] = await Promise.all([
         liens.length ? supabase.from("cabinet_attributions").select("*").in("dossier_id", liens.map(d => d.id)) : Promise.resolve({ data: [], error: null }),
-        equipe.length ? supabase.from("profiles").select("user_id, nom, email").in("user_id", equipe.map(m => m.user_id)) : Promise.resolve({ data: [], error: null }),
+        cabinetOps.equipe(moi.cabinet_id),
       ]);
       if (attributions.error) throw attributions.error;
-      if (profils.error) throw profils.error;
       return {
         cabinet: cabinet.data, role: moi.role,
-        membres: equipe.map(m => { const profil = profils.data?.find(p => p.user_id === m.user_id); return { ...m, nom: profil?.nom || profil?.email || m.user_id }; }),
+        membres: equipe.map(m => { const profil = profils.find(p => p.user_id === m.user_id); return { ...m, nom: profil?.nom || m.user_id, deja_connecte: profil?.deja_connecte }; }),
         dossiers: liens.filter(d => moi.role === "responsable" || attributions.data?.some(a => a.dossier_id === d.id && a.user_id === moi.user_id)).map(d => ({ ...d, nom: d.societes?.nom ?? d.societe_id })),
         attributions: attributions.data ?? [],
       };

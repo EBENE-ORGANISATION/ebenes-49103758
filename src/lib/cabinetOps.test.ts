@@ -5,6 +5,13 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { operationsCabinet, type ClientCabinet } from "./cabinetOps";
 import { messageErreur } from "./ebene-utils";
 
+it("lit l’équipe par la fonction protégée", async () => {
+  const rpc = vi.fn(async () => ({ data: [], error: null }));
+  const client = { rpc, functions: { invoke: vi.fn() } };
+  expect(await operationsCabinet(client).equipe("cabinet")).toEqual([]);
+  expect(rpc).toHaveBeenCalledWith("cabinet_equipe", { _cabinet: "cabinet" });
+});
+
 const clientSimule = (
   reponseRpc: { data: unknown; error: { message?: string; code?: string } | null } = { data: null, error: null },
   reponseInvoke: { data: unknown; error: unknown } = { data: { ok: true }, error: null },

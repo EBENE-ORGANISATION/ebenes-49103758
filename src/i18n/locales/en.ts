@@ -1,6 +1,13 @@
 import type { Translation } from "./fr";
 
 const en: Translation = {
+  cabinet9: {
+    cabinets: "Firms", depuis: "Since {{date}}", mission: "Assignment",
+    audit: "The firm's actions are signed in the audit log.", responsable: "Manager",
+    choisir: "Choose", limite: "Client file limit", creer: "Create firm", societe: "Company",
+    rattacher: "Link company", double: "Dual access: {{nom}} also has direct access to this client file.",
+    inviter: "Invite the client administrator", envoyer: "Send invitation", annuler: "Cancel", detacher: "Detach a member",
+  },
   cabinet: {
   "titre": "My firm",
   "accueil": "Back to home",

@@ -1,4 +1,21 @@
 const fr = {
+  cabinet9: {
+  "cabinets": "Cabinets",
+  "depuis": "Depuis le {{date}}",
+  "mission": "Mission",
+  "audit": "Les actions du cabinet sont signées dans le journal d'audit.",
+  "responsable": "Responsable",
+  "choisir": "Choisir",
+  "limite": "Limite de dossiers",
+  "creer": "Créer le cabinet",
+  "societe": "Société",
+  "rattacher": "Rattacher",
+  "double": "Double accès : {{nom}} dispose aussi d'un accès direct à ce dossier.",
+  "inviter": "Inviter l’administrateur du client",
+  "envoyer": "Envoyer l’invitation",
+  "annuler": "Annuler",
+  "detacher": "Détacher un membre"
+},
   cabinet: {
   "titre": "Mon cabinet",
   "accueil": "Retour à l’accueil",

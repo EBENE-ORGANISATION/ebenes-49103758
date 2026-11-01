@@ -57,6 +57,7 @@ import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdminApi";
 import { CreerSocieteModal } from "./CreerSocieteModal";
 import { MonCompteSection } from "./MonCompteSection";
+import { CabinetsPanel } from "./CabinetsPanel";
 import {
   ResponsiveContainer,
   BarChart,
@@ -428,7 +429,8 @@ export const SuperAdminPanel = () => {
           </div>
         ) : (
           <Tabs defaultValue="societes" className="w-full">
-            <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-7 w-full mb-5 h-auto">
+            <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-8 w-full mb-5 h-auto">
+              <TabsTrigger value="cabinets">{t("cabinet9.cabinets")}</TabsTrigger>
               <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> {t("superadmin.tab_societies")}</TabsTrigger>
               <TabsTrigger value="parametres" className="py-2.5">
                 <Settings2 className="size-4 mr-1.5" /> Paramètres
@@ -443,6 +445,7 @@ export const SuperAdminPanel = () => {
             </TabsList>
 
             {/* TAB 1 — SOCIÉTÉS */}
+            <TabsContent value="cabinets"><CabinetsPanel /></TabsContent>
             <TabsContent value="societes">
               <Card>
                 <CardHeader className="flex-row items-center justify-between">

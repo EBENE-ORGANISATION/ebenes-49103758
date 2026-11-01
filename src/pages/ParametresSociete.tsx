@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLienAccueil, useTenant } from "@/hooks/useTenant";
 import { ActivitesManager } from "@/components/ebene/ActivitesManager";
 import { IdentificationSociete } from "@/components/ebene/IdentificationSociete";
+import { MonCabinetClient } from "@/components/ebene/MonCabinetClient";
 import { applyTheme } from "@/lib/theme";
 import { THEMES, avecConfort, avecTheme, lireConfort, lireTheme, type ThemeApparence } from "@/lib/apparence";
 import { Button } from "@/components/ui/button";
@@ -131,18 +132,6 @@ const ParametresSociete = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent, draft.theme_custom]);
 
-  if (!isAdmin && !isSuperAdmin) {
-    return (
-      <div className="min-h-screen grid place-items-center p-6">
-        <Card className="p-6 max-w-md text-center space-y-3">
-          <h1 className="text-xl font-bold">{t("params.access_denied")}</h1>
-          <p className="text-sm text-muted-foreground">{t("params.access_denied_desc")}</p>
-          <Button asChild variant="outline"><Link to={accueil}>{t("params.back")}</Link></Button>
-        </Card>
-      </div>
-    );
-  }
-
   const onUploadLogo = async (file: File) => {
     if (!currentSociete) return;
     setUploading(true);
@@ -234,6 +223,18 @@ const ParametresSociete = () => {
   const compteurDevis = apercuDevis.compteur ?? Number(societeConfig?.compteur_devis ?? 1);
   const previewFacture = formaterNumero(draft.format_facture || DEFAULT_FORMAT_FACTURE, annee, compteurFacture);
   const previewDevis = formaterNumero(draft.format_devis || DEFAULT_FORMAT_DEVIS, annee, compteurDevis);
+
+  if (!isAdmin && !isSuperAdmin) {
+    return (
+      <div className="min-h-screen grid place-items-center p-6">
+        <Card className="p-6 max-w-md text-center space-y-3">
+          <h1 className="text-xl font-bold">{t("params.access_denied")}</h1>
+          <p className="text-sm text-muted-foreground">{t("params.access_denied_desc")}</p>
+          <Button asChild variant="outline"><Link to={accueil}>{t("params.back")}</Link></Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -462,6 +463,7 @@ const ParametresSociete = () => {
 
             <ActivitesManager societeId={currentSociete.id} />
             <IdentificationSociete societeId={currentSociete.id} />
+            {(isAdmin || isSuperAdmin) && <MonCabinetClient key={currentSociete.id} societeId={currentSociete.id} />}
 
             <Card className="p-5 space-y-4">
               <h2 className="font-bold">{t("params.section_numbering")}</h2>

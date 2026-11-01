@@ -36,7 +36,7 @@ export function EquipeCabinet({ cabinetId, membres, executer, enCours }: Actions
       </select>
       <Button variant="outline" disabled={enCours} onClick={() => void executer(() => cabinetOps.definirMembre(cabinetId, membre.user_id, membre.role, !membre.actif)).catch(() => {})}>{t(membre.actif ? "cabinet.desactiver" : "cabinet.reactiver")}</Button>
       <Button variant="outline" disabled={enCours} onClick={() => void executer(() => cabinetOps.renvoyerInvitation(membre.user_id)).catch(() => {})}>{t("cabinet.renvoyer")}</Button>
-      <Button variant="destructive" disabled={enCours} onClick={() => { if (window.confirm(t("cabinet.confirmer_retrait", { nom: membre.nom }))) void executer(() => cabinetOps.detacherMembre(cabinetId, membre.user_id)).catch(() => {}); }}>{t("cabinet.retirer")}</Button>
+      {membre.deja_connecte === false && !(membre.role === "responsable" && membre.actif) && <Button variant="destructive" disabled={enCours} onClick={() => { if (window.confirm(t("cabinet.confirmer_retrait", { nom: membre.nom }))) void executer(() => cabinetOps.detacherMembre(cabinetId, membre.user_id)).catch(() => {}); }}>{t("cabinet.retirer")}</Button>}
     </div>)}
   </div>;
 }
