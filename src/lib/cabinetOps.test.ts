@@ -121,3 +121,12 @@ describe("cabinetOps : fonction Edge cabinet-ops", () => {
     ).rejects.toThrow("Cette société a déjà un administrateur.");
   });
 });
+
+it("traduit le statut 429 du renvoi sans dépendre du corps", async () => {
+  const { client } = clientSimule(undefined, { data: null, error: { context: new Response("", { status: 429 }) } });
+  await expect(operationsCabinet(client).renvoyerInvitation("u")).rejects.toThrow("Patientez 10 minutes avant un nouveau renvoi");
+});
+it.each(["CABINET_DEJA_CONNECTE", "CABINET_SOI_MEME", "CABINET_RESPONSABLE", "CABINET_QUOTA_JOUR"])("traduit le code seul %s", code => {
+  expect(messageErreur(new Error(code), "Échec")).not.toContain("CABINET_");
+  expect(messageErreur(new Error(code), "Échec")).not.toBe("Échec");
+});

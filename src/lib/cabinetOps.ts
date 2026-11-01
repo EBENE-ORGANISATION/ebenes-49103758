@@ -96,7 +96,10 @@ const messageEdge = async (erreur: unknown): Promise<string> => {
 
 const invoquer = async (client: ClientCabinet, body: Record<string, unknown>): Promise<ResultatInvitation> => {
   const { data, error } = await client.functions.invoke("cabinet-ops", { body });
-  if (error) throw new Error(await messageEdge(error));
+  if (error) {
+    if (body.action === "renvoyer_invitation" && (error as { context?: { status?: number } }).context?.status === 429) throw new Error("Patientez 10 minutes avant un nouveau renvoi");
+    throw new Error(await messageEdge(error));
+  }
   const corps = data as { error?: unknown } | null;
   if (corps && typeof corps === "object" && corps.error) throw new Error(String(corps.error));
   return data as ResultatInvitation;

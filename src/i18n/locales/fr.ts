@@ -1,4 +1,48 @@
 const fr = {
+  cabinet: {
+  "titre": "Mon cabinet",
+  "accueil": "Retour à l’accueil",
+  "equipe": "Équipe",
+  "dossiers": "Dossiers",
+  "chargement": "Chargement du cabinet…",
+  "erreur": "Impossible de charger le cabinet.",
+  "interdit": "Aucun cabinet actif accessible.",
+  "nouveau": "Nouveau dossier client",
+  "limite": "Limite de {{max}} dossiers atteinte",
+  "nom_client": "Nom de la société cliente",
+  "forme": "Forme juridique",
+  "debut": "Début d’exercice",
+  "creer": "Créer le dossier",
+  "aucun_dossier": "Aucun dossier attribué.",
+  "support_admin": "Si ce dossier n’a pas encore d’administrateur client, sa création est assurée par le support Ébène (super-admin).",
+  "mission_de": "Mission de {{nom}}",
+  "non_attribue": "Non attribué",
+  "retirer_attribution": "Retirer l’attribution",
+  "email": "Adresse e-mail",
+  "nom": "Nom",
+  "role": "Rôle",
+  "role_de": "Rôle de {{nom}}",
+  "ajouter": "Ajouter un membre",
+  "actif": "Actif",
+  "inactif": "Inactif",
+  "desactiver": "Désactiver",
+  "reactiver": "Réactiver",
+  "renvoyer": "Renvoyer l’invitation",
+  "retirer": "Retirer le membre",
+  "confirmer_retrait": "Retirer {{nom}} du cabinet et supprimer ses attributions ?",
+  "email_non_envoye": "Le membre est créé, mais l’e-mail n’a pas été envoyé. Vous pouvez renvoyer l’invitation.",
+  "roles": {
+    "responsable": "Responsable",
+    "collaborateur": "Collaborateur",
+    "stagiaire": "Stagiaire"
+  },
+  "etats": {
+    "invitation": "Invitation",
+    "actif": "Actif",
+    "depart_demande": "Départ en cours",
+    "termine": "Terminé"
+  }
+},
   erreurs_cabinet: {
     exercice_clos: "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire.",
   },

@@ -39,6 +39,11 @@ export type Database = {
   }
   public: {
     Tables: {
+      cabinets: { Row: { id: string; nom: string; formule: string; max_dossiers: number; societe_propre_id: string | null; actif: boolean; created_at: string; created_by: string | null }; Insert: never; Update: never; Relationships: [] }
+      cabinet_membres: { Row: { id: string; cabinet_id: string; user_id: string; role: Database["public"]["Enums"]["role_cabinet"]; actif: boolean; created_at: string; ajoute_par: string | null }; Insert: never; Update: never; Relationships: [] }
+      cabinet_dossiers: { Row: { id: string; cabinet_id: string; societe_id: string; mission: Database["public"]["Enums"]["mission_cabinet"]; etat: Database["public"]["Enums"]["etat_dossier_cabinet"]; origine: "cabinet" | "client" | "super_admin"; depart_demande_par: string | null; depart_demande_le: string | null; depart_motif: string | null; valide_par: string | null; termine_le: string | null; created_at: string }; Insert: never; Update: never; Relationships: [{ foreignKeyName: "cabinet_dossiers_societe_id_fkey"; columns: ["societe_id"]; isOneToOne: false; referencedRelation: "societes"; referencedColumns: ["id"] }] }
+      cabinet_attributions: { Row: { dossier_id: string; user_id: string; mission: Database["public"]["Enums"]["mission_cabinet"]; created_at: string }; Insert: never; Update: never; Relationships: [] }
+
       absences: {
         Row: {
           cree_par: string | null

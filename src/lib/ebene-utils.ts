@@ -507,6 +507,13 @@ export const messageErreur = (e: unknown, defaut: string, estCabinet = false): s
   }
   // Autres refus de l'espace cabinet (fonctions cabinet_*, cabinet-ops) :
   // « CABINET_<CODE>: <texte en français> » ; on affiche le texte.
+  const messagesCabinet: Record<string, string> = {
+    CABINET_DEJA_CONNECTE: "Ce membre s’est déjà connecté : désactivez-le, ou demandez au super-administrateur de le détacher.",
+    CABINET_SOI_MEME: "Un responsable ne se détache pas lui-même du cabinet.",
+    CABINET_RESPONSABLE: "Un responsable actif ne se détache pas : changez d’abord son rôle ou désactivez-le.",
+    CABINET_QUOTA_JOUR: "Limite de 20 tentatives d’ajout par jour atteinte. Réessayez plus tard.",
+  };
+  for (const [code, texte] of Object.entries(messagesCabinet)) if (msg.includes(code)) return texte;
   const cabinet = msg.match(/CABINET_[A-Z_]+:\s*([\s\S]+)$/);
   if (cabinet && cabinet[1].trim()) {
     return cabinet[1].trim();

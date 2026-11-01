@@ -1,6 +1,50 @@
 import type { Translation } from "./fr";
 
 const en: Translation = {
+  cabinet: {
+  "titre": "My firm",
+  "accueil": "Back to home",
+  "equipe": "Team",
+  "dossiers": "Client files",
+  "chargement": "Loading firm…",
+  "erreur": "Unable to load the firm.",
+  "interdit": "No active firm available.",
+  "nouveau": "New client file",
+  "limite": "Limit of {{max}} files reached",
+  "nom_client": "Client company name",
+  "forme": "Legal form",
+  "debut": "Financial year start",
+  "creer": "Create file",
+  "aucun_dossier": "No assigned files.",
+  "support_admin": "If this file has no client administrator yet, Ébène support (super-admin) creates the account.",
+  "mission_de": "Assignment for {{nom}}",
+  "non_attribue": "Unassigned",
+  "retirer_attribution": "Remove assignment",
+  "email": "Email address",
+  "nom": "Name",
+  "role": "Role",
+  "role_de": "Role of {{nom}}",
+  "ajouter": "Add a member",
+  "actif": "Active",
+  "inactif": "Inactive",
+  "desactiver": "Deactivate",
+  "reactiver": "Reactivate",
+  "renvoyer": "Resend invitation",
+  "retirer": "Remove member",
+  "confirmer_retrait": "Remove {{nom}} from the firm and delete their assignments?",
+  "email_non_envoye": "The member was created, but the email was not sent. You can resend the invitation.",
+  "roles": {
+    "responsable": "Manager",
+    "collaborateur": "Staff member",
+    "stagiaire": "Intern"
+  },
+  "etats": {
+    "invitation": "Invitation",
+    "actif": "Active",
+    "depart_demande": "Departure pending",
+    "termine": "Ended"
+  }
+},
   erreurs_cabinet: {
     exercice_clos: "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire.",
   },

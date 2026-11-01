@@ -13,6 +13,12 @@ const matrice: Record<MissionCabinet, number[]> = {
 };
 const niveaux: AccessLevel[] = ["none", "read", "write", "validate"];
 
+export const missionsCabinet = Object.keys(matrice) as MissionCabinet[];
+/** Même ordre partiel que mission_couvre en SQL, sans plafonnement de rôle. */
+export function missionCouvre(haute: MissionCabinet, basse: MissionCabinet): boolean {
+  return matrice[basse].every((niveau, index) => niveau <= matrice[haute][index]);
+}
+
 /** Reflète niveau_mission ; les plafonds ne peuvent jamais ouvrir un module. */
 export function permissionsMission(mission: MissionCabinet, role: RoleCabinet, etat: EtatDossierCabinet): PermissionsCabinet {
   const droits = Object.fromEntries([...ALL_MODULES, "parametres"].map((module) => [module, "none"])) as PermissionsCabinet;

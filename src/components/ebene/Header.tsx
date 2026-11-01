@@ -1,3 +1,5 @@
+import { useCabinet } from "@/hooks/data/useCabinet";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Download, Upload, Archive, BarChart3, Check, LogOut, Users, History,
@@ -61,6 +63,8 @@ export const Header = ({
   lastSaved, driveStatus = "idle", driveLastBackup = null,
   driveLastError = null, onDriveBackup, store, alertes = [],
 }: HeaderProps) => {
+  const { cabinet } = useCabinet();
+  const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAgo, setSavedAgo] = useState("à l'instant");
   const { user, nomAgent, roles, isAdmin, isSuperAdmin, isChefCompta, isChefGrh, signOut } = useAuth();
@@ -158,6 +162,7 @@ export const Header = ({
   // Actions secondaires du menu (menu déroulant sur ordinateur, panneau sur téléphone)
   const sid = currentSociete ? `?sid=${currentSociete.id}` : "";
   const actions: ActionMenu[] = [
+    cabinet && { cle: "cabinet", icone: Users, libelle: t("cabinet.titre"), to: `/cabinet${sid}` },
     showRecap && { cle: "recap", icone: BarChart3, libelle: "Récap Annuel", onSelect: onShowRecap },
     showArchives && { cle: "archives", icone: Archive, libelle: "Archives", onSelect: onShowArchives },
     showJsonIO && { cle: "export", icone: Download, libelle: "Exporter Excel", onSelect: onExport, separe: true },

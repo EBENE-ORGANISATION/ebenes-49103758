@@ -8,6 +8,7 @@ import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 
 // Pages secondaires : chargées seulement quand on y navigue
+const Cabinet = lazy(() => import("./pages/Cabinet.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.tsx"));
 const AuditLog = lazy(() => import("./pages/AuditLog.tsx"));
@@ -51,6 +52,7 @@ const App = () => (
           <AndroidUpdateChecker />
           <Suspense fallback={null}>
           <Routes>
+            <Route path="/cabinet" element={<ProtectedRoute><Cabinet /></ProtectedRoute>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/confirmer-appareil" element={<ConfirmerAppareil />} />
             <Route
