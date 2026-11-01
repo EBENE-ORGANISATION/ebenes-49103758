@@ -322,16 +322,16 @@ L'utilisateur applique les migrations définitives après le passage des tests (
 
 Avec des comptes créés par l'utilisateur : un responsable, deux collaborateurs (dont un stagiaire), et un administrateur client sur une deuxième société de test.
 
-- [ ] **11.1** Relancer tous les tests SQL, `npx vitest run` et `tsc`.
-- [ ] **11.2** Parcours dans l'application :
+- [x] **11.1** Relancer tous les tests SQL, `npx vitest run` et `tsc`.
+- [x] **11.2** Parcours dans l'application :
   - le collaborateur passe d'un dossier à l'autre ;
   - la saisie fonctionne dans sa mission, et les boutons interdits sont masqués ;
   - le stagiaire ne peut pas valider ;
   - le client baisse la mission, et l'effet est immédiat ;
   - l'audit est signé ;
   - le 11ᵉ dossier est refusé.
-- [ ] **11.3** Une société sans cabinet (EBENE SERVICES - TEST, côté administrateur direct) : parcours rapide des 8 modules, sans aucune différence.
-- [ ] **11.4** Noter les objets créés dans `docs/recette/journal-creations.md` et les anomalies dans `docs/recette/bugs.md`. Commit `Recette : espace cabinet, étape 1`.
+- [x] **11.3** Une société sans cabinet (EBENE SERVICES - TEST, côté administrateur direct) : parcours rapide des 8 modules, sans aucune différence.
+- [x] **11.4** Noter les objets créés dans `docs/recette/journal-creations.md` et les anomalies dans `docs/recette/bugs.md`. Commit `Recette : espace cabinet, étape 1`.
 
 ---
 

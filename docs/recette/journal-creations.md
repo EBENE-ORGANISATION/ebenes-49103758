@@ -20,3 +20,7 @@
 | 2026-10-16 | Immobilisations | immobilisations | « Test blocage cession (recette) » créée puis supprimée (IM-14 supprimée) | 14 |
 | 2026-10-16 | Tournage tutos | devis | DEV-2026-010 « DÉMO Client Vidéo », converti | — |
 | 2026-10-16 | Tournage tutos | factures | FAC-2026-016 « DÉMO Client Vidéo » 531 000 TTC, validée puis payée en banque | — |
+| 2026-11-01 | Espace cabinet | auth.users | Comptes de recette créés par l'utilisateur : responsable `ennodbelei75+cabinet-resp@gmail.com` (Supabase), collaborateur OGA `+cabinet-collab` et stagiaire `+cabinet-stag` (invités depuis Mon cabinet) | — |
+| 2026-11-01 | Espace cabinet | cabinets | « Cabinet Test » (limite 10), responsable ci-dessus | a94da15d |
+| 2026-11-01 | Espace cabinet | cabinet_dossiers | EBENE SERVICES - TEST rattachée, mission Tenue complète (passée en Lecture puis remise) ; attributions OGA et stagiaire en Tenue complète | c6cd028b |
+| 2026-11-01 | Espace cabinet | ecritures | AC-2026-0001 « ACHAT DE BIC » 236 000, brouillon, saisie par OGA (audit signé Cabinet Test) | — |
