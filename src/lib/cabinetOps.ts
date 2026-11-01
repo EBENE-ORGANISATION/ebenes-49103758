@@ -6,15 +6,15 @@
  * l'appelant ; un refus lève une Error dont le message garde le texte de la
  * base (« CABINET_<CODE>: … ») : messageErreur (ebene-utils) l'affiche.
  *
- * Les fonctions de la migration 20261027124000 ne figurent pas encore dans les
- * types générés (src/integrations/supabase/types.ts, régénérés en tâche 6) :
- * les appels passent par un client typé ici, au plus juste.
+ * Les opérations non encore synchronisées dans les types générés passent
+ * par un client typé ici, au plus juste.
  */
+import type { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 
-export type MissionCabinet = "tenue_complete" | "compta_fiscalite" | "paie_social" | "declarations" | "lecture";
-export type RoleCabinet = "responsable" | "collaborateur" | "stagiaire";
-export type EtatDossierCabinet = "invitation" | "actif" | "depart_demande" | "termine";
+export type MissionCabinet = Database["public"]["Enums"]["mission_cabinet"];
+export type RoleCabinet = Database["public"]["Enums"]["role_cabinet"];
+export type EtatDossierCabinet = Database["public"]["Enums"]["etat_dossier_cabinet"];
 
 /** Ligne de mes_dossiers_cabinet(). */
 export interface DossierCabinet {

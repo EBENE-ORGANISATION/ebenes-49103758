@@ -1,6 +1,9 @@
 import type { Translation } from "./fr";
 
 const en: Translation = {
+  erreurs_cabinet: {
+    exercice_clos: "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire.",
+  },
   common: {
     save: "Save",
     cancel: "Cancel",

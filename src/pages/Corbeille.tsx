@@ -137,7 +137,7 @@ interface DeletedItem {
 // ─── Composant principal ─────────────────────────────────────────────────────
 
 export default function Corbeille() {
-  const { isAdmin, isChefCompta, isChefGrh } = useAuth();
+  const { isAdmin, isChefCompta, isChefGrh, estCabinet, can } = useAuth();
   const { currentSociete } = useTenant();
   const accueil = useLienAccueil();
   const qc = useQueryClient();
@@ -154,6 +154,13 @@ export default function Corbeille() {
     );
   }
 
+  if (estCabinet) {
+    // Chaque table reste dans la mission de son propre module.
+    const modules = { transactions: "compta", factures: "factures", devis: "factures", articles: "stock", fournisseurs: "stock", immobilisations: "immobilisations", employes: "grh", absences: "grh", sanctions: "grh", primes: "grh" } as const;
+    for (const table of visibleTables) {
+      if (!can(modules[table as keyof typeof modules], "write")) visibleTables.delete(table);
+    }
+  }
   const visibleEntities = ENTITIES.filter((e) => visibleTables.has(e.table));
 
   // Une seule query qui charge TOUTES les entités visibles d'un coup

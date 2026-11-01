@@ -1,3 +1,4 @@
+import textesFrancais from "@/i18n/locales/fr";
 import { TauxFiscaux, TAUX_DEFAUT, Employe, Transaction, Facture, EcritureComptable } from "@/types/ebene";
 
 export const formatMontant = (n: number): string => {
@@ -469,10 +470,13 @@ export const genererMatricule = (employes: Employe[]): string => {
  * Message à afficher pour une erreur de la base : les contrôles de gestion
  * (quatre yeux, facture engagée) ont un message explicite, sinon `defaut`.
  */
-export const messageErreur = (e: unknown, defaut: string): string => {
+export const messageErreur = (e: unknown, defaut: string, estCabinet = false): string => {
   const msg = String((e as { message?: string })?.message ?? e ?? "");
   if (msg.includes("QUATRE_YEUX")) {
     return "Vous ne pouvez pas valider votre propre saisie : un autre responsable (ou l'administrateur) doit le faire.";
+  }
+  if (estCabinet && (msg.includes("EXERCICE_CLOTURE") || msg.includes("EXERCICE_REOUVERTURE"))) {
+    return textesFrancais.erreurs_cabinet.exercice_clos;
   }
   if (msg.includes("EXERCICE_CLOTURE")) {
     return "Cet exercice est clôturé : plus aucune saisie n'est possible (un administrateur peut le rouvrir).";

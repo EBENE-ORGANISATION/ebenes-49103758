@@ -1,3 +1,4 @@
+import type { AppModule } from "@/lib/permissions";
 import { useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -10,10 +11,12 @@ export const MESSAGE_QUATRE_YEUX =
  * l'administrateur. Le même contrôle est appliqué en base (trigger
  * controle_quatre_yeux) ; ici, il sert à griser le bouton.
  */
-export const usePeutValider = () => {
-  const { user, isAdmin, isSuperAdmin } = useAuth();
+export const usePeutValider = (module: AppModule = "compta") => {
+  const { user, isAdmin, isSuperAdmin, estCabinet, can } = useAuth();
   return useCallback(
-    (creePar?: string | null) => isAdmin || isSuperAdmin || !creePar || creePar !== user?.id,
-    [user?.id, isAdmin, isSuperAdmin],
+    (creePar?: string | null) => estCabinet
+      ? can(module, "validate") && (!creePar || creePar !== user?.id)
+      : can(module, "read") && (isAdmin || isSuperAdmin || !creePar || creePar !== user?.id),
+    [user?.id, isAdmin, isSuperAdmin, estCabinet, can, module],
   );
 };

@@ -196,3 +196,15 @@ describe("messageErreur (espace cabinet)", () => {
     expect(messageErreur(new Error("autre chose"), "x")).toBe("x");
   });
 });
+
+describe("message des exercices selon l'accès au dossier", () => {
+  it.each(["EXERCICE_REOUVERTURE", "EXERCICE_CLOTURE"])("explique %s au cabinet", (code) => {
+    expect(messageErreur(new Error(code), "x", true)).toBe(
+      "Un cabinet ne rouvre pas et ne supprime pas un exercice clos : le client ou son administrateur doit le faire.",
+    );
+  });
+  it("garde les messages habituels pour un accès direct", () => {
+    expect(messageErreur(new Error("EXERCICE_REOUVERTURE"), "x")).toBe("Seul un administrateur peut rouvrir un exercice clôturé.");
+    expect(messageErreur(new Error("EXERCICE_CLOTURE"), "x", false)).toBe("Cet exercice est clôturé : plus aucune saisie n'est possible (un administrateur peut le rouvrir).");
+  });
+});

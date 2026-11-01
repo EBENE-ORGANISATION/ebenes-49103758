@@ -123,7 +123,7 @@ export const GRH = ({
   onPurgeEmploye,
   allAbsences,
 }: Props) => {
-  const peutValider = usePeutValider();
+  const peutValider = usePeutValider("grh");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
   const [bulletin, setBulletin] = useState<Employe | null>(null);

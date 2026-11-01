@@ -119,7 +119,7 @@ export const Factures = ({
   onConvertirDevis,
   onUpdateDevis,
 }: Props) => {
-  const peutValider = usePeutValider();
+  const peutValider = usePeutValider("factures");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [client, setClient] = useState("");

@@ -2402,6 +2402,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Espace cabinet : signatures synchronisées hors ligne depuis les migrations.
+      mes_dossiers_cabinet: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          societe_id: string
+          societe_nom: string
+          cabinet_nom: string
+          mission: Database["public"]["Enums"]["mission_cabinet"]
+          etat: Database["public"]["Enums"]["etat_dossier_cabinet"]
+          mon_role: Database["public"]["Enums"]["role_cabinet"]
+        }[]
+      }
+      cabinet_niveau: {
+        Args: { _uid: string; _societe: string; _module: string }
+        Returns: number
+      }
+      cabinet_societes: {
+        Args: { _module: string; _min: number }
+        Returns: string[]
+      }
+      niveau_mission: {
+        Args: { _mission: Database["public"]["Enums"]["mission_cabinet"]; _module: string }
+        Returns: number
+      }
       app_state_societe_id: { Args: { _key: string }; Returns: string }
       current_employe_id: { Args: { _user_id: string }; Returns: number }
       generate_set_impots: {
@@ -2447,6 +2471,9 @@ export type Database = {
       is_modele_societe: { Args: { _societe_id: string }; Returns: boolean }
     }
     Enums: {
+      mission_cabinet: "tenue_complete" | "compta_fiscalite" | "paie_social" | "declarations" | "lecture"
+      role_cabinet: "responsable" | "collaborateur" | "stagiaire"
+      etat_dossier_cabinet: "invitation" | "actif" | "depart_demande" | "termine"
       access_level: "none" | "read" | "write" | "validate"
       app_module:
         | "dashboard"
@@ -2704,6 +2731,9 @@ export const Constants = {
         "users_admin",
         "audit_log",
       ],
+      mission_cabinet: ["tenue_complete", "compta_fiscalite", "paie_social", "declarations", "lecture"],
+      role_cabinet: ["responsable", "collaborateur", "stagiaire"],
+      etat_dossier_cabinet: ["invitation", "actif", "depart_demande", "termine"],
       regime_fiscal_enum: ["IS", "IMF", "TPU", "BE", "ASS", "TEL", "TI"],
       secteur_activite_enum: [
         "CO",

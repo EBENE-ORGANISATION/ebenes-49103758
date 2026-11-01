@@ -30,7 +30,7 @@ interface Props {
 
 export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
   const { currentSociete } = useTenant();
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, estCabinet, can } = useAuth();
   const sid = currentSociete?.id ?? null;
   const qc = useQueryClient();
   const { data: exercices = [] } = useQuery({
@@ -56,7 +56,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
   };
 
   const enregistrerOuverture = async () => {
-    if (!ouverture) return;
+    if (!ouverture || !can("compta", "write")) return;
     const erreur = verifierOuverture(ouverture);
     if (erreur) return toast.error(erreur);
     setEnCours(true);
@@ -66,7 +66,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
       setOuverture(null);
       rafraichir();
     } catch (e) {
-      toast.error(messageErreur(e, "Erreur lors de l'enregistrement du bilan d'ouverture"));
+      toast.error(messageErreur(e, "Erreur lors de l'enregistrement du bilan d'ouverture", estCabinet));
     } finally {
       setEnCours(false);
     }
@@ -74,7 +74,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
 
   const enAttente = piecesEnAttente(donneesMensuelles, annee);
   const cloturer = async () => {
-    if (!cloture) return;
+    if (!cloture || !can("compta", "write")) return;
     if (enAttente.total > 0) return toast.error(messagePiecesEnAttente(annee, enAttente));
     setEnCours(true);
     try {
@@ -85,7 +85,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
       setCloture(null);
       rafraichir();
     } catch (e) {
-      toast.error(messageErreur(e, "Erreur lors de la clôture"));
+      toast.error(messageErreur(e, "Erreur lors de la clôture", estCabinet));
     } finally {
       setEnCours(false);
     }
@@ -98,7 +98,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
       toast.success(`Exercice ${annee} rouvert.`);
       rafraichir();
     } catch (e) {
-      toast.error(messageErreur(e, "Erreur lors de la réouverture"));
+      toast.error(messageErreur(e, "Erreur lors de la réouverture", estCabinet));
     }
   };
 
@@ -117,14 +117,14 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
-        {!cloture_ && (
+        {!cloture_ && can("compta", "write") && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOuverture(
             MODELE_OUVERTURE.map((m) => ({ compte: m.compte, debit: 0, credit: 0 })),
           )}>
             {aOuverture ? "Modifier le bilan d'ouverture" : "Saisir le bilan d'ouverture"}
           </Button>
         )}
-        {!cloture_ && (
+        {!cloture_ && can("compta", "write") && (
           <Button size="sm" className="gap-1.5" onClick={() => setCloture({})}>
             <Lock className="size-3.5" /> Clôturer l'exercice {annee}
           </Button>
@@ -174,7 +174,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOuverture(null)}>Annuler</Button>
-            <Button onClick={enregistrerOuverture} disabled={enCours}>{enCours && <Loader2 className="size-4 animate-spin" />} Enregistrer</Button>
+            <Button onClick={enregistrerOuverture} disabled={enCours || !can("compta", "write")}>{enCours && <Loader2 className="size-4 animate-spin" />} Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -203,7 +203,7 @@ export const ExercicesComptables = ({ donneesMensuelles, annee }: Props) => {
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCloture(null)}>Annuler</Button>
-            <Button onClick={cloturer} disabled={enCours || enAttente.total > 0}>{enCours && <Loader2 className="size-4 animate-spin" />} Clôturer</Button>
+            <Button onClick={cloturer} disabled={enCours || enAttente.total > 0 || !can("compta", "write")}>{enCours && <Loader2 className="size-4 animate-spin" />} Clôturer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

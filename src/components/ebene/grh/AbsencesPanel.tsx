@@ -37,7 +37,7 @@ export const AbsencesPanel = ({
   onValider,
   onRejeter,
 }: Props) => {
-  const peutValider = usePeutValider();
+  const peutValider = usePeutValider("grh");
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");

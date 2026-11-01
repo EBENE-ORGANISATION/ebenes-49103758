@@ -36,7 +36,7 @@ export const DisciplinePanel = ({
   onValider,
   onRejeter,
 }: Props) => {
-  const peutValider = usePeutValider();
+  const peutValider = usePeutValider("grh");
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [employeId, setEmployeId] = useState<string>("");

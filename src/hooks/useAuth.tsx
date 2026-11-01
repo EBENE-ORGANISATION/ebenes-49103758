@@ -1,4 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useDossiersCabinetUtilisateur } from "./useDossiersCabinet";
+import { permissionsMission } from "@/lib/missionCabinet";
 import { supabase } from "@/integrations/supabase/client";
 import { nomPrenoms } from "@/lib/nomAgent";
 import type { Session, User } from "@supabase/supabase-js";
@@ -54,6 +58,8 @@ interface AuthContextValue {
   /** True si l'utilisateur a accès à la fonctionnalité du header (admin = toujours true). */
   canFeature: (f: HeaderFeature) => boolean;
   isAdmin: boolean;
+  /** Accès au dossier ouvert au titre du cabinet. */
+  estCabinet: boolean;
   /** Super-admin global (= rôle admin_general). Bypass RLS multi-société. */
   isSuperAdmin: boolean;
   /** Membre du service Comptabilité (admin, chef_compta, membre_compta) */
@@ -366,7 +372,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await fetchMfa();
   }, [fetchMfa]);
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  const { search } = useLocation();
+  const sid = new URLSearchParams(search).get("sid");
+  const { dossiers, isLoading: chargementDossiers } = useDossiersCabinetUtilisateur(user?.id);
+  const accesDirects = useQuery({
+    queryKey: ["acces_directs", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_societes").select("societe_id").eq("user_id", user!.id);
+      if (error) throw error;
+      return data.map((ligne) => ligne.societe_id);
+    },
+    enabled: !!user,
+    staleTime: 0,
+    refetchInterval: 30_000,
+  });
+  const dossierCabinet = dossiers.find((dossier) => dossier.societe_id === sid);
+  // Sans accès direct confirmé, aucun repli sur un rôle détenu ailleurs.
+  const accesDirect = !accesDirects.isError && accesDirects.data?.includes(sid ?? "");
+  const droitsLocaux = !sid || !!accesDirect;
+  const estCabinet = !!dossierCabinet && !droitsLocaux;
+  const hasRole = (role: AppRole) => (droitsLocaux || isSuperAdmin) && roles.includes(role);
   // Le super-admin = rôle 'admin_general' (alias historique). On reconnaît
   // aussi 'super_admin' au cas où il serait ajouté plus tard.
   const isSuperAdmin =
@@ -374,17 +399,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (roles as string[]).includes("super_admin");
   // Le super-admin a tous les droits d'un admin local sur la société
   // qu'il "impersonne" (sélectionnée via useTenant.setCurrentSocieteId).
-  const isAdmin = roles.includes("admin") || isSuperAdmin;
+  const isAdmin = (droitsLocaux && roles.includes("admin")) || isSuperAdmin;
+  const perms = isSuperAdmin || droitsLocaux
+    ? computePermissions(roles, grants, overrides)
+    : dossierCabinet
+      ? permissionsMission(dossierCabinet.mission, dossierCabinet.mon_role, dossierCabinet.etat)
+      : computePermissions([], [], []);
   const hasGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc);
   const hasChefGrant = (svc: "compta" | "grh") => grants.some((g) => g.service === svc && g.level === "chef");
   const inServiceCompta =
-    isAdmin || roles.includes("chef_compta") || roles.includes("membre_compta") || roles.includes("comptable") || hasGrant("compta");
+    droitsLocaux || isSuperAdmin ? isAdmin || roles.includes("chef_compta") || roles.includes("membre_compta") || roles.includes("comptable") || hasGrant("compta") : ["write", "validate"].includes(perms.compta);
   const inServiceGrh =
-    isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh") || hasGrant("grh");
-  const isChefCompta = isAdmin || roles.includes("chef_compta") || hasChefGrant("compta");
-  const isChefGrh = isAdmin || roles.includes("chef_grh") || hasChefGrant("grh");
-  const canViewDashboard = isAdmin || roles.includes("dashboard_viewer");
-  const isEmploye = roles.includes("employe");
+    droitsLocaux || isSuperAdmin ? isAdmin || roles.includes("chef_grh") || roles.includes("membre_grh") || roles.includes("rh") || hasGrant("grh") : ["write", "validate"].includes(perms.grh);
+  const isChefCompta = droitsLocaux || isSuperAdmin ? isAdmin || roles.includes("chef_compta") || hasChefGrant("compta") : perms.compta === "validate";
+  const isChefGrh = droitsLocaux || isSuperAdmin ? isAdmin || roles.includes("chef_grh") || hasChefGrant("grh") : perms.grh === "validate";
+  const canViewDashboard = droitsLocaux || isSuperAdmin ? isAdmin || roles.includes("dashboard_viewer") : perms.dashboard !== "none";
+  const isEmploye = !estCabinet && roles.includes("employe");
   const hasAnyStaffRole =
     isAdmin ||
     inServiceCompta ||
@@ -394,18 +424,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     canViewDashboard;
   const isEmployeOnly = isEmploye && !hasAnyStaffRole;
 
-  const perms = computePermissions(roles, grants, overrides);
+
   const canFn = (module: AppModule, required: AccessLevel) => {
     const lvl = perms[module];
     const rank = { none: 0, read: 1, write: 2, validate: 3 } as const;
     return rank[lvl] >= rank[required];
   };
-  const canFeature = (f: HeaderFeature) => isAdmin || features.includes(f);
+  const canFeature = (f: HeaderFeature) => isAdmin || (!!droitsLocaux && features.includes(f));
 
   return (
     <AuthContext.Provider
       value={{
-        user, session, roles, grants, overrides, perms, features, loading, signIn, signOut, hasRole, can: canFn, canFeature, isAdmin, isSuperAdmin,
+        user, session, roles: droitsLocaux || isSuperAdmin ? roles : [], grants, overrides, perms, features,
+        loading: loading || (!!user && !!sid && !isSuperAdmin && (chargementDossiers || accesDirects.isPending)),
+        signIn, signOut, hasRole, can: canFn, canFeature, isAdmin, isSuperAdmin, estCabinet,
         inServiceCompta, inServiceGrh, isChefCompta, isChefGrh, canViewDashboard,
         isEmploye, isEmployeOnly, refreshRoles,
         nomAgent, mustChangePassword, clearMustChangePassword,
@@ -450,6 +482,7 @@ export const useAuth = () => {
       can: () => false,
       canFeature: () => false,
       isAdmin: false,
+      estCabinet: false,
       isSuperAdmin: false,
       inServiceCompta: false,
       inServiceGrh: false,

@@ -59,11 +59,11 @@ const LignesLibres = ({ lignes = [], onChange, avecN1 = false }: { lignes?: Lign
 
 export const InformationsFiscalesExercice = ({ donneesMensuelles, annee }: Props) => {
   const { currentSociete } = useTenant();
-  const { isAdmin, isSuperAdmin, inServiceCompta } = useAuth();
+  const { isAdmin, isSuperAdmin, inServiceCompta, estCabinet, can } = useAuth();
   const sid = currentSociete?.id ?? null;
   const { informations, enregistrer, enregistrement } = useInformationsFiscales(sid, annee);
   const [edition, setEdition] = useState<InformationsFiscales | null>(null);
-  const peutSaisir = isAdmin || isSuperAdmin || inServiceCompta;
+  const peutSaisir = estCabinet ? can("fiscalite", "write") : isAdmin || isSuperAdmin || inServiceCompta;
 
   const { resultatNet, impot } = useMemo(() => {
     const cr = compteResultatLiasse(soldesCloture(donneesMensuelles, annee).gestion);

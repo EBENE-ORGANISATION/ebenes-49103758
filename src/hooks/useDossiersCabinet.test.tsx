@@ -1,0 +1,31 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { useDossiersCabinet } from "./useDossiersCabinet";
+import type { DossierCabinet } from "@/lib/cabinetOps";
+const simulation = vi.hoisted(() => ({ user: null as { id: string } | null, lire: vi.fn() }));
+vi.mock("./useAuth", () => ({ useAuth: () => ({ user: simulation.user }) }));
+vi.mock("@/lib/cabinetOps", () => ({ cabinetOps: { mesDossiers: simulation.lire } }));
+afterEach(() => { cleanup(); simulation.lire.mockReset(); simulation.user = null; });
+describe("liste des dossiers du cabinet", () => {
+  it("attend l'utilisateur et sépare les caches entre deux comptes", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const { result, rerender } = renderHook(() => useDossiersCabinet(), { wrapper });
+    expect(simulation.lire).not.toHaveBeenCalled();
+    expect(result.current.dossiers).toEqual([]);
+    const dossier: DossierCabinet = { societe_id: "A", societe_nom: "Client", cabinet_nom: "Cabinet", mission: "lecture", etat: "actif", mon_role: "collaborateur" };
+    simulation.user = { id: "premier" };
+    simulation.lire.mockResolvedValueOnce([dossier]);
+    rerender();
+    await waitFor(() => expect(result.current.dossiers).toEqual([dossier]));
+    expect(client.getQueryData(["dossiers_cabinet", "premier"])).toEqual([dossier]);
+    simulation.user = { id: "second" };
+    simulation.lire.mockResolvedValueOnce([]);
+    rerender();
+    expect(result.current.dossiers).toEqual([]);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(client.getQueryData(["dossiers_cabinet", "second"])).toEqual([]);
+  });
+});
