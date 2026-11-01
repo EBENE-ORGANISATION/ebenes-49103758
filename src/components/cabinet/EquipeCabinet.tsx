@@ -31,7 +31,7 @@ export function EquipeCabinet({ cabinetId, membres, executer, enCours }: Actions
     </form>
     {membres.map(membre => <div key={membre.user_id} className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
       <span className="min-w-0 break-all">{membre.nom} — {t(membre.actif ? "cabinet.actif" : "cabinet.inactif")}</span>
-      <select className="rounded border bg-background p-2" aria-label={t("cabinet.role_de", { nom: membre.nom })} value={membre.role} disabled={enCours} onChange={e => void executer(() => cabinetOps.definirMembre(cabinetId, membre.user_id, e.target.value as RoleCabinet, membre.actif)).catch(() => {})}>
+      <select className="rounded border bg-background p-2" aria-label={t("cabinet.role_de", { nom: membre.nom })} value={membre.role} disabled={enCours} onChange={e => { const nouveauRole = e.target.value as RoleCabinet; void executer(() => cabinetOps.definirMembre(cabinetId, membre.user_id, nouveauRole, membre.actif)).catch(() => {}); }}>
         {["responsable", "collaborateur", "stagiaire"].map(r => <option key={r} value={r}>{t(`cabinet.roles.${r}`)}</option>)}
       </select>
       <Button variant="outline" disabled={enCours} onClick={() => void executer(() => cabinetOps.definirMembre(cabinetId, membre.user_id, membre.role, !membre.actif)).catch(() => {})}>{t(membre.actif ? "cabinet.desactiver" : "cabinet.reactiver")}</Button>

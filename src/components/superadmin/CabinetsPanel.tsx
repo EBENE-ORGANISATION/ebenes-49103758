@@ -50,7 +50,7 @@ export function CabinetsPanel() {
           const doubles = membres.filter(m => donnees.comptes.some(compte => compte.id === m.user_id && compte.societes.some(s => s.societe_id === dossier.societe_id)));
           return <div key={dossier.id} className="space-y-2 rounded border p-3">
             <h3>{donnees.societes.find(s => s.id === dossier.societe_id)?.nom ?? dossier.societe_id} — {t(`cabinet.etats.${dossier.etat}`)}</h3>
-            <label>{t("cabinet9.mission")}<select className="ml-3 rounded border bg-background p-2" value={dossier.mission} disabled={enCours} onChange={e => lancer(() => cabinetOps.changerMission(dossier.id, e.target.value as MissionCabinet))}>{missionsCabinet.map(m => <option key={m} value={m}>{t(`societe_switcher.missions.${m}`)}</option>)}</select></label>
+            <label>{t("cabinet9.mission")}<select className="ml-3 rounded border bg-background p-2" value={dossier.mission} disabled={enCours} onChange={e => { const mission = e.target.value as MissionCabinet; lancer(() => cabinetOps.changerMission(dossier.id, mission)); }}>{missionsCabinet.map(m => <option key={m} value={m}>{t(`societe_switcher.missions.${m}`)}</option>)}</select></label>
             {doubles.map(m => <p role="status" key={m.user_id}>{t("cabinet9.double", { nom: m.nom })}</p>)}
             {!administrateur && <Button variant="outline" disabled={enCours} onClick={() => { definirInvitation(dossier.societe_id); definirEmail(""); definirNomClient(""); }}>{t("cabinet9.inviter")}</Button>}
             {invitation === dossier.societe_id && !administrateur && <form className="flex flex-wrap items-end gap-3" onSubmit={evenement => {
