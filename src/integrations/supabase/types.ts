@@ -1178,47 +1178,6 @@ export type Database = {
           },
         ]
       }
-      fiscal_delegations: {
-        Row: {
-          delegue_user_id: string
-          expires_at: string | null
-          granted_at: string
-          granted_by: string
-          id: string
-          is_active: boolean
-          note: string | null
-          societe_id: string
-        }
-        Insert: {
-          delegue_user_id: string
-          expires_at?: string | null
-          granted_at?: string
-          granted_by: string
-          id?: string
-          is_active?: boolean
-          note?: string | null
-          societe_id: string
-        }
-        Update: {
-          delegue_user_id?: string
-          expires_at?: string | null
-          granted_at?: string
-          granted_by?: string
-          id?: string
-          is_active?: boolean
-          note?: string | null
-          societe_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fiscal_delegations_societe_id_fkey"
-            columns: ["societe_id"]
-            isOneToOne: false
-            referencedRelation: "societes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fournisseurs: {
         Row: {
           adresse: string | null
@@ -2407,6 +2366,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_noms_cabinet: {
+        Args: { _societe: string }
+        Returns: { cabinet_id: string; cabinet_nom: string; user_id: string | null; auteur_nom: string | null }[]
+      }
+
       // Espace cabinet : signatures synchronisées hors ligne depuis les migrations.
       mes_dossiers_cabinet: {
         Args: Record<PropertyKey, never>

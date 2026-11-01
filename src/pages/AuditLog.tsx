@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,14 @@ interface AuditEntry {
   new_data: Record<string, unknown> | null;
   created_at: string;
   societe_id?: string | null;
+  cabinet_id?: string | null;
+}
+
+interface NomAudit {
+  cabinet_id: string;
+  cabinet_nom: string;
+  user_id: string | null;
+  auteur_nom: string | null;
 }
 
 const actionVariant = (a: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -44,9 +52,18 @@ const AuditLog = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [noms, definirNoms] = useState<NomAudit[]>([]);
+  const [cabinet, definirCabinet] = useState("");
+  const numeroLecture = useRef(0);
+  const [societeLue, definirSocieteLue] = useState<string | null>(null);
+  const annulerLecture = useCallback(() => { numeroLecture.current++; }, []);
 
   const load = useCallback(async () => {
+    const lecture = ++numeroLecture.current;
     setLoading(true);
+    setEntries([]);
+    definirNoms([]);
+    setExpanded(null);
     try {
       // Pas de société sélectionnée → rien à afficher (cloisonnement strict).
       if (!currentSociete?.id) {
@@ -59,20 +76,45 @@ const AuditLog = () => {
         .eq("societe_id", currentSociete.id)
         .order("created_at", { ascending: false })
         .limit(500);
+      if (lecture !== numeroLecture.current) return;
       if (error) {
         toast.error(error.message);
         setEntries([]);
       } else {
         setEntries((data || []) as unknown as AuditEntry[]);
+        definirSocieteLue(currentSociete.id);
+        if (data?.some((ligne) => (ligne as unknown as AuditEntry).cabinet_id)) {
+          const { data: nomsLus, error: erreurNoms } = await supabase.rpc("audit_noms_cabinet", { _societe: currentSociete.id });
+          if (lecture !== numeroLecture.current) return;
+          if (erreurNoms) toast.error(erreurNoms.message);
+          else definirNoms(nomsLus ?? []);
+        }
       }
+    } catch (erreur) {
+      if (lecture === numeroLecture.current) toast.error(erreur instanceof Error ? erreur.message : "Lecture de l’audit impossible.");
     } finally {
-      setLoading(false);
+      if (lecture === numeroLecture.current) setLoading(false);
     }
   }, [currentSociete?.id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    definirCabinet("");
+    void load();
+    return annulerLecture;
+  }, [load, annulerLecture]);
 
-  const filtered = entries.filter((e) => {
+  const nomCabinet = (identifiant: string) => noms.find((nom) => nom.cabinet_id === identifiant)?.cabinet_nom ?? `Cabinet ${identifiant}`;
+  const auteur = (ligne: AuditEntry) => {
+    if (!ligne.cabinet_id) return ligne.user_email || "—";
+    const nom = noms.find((nom) => nom.cabinet_id === ligne.cabinet_id && nom.user_id === ligne.user_id);
+    return `${nomCabinet(ligne.cabinet_id)} — ${nom?.auteur_nom || ligne.user_email || ligne.user_id || "Auteur inconnu"}`;
+  };
+  // Masquer immédiatement les données de la société précédente, avant l’effet.
+  const lignesVisibles = societeLue === currentSociete?.id ? entries : [];
+  const cabinets = [...new Set(lignesVisibles.flatMap((ligne) => ligne.cabinet_id ? [ligne.cabinet_id] : []))];
+
+  const filtered = lignesVisibles.filter((e) => {
+    if (cabinet && e.cabinet_id !== cabinet) return false;
     if (!filter.trim()) return true;
     const f = filter.toLowerCase();
     const desc = e.description ?? describeAuditEntry(e.action, e.table_name, e.new_data, e.old_data);
@@ -80,6 +122,7 @@ const AuditLog = () => {
       (TABLE_LABELS[e.table_name] ?? e.table_name).toLowerCase().includes(f) ||
       (ACTION_LABELS[e.action] ?? e.action).toLowerCase().includes(f) ||
       (e.user_email || "").toLowerCase().includes(f) ||
+      auteur(e).toLowerCase().includes(f) ||
       desc.toLowerCase().includes(f)
     );
   });
@@ -109,7 +152,14 @@ const AuditLog = () => {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              Cabinet
+              <select aria-label="Cabinet" className="h-10 rounded-md border bg-background px-3" value={cabinet} onChange={(evenement) => definirCabinet(evenement.target.value)}>
+                <option value="">Tous les cabinets et accès directs</option>
+                {cabinets.map((identifiant) => <option key={identifiant} value={identifiant}>{nomCabinet(identifiant)}</option>)}
+              </select>
+            </label>
             <Input
               placeholder={t("audit_log.filter_placeholder")}
               value={filter}
@@ -129,6 +179,7 @@ const AuditLog = () => {
                 <TableRow>
                   <TableHead>{t("audit_log.th_date")}</TableHead>
                   <TableHead>{t("audit_log.th_user")}</TableHead>
+                  <TableHead>Cabinet</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Détails</TableHead>
@@ -149,10 +200,9 @@ const AuditLog = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {e.user_email ? (
-                          <span className="font-mono text-xs">{e.user_email}</span>
-                        ) : "—"}
+                        {auteur(e)}
                       </TableCell>
+                      <TableCell className="text-sm">{e.cabinet_id ? nomCabinet(e.cabinet_id) : "—"}</TableCell>
                       <TableCell>
                         <Badge variant={actionVariant(e.action)} className="text-xs">
                           {ACTION_LABELS[e.action] ?? e.action}
@@ -167,7 +217,7 @@ const AuditLog = () => {
                     </TableRow>
                     {expanded === e.id && (
                       <TableRow key={e.id + "-d"}>
-                        <TableCell colSpan={5} className="bg-muted/30 p-0">
+                        <TableCell colSpan={6} className="bg-muted/30 p-0">
                           <pre className="text-xs whitespace-pre-wrap break-all max-h-96 overflow-auto p-4">
                             {JSON.stringify(
                               e.action === "UPDATE"
@@ -186,7 +236,7 @@ const AuditLog = () => {
                 ))}
                 {filtered.length === 0 && !loading && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       {t("audit_log.no_entries")}
                     </TableCell>
                   </TableRow>

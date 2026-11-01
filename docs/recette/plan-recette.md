@@ -25,12 +25,24 @@ Lancée le 2026-10-16. Objectif : toucher chaque page, chaque fonction, chaque b
 | 7 | Fiscalité : TVA modèle OTR, IS, réintégrations/déductions, taux | Fiscalite, TauxImpots, TauxHistoriqueDialog | fait (taux légaux non revérifiés : paramétrables) |
 | 8 | GRH : personnel, fiche, contrats, absences, heures sup, discipline, indemnités, simulateur, import Excel | GRH, grh/* | fait (barème licenciement confirmé) |
 | 9 | Paie : bulletins, validation, paiement, récap annuel | BulletinsPaie, BulletinEditDialog, RecapAnnuelModal, pages/Bulletins | fait |
-| 10 | Mon portail (employé) et délégations | MonPortail, GestionDelegations | **en suspens** (décision de l'utilisateur, comptes de test à créer) |
+| 10 | Mon portail (employé) et espace cabinet (remplace les délégations fiscales) | MonPortail, Cabinet, MonCabinetClient, CabinetsPanel, AuditLog | **à recetter** (comptes de test à créer ; migrations cabinet et audit à appliquer par l’utilisateur après tests) |
 | 11 | Paramètres société, identification, activités, apparence | ParametresSociete, IdentificationSociete, ActivitesManager | fait (téléversement du logo non testé) |
 | 12 | Administration : utilisateurs, journal d'audit, corbeille, archives, super-admin | AdminUsers, AuditLog, Corbeille, ArchivesModal, SuperAdmin | fait (création d'utilisateur non testée : comptes créés par vous) |
 | 13 | Impression et documents (modèle D) | components/impression | fait (facture, devis, contrat à l'écran ; PDF/Word non téléchargés) |
 | 14 | Hors ligne, mises à jour, Electron, Android | OfflineBanner, UpdateBanner, electron, AndroidUpdateChecker | en partie (hors ligne fait ; Electron et Android à tester sur vos appareils) |
-| 15 | Droits et isolation RLS (transversal) | supabase/migrations | en partie (isolation entre sociétés vérifiée ; rôles employé et délégué : comptes de test à fournir) |
+| 15 | Droits et isolation RLS (transversal) | supabase/migrations | en partie (isolation entre sociétés vérifiée ; rôles employé et membres de cabinet : comptes de test à fournir) |
+
+### Module 10 — parcours espace cabinet à vérifier sur TEST
+
+- Créer un cabinet avec responsable existant depuis le super-admin, rattacher TEST et inviter son administrateur client ; vérifier les retours d’échec de courriel.
+- Attribuer deux dossiers à un collaborateur et un stagiaire ; passer de l’un à l’autre et contrôler les droits propres au dossier. Vérifier la priorité d’un accès direct éventuel.
+- Depuis le client, baisser puis remonter la mission ; contrôler l’effet immédiat et le refus de validation pour le stagiaire et pour sa propre saisie.
+- Désactiver un membre puis un cabinet, demander un départ et terminer un lien ; vérifier les droits attendus à la requête suivante. Vérifier la limite : dixième dossier accepté, onzième refusé.
+- Dans l’audit client, vérifier « Cabinet Test — Collaborateur 1 », la colonne Cabinet, la recherche nominale et le filtre Cabinet, puis une action directe du même auteur sans signature cabinet. Après retrait du membre ou fin du lien, vérifier que l’attribution historique reste lisible.
+- Avec un administrateur d’une autre société et un compte sans accès à l’audit, vérifier qu’aucun nom extérieur n’est exposé par `audit_noms_cabinet`. Exécuter `supabase/tests/audit_noms_cabinet.sql` dans une transaction annulée.
+- Depuis le super-admin, tenter la suppression d’une société ayant un lien cabinet pour chacun des états, y compris terminé : vérifier le refus « Cette société a été suivie par un cabinet : son historique empêche la suppression. » et la conservation des rattachements et de la configuration.
+- Avant application de la migration de retrait, tester son refus avec une ligne de délégation dans une transaction annulée ; tester ensuite la suppression sur table vide. Aucune délégation existante ne doit être effacée automatiquement.
+- Vérifier l’absence de l’ancien bloc de délégations dans Fiscalité et le parcours inchangé d’une société sans cabinet ; reprendre séparément le portail employé resté en suspens.
 
 ## Méthode par module
 1. Lire le code du module : liste exhaustive des boutons et actions (`inventaire/<module>.md`).

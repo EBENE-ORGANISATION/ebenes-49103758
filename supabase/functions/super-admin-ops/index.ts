@@ -3,6 +3,7 @@
 // n'est JAMAIS exposé côté client. Chaque action vérifie que l'appelant a
 // bien le rôle `admin_general` (ou `super_admin`) avant d'exécuter.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { supprimerSociete } from "./supprimerSociete.ts";
 import { niveauAuth } from "../_shared/niveauAuth.ts";
 
 const corsHeaders = {
@@ -212,11 +213,8 @@ Deno.serve(async (req) => {
       case "delete_societe": {
         const { id } = p;
         if (!id) return json(400, { error: "id requis" });
-        await admin.from("user_societes").delete().eq("societe_id", id);
-        await admin.from("societe_config").delete().eq("societe_id", id);
-        const { error } = await admin.from("societes").delete().eq("id", id);
-        if (error) return json(400, { error: error.message });
-        return json(200, { ok: true });
+        const resultat = await supprimerSociete(admin, String(id));
+        return json(resultat.statut, resultat.erreur ? { error: resultat.erreur } : { ok: true });
       }
 
       case "update_societe_config": {

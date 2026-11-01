@@ -30,7 +30,6 @@ import { TauxHistoriqueDialog } from "./TauxHistoriqueDialog";
 import { printElement } from "@/lib/print";
 import { enregistrerFichier, TYPE_PDF, TYPE_XLSX } from "@/lib/fichiers";
 import { TauxImpots } from "./TauxImpots";
-import { GestionDelegations } from "./GestionDelegations";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/hooks/useTenant";
 import { useBulletinsPaie } from "@/hooks/useBulletinsPaie";
@@ -147,7 +146,7 @@ export const Fiscalite = ({
   data, employes, annee, mois, paramsAnnee, onUpdateParams,
   donneesMensuelles, tauxHistorique, onAjouterTaux, onSupprimerTaux, vueActivite = false, onReverser,
 }: Props) => {
-  const { can, user } = useAuth();
+  const { can } = useAuth();
   const { currentSociete } = useTenant();
   const societeId = currentSociete?.id ?? "";
 
@@ -1144,16 +1143,6 @@ export const Fiscalite = ({
             </div>
           )}
 
-          {/* GestionDelegations */}
-          {societeId && user?.id && (
-            <div className="card-elevated p-5">
-              <GestionDelegations
-                societeId={societeId}
-                currentUserId={user.id}
-                canEdit={canEditTaux}
-              />
-            </div>
-          )}
         </TabsContent>
       </Tabs>
 
