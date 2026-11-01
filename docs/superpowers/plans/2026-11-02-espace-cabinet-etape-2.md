@@ -23,7 +23,7 @@
 ## Règles métier retenues
 
 - **Période** : `(_annee, _mois)` est la période déclarée. L'échéance de TVA, CNSS et IRPP est le **15 du mois suivant** (convention déjà utilisée par `src/lib/alertes.ts`). Par défaut, l'écran montre la période du mois précédent.
-- **Patente** : déclaration annuelle (`mois = 0`), échéance au **31 mars** de l'année. *À confirmer par l'utilisateur à la relecture du plan.* Elle n'est « faite » que si elle est marquée.
+- **Patente** : mêmes échéances que les acomptes d'IS / IMF (décision de l'utilisateur du 2026-11-02) : le **15 mars, 15 juin, 15 septembre et 15 décembre**. Pour une période `mois` ∈ {3, 6, 9, 12}, l'échéance est le 15 de ce même mois ; pour les autres mois, la patente est `sans_objet`. Elle n'est « faite » que si elle est marquée.
 - **États** d'une échéance : `faite`, `a_faire` (échéance pas encore passée), `en_retard` (`_aujourdhui` > échéance), `sans_objet` (rien à déclarer sur la période).
 - **TVA faite** : une ligne `suivi_declarations` (TVA, période), ou une écriture validée de la période qui est une liquidation de TVA. Même règle que `estLiquidationTva` (`src/lib/etatsFinanciers.ts`) : un débit sur un compte `443…` hors `4438`, une contrepartie `4441`, `4449`, `5…` (de `50` à `58`) ou un crédit `445…`, et aucune ligne en classe 6 ou 7. **Sans objet** : aucune ligne `443…` ni `445…` dans les écritures validées de la période.
 - **CNSS faite** (comptes `431…` et `433…`) et **IRPP faite** (comptes `447…`) : une ligne `suivi_declarations`, ou un dû soldé. Le dû se calcule comme `dettesPaie` : Σ crédits des écritures validées datées avant le 1er du mois suivant la période, moins Σ débits de toutes les écritures validées, arrondi ; faite si ce dû est ≤ 0. **Sans objet** : aucun crédit sur ces comptes dans les écritures validées de la période.
@@ -49,7 +49,7 @@
 - Modifier : `src/integrations/supabase/types.ts` (ajout de la table, à la main)
 
 **Interfaces :**
-- Produit : table `public.suivi_declarations(id uuid PK DEFAULT gen_random_uuid(), societe_id uuid NOT NULL REFERENCES societes ON DELETE CASCADE, annee smallint NOT NULL, mois smallint NOT NULL CHECK (mois BETWEEN 0 AND 12), type text NOT NULL CHECK (type IN ('TVA','CNSS','IRPP','patente')), statut text NOT NULL CHECK (statut IN ('deposee','payee')), date date NOT NULL DEFAULT current_date, par uuid, note text, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (societe_id, annee, mois, type), CHECK ((type = 'patente') = (mois = 0)))`.
+- Produit : table `public.suivi_declarations(id uuid PK DEFAULT gen_random_uuid(), societe_id uuid NOT NULL REFERENCES societes ON DELETE CASCADE, annee smallint NOT NULL, mois smallint NOT NULL CHECK (mois BETWEEN 1 AND 12), type text NOT NULL CHECK (type IN ('TVA','CNSS','IRPP','patente')), statut text NOT NULL CHECK (statut IN ('deposee','payee')), date date NOT NULL DEFAULT current_date, par uuid, note text, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (societe_id, annee, mois, type), CHECK (type <> 'patente' OR mois IN (3, 6, 9, 12)))`.
 
 - [ ] **Étape 1 : écrire le test SQL** `supabase/tests/suivi_declarations.sql`. Il vérifie :
   - un administrateur de la société (accès direct) insère, modifie et supprime ;
@@ -61,7 +61,7 @@
   - personne n'écrit pour une autre société, et aucun cabinet sur un dossier `termine` ;
   - `par` vaut toujours `auth.uid()`, même si l'appelant envoie une autre valeur ;
   - une seconde insertion sur la même clé échoue (`unique_violation`) ;
-  - `patente` avec `mois = 3` est refusée, et `TVA` avec `mois = 0` aussi ;
+  - `patente` avec `mois = 4` est refusée ;
   - une ligne d'`audit_log` est écrite et signée du cabinet quand c'est un collaborateur.
 - [ ] **Étape 2 :** Claude lance le test sur la production en transaction annulée, sans la migration. Attendu : échec, la table est absente.
 - [ ] **Étape 3 : écrire la migration.**
@@ -106,7 +106,7 @@
     "charge": [{"user_id": "uuid", "nom": "text", "role": "collaborateur", "dossiers": 2, "pieces": 5}]
   }
   ```
-  - `echeances` : toujours 4 entrées, dans l'ordre TVA, CNSS, IRPP, patente. `patente` porte `mois` 0 et l'échéance du 31 mars.
+  - `echeances` : toujours 4 entrées, dans l'ordre TVA, CNSS, IRPP, patente. `patente` porte l'échéance du 15 du mois de la période si `mois` ∈ {3, 6, 9, 12}, sinon `echeance` nulle et `etat = 'sans_objet'`.
   - `marquee` vaut `{"statut", "date", "par_nom"}` quand une ligne `suivi_declarations` existe, sinon `null`.
   - `charge` vaut `null` si l'appelant n'est pas responsable. Pour un responsable, une entrée par membre actif ; `pieces` est la somme des pièces de ses dossiers.
   - Appelant sans cabinet : `CABINET_INTERDIT` (42501). `_mois` hors de 1 à 12 : `CABINET_PARAMETRE`.
@@ -123,7 +123,7 @@
     - un dossier B neuf, non attribué ;
     - un dossier C `termine`.
   - **Assertions** pour `tableau_cabinet(2026, 10, '2026-11-20')` :
-    - responsable : dossiers A et B, mais pas C ; dans A, TVA `faite`, CNSS `faite`, IRPP `en_retard`, patente `a_faire` ; `pieces.transactions = 2`, `sans_justificatif = 1` ; `bulletins_faits = 2`, `bulletins_attendus = 3` ; `charge` non nul, et le collaborateur y porte `dossiers = 1` ;
+    - responsable : dossiers A et B, mais pas C ; dans A, TVA `faite`, CNSS `faite`, IRPP `en_retard`, patente `sans_objet` (octobre) ; pour `tableau_cabinet(2026, 12, '2026-12-20')`, patente `en_retard` ; `pieces.transactions = 2`, `sans_justificatif = 1` ; `bulletins_faits = 2`, `bulletins_attendus = 3` ; `charge` non nul, et le collaborateur y porte `dossiers = 1` ;
     - même appel avec `_aujourdhui = '2026-11-10'` : IRPP `a_faire` ;
     - dossier B : TVA, CNSS et IRPP `sans_objet`, `dernier_mois` nul ;
     - collaborateur : seulement A, et `charge` nul ;
