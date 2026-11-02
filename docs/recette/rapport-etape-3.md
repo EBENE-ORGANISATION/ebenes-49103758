@@ -45,6 +45,8 @@ Anomalies :
 | B | Les invitations reçues ne sont visibles que dans l'onglet Dossiers de `/cabinet`, et les fins de mission à valider que dans l'onglet Cabinets du super-admin ; chaque page s'ouvre sur un autre onglet. | Corrigé : pastille avec le nombre en attente sur l'onglet Dossiers (responsable) et sur l'onglet Cabinets (super-admin). |
 | C | `pg_net` attend 5 s par défaut ; trois e-mails d'affilée dépassent ce délai : réponse notée en erreur alors que l'envoi aboutit. | Corrigé par la migration 20261102125000 (60 s), à déployer. |
 
+La société « EBENE SERVICES - TEST 2 » est conservée pour les prochaines recettes (sans cabinet actif).
+
 ## Reste à vérifier
 
 - Alertes quotidiennes : après le 03/11 08:00 UTC, statut 200 dans `net._http_response`.
