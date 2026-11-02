@@ -30,6 +30,20 @@ Récapitulatif calculé pour TEST (semaine close le 02/11 11:00 UTC) : 2 actions
 
 Tests automatisés : tests SQL des tâches 1 à 6 verts en transaction annulée ; Vitest 478 tests verts.
 
+## À l'écran (2026-11-02, société « EBENE SERVICES - TEST 2 »)
+
+- Invitation de Cabinet Test par ebnservicess@ : faite à l'écran ; e-mail au responsable envoyé.
+- Acceptation par le responsable : faite à l'écran (onglet Dossiers) ; e-mails aux deux administrateurs envoyés.
+- Demande de fin de mission par le client : le bouton restait sans effet (voir anomalie A). Demande faite en base au nom du client ; 3 e-mails envoyés (super-admin, responsable, administrateur).
+
+Anomalies :
+
+| # | Constat | Suite |
+|---|---|---|
+| A | Les boutons à confirmation de l'espace cabinet utilisaient `window.confirm`, bloqué sans message dans certains environnements : clic sans effet. | Corrigé (f5de3c0) : fenêtre de confirmation dans la page. |
+| B | Les invitations reçues ne sont visibles que dans l'onglet Dossiers ; la page s'ouvre sur le tableau de bord. | Mineur, à améliorer (compteur ou encart). |
+| C | `pg_net` attend 5 s par défaut ; trois e-mails d'affilée dépassent ce délai : réponse notée en erreur alors que l'envoi aboutit. | Corrigé par la migration 20261102125000 (60 s), à déployer. |
+
 ## Reste à vérifier
 
 - Alertes quotidiennes : après le 03/11 08:00 UTC, statut 200 dans `net._http_response`.
