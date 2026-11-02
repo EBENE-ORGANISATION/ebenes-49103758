@@ -300,7 +300,7 @@
   ```
   - Tâche cron `recap-cabinet-hebdo`, `'0 7 * * 1'`, qui exécute `SELECT private.appeler_fonction_interne('recap-cabinet-hebdo')`.
 
-- [ ] **Étape 1 : écrire le test SQL.** Fixtures : un dossier `actif` du cabinet A, avec des lignes d'`audit_log` de la société :
+- [x] **Étape 1 : écrire le test SQL.** Fixtures : un dossier `actif` du cabinet A, avec des lignes d'`audit_log` de la société :
   - 3 `INSERT transactions` signés A dans la semaine ;
   - 1 `VALIDER_FACTURE` signé A dans la semaine ;
   - 1 `UPDATE transactions` signé A, dont le statut passe de `en_validation` à `valide` ;
@@ -319,8 +319,8 @@
   - la fonction n'est exécutable ni par `anon` ni par `authenticated` ;
   - la tâche cron existe avec ce planning, sans `eyJ` ni l'adresse de l'ancien projet ;
   - un dossier sans activité donne `total = 0`.
-- [ ] **Étape 2 :** Claude lance le test. Attendu : échec.
-- [ ] **Étape 3 : implémenter.**
+- [x] **Étape 2 :** Claude lance le test. Attendu : échec.
+- [x] **Étape 3 : implémenter.**
   - La migration contient la fonction et la tâche cron.
   - La fonction Edge :
     - vérifie le secret ;
@@ -329,8 +329,8 @@
     - envoie le modèle `cabinet-recap` à chaque administrateur du client, avec `idempotencyKey = recap-${dossier_id}-${date ISO de fin}` ;
     - répond `{ ok, envoyes, sautes }`.
   - Le modèle affiche la période, le tableau des actions en libellés français (« Opérations », « Factures », « Écritures », « Bulletins », « Déclarations »), les validations, les déclarations, les personnes et les pièces en attente, avec un lien vers le site.
-- [ ] **Étape 4 :** tests SQL des tâches 1 à 6 et suite vitest verts.
-- [ ] **Étape 5 :** commit « Espace cabinet : récapitulatif hebdomadaire au client ». L'utilisateur lance le fichier de déploiement complété, puis déploie `notification-cabinet`, `recap-cabinet-hebdo`, `send-transactional-email` (nouveaux modèles) et `notification-alertes`, pour être sûr que la version en ligne est celle du dépôt.
+- [x] **Étape 4 :** tests SQL des tâches 1 à 6 et suite vitest verts.
+- [x] **Étape 5 :** commit « Espace cabinet : récapitulatif hebdomadaire au client ». L'utilisateur lance le fichier de déploiement complété, puis déploie `notification-cabinet`, `recap-cabinet-hebdo`, `send-transactional-email` (nouveaux modèles) et `notification-alertes`, pour être sûr que la version en ligne est celle du dépôt.
 
 ### Tâche 7 : recette sur TEST
 

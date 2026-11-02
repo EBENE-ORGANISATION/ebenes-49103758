@@ -17,3 +17,5 @@ project_id = "yblucgmxofyelziwlvxu"
     verify_jwt = false
 [functions.notification-cabinet]
 verify_jwt = false
+[functions.recap-cabinet-hebdo]
+verify_jwt = false

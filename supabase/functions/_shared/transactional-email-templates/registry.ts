@@ -12,9 +12,11 @@ export interface TemplateEntry {
 import { template as deviceConfirmation } from './device-confirmation.tsx'
 import { template as cabinetInvitation } from './cabinet-invitation.tsx'
 import { template as cabinetEvenement } from './cabinet-evenement.tsx'
+import { template as cabinetRecap } from './cabinet-recap.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'device-confirmation': deviceConfirmation,
   'cabinet-invitation': cabinetInvitation,
   'cabinet-evenement': cabinetEvenement,
+  'cabinet-recap': cabinetRecap,
 }
