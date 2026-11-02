@@ -46,6 +46,7 @@ import { messageErreur } from "@/lib/ebene-utils";
 const APERCU_THEME: Record<ThemeApparence, [string, string, string]> = {
   actuel: ["#3D0000", "#F8F5F2", "#89604A"],
   "ebene-bordeaux": ["#17110D", "#F7F4F1", "#3D0000"],
+  "registre-bleu": ["#174a93", "#e4e8ee", "#172b46"],
 };
 
 const ColorField = ({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) => (
@@ -132,6 +133,8 @@ const ParametresSociete = () => {
   // Seules les couleurs changent le thème affiché
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.couleur_primaire, draft.couleur_secondaire, draft.couleur_accent, draft.theme_custom]);
+
+  const couleursImposees = lireTheme(draft.theme_custom) !== "actuel";
 
   const onUploadLogo = async (file: File) => {
     if (!currentSociete) return;
@@ -355,7 +358,7 @@ const ParametresSociete = () => {
                   );
                 })}
               </div>
-              {lireTheme(draft.theme_custom) === "ebene-bordeaux" && (
+              {couleursImposees && (
                 <p className="text-xs text-muted-foreground">{t("params.theme_fixed_colors")}</p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -363,19 +366,19 @@ const ParametresSociete = () => {
                   label={t("params.color_primary")}
                   value={draft.couleur_primaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_primaire: v }))}
-                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
+                  disabled={!isSuperAdmin || couleursImposees}
                 />
                 <ColorField
                   label={t("params.color_secondary")}
                   value={draft.couleur_secondaire}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_secondaire: v }))}
-                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
+                  disabled={!isSuperAdmin || couleursImposees}
                 />
                 <ColorField
                   label={t("params.color_accent")}
                   value={draft.couleur_accent}
                   onChange={(v) => setDraft((d) => ({ ...d, couleur_accent: v }))}
-                  disabled={!isSuperAdmin || lireTheme(draft.theme_custom) === "ebene-bordeaux"}
+                  disabled={!isSuperAdmin || couleursImposees}
                 />
               </div>
               <div className="flex items-start justify-between gap-4 border-t pt-4">

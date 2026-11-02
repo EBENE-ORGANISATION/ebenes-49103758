@@ -3,7 +3,8 @@
  * Stockée dans societe_config.theme_custom :
  *
  * - `theme`   : « actuel » (couleurs de la société, Poppins) ou « ebene-bordeaux »
- *               (cadre ébène, pages claires, bordeaux pour l'action, Source Serif 4 + Source Sans 3) ;
+ *               (cadre ébène, pages claires, bordeaux pour l'action, Source Serif 4 + Source Sans 3),
+ *               ou « registre-bleu » (bleu encre, IBM Plex, modes clair et sombre) ;
  * - `confort` : « normal » ou « terrain » (texte et contrôles agrandis, contraste renforcé,
  *               pour les agents qui utilisent l'application sur téléphone, dehors).
  *
@@ -12,9 +13,9 @@
  */
 
 export type Confort = "normal" | "terrain";
-export type ThemeApparence = "actuel" | "ebene-bordeaux";
+export type ThemeApparence = "actuel" | "ebene-bordeaux" | "registre-bleu";
 
-export const THEMES: ThemeApparence[] = ["actuel", "ebene-bordeaux"];
+export const THEMES: ThemeApparence[] = ["actuel", "ebene-bordeaux", "registre-bleu"];
 
 const enObjet = (themeCustom: unknown): Record<string, unknown> =>
   themeCustom && typeof themeCustom === "object" && !Array.isArray(themeCustom)
@@ -26,8 +27,10 @@ export const lireConfort = (themeCustom: unknown): Confort =>
   enObjet(themeCustom).confort === "terrain" ? "terrain" : "normal";
 
 /** Lit le thème depuis theme_custom ; toute valeur inconnue vaut « actuel ». */
-export const lireTheme = (themeCustom: unknown): ThemeApparence =>
-  enObjet(themeCustom).theme === "ebene-bordeaux" ? "ebene-bordeaux" : "actuel";
+export const lireTheme = (themeCustom: unknown): ThemeApparence => {
+  const theme = enObjet(themeCustom).theme;
+  return theme === "ebene-bordeaux" || theme === "registre-bleu" ? theme : "actuel";
+};
 
 /** Renvoie theme_custom avec une clé modifiée, sans perdre les autres ; la valeur par défaut retire la clé. */
 const avecReglage = (themeCustom: unknown, cle: string, valeur: string, parDefaut: string) => {

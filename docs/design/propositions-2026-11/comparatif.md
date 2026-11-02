@@ -34,12 +34,6 @@ Calculs, traductions, permissions et types existants restent réutilisables. Cha
 
 Adapter les jetons de src/index.css, les familles, rayons, ombres, sidebar, états et focus ; garder les correspondances de tailwind.config.ts. Revoir les badges à couleurs fixes, graphiques et barre Android. Les surcharges du confort terrain (+12,5 % de taille de base et couleurs spécifiques) doivent suivre le mode. Aucun fichier produit n’est modifié ici.
 
-## V?rification de cette passe
+## Vérification de cette passe
 
-Les six pages ont ?t? ouvertes dans Edge ? 360, 768 et 1?440 px : aucun d?bordement horizontal de page d?tect?. Les 70 couples de contraste document?s ont ?t? recalcul?s avec un seuil de 4,5:1 ; les mini-maquettes ont ?t? relues visuellement. Le r?seau de cet environnement ne permet pas de charger Google Fonts : le contr?le visuel porte sur les replis. Les liens des familles sont pr?sents ; le rendu typographique distant reste ? confirmer avec une connexion autoris?e.
-
-## Recommandation
-
-**Retenir le registre bleu pour le cœur du produit.** Sa matrice rapproche les quatre obligations de chaque client et son journal donne une forte densité utile à la comptabilité SYSCOHADA. Sa structure reste la plus proche des tableaux existants, limitant le risque face aux files et au portefeuille. Tester un grand-livre chargé et des noms longs ; conserver un véritable confort terrain à grandes cibles.
-
-**Seconde option : le carnet de terrain**, si les PME et les saisies Android passent avant le poste comptable. Son blanc/noir/jaune, sa police hyperlisible et ses grandes actions donnent le parti pris le plus net. Il assume moins de densité et convient donc moins à la révision simultanée de nombreux dossiers.
+Les six pages ont été ouvertes dans Edge à 360, 768 et 1 440 px : aucun débordement horizontal de page détecté. Les 70 couples de contraste documentés ont été recalculés avec un seuil de 4,5:1 ; les mini-maquettes ont été relues visuellement. Le réseau de cet environnement ne permet pas de charger Google Fonts : le contrôle visuel porte sur les replis. Les liens des familles sont présents ; le rendu typographique distant reste à confirmer avec une connexion autorisée.

@@ -205,6 +205,103 @@
   }
 }
 
+/* Registre bleu : palette de la maquette, avant le confort terrain. */
+@layer base {
+  html[data-theme="registre-bleu"] {
+    --background: 216 22.7% 91.4%;
+    --foreground: 214.5 50.5% 18.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 214.5 50.5% 18.2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214.5 50.5% 18.2%;
+    --primary: 215.3 72.9% 33.3%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 215.3 72.9% 33.3%;
+    --secondary: 216 22.7% 91.4%;
+    --secondary-foreground: 214.5 50.5% 18.2%;
+    --muted: 216.7 100% 96.5%;
+    --muted-foreground: 212 24.3% 36.3%;
+    --accent: 215.3 72.9% 33.3%;
+    --accent-foreground: 0 0% 100%;
+    --success: 154.7 62.3% 23.9%;
+    --success-foreground: 0 0% 100%;
+    --destructive: 350.7 70.1% 38%;
+    --destructive-foreground: 0 0% 100%;
+    --warning: 38.8 72.3% 26.9%;
+    --warning-foreground: 0 0% 100%;
+    --info: 215.3 72.9% 33.3%;
+    --info-foreground: 0 0% 100%;
+    --purple: 212 24.3% 36.3%;
+    --purple-foreground: 0 0% 100%;
+    --border: 213.9 45.1% 80%;
+    --input: 213.8 17.5% 56.3%;
+    --ring: 215.3 72.9% 33.3%;
+    --sidebar-background: 215.3 72.9% 33.3%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 215.3 72.9% 33.3%;
+    --sidebar-accent: 214.5 50.5% 18.2%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 216.7 100% 78.8%;
+    --sidebar-ring: 0 0% 100%;
+    --radius: 0.125rem;
+    --header-gradient: linear-gradient(#172b46, #172b46);
+    --shadow-card: none;
+    --shadow-elevated: none;
+    --font-base: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  html[data-theme="registre-bleu"].dark {
+    --background: 215.6 50% 12.5%;
+    --foreground: 216.7 100% 96.5%;
+    --card: 213.5 46.2% 18.2%;
+    --card-foreground: 216.7 100% 96.5%;
+    --popover: 213.5 46.2% 18.2%;
+    --popover-foreground: 216.7 100% 96.5%;
+    --primary: 216.7 100% 78.8%;
+    --primary-foreground: 0 0% 6.7%;
+    --primary-glow: 216.7 100% 78.8%;
+    --secondary: 212.7 43.3% 24.9%;
+    --secondary-foreground: 216.7 100% 96.5%;
+    --muted: 212.7 43.3% 24.9%;
+    --muted-foreground: 213.9 45.1% 80%;
+    --accent: 216.7 100% 78.8%;
+    --accent-foreground: 0 0% 6.7%;
+    --success: 152.9 51.8% 72.4%;
+    --success-foreground: 0 0% 6.7%;
+    --destructive: 350.5 100% 83.9%;
+    --destructive-foreground: 0 0% 6.7%;
+    --warning: 39.8 70.9% 77.1%;
+    --warning-foreground: 0 0% 6.7%;
+    --info: 216.7 100% 78.8%;
+    --info-foreground: 0 0% 6.7%;
+    --purple: 213.9 45.1% 80%;
+    --purple-foreground: 0 0% 6.7%;
+    --border: 212 24.3% 36.3%;
+    --input: 213.8 17.5% 56.3%;
+    --ring: 216.7 100% 78.8%;
+    --header-gradient: linear-gradient(#101d30, #101d30);
+  }
+  html[data-theme="registre-bleu"] :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-base);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  html[data-theme="registre-bleu"] body::before,
+  html[data-theme="registre-bleu"] body::after {
+    background: #172b46;
+  }
+}
+@layer utilities {
+  html[data-theme="registre-bleu"] :is(.font-mono, .amount) {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  html[data-theme="registre-bleu"] :is(.bg-card, .modal-box, .list-item) {
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+}
+
 /* Confort « terrain » (choisi par le super-admin pour une société) :
    tout ce qui est en rem grandit de 12,5 % (texte, boutons h-10 ≈ 45 px),
    gris de texte et bordures plus sombres. Les points de rupture sont en px,
@@ -221,6 +318,20 @@
     --muted-foreground: 215 20% 78%;
     --border: 222 22% 34%;
     --input: 222 22% 42%;
+  }
+}
+
+/* Le confort terrain conserve la gamme bleue et renforce les filets. */
+@layer base {
+  html[data-theme="registre-bleu"][data-confort="terrain"] {
+    --muted-foreground: 214.5 50.5% 18.2%; /* #172b46 */
+    --border: 213.8 17.5% 56.3%; /* #7c8da3 */
+    --input: 212 24.3% 36.3%; /* #465b73 */
+  }
+  html[data-theme="registre-bleu"][data-confort="terrain"].dark {
+    --muted-foreground: 216.7 100% 96.5%; /* #edf4ff */
+    --border: 213.8 17.5% 56.3%;
+    --input: 213.9 45.1% 80%; /* #b5c9e3 */
   }
 }
 

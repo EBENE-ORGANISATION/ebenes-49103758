@@ -316,6 +316,8 @@ const en: Translation = {
     theme_actuel_hint: "Company colours, Poppins font.",
     theme_ebene_bordeaux: "Ebony burgundy",
     theme_ebene_bordeaux_hint: "Ebony frame, light pages, Source Serif and Source Sans fonts.",
+    theme_registre_bleu: "Blue ledger",
+    theme_registre_bleu_hint: "Ink blue, sharp corners, IBM Plex fonts, aligned figures; light and dark.",
     theme_fixed_colors: "This theme has its own colours: the colours below only apply to the Current theme.",
     comfort_field: "Field comfort",
     comfort_field_hint: "Larger text and buttons, stronger contrast: for staff working on phones, outdoors.",

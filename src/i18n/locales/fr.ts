@@ -324,6 +324,8 @@ const fr = {
     theme_actuel_hint: "Couleurs de la société, police Poppins.",
     theme_ebene_bordeaux: "Ébène bordeaux",
     theme_ebene_bordeaux_hint: "Cadre ébène, pages claires, polices Source Serif et Source Sans.",
+    theme_registre_bleu: "Registre bleu",
+    theme_registre_bleu_hint: "Bleu encre, angles nets, polices IBM Plex, chiffres alignés ; clair et sombre.",
     theme_fixed_colors: "Ce thème a ses propres couleurs : les couleurs ci-dessous ne s'appliquent qu'au thème Actuel.",
     comfort_field: "Confort terrain",
     comfort_field_hint: "Texte et boutons agrandis, contraste renforcé : pour les agents qui travaillent sur téléphone, dehors.",

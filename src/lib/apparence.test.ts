@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avecConfort, avecTheme, lireConfort, lireTheme } from "./apparence";
+import { THEMES, avecConfort, avecTheme, lireConfort, lireTheme } from "./apparence";
 
 describe("lireConfort", () => {
   it("reconnaît le confort terrain", () => {
@@ -17,6 +17,12 @@ describe("lireConfort", () => {
 });
 
 describe("lireTheme", () => {
+  it("reconnaît Registre bleu en troisième position et conserve les autres réglages", () => {
+    expect(THEMES).toEqual(["actuel", "ebene-bordeaux", "registre-bleu"]);
+    expect(lireTheme({ theme: "registre-bleu" })).toBe("registre-bleu");
+    expect(avecTheme({ confort: "terrain" }, "registre-bleu")).toEqual({ confort: "terrain", theme: "registre-bleu" });
+    expect(avecTheme({ theme: "registre-bleu" }, "actuel")).toEqual({});
+  });
   it("reconnaît Ébène bordeaux", () => {
     expect(lireTheme({ theme: "ebene-bordeaux" })).toBe("ebene-bordeaux");
   });

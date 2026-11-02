@@ -154,15 +154,30 @@ const appliquerEbeneBordeaux = (root: HTMLElement): void => {
   });
 };
 
+/** Thème « Registre bleu » : palette fixe, modes clair et sombre dans index.css. */
+const appliquerRegistreBleu = (root: HTMLElement): void => {
+  VARIABLES_SOCIETE.forEach((variable) => root.style.removeProperty(variable));
+  root.style.setProperty("--color-primary", "#174a93");
+  root.style.setProperty("--color-secondary", "#172b46");
+  root.style.setProperty("--color-accent", "#174a93");
+  root.dataset.theme = "registre-bleu";
+  void import("./polices-registre-bleu").catch(() => {
+    // Polices indisponibles : les replis système gardent l'interface utilisable.
+  });
+};
+
 export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-
-  if (lireTheme(cfg?.theme_custom) === "ebene-bordeaux") {
-    appliquerEbeneBordeaux(root);
-    appliquerConfortEtOnglet(root, cfg);
-    return;
+  switch (lireTheme(cfg?.theme_custom)) {
+    case "ebene-bordeaux": appliquerEbeneBordeaux(root); break;
+    case "registre-bleu": appliquerRegistreBleu(root); break;
+    default: appliquerCouleursSociete(root, cfg);
   }
+  appliquerConfortEtOnglet(root, cfg);
+};
+
+const appliquerCouleursSociete = (root: HTMLElement, cfg: ThemeInput | null | undefined): void => {
   delete root.dataset.theme;
   const primaire = cfg?.couleur_primaire || FALLBACK.primaire;
   const secondaire = cfg?.couleur_secondaire || FALLBACK.secondaire;
@@ -203,11 +218,9 @@ export const applyTheme = (cfg: ThemeInput | null | undefined): void => {
     "--font-base",
     `${fontFamily}, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
   );
-
-  appliquerConfortEtOnglet(root, cfg);
 };
 
-/** Commun aux deux thèmes : confort d'affichage, titre et favicon de l'onglet. */
+/** Commun aux trois thèmes : confort d'affichage, titre et favicon de l'onglet. */
 function appliquerConfortEtOnglet(root: HTMLElement, cfg: ThemeInput | null | undefined): void {
   // Confort d'affichage (attribut lu par index.css)
   if (lireConfort(cfg?.theme_custom) === "terrain") root.dataset.confort = "terrain";
