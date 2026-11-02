@@ -217,7 +217,7 @@ Décidé le 2026-10-27 :
 - **Missions** : les cinq missions du § 5, sans mission sur mesure.
 
 Décidé le 2026-11-02 :
-1. **Facturation** (étape 4) : le cabinet paie ; au-delà de 10 dossiers, supplément par dossier, sans blocage. Restent à fixer avant l'étape 4 : les tarifs (forfait, prix du dossier supplémentaire) et le mode de paiement.
+1. **Facturation** (étape 4) : le cabinet paie ; au-delà de 10 dossiers, supplément par dossier, sans blocage. Restent à fixer avant l'étape 4 : les tarifs (forfait, prix du dossier supplémentaire) et le mode de paiement. *(2026-11-02 : étape 4 reportée ; rien de la facturation ne doit apparaître dans l'application d'ici là. L'utilisateur la lancera lui-même. En attendant, la limite actuelle de dossiers par cabinet reste en place.)*
 2. **Notifications** (étape 3) : récapitulatif hebdomadaire envoyé à l'administrateur du client.
 
 ## 12. Hors périmètre
