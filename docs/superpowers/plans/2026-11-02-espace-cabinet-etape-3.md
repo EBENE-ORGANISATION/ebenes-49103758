@@ -334,7 +334,7 @@
 
 ### Tâche 7 : recette sur TEST
 
-- [ ] **Contrôles en base**, avec les comptes de recette, en transaction annulée : les scénarios des tâches 2 et 3 sur TEST et Cabinet Test, et le contenu de `recap_cabinet` pour le dossier TEST.
+- [x] **Contrôles en base**, avec les comptes de recette, en transaction annulée : les scénarios des tâches 2 et 3 sur TEST et Cabinet Test, et le contenu de `recap_cabinet` pour le dossier TEST.
 - [ ] **Alertes** : le lendemain du déploiement, après 08:00 UTC, `net._http_response` montre un statut 200 pour `notification-alertes`, et les journaux de la fonction montrent l'envoi.
 - [ ] **À l'écran, avec l'utilisateur**, sur une seconde société de test sans cabinet :
   - invitation par son administrateur, puis réponse du responsable ;
