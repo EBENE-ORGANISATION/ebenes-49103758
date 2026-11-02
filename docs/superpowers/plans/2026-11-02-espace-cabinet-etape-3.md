@@ -183,7 +183,7 @@
   - `public.cabinet_valider_depart(_dossier uuid) RETURNS void` ;
   - `public.cabinet_annuler_depart(_dossier uuid) RETURNS void`.
 
-- [ ] **Étape 1 : écrire le test SQL.** Fixtures : un dossier `actif` avec un responsable, un collaborateur attribué en `tenue_complete`, l'administrateur du client et un super-admin en session `aal2`. Il vérifie :
+- [x] **Étape 1 : écrire le test SQL.** Fixtures : un dossier `actif` avec un responsable, un collaborateur attribué en `tenue_complete`, l'administrateur du client et un super-admin en session `aal2`. Il vérifie :
   - **Appelants refusés** pour la demande, avec `CABINET_INTERDIT` : le collaborateur et l'employé simple ;
   - **Demande par l'administrateur du client**, avec un motif :
     - le lien passe à `depart_demande`, avec les trois champs `depart_*` renseignés ;
@@ -198,10 +198,10 @@
     - l'administrateur du client lit toujours tout ;
   - **Lien `termine`** : une demande donne `CABINET_ETAT` ;
   - **Propriétés** des fonctions, comme en tâche 2.
-- [ ] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec.
-- [ ] **Étape 3 : écrire la migration.**
-- [ ] **Étape 4 :** Claude relance les tests des tâches 2 et 3, puis `cabinet_regles_acces.sql` et `sans_cabinet.sql`. Attendu : tous verts.
-- [ ] **Étape 5 :** `tsc` vert ; commit « Espace cabinet : demandes de départ ». Claude écrit le fichier de déploiement des tâches 1 à 3, et l'utilisateur le lance.
+- [x] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec.
+- [x] **Étape 3 : écrire la migration.**
+- [x] **Étape 4 :** Claude relance les tests des tâches 2 et 3, puis `cabinet_regles_acces.sql` et `sans_cabinet.sql`. Attendu : tous verts.
+- [x] **Étape 5 :** `tsc` vert ; commit « Espace cabinet : demandes de départ ». Claude écrit le fichier de déploiement des tâches 1 à 3, et l'utilisateur le lance.
 
 ### Tâche 4 : écrans
 

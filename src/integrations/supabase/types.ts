@@ -2432,8 +2432,16 @@ export type Database = {
           mon_role: Database["public"]["Enums"]["role_cabinet"]
         }[]
       }
+      cabinet_annuler_depart: {
+        Args: { _dossier: string }
+        Returns: undefined
+      }
       cabinet_annuler_invitation: {
         Args: { _dossier: string }
+        Returns: undefined
+      }
+      cabinet_demander_depart: {
+        Args: { _dossier: string; _motif?: string }
         Returns: undefined
       }
       cabinet_invitations_recues: {
@@ -2455,6 +2463,10 @@ export type Database = {
       cabinet_societes: {
         Args: { _module: string; _min: number }
         Returns: string[]
+      }
+      cabinet_valider_depart: {
+        Args: { _dossier: string }
+        Returns: undefined
       }
       cabinets_annuaire: {
         Args: Record<PropertyKey, never>
