@@ -249,6 +249,11 @@
     --shadow-card: none;
     --shadow-elevated: none;
     --font-base: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    /* Le logo garde ses couleurs d'origine (public/branding). */
+    --logo-principal: #3D0000;
+    --logo-accent: #89604A;
+    --logo-inverse-principal: #FAF7F4;
+    --logo-inverse-accent: #E3CBB9;
   }
   html[data-theme="registre-bleu"].dark {
     --background: 215.6 50% 12.5%;
@@ -280,6 +285,9 @@
     --input: 213.8 17.5% 56.3%;
     --ring: 216.7 100% 78.8%;
     --header-gradient: linear-gradient(#101d30, #101d30);
+    /* Sur fond sombre, la version claire du logo d'origine. */
+    --logo-principal: #FAF7F4;
+    --logo-accent: #E3CBB9;
   }
   html[data-theme="registre-bleu"] :is(h1, h2, h3, h4, h5, h6) {
     font-family: var(--font-base);

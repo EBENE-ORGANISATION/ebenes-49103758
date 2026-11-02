@@ -10,13 +10,14 @@ import { cn } from "@/lib/utils";
  */
 type Tone = "brand" | "inverse";
 
+// Un thème peut imposer les couleurs du logo (--logo-*) ; sinon elles suivent ses couleurs.
 const MAIN: Record<Tone, string> = {
-  brand: "hsl(var(--primary))",
-  inverse: "hsl(var(--primary-foreground))",
+  brand: "var(--logo-principal, hsl(var(--primary)))",
+  inverse: "var(--logo-inverse-principal, hsl(var(--primary-foreground)))",
 };
 const ACCENT: Record<Tone, string> = {
-  brand: "hsl(var(--accent))",
-  inverse: "hsl(var(--primary-foreground) / 0.75)",
+  brand: "var(--logo-accent, hsl(var(--accent)))",
+  inverse: "var(--logo-inverse-accent, hsl(var(--primary-foreground) / 0.75))",
 };
 
 const EBENE_PATH =
