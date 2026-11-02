@@ -58,6 +58,8 @@ import { callSuperAdmin, MODULE_LABELS, type ModuleFlags } from "@/lib/superAdmi
 import { CreerSocieteModal } from "./CreerSocieteModal";
 import { MonCompteSection } from "./MonCompteSection";
 import { CabinetsPanel } from "./CabinetsPanel";
+import { CompteurOnglet } from "@/components/cabinet/CompteurOnglet";
+import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
   BarChart,
@@ -291,6 +293,16 @@ export const SuperAdminPanel = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const accueil = useLienAccueil();
+  // Préfixe « cabinets_admin » : rafraîchi avec l'onglet Cabinets après chaque décision.
+  const departs = useQuery({
+    queryKey: ["cabinets_admin", "departs"], staleTime: 0, refetchInterval: 30_000,
+    queryFn: async () => {
+      const { count, error } = await supabase.from("cabinet_dossiers").select("id", { count: "exact", head: true }).eq("etat", "depart_demande");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const nombreDeparts = departs.data ?? 0;
   const [societes, setSocietes] = useState<SocieteRow[]>([]);
   const [configs, setConfigs] = useState<Record<string, SocieteConfigRow>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -430,7 +442,7 @@ export const SuperAdminPanel = () => {
         ) : (
           <Tabs defaultValue="societes" className="w-full">
             <TabsList className="tabs-scroll justify-start lg:grid lg:grid-cols-8 w-full mb-5 h-auto">
-              <TabsTrigger value="cabinets">{t("cabinet9.cabinets")}</TabsTrigger>
+              <TabsTrigger value="cabinets">{t("cabinet9.cabinets")}<CompteurOnglet nombre={nombreDeparts} libelle={t("cabinet10.departs_attente", { count: nombreDeparts })} /></TabsTrigger>
               <TabsTrigger value="societes" className="py-2.5"><Building2 className="size-4 mr-1.5" /> {t("superadmin.tab_societies")}</TabsTrigger>
               <TabsTrigger value="parametres" className="py-2.5">
                 <Settings2 className="size-4 mr-1.5" /> Paramètres

@@ -1239,7 +1239,11 @@ const fr = {
     confirmer_validation: "Valider la fin de mission ? Le cabinet perdra l’accès au dossier.",
     confirmer_annulation: "Annuler cette demande de fin de mission ? Le cabinet retrouvera ses droits sur le dossier.",
     demande_par: "Demande de {{nom}} le {{date}}",
-    sans_motif: "Aucun motif renseigné."
+    sans_motif: "Aucun motif renseigné.",
+    invitations_attente_one: "{{count}} invitation en attente",
+    invitations_attente_other: "{{count}} invitations en attente",
+    departs_attente_one: "{{count}} fin de mission à valider",
+    departs_attente_other: "{{count}} fins de mission à valider"
   },
 };
 

@@ -1231,7 +1231,11 @@ const en: Translation = {
     confirmer_validation: "Approve the end of the engagement? The firm will lose access to the file.",
     confirmer_annulation: "Cancel this end of engagement request? The firm will regain its access rights.",
     demande_par: "Requested by {{nom}} on {{date}}",
-    sans_motif: "No reason provided."
+    sans_motif: "No reason provided.",
+    invitations_attente_one: "{{count}} pending invitation",
+    invitations_attente_other: "{{count}} pending invitations",
+    departs_attente_one: "{{count}} end of engagement to approve",
+    departs_attente_other: "{{count}} ends of engagement to approve"
   },
 };
 

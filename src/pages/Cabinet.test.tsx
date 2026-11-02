@@ -5,8 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "@/i18n";
 import Cabinet from "./Cabinet";
 vi.mock("@/components/cabinet/TableauCabinet", () => ({ TableauCabinet: () => <p>Contenu du tableau de bord</p> }));
-const simulation = vi.hoisted(() => ({ role: "responsable", attribuer: vi.fn(async () => {}), ajouterMembre: vi.fn(async () => ({ email_envoye: true })) }));
-vi.mock("@/lib/cabinetOps", () => ({ cabinetOps: { invitationsRecues: async () => [], attribuer: simulation.attribuer, ajouterMembre: simulation.ajouterMembre } }));
+const simulation = vi.hoisted(() => ({ role: "responsable", invitations: [] as unknown[], attribuer: vi.fn(async () => {}), ajouterMembre: vi.fn(async () => ({ email_envoye: true })) }));
+vi.mock("@/lib/cabinetOps", () => ({ cabinetOps: { invitationsRecues: async () => simulation.invitations, attribuer: simulation.attribuer, ajouterMembre: simulation.ajouterMembre } }));
 vi.mock("@/hooks/data/useCabinet", () => ({ useCabinet: () => ({
   cabinet: { id: "c", nom: "Cabinet Test", max_dossiers: 10 }, role: simulation.role,
   membres: [{ user_id: "u", nom: "Alice", role: "collaborateur", actif: true }],
@@ -14,14 +14,17 @@ vi.mock("@/hooks/data/useCabinet", () => ({ useCabinet: () => ({
   attributions: [], isLoading: false, isError: false, executer: (operation: () => Promise<unknown>) => operation(), enCours: false,
 }) }));
 beforeAll(async () => { await i18n.changeLanguage("fr"); });
-afterEach(() => { cleanup(); simulation.role = "responsable"; });
-function afficherDossiers() {
+afterEach(() => { cleanup(); simulation.role = "responsable"; simulation.invitations = []; });
+function afficher() {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={cache}><MemoryRouter><Cabinet /></MemoryRouter></QueryClientProvider>);
+}
+function afficherDossiers() {
+  afficher();
   fireEvent.mouseDown(screen.getByRole("tab", { name: "Dossiers" }), { button: 0, ctrlKey: false });
 }
 it("ouvre le tableau de bord, placé en premier", () => {
-  render(<MemoryRouter><Cabinet /></MemoryRouter>);
+  afficher();
   expect(screen.getAllByRole("tab")[0]).toHaveTextContent("Tableau de bord");
   expect(screen.getByRole("tab", { name: "Tableau de bord" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByText("Contenu du tableau de bord")).toBeInTheDocument();
@@ -53,4 +56,16 @@ it("ne propose jamais l’invitation d’un administrateur client", () => {
   afficherDossiers();
   expect(screen.queryByRole("button", { name: /administrateur/i })).not.toBeInTheDocument();
   expect(screen.getAllByText(/support Ébène/)).toHaveLength(10);
+});
+it("signale les invitations en attente sur l’onglet Dossiers", async () => {
+  simulation.invitations = [{ dossier_id: "i", societe_id: "s", societe_nom: "Client invité", mission: "lecture", created_at: "2026-11-02" }];
+  afficher();
+  expect(await screen.findByRole("tab", { name: /Dossiers.*1 invitation en attente/ })).toBeInTheDocument();
+});
+it("ne montre pas de pastille sans invitation ni au collaborateur", async () => {
+  simulation.role = "collaborateur";
+  simulation.invitations = [{ dossier_id: "i" }];
+  afficher();
+  await waitFor(() => expect(screen.getByRole("tab", { name: "Dossiers" })).toBeInTheDocument());
+  expect(screen.queryByText(/invitation en attente/)).not.toBeInTheDocument();
 });
