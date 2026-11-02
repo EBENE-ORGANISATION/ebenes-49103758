@@ -27,7 +27,8 @@ Critère de réussite : un client qui n'a pas de cabinet ne voit aucune différe
 | Rôles internes | Responsable, collaborateur, stagiaire (le stagiaire saisit mais ne valide jamais). |
 | Appartenance | Une personne appartient à un seul cabinet. Elle peut garder par ailleurs des accès directs à d'autres sociétés. |
 | Tableau de bord | Échéances fiscales et sociales, pièces à traiter, avancement des dossiers, charge par collaborateur. |
-| Facturation | Pas encore décidée : la conception doit supporter « le cabinet paie » comme « chacun paie ». |
+| Facturation | *(Décidé le 2026-11-02.)* Le cabinet paie pour ses dossiers. Au-delà de 10 dossiers, chaque dossier supplémentaire est facturé en plus, sans blocage. |
+| Notifications au client | *(Décidé le 2026-11-02.)* Un récapitulatif chaque semaine de ce que le cabinet a fait dans son dossier, pas un e-mail par validation. |
 | Délégations fiscales | Remplacées par l'espace cabinet (0 délégation en production au 27/10/2026, aucune reprise de données). |
 
 ## 3. Existant sur lequel on s'appuie
@@ -215,9 +216,9 @@ Décidé le 2026-10-27 :
 - **Après un départ** : le cabinet peut exporter pendant la lecture seule, rien après.
 - **Missions** : les cinq missions du § 5, sans mission sur mesure.
 
-Encore ouvertes (sans effet sur l'étape 1) :
-1. **Facturation** : qui paie (cabinet ou client) ; que se passe-t-il au-delà de 10 dossiers (blocage ou supplément). Étape 4.
-2. **Notifications** : e-mail au client à chaque validation par le cabinet, ou un récapitulatif. Étape 3.
+Décidé le 2026-11-02 :
+1. **Facturation** (étape 4) : le cabinet paie ; au-delà de 10 dossiers, supplément par dossier, sans blocage. Restent à fixer avant l'étape 4 : les tarifs (forfait, prix du dossier supplémentaire) et le mode de paiement.
+2. **Notifications** (étape 3) : récapitulatif hebdomadaire envoyé à l'administrateur du client.
 
 ## 12. Hors périmètre
 
