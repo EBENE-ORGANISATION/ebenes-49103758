@@ -15,3 +15,5 @@ project_id = "yblucgmxofyelziwlvxu"
     verify_jwt = true
   [functions.handle-email-unsubscribe]
     verify_jwt = false
+[functions.notification-cabinet]
+verify_jwt = false

@@ -261,17 +261,17 @@
   - `destinataires(e: Evenement): Array<"responsables" | "admins_client" | "super_admins">` ;
   - modèle `cabinet-evenement`, avec `templateData = { evenement, cabinet, societe, lien, motif? }`. L'objet et le texte en français sont fixés par `evenement`.
 
-- [ ] **Étape 1 : écrire les tests.**
+- [x] **Étape 1 : écrire les tests.**
   - Vitest, pour les six changements du tableau : le bon événement et les bons destinataires. `actif` → `actif`, insertion `actif` et `termine` → `actif` donnent `null`.
   - SQL : en remplaçant `private.appeler_fonction_interne` dans la transaction par une version qui écrit dans une table temporaire, une invitation, une acceptation et un rattachement donnent respectivement 1, 1 et 0 appel, avec les bons `ancien` et `nouveau`.
-- [ ] **Étape 2 :** lancer les tests. Attendu : échec.
-- [ ] **Étape 3 : implémenter.**
+- [x] **Étape 2 :** lancer les tests. Attendu : échec.
+- [x] **Étape 3 : implémenter.**
   - La fonction Edge vérifie le secret, puis lit le lien, le cabinet et la société avec la clé `service_role`. Elle résout les adresses (règle « administrateurs du client » ; super-admins = `user_roles.role = 'admin_general'`) et appelle `send-transactional-email` une fois par destinataire, avec `idempotencyKey = cabinet-${dossier_id}-${evenement}-${minute}`.
   - Une adresse manquante est sautée sans erreur.
   - Un échec d'envoi est journalisé, mais la réponse reste 200 pour ne pas relancer le trigger.
   - Le trigger ne bloque jamais la transaction : toute exception de l'appel est rattrapée et journalisée par `RAISE WARNING`.
-- [ ] **Étape 4 :** tests verts, puis `deno check supabase/functions/notification-cabinet/index.ts` si Deno est installé.
-- [ ] **Étape 5 :** commit « Espace cabinet : e-mails des invitations et des départs ».
+- [x] **Étape 4 :** tests verts, puis `deno check supabase/functions/notification-cabinet/index.ts` si Deno est installé.
+- [x] **Étape 5 :** commit « Espace cabinet : e-mails des invitations et des départs ».
 
 ### Tâche 6 : récapitulatif hebdomadaire
 
