@@ -41,8 +41,10 @@ Le cas du stagiaire en mission « Lecture », sans aucun bouton, n'a pas pu êtr
 ## Reste à faire
 
 - ~~Appliquer `deploiement-tableau-dernier-mois.sql`~~ : appliqué le 2026-11-02 ; « dernier mois saisi » de TEST vaut 2026-10.
-- Recette à l'écran, quand la nouvelle version de l'application sera en ligne :
+- ~~Recette à l'écran~~ : validée par le propriétaire le 2026-11-02 sur ebnservicess.com :
   - onglet « Tableau de bord » ouvert par défaut ;
   - choix « Déposée » ou « Payée » ;
   - affichage sur téléphone ;
   - aucun bouton pour le stagiaire en « Lecture ».
+
+L'étape 2 est close.
