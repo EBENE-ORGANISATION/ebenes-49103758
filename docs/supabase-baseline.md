@@ -38,9 +38,9 @@ sous d'autres numéros, 2 versions sans fichier, 6 fichiers appliqués à la mai
 ## Sur une base neuve, à refaire à la main
 
 - Le secret du coffre `internal_webhook_secret` (valeur secrète, jamais dans le dépôt).
-- La tâche cron quotidienne des alertes, si on la veut. Celle de la production
-  (`notification-alertes-daily`) appelle l'ancien projet `nmeyylvltlvvcvbhvxpz` :
-  elle n'est pas reprise telle quelle.
+- La tâche cron quotidienne des alertes (`notification-alertes-daily`) est créée
+  par la migration `20261102120000` et appelle ce projet à 08:00 UTC.
+  Seul le secret du coffre indiqué ci-dessus reste à poser à la main pour les alertes.
 - Le compartiment `logos-societes`, utilisé par l'application mais absent de la
   production au 2026-10-27 (les règles d'accès, elles, existent).
 

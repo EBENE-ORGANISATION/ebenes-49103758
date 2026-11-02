@@ -113,20 +113,20 @@
   - Sans secret dans le coffre : exception `SECRET_ABSENT`.
   - Exécutable seulement par le propriétaire et `service_role`.
 
-- [ ] **Étape 1 : écrire le test SQL.** Il vérifie :
+- [x] **Étape 1 : écrire le test SQL.** Il vérifie :
   - la fonction existe et n'est exécutable ni par `anon` ni par `authenticated` ;
   - `_fonction = 'x/../y'` est refusé ;
   - une seule tâche `notification-alertes-daily` existe, avec `schedule = '0 8 * * *'` ;
   - sa commande contient `private.appeler_fonction_interne('notification-alertes'` ;
   - sa commande ne contient ni `nmeyylvltlvvcvbhvxpz` ni `eyJ`.
-- [ ] **Étape 2 :** Claude lance le test. Attendu : échec, la fonction est absente et l'ancienne commande est en place.
-- [ ] **Étape 3 : écrire la migration.**
+- [x] **Étape 2 :** Claude lance le test. Attendu : échec, la fonction est absente et l'ancienne commande est en place.
+- [x] **Étape 3 : écrire la migration.**
   - `CREATE SCHEMA IF NOT EXISTS private` ;
   - la fonction ;
   - `cron.unschedule('notification-alertes-daily')` s'il existe, puis `cron.schedule('notification-alertes-daily', '0 8 * * *', $$SELECT private.appeler_fonction_interne('notification-alertes')$$)`.
-- [ ] **Étape 4 :** Claude relance le test avec la migration, en transaction annulée. Attendu : `OK taches_programmees`.
-- [ ] **Étape 5 :** documentation : dans `docs/supabase-baseline.md`, remplacer le paragraphe sur la tâche cron. Elle est désormais créée par la migration ; il faut seulement le secret du coffre.
-- [ ] **Étape 6 :** commit « Tâches programmées : alertes quotidiennes vers ce projet ».
+- [x] **Étape 4 :** Claude relance le test avec la migration, en transaction annulée. Attendu : `OK taches_programmees`.
+- [x] **Étape 5 :** documentation : dans `docs/supabase-baseline.md`, remplacer le paragraphe sur la tâche cron. Elle est désormais créée par la migration ; il faut seulement le secret du coffre.
+- [x] **Étape 6 :** commit « Tâches programmées : alertes quotidiennes vers ce projet ».
 
 ### Tâche 2 : invitations
 
