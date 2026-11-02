@@ -123,6 +123,8 @@ DO $$ DECLARE r jsonb; a jsonb; b jsonb; BEGIN
       AND c->>'pieces'='5' AND c->>'role'='collaborateur' AND c->>'nom' IS NOT NULL), 'Charge collaborateur';
   r := pg_temp.ca22_appeler(1,10,'2026-11-10');
   ASSERT r#>>'{dossiers,0,echeances,2,etat}'='a_faire', 'IRPP avant échéance';
+  r := pg_temp.ca22_appeler(1,10,'2026-11-04');
+  ASSERT r#>>'{dossiers,0,avancement,dernier_mois}'='2026-10', 'Écriture datée dans le futur comptée comme saisie';
   r := pg_temp.ca22_appeler(1,10,'2026-11-15');
   ASSERT r#>>'{dossiers,0,echeances,2,etat}'='a_faire', 'Échéance incluse';
   r := pg_temp.ca22_appeler(1,12,'2026-12-20');

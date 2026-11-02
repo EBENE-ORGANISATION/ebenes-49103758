@@ -180,4 +180,4 @@
   - les échéances de la période d'octobre 2026 correspondent aux écritures de TEST : TVA d'octobre, salaires d'octobre ;
   - marquer une déclaration la fait passer à « Faite », et la ligne apparaît dans le Journal d'audit, signée « Cabinet Test — OGA » ;
   - le stagiaire en mission « Lecture » n'a aucun bouton.
-- [ ] **4.2** Noter les objets créés dans `docs/recette/journal-creations.md` et les anomalies dans `docs/recette/bugs.md`. Rapport `docs/recette/rapport-etape-2.md`. Commit « Recette : espace cabinet, étape 2 ».
+- [x] **4.2** Noter les objets créés dans `docs/recette/journal-creations.md` et les anomalies dans `docs/recette/bugs.md`. Rapport `docs/recette/rapport-etape-2.md`. Commit « Recette : espace cabinet, étape 2 ».
