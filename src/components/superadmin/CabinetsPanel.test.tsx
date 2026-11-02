@@ -1,5 +1,5 @@
 import { beforeAll, afterEach, it, expect, vi } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import i18n from "@/i18n";
 import { CabinetsPanel } from "./CabinetsPanel";
 const simulation = vi.hoisted(() => ({
@@ -24,12 +24,18 @@ vi.mock("@/hooks/data/useCabinetsAdmin", () => ({ useCabinetsAdmin: () => ({
 }) }));
 beforeAll(async () => { await i18n.changeLanguage("fr"); });
 afterEach(() => { cleanup(); simulation.depart = false; simulation.adminClient = false; simulation.erreur = false; vi.restoreAllMocks(); vi.clearAllMocks(); });
+
+async function confirmer(nom: string, accepter = true) {
+  fireEvent.click(screen.getByRole("button", { name: nom }));
+  const dialogue = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialogue).getByRole("button", { name: accepter ? nom : "Annuler" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+}
 it("signale un double accès et protège le responsable actif", async () => {
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   render(<CabinetsPanel />);
   expect(screen.getByText(/Double accès : Alice/)).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Détacher un membre" })).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "Détacher un membre" }));
+  await confirmer("Détacher un membre");
   await waitFor(() => expect(simulation.detacherMembre).toHaveBeenCalledWith("c", "u"));
 });
 it("invite l’administrateur du dossier sans administrateur", async () => {
@@ -67,17 +73,15 @@ it("rattache une société libre et change la mission avec l’identifiant du li
 
 it("présente la demande de départ et confirme les deux décisions", async () => {
   simulation.depart = true;
-  const confirmer = vi.spyOn(window, "confirm").mockReturnValue(false);
   render(<CabinetsPanel />);
   expect(screen.getByRole("heading", { name: "Fins de mission à valider" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Cabinet Test — Client TEST" })).toBeInTheDocument();
   expect(screen.getByText("Demande de Alice le 02/11/2026")).toBeInTheDocument();
   expect(screen.getByText("Fin du contrat")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Valider la fin de mission" }));
+  await confirmer("Valider la fin de mission", false);
   expect(simulation.validerDepart).not.toHaveBeenCalled();
-  confirmer.mockReturnValue(true);
-  fireEvent.click(screen.getByRole("button", { name: "Valider la fin de mission" }));
+  await confirmer("Valider la fin de mission");
   await waitFor(() => expect(simulation.validerDepart).toHaveBeenCalledWith("d"));
-  fireEvent.click(screen.getByRole("button", { name: "Annuler la demande" }));
+  await confirmer("Annuler la demande");
   await waitFor(() => expect(simulation.annulerDepart).toHaveBeenCalledWith("d"));
 });

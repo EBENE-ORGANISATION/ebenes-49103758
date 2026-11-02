@@ -9,6 +9,7 @@ import { messageErreur } from "@/lib/ebene-utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { BoutonConfirme } from "@/components/cabinet/BoutonConfirme";
 
 /** Monté uniquement pour un administrateur du dossier ouvert. */
 export function MonCabinetClient({ societeId }: { societeId: string }) {
@@ -58,7 +59,7 @@ export function MonCabinetClient({ societeId }: { societeId: string }) {
     <h2 className="text-xl font-semibold">{t("cabinet.titre")}</h2>
     {lien.etat === "invitation" ? <>
       <p>{t("cabinet10.invitation_attente", { cabinet: lien.cabinets?.nom })}</p>
-      <Button disabled={mutation.isPending} onClick={() => { if (window.confirm(t("cabinet10.confirmer_retrait"))) mutation.mutate(() => cabinetOps.annulerInvitation(lien.id)); }}>{t("cabinet10.retirer")}</Button>
+      <BoutonConfirme disabled={mutation.isPending} message={t("cabinet10.confirmer_retrait")} onConfirmer={() => mutation.mutate(() => cabinetOps.annulerInvitation(lien.id))}>{t("cabinet10.retirer")}</BoutonConfirme>
     </> : lien.etat === "depart_demande" ? <>
       <p>{lien.cabinets?.nom}</p>
       <p>{t("cabinet10.depart_attente", { date: new Date(lien.depart_demande_le!).toLocaleDateString(i18n.language) })}</p>
@@ -67,7 +68,7 @@ export function MonCabinetClient({ societeId }: { societeId: string }) {
     <p>{t("cabinet9.depuis", { date: new Date(lien.created_at).toLocaleDateString(i18n.language) })} — {t(`cabinet.etats.${lien.etat}`)}</p>
     <label className="block">{t("cabinet9.mission")}<select className="ml-3 rounded border bg-background p-2" value={lien.mission} disabled={mutation.isPending} onChange={e => { const nouvelleMission = e.target.value as MissionCabinet; mutation.mutate(() => cabinetOps.changerMission(lien.id, nouvelleMission)); }}>{missionsCabinet.map(mission => <option key={mission} value={mission}>{t(`societe_switcher.missions.${mission}`)}</option>)}</select></label>
     <label className="block">{t("cabinet10.motif")}<textarea className="block w-full rounded border bg-background p-2" maxLength={500} value={motif} onChange={e => definirMotif(e.target.value)} /></label>
-    <Button disabled={mutation.isPending} onClick={() => { if (window.confirm(t("cabinet10.confirmer_depart"))) mutation.mutate(() => cabinetOps.demanderDepart(lien.id, motif)); }}>{t("cabinet10.demander_depart")}</Button>
+    <BoutonConfirme disabled={mutation.isPending} message={t("cabinet10.confirmer_depart")} onConfirmer={() => mutation.mutate(() => cabinetOps.demanderDepart(lien.id, motif))}>{t("cabinet10.demander_depart")}</BoutonConfirme>
     </>}
     {lien.etat !== "invitation" && <>
     <ul>{collaborateurs.map(personne => <li key={personne.user_id}>{personne.nom} — {t(`cabinet.roles.${personne.role}`)} — {t(`societe_switcher.missions.${personne.mission}`)}</li>)}</ul>

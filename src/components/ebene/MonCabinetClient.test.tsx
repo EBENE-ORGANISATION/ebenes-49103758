@@ -1,5 +1,5 @@
 import { beforeAll, afterEach, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { MonCabinetClient } from "./MonCabinetClient";
@@ -12,6 +12,13 @@ afterEach(() => { cleanup(); simulation.lien = true; simulation.etat = "actif"; 
 function afficher() {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return { ...render(<QueryClientProvider client={cache}><MonCabinetClient societeId="societe" /></QueryClientProvider>), cache };
+}
+
+async function confirmer(nom: string, accepter = true) {
+  fireEvent.click(screen.getByRole("button", { name: nom }));
+  const dialogue = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialogue).getByRole("button", { name: accepter ? nom : "Annuler" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
 }
 it("baisse la mission avec l’identifiant du lien", async () => {
   afficher();
@@ -37,20 +44,19 @@ it("affiche un annuaire vide", async () => {
 });
 it("retire une invitation après confirmation seulement", async () => {
   simulation.etat = "invitation";
-  const confirmer = vi.spyOn(window, "confirm").mockReturnValue(false); afficher();
+  afficher();
   expect(await screen.findByText("Invitation envoyée à Cabinet Test, en attente de réponse")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Retirer l’invitation" }));
+  await confirmer("Retirer l’invitation", false);
   expect(simulation.annulerInvitation).not.toHaveBeenCalled();
-  confirmer.mockReturnValue(true);
-  fireEvent.click(screen.getByRole("button", { name: "Retirer l’invitation" }));
+  await confirmer("Retirer l’invitation");
   await waitFor(() => expect(simulation.annulerInvitation).toHaveBeenCalledWith("lien"));
 });
 it("demande la fin de mission avec un motif facultatif limité", async () => {
-  vi.spyOn(window, "confirm").mockReturnValue(true); afficher();
+  afficher();
   const motif = await screen.findByLabelText("Motif (facultatif)");
   expect(motif).toHaveAttribute("maxLength", "500");
   fireEvent.change(motif, { target: { value: "Fin du contrat" } });
-  fireEvent.click(screen.getByRole("button", { name: "Demander la fin de la mission" }));
+  await confirmer("Demander la fin de la mission");
   await waitFor(() => expect(simulation.demanderDepart).toHaveBeenCalledWith("lien", "Fin du contrat"));
 });
 it("affiche l’attente de validation sans commande", async () => {

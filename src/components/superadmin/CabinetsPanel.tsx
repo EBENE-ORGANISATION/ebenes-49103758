@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { BoutonConfirme } from "@/components/cabinet/BoutonConfirme";
 
 export function CabinetsPanel() {
   const { t, i18n } = useTranslation();
@@ -32,8 +33,8 @@ export function CabinetsPanel() {
         <p>{t("cabinet10.demande_par", { nom: donnees.comptes.find(compte => compte.id === dossier.depart_demande_par)?.profile?.nom || dossier.depart_demande_par, date: new Date(dossier.depart_demande_le!).toLocaleDateString(i18n.language) })}</p>
         <p className="whitespace-pre-wrap break-words">{dossier.depart_motif || t("cabinet10.sans_motif")}</p>
         <div className="flex flex-wrap gap-2">
-          <Button disabled={enCours} onClick={() => { if (window.confirm(t("cabinet10.confirmer_validation"))) lancer(() => cabinetOps.validerDepart(dossier.id)); }}>{t("cabinet10.valider")}</Button>
-          <Button variant="outline" disabled={enCours} onClick={() => { if (window.confirm(t("cabinet10.confirmer_annulation"))) lancer(() => cabinetOps.annulerDepart(dossier.id)); }}>{t("cabinet10.annuler_depart")}</Button>
+          <BoutonConfirme disabled={enCours} message={t("cabinet10.confirmer_validation")} onConfirmer={() => lancer(() => cabinetOps.validerDepart(dossier.id))}>{t("cabinet10.valider")}</BoutonConfirme>
+          <BoutonConfirme variant="outline" disabled={enCours} message={t("cabinet10.confirmer_annulation")} onConfirmer={() => lancer(() => cabinetOps.annulerDepart(dossier.id))}>{t("cabinet10.annuler_depart")}</BoutonConfirme>
         </div>
       </Card>)}
     </section>}
@@ -74,7 +75,7 @@ export function CabinetsPanel() {
             }}><label>{t("cabinet.email")}<Input type="email" required value={email} onChange={e => definirEmail(e.target.value)} /></label><label>{t("cabinet.nom")}<Input value={nomClient} onChange={e => definirNomClient(e.target.value)} /></label><Button disabled={enCours}>{t("cabinet9.envoyer")}</Button><Button type="button" variant="ghost" onClick={() => definirInvitation(null)}>{t("cabinet9.annuler")}</Button></form>}
           </div>;
         })}
-        {membres.map(m => <div key={m.user_id} className="flex flex-wrap items-center gap-3"><span>{m.nom} — {t(`cabinet.roles.${m.role}`)} — {t(m.actif ? "cabinet.actif" : "cabinet.inactif")}</span>{!(m.role === "responsable" && m.actif) && <Button variant="destructive" disabled={enCours} onClick={() => { if (window.confirm(t("cabinet.confirmer_retrait", { nom: m.nom }))) lancer(() => cabinetOps.detacherMembre(cabinet.id, m.user_id)); }}>{t("cabinet9.detacher")}</Button>}</div>)}
+        {membres.map(m => <div key={m.user_id} className="flex flex-wrap items-center gap-3"><span>{m.nom} — {t(`cabinet.roles.${m.role}`)} — {t(m.actif ? "cabinet.actif" : "cabinet.inactif")}</span>{!(m.role === "responsable" && m.actif) && <BoutonConfirme variant="destructive" disabled={enCours} message={t("cabinet.confirmer_retrait", { nom: m.nom })} onConfirmer={() => lancer(() => cabinetOps.detacherMembre(cabinet.id, m.user_id))}>{t("cabinet9.detacher")}</BoutonConfirme>}</div>)}
       </Card>;
     })}
   </div>;

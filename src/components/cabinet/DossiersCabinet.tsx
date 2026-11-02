@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cabinetOps, type FormeJuridiqueDossier } from "@/lib/cabinetOps";
 import type { useCabinet } from "@/hooks/data/useCabinet";
 import { AttributionsDossier } from "./AttributionsDossier";
+import { BoutonConfirme } from "@/components/cabinet/BoutonConfirme";
 
 export function DossiersCabinet({ donnees }: { donnees: ReturnType<typeof useCabinet> }) {
   const { t, i18n } = useTranslation();
@@ -49,7 +50,7 @@ export function DossiersCabinet({ donnees }: { donnees: ReturnType<typeof useCab
         <p>{t(`societe_switcher.missions.${invitation.mission}`)} — {new Date(invitation.created_at).toLocaleDateString(i18n.language)}</p>
         <div className="flex flex-wrap gap-2">
           <Button disabled={mutation.isPending || donnees.enCours} onClick={() => mutation.mutate(() => cabinetOps.repondreInvitation(invitation.dossier_id, true))}>{t("cabinet10.accepter")}</Button>
-          <Button variant="outline" disabled={mutation.isPending || donnees.enCours} onClick={() => { if (window.confirm(t("cabinet10.confirmer_refus"))) mutation.mutate(() => cabinetOps.repondreInvitation(invitation.dossier_id, false)); }}>{t("cabinet10.refuser")}</Button>
+          <BoutonConfirme variant="outline" disabled={mutation.isPending || donnees.enCours} message={t("cabinet10.confirmer_refus")} onConfirmer={() => mutation.mutate(() => cabinetOps.repondreInvitation(invitation.dossier_id, false))}>{t("cabinet10.refuser")}</BoutonConfirme>
         </div>
       </Card>)}
     </section>}
@@ -74,7 +75,7 @@ export function DossiersCabinet({ donnees }: { donnees: ReturnType<typeof useCab
         {responsable && dossier.etat === "actif" && <>
           <AttributionsDossier dossier={dossier} membres={donnees.membres} attributions={donnees.attributions} executer={donnees.executer} enCours={donnees.enCours || mutation.isPending} />
           <label className="block">{t("cabinet10.motif")}<textarea className="block w-full rounded border bg-background p-2" maxLength={500} value={motifs[dossier.id] ?? ""} onChange={e => definirMotifs({ ...motifs, [dossier.id]: e.target.value })} /></label>
-          <Button disabled={donnees.enCours || mutation.isPending} onClick={() => { if (window.confirm(t("cabinet10.confirmer_depart"))) mutation.mutate(() => cabinetOps.demanderDepart(dossier.id, motifs[dossier.id] ?? "")); }}>{t("cabinet10.demander_depart")}</Button>
+          <BoutonConfirme disabled={donnees.enCours || mutation.isPending} message={t("cabinet10.confirmer_depart")} onConfirmer={() => mutation.mutate(() => cabinetOps.demanderDepart(dossier.id, motifs[dossier.id] ?? ""))}>{t("cabinet10.demander_depart")}</BoutonConfirme>
         </>}
       </CardContent>
     </Card>)}

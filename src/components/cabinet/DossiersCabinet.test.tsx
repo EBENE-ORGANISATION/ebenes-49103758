@@ -1,5 +1,5 @@
 import { beforeAll, afterEach, it, expect, vi } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { DossiersCabinet } from "./DossiersCabinet";
@@ -26,6 +26,13 @@ function afficher(role = "responsable") {
   render(<QueryClientProvider client={cache}><DossiersCabinet donnees={donnees} /></QueryClientProvider>);
   return cache;
 }
+
+async function confirmer(nom: string, accepter = true) {
+  fireEvent.click(screen.getByRole("button", { name: nom }));
+  const dialogue = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialogue).getByRole("button", { name: accepter ? nom : "Annuler" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+}
 it("sépare les invitations et compte seulement les dossiers en cours", async () => {
   const cache = afficher(); const invalider = vi.spyOn(cache, "invalidateQueries");
   expect(await screen.findByRole("heading", { name: "Invitations reçues" })).toBeInTheDocument();
@@ -37,16 +44,16 @@ it("sépare les invitations et compte seulement les dossiers en cours", async ()
   await waitFor(() => expect(invalider).toHaveBeenCalledWith({ queryKey: ["invitations_recues"] }));
 });
 it("confirme le refus et la demande de départ avec motif", async () => {
-  const confirmer = vi.spyOn(window, "confirm").mockReturnValue(false); afficher();
-  fireEvent.click(await screen.findByRole("button", { name: "Refuser" }));
+  afficher();
+  await screen.findByRole("button", { name: "Refuser" });
+  await confirmer("Refuser", false);
   expect(simulation.repondreInvitation).not.toHaveBeenCalled();
-  confirmer.mockReturnValue(true);
-  fireEvent.click(screen.getByRole("button", { name: "Refuser" }));
+  await confirmer("Refuser");
   await waitFor(() => expect(simulation.repondreInvitation).toHaveBeenCalledWith("i", false));
   const motif = screen.getByLabelText("Motif (facultatif)");
   expect(motif).toHaveAttribute("maxLength", "500");
   fireEvent.change(motif, { target: { value: "Fin du contrat" } });
-  fireEvent.click(screen.getByRole("button", { name: "Demander la fin de la mission" }));
+  await confirmer("Demander la fin de la mission");
   await waitFor(() => expect(simulation.demanderDepart).toHaveBeenCalledWith("d", "Fin du contrat"));
   expect(screen.getByText("Fin de mission demandée")).toBeInTheDocument();
 });
