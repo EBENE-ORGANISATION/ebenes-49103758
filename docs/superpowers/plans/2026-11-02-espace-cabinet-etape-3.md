@@ -142,8 +142,9 @@
   - `public.cabinet_inviter(_societe uuid, _cabinet uuid, _mission public.mission_cabinet) RETURNS uuid` : rend l'id du lien.
   - `public.cabinet_repondre_invitation(_dossier uuid, _accepter boolean) RETURNS void`.
   - `public.cabinet_annuler_invitation(_dossier uuid) RETURNS void` : réservée à l'administrateur du client ; le lien passe à `termine`, avec `termine_le = now()`.
+  - `public.cabinet_invitations_recues() RETURNS TABLE (dossier_id uuid, societe_id uuid, societe_nom text, mission public.mission_cabinet, created_at timestamptz)` : liens `invitation` du cabinet dont l'appelant est responsable actif, triés par date. Elle existe parce que le responsable ne lit pas `societes` tant que l'invitation n'est pas acceptée. Pour tout autre appelant : aucune ligne.
 
-- [ ] **Étape 1 : écrire le test SQL.** Fixtures : deux cabinets (A actif, B inactif), un responsable et un collaborateur de A, le responsable d'un autre cabinet C, une société cliente avec son administrateur et un employé simple. Il vérifie :
+- [x] **Étape 1 : écrire le test SQL.** Fixtures : deux cabinets (A actif, B inactif), un responsable et un collaborateur de A, le responsable d'un autre cabinet C, une société cliente avec son administrateur et un employé simple. Il vérifie :
   - **Annuaire** :
     - il liste A et C, mais pas B ;
     - il est refusé à l'employé simple.
@@ -162,11 +163,12 @@
   - **Retrait par le client** : le lien passe à `termine`, puis une nouvelle invitation est possible.
   - **Accès direct** : si un membre actif de A a un accès direct à la société, accepter donne `CABINET_ACCES_DIRECT`.
   - **Limite de dossiers** : avec `max_dossiers = 0`, accepter réussit quand même.
-  - **Propriétés** des quatre fonctions : `SECURITY DEFINER`, `search_path` fixé, aucune exécution pour `anon`.
-- [ ] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec, les fonctions sont absentes.
-- [ ] **Étape 3 : écrire la migration**, selon les règles métier. L'insertion qui heurte `cabinet_dossiers_societe_en_cours_uniq` est rattrapée (`unique_violation`) et rendue en `CABINET_DEJA_LIE`.
-- [ ] **Étape 4 :** Claude relance ce test, `cabinet_operations.sql`, `cabinet_regles_acces.sql` et `sans_cabinet.sql`. Attendu : tous verts.
-- [ ] **Étape 5 :** `npx.cmd tsc --noEmit -p tsconfig.app.json` vert ; commit « Espace cabinet : invitation par le client ».
+  - **Invitations reçues** : le responsable de A voit le lien en attente, avec le nom de la société ; le collaborateur de A et le responsable de C ne voient rien ; un lien accepté ou refusé n'y figure plus.
+  - **Propriétés** des cinq fonctions : `SECURITY DEFINER`, `search_path` fixé, aucune exécution pour `anon`.
+- [x] **Étape 2 :** Claude lance le test sans la migration. Attendu : échec, les fonctions sont absentes.
+- [x] **Étape 3 : écrire la migration**, selon les règles métier. L'insertion qui heurte `cabinet_dossiers_societe_en_cours_uniq` est rattrapée (`unique_violation`) et rendue en `CABINET_DEJA_LIE`.
+- [x] **Étape 4 :** Claude relance ce test, `cabinet_operations.sql`, `cabinet_regles_acces.sql` et `sans_cabinet.sql`. Attendu : tous verts.
+- [x] **Étape 5 :** `npx.cmd tsc --noEmit -p tsconfig.app.json` vert ; commit « Espace cabinet : invitation par le client ».
 
 ### Tâche 3 : départs
 

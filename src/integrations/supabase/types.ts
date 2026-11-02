@@ -2432,13 +2432,33 @@ export type Database = {
           mon_role: Database["public"]["Enums"]["role_cabinet"]
         }[]
       }
+      cabinet_annuler_invitation: {
+        Args: { _dossier: string }
+        Returns: undefined
+      }
+      cabinet_invitations_recues: {
+        Args: Record<PropertyKey, never>
+        Returns: { dossier_id: string; societe_id: string; societe_nom: string; mission: Database["public"]["Enums"]["mission_cabinet"]; created_at: string }[]
+      }
+      cabinet_inviter: {
+        Args: { _societe: string; _cabinet: string; _mission: Database["public"]["Enums"]["mission_cabinet"] }
+        Returns: string
+      }
       cabinet_niveau: {
         Args: { _uid: string; _societe: string; _module: string }
         Returns: number
       }
+      cabinet_repondre_invitation: {
+        Args: { _dossier: string; _accepter: boolean }
+        Returns: undefined
+      }
       cabinet_societes: {
         Args: { _module: string; _min: number }
         Returns: string[]
+      }
+      cabinets_annuaire: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nom: string }[]
       }
       niveau_mission: {
         Args: { _mission: Database["public"]["Enums"]["mission_cabinet"]; _module: string }
