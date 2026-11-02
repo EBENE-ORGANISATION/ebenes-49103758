@@ -1208,6 +1208,31 @@ const en: Translation = {
     licenciement_faute_grave: "Dismissal for serious misconduct",
     licenciement_faute_lourde: "Dismissal for gross misconduct",
   },
+  cabinet10: {
+    inviter: "Invite an accounting firm",
+    cabinet: "Accounting firm",
+    choisir: "Choose an accounting firm",
+    annuaire_vide: "No accounting firms available at the moment.",
+    invitation_attente: "Invitation sent to {{cabinet}}, awaiting a response",
+    retirer: "Withdraw invitation",
+    confirmer_retrait: "Withdraw this invitation?",
+    demander_depart: "Request the end of the engagement",
+    motif: "Reason (optional)",
+    confirmer_depart: "Request the end of the engagement? The firm will only be able to view the file until approval.",
+    depart_attente: "End of engagement requested on {{date}}: the firm can only view the file, pending approval.",
+    depart_badge: "End of engagement requested",
+    invitations: "Received invitations",
+    accepter: "Accept",
+    refuser: "Decline",
+    confirmer_refus: "Decline this invitation?",
+    departs: "End of engagement requests awaiting approval",
+    valider: "Approve end of engagement",
+    annuler_depart: "Cancel request",
+    confirmer_validation: "Approve the end of the engagement? The firm will lose access to the file.",
+    confirmer_annulation: "Cancel this end of engagement request? The firm will regain its access rights.",
+    demande_par: "Requested by {{nom}} on {{date}}",
+    sans_motif: "No reason provided."
+  },
 };
 
 export default en;

@@ -221,7 +221,7 @@
 **Interfaces :**
 - Consomme : les fonctions SQL des tâches 2 et 3. Chaque mutation invalide les clés `cabinet_client`, `cabinet`, `cabinets_admin` et `dossiers_cabinet`.
 
-- [ ] **Étape 1 : écrire les tests.**
+- [x] **Étape 1 : écrire les tests.**
   - **`cabinetOps`** : chaque enveloppe appelle la bonne fonction avec les bons noms de paramètres (`_dossier`, `_accepter`, `_motif`…) ; une erreur `CABINET_ETAT` remonte avec son texte.
   - **`MonCabinetClient`** (bloc « Mon cabinet » de l'administrateur client) :
     - sans lien : un formulaire « Inviter un cabinet », avec la liste de l'annuaire et la mission ; l'envoi appelle `inviter` ;
@@ -232,12 +232,12 @@
     - responsable : une section « Invitations reçues », listant les liens `invitation` avec « Accepter » et « Refuser » (confirmation pour refuser), et sur chaque dossier `actif` le bouton « Demander la fin de la mission » ;
     - collaborateur : aucun de ces boutons.
   - **`CabinetsPanel`** (super-admin) : une section « Fins de mission à valider » liste les liens `depart_demande`, avec le cabinet, la société, la personne qui a fait la demande, la date et le motif, ainsi que les boutons « Valider » et « Annuler la demande ».
-- [ ] **Étape 2 :** `npx.cmd vitest run` sur ces fichiers. Attendu : les nouveaux tests échouent.
-- [ ] **Étape 3 : implémenter.**
+- [x] **Étape 2 :** `npx.cmd vitest run` sur ces fichiers. Attendu : les nouveaux tests échouent.
+- [x] **Étape 3 : implémenter.**
   - La requête de `MonCabinetClient` lit déjà le lien non terminé : elle doit aussi rendre `null` quand il n'y a pas de lien, pour afficher le formulaire d'invitation au lieu de rien.
   - Le responsable doit voir les liens `invitation` de son cabinet dans `useCabinet`. Si la règle de lecture de `cabinet_dossiers` ne les lui donne pas, l'ajouter dans la migration de la tâche 2, sans donner accès aux données de la société, et ajouter son test SQL.
-- [ ] **Étape 4 :** suite vitest complète et `tsc` verts.
-- [ ] **Étape 5 :** commit « Espace cabinet : écrans des invitations et des départs ».
+- [x] **Étape 4 :** suite vitest complète et `tsc` verts.
+- [x] **Étape 5 :** commit « Espace cabinet : écrans des invitations et des départs ».
 
 ### Tâche 5 : e-mails des événements
 

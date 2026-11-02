@@ -1216,6 +1216,31 @@ const fr = {
     licenciement_faute_grave: "Licenciement pour faute grave",
     licenciement_faute_lourde: "Licenciement pour faute lourde",
   },
+  cabinet10: {
+    inviter: "Inviter un cabinet",
+    cabinet: "Cabinet",
+    choisir: "Choisir un cabinet",
+    annuaire_vide: "Aucun cabinet disponible pour le moment.",
+    invitation_attente: "Invitation envoyée à {{cabinet}}, en attente de réponse",
+    retirer: "Retirer l’invitation",
+    confirmer_retrait: "Retirer cette invitation ?",
+    demander_depart: "Demander la fin de la mission",
+    motif: "Motif (facultatif)",
+    confirmer_depart: "Demander la fin de la mission ? Le cabinet pourra seulement consulter le dossier jusqu’à la validation.",
+    depart_attente: "Fin de mission demandée le {{date}} : le cabinet ne peut plus que consulter le dossier, en attendant la validation.",
+    depart_badge: "Fin de mission demandée",
+    invitations: "Invitations reçues",
+    accepter: "Accepter",
+    refuser: "Refuser",
+    confirmer_refus: "Refuser cette invitation ?",
+    departs: "Fins de mission à valider",
+    valider: "Valider la fin de mission",
+    annuler_depart: "Annuler la demande",
+    confirmer_validation: "Valider la fin de mission ? Le cabinet perdra l’accès au dossier.",
+    confirmer_annulation: "Annuler cette demande de fin de mission ? Le cabinet retrouvera ses droits sur le dossier.",
+    demande_par: "Demande de {{nom}} le {{date}}",
+    sans_motif: "Aucun motif renseigné."
+  },
 };
 
 export default fr;

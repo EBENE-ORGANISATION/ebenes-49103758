@@ -22,6 +22,36 @@ const clientSimule = (
   return { client, rpc, invoke };
 };
 
+it("transmet les paramètres des invitations et départs", async () => {
+  const { client, rpc } = clientSimule();
+  const ops = operationsCabinet(client);
+  expect(await ops.annuaire()).toEqual([]);
+  expect(await ops.invitationsRecues()).toEqual([]);
+  await ops.inviter("s", "c", "lecture");
+  await ops.repondreInvitation("d", false);
+  await ops.annulerInvitation("d");
+  await ops.demanderDepart("d", "  Motif  ");
+  await ops.demanderDepart("d", "  ");
+  await ops.demanderDepart("d");
+  await ops.validerDepart("d");
+  await ops.annulerDepart("d");
+  expect(rpc.mock.calls).toEqual([
+    ["cabinets_annuaire", {}], ["cabinet_invitations_recues", {}],
+    ["cabinet_inviter", { _societe: "s", _cabinet: "c", _mission: "lecture" }],
+    ["cabinet_repondre_invitation", { _dossier: "d", _accepter: false }],
+    ["cabinet_annuler_invitation", { _dossier: "d" }],
+    ["cabinet_demander_depart", { _dossier: "d", _motif: "Motif" }],
+    ["cabinet_demander_depart", { _dossier: "d", _motif: null }],
+    ["cabinet_demander_depart", { _dossier: "d", _motif: null }],
+    ["cabinet_valider_depart", { _dossier: "d" }], ["cabinet_annuler_depart", { _dossier: "d" }],
+  ]);
+});
+
+it("conserve le texte du refus CABINET_ETAT", async () => {
+  const { client } = clientSimule({ data: null, error: { message: "CABINET_ETAT: Ce dossier n'est pas dans l'état attendu." } });
+  await expect(operationsCabinet(client).demanderDepart("d")).rejects.toThrow("CABINET_ETAT: Ce dossier n'est pas dans l'état attendu.");
+});
+
 describe("cabinetOps : appels SQL", () => {
   it("construit chaque appel rpc avec les bons paramètres", async () => {
     const { client, rpc } = clientSimule({ data: "id-1", error: null });

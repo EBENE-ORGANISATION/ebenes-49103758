@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 
 export function CabinetsPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { donnees, erreur, chargement, executer, enCours } = useCabinetsAdmin();
   const [nom, definirNom] = useState("");
   const [responsable, definirResponsable] = useState("");
@@ -25,6 +25,18 @@ export function CabinetsPanel() {
     lancer(async () => { await cabinetOps.creerCabinet(nom.trim(), responsable, limite); definirNom(""); });
   };
   return <div className="space-y-6">
+    {donnees.dossiers.some(dossier => dossier.etat === "depart_demande") && <section className="space-y-3">
+      <h2 className="text-xl font-semibold">{t("cabinet10.departs")}</h2>
+      {donnees.dossiers.filter(dossier => dossier.etat === "depart_demande").map(dossier => <Card key={dossier.id} className="space-y-2 p-4">
+        <h3>{donnees.cabinets.find(c => c.id === dossier.cabinet_id)?.nom ?? dossier.cabinet_id} — {donnees.societes.find(s => s.id === dossier.societe_id)?.nom ?? dossier.societe_id}</h3>
+        <p>{t("cabinet10.demande_par", { nom: donnees.comptes.find(compte => compte.id === dossier.depart_demande_par)?.profile?.nom || dossier.depart_demande_par, date: new Date(dossier.depart_demande_le!).toLocaleDateString(i18n.language) })}</p>
+        <p className="whitespace-pre-wrap break-words">{dossier.depart_motif || t("cabinet10.sans_motif")}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={enCours} onClick={() => { if (window.confirm(t("cabinet10.confirmer_validation"))) lancer(() => cabinetOps.validerDepart(dossier.id)); }}>{t("cabinet10.valider")}</Button>
+          <Button variant="outline" disabled={enCours} onClick={() => { if (window.confirm(t("cabinet10.confirmer_annulation"))) lancer(() => cabinetOps.annulerDepart(dossier.id)); }}>{t("cabinet10.annuler_depart")}</Button>
+        </div>
+      </Card>)}
+    </section>}
     <form onSubmit={creer} className="flex flex-wrap items-end gap-3">
       <label>{t("cabinet.nom")}<Input required value={nom} onChange={e => definirNom(e.target.value)} /></label>
       <label>{t("cabinet9.responsable")}<select required className="block rounded border bg-background p-2" value={responsable} onChange={e => definirResponsable(e.target.value)}><option value="">{t("cabinet9.choisir")}</option>{donnees.comptes.filter(compte => !compte.roles.includes("admin_general")).map(compte => <option key={compte.id} value={compte.id}>{compte.profile?.nom || compte.email || compte.id}</option>)}</select></label>

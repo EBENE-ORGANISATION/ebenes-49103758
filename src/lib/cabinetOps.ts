@@ -116,6 +116,22 @@ const invoquer = async (client: ClientCabinet, body: Record<string, unknown>): P
 
 /** Les opérations, sur un client donné. */
 export const operationsCabinet = (client: ClientCabinet) => ({
+  annuaire: async () =>
+    (await appeler<Database["public"]["Functions"]["cabinets_annuaire"]["Returns"] | null>(client, "cabinets_annuaire", {})) ?? [],
+  invitationsRecues: async () =>
+    (await appeler<Database["public"]["Functions"]["cabinet_invitations_recues"]["Returns"] | null>(client, "cabinet_invitations_recues", {})) ?? [],
+  inviter: (societeId: string, cabinetId: string, mission: MissionCabinet) =>
+    appeler<string>(client, "cabinet_inviter", { _societe: societeId, _cabinet: cabinetId, _mission: mission }),
+  repondreInvitation: (dossierId: string, accepter: boolean) =>
+    appeler<void>(client, "cabinet_repondre_invitation", { _dossier: dossierId, _accepter: accepter }),
+  annulerInvitation: (dossierId: string) =>
+    appeler<void>(client, "cabinet_annuler_invitation", { _dossier: dossierId }),
+  demanderDepart: (dossierId: string, motif?: string) =>
+    appeler<void>(client, "cabinet_demander_depart", { _dossier: dossierId, _motif: motif?.trim() || null }),
+  validerDepart: (dossierId: string) =>
+    appeler<void>(client, "cabinet_valider_depart", { _dossier: dossierId }),
+  annulerDepart: (dossierId: string) =>
+    appeler<void>(client, "cabinet_annuler_depart", { _dossier: dossierId }),
   equipe: async (cabinetId: string) =>
     (await appeler<EquipierCabinet[] | null>(client, "cabinet_equipe", { _cabinet: cabinetId })) ?? [],
   /** Super-admin (aal2) : crée le cabinet et son premier responsable ; rend l'id du cabinet. */
