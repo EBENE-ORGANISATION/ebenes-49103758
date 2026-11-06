@@ -25,7 +25,7 @@ export interface PasswordStrength {
   isValid: boolean;
 }
 
-const SPECIAL_RE = /[^A-Za-z0-9]/;
+const SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};'":|<>?,./`~\\]/;
 
 export function evaluatePassword(password: string): PasswordStrength {
   if (!password) {

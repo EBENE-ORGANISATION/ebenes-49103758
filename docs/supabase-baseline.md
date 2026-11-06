@@ -51,3 +51,16 @@ sous d'autres numéros, 2 versions sans fichier, 6 fichiers appliqués à la mai
   sinon l'historique diverge à nouveau.
 - Pour refaire un schéma de référence : même commande `pg_dump`, via le pooler
   `aws-0-eu-west-1.pooler.supabase.com:5432`, utilisateur `postgres.yblucgmxofyelziwlvxu`.
+
+## Réglages Supabase Auth de la production
+
+Au 06/11/2026 : protection des mots de passe divulgués activée ; mot de passe
+exigé de 8 caractères avec minuscule, majuscule, chiffre et symbole.
+Les limites de débit restent par défaut : /auth/v1/token est partagé par les
+connexions et les renouvellements de session.
+
+Pas de section [auth] dans supabase/config.toml : un supabase config push partiel
+remettrait enable_signup à vrai. Le blocage par compte n'est pas disponible sur
+l'offre Pro (hook « Password Verification » réservé à Team/Enterprise).
+CAPTCHA écarté : application Windows en file:// et vérification serveur du mot
+de passe dans super-admin-ops.

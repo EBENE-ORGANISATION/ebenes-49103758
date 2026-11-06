@@ -406,12 +406,6 @@ Deno.serve(async (req: Request) => {
         const targetEmail = userData.user.email?.trim().toLowerCase() ?? "";
         if (!targetEmail) return json({ error: "Email introuvable" }, 400);
 
-        // Supprimer TOUS les OTP précédents (valides ou expirés) pour cet utilisateur
-        // afin de n'avoir qu'un seul code actif à la fois.
-        await admin.from("device_otps")
-          .delete()
-          .eq("user_id", callerId);
-
         const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
         const enc = new TextEncoder();
         const hashBuf = await crypto.subtle.digest("SHA-256", enc.encode(code));
@@ -419,13 +413,14 @@ Deno.serve(async (req: Request) => {
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
 
-        const { error: insErr } = await admin.from("device_otps").insert({
-          user_id: callerId,
-          code_hash: codeHash,
-          device_fp: body.device_fp ?? null,
-          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        const { data: resultat, error: rpcErr } = await admin.rpc("emettre_code_appareil", {
+          _user_id: callerId,
+          _code_hash: codeHash,
+          _device_fp: body.device_fp ?? null,
         });
-        if (insErr) return json({ error: insErr.message }, 500);
+        if (rpcErr) return json({ ok: false, error: "Service indisponible, réessayez." });
+        if (resultat === "trop") return json({ ok: false, error: "Trop de codes demandés : réessayez dans une heure." });
+        if (resultat !== "ok") return json({ ok: false, error: "Service indisponible, réessayez." });
 
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
         if (!RESEND_API_KEY) {
@@ -551,23 +546,15 @@ Deno.serve(async (req: Request) => {
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
 
-        const { data: otp, error: selErr } = await admin
-          .from("device_otps")
-          .select("id, expires_at, used, device_fp")
-          .eq("user_id", callerId)
-          .eq("code_hash", codeHash)
-          .eq("used", false)
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (selErr || !otp) {
-          return json({ ok: false, error: "Code invalide ou expiré" }, 400);
-        }
-
-        // Marquer comme utilisé
-        await admin.from("device_otps").update({ used: true }).eq("id", otp.id);
+        const { data: resultat, error: rpcErr } = await admin.rpc("verifier_code_appareil", {
+          _user_id: callerId,
+          _code_hash: codeHash,
+        });
+        if (rpcErr) return json({ ok: false, error: "Service indisponible, réessayez." });
+        if (resultat === "faux") return json({ ok: false, error: "Code incorrect." });
+        if (resultat === "bloque") return json({ ok: false, error: "Trop d'essais : ce code est annulé, demandez-en un nouveau." });
+        if (resultat === "absent") return json({ ok: false, error: "Code expiré ou annulé : demandez-en un nouveau." });
+        if (resultat !== "ok") return json({ ok: false, error: "Service indisponible, réessayez." });
         return json({ ok: true });
       }
 

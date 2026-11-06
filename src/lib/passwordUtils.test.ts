@@ -2,6 +2,21 @@ import { describe, expect, it } from "vitest";
 import { evaluatePassword } from "./passwordUtils";
 
 describe("evaluatePassword", () => {
+  it("refuse les mots de passe sans symbole Supabase", () => {
+    for (const password of ["Abcdefg1é", "Abcdefg1 ", "Abcdefgh"]) {
+      expect(evaluatePassword(password).isValid).toBe(false);
+    }
+  });
+
+  it("accepte chaque symbole Supabase, antislash compris", () => {
+    for (const password of ["Abcdef1!", "Abcdef1\\", "Abcdef1`"]) {
+      expect(evaluatePassword(password).isValid).toBe(true);
+    }
+    for (const symbol of "!@#$%^&*()_+-=[]{};':\"|<>?,./`~\\") {
+      expect(evaluatePassword("Abcdef1" + symbol).isValid).toBe(true);
+    }
+  });
+
   it("accepte un mot de passe qui respecte les 5 règles", () => {
     const r = evaluatePassword("Ebene2026!");
     expect(r.isValid).toBe(true);

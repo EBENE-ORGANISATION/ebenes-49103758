@@ -21,6 +21,8 @@ import { PermissionsOverridesPanel } from "@/components/admin/PermissionsOverrid
 import { FeatureAccessPanel } from "@/components/admin/FeatureAccessPanel";
 import { ActivitesUtilisateursPanel } from "@/components/admin/ActivitesUtilisateursPanel";
 
+import { evaluatePassword } from "@/lib/passwordUtils";
+
 interface AdminUser {
   user_id: string;
   email: string | null;
@@ -92,7 +94,7 @@ const AdminUsers = () => {
 
   const onCreate = async () => {
     if (!cEmail || !cPwd) { toast.error(t("admin_users.err_email_pwd_required")); return; }
-    if (cPwd.length < 8) { toast.error(t("admin_users.err_pwd_min8")); return; }
+    if (!evaluatePassword(cPwd).isValid) { toast.error(t("admin_users.err_pwd_regles")); return; }
     setBusy(true);
     try {
       await callFn({ action: "create", email: cEmail.trim(), password: cPwd, nom: cNom.trim(), roles: cRoles });
@@ -134,7 +136,7 @@ const AdminUsers = () => {
 
   const resetPassword = async () => {
     if (!openReset || !newPwd) return;
-    if (newPwd.length < 8) { toast.error(t("admin_users.err_min8")); return; }
+    if (!evaluatePassword(newPwd).isValid) { toast.error(t("admin_users.err_pwd_regles")); return; }
     try {
       await callFn({ action: "reset_password", user_id: openReset.user_id, new_password: newPwd });
       toast.success(t("admin_users.pwd_reset"));

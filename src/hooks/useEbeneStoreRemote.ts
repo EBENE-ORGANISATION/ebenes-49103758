@@ -74,8 +74,7 @@ import { useActivites } from "@/hooks/data/useActivites";
  * useEbeneStoreRemote — v3 (migration complète vers Supabase)
  *
  * TOUTES les entités métier sont lues et écrites via les tables relationnelles
- * Supabase (hooks TanStack Query). Seul `tauxHistorique` reste en app_state
- * (configuration fiscale versionnée, non-entité business).
+ * Supabase (hooks TanStack Query), y compris `tauxHistorique` via `useTauxHistorique`.
  *
  * `donneesMensuelles` est un useMemo calculé depuis les hooks TQ — il reste
  * disponible dans l'interface publique pour Dashboard, RecapAnnuelModal, etc.

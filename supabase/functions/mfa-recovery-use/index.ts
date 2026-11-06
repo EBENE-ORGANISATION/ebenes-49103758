@@ -44,12 +44,17 @@ Deno.serve(async (req) => {
     });
 
     // Limite les essais : 5 codes faux par heure et par compte
-    const { count: echecs } = await admin
+    const { count: echecs, error: countErr } = await admin
       .from("audit_log")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("action", "MFA_RECOVERY_FAILED")
       .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    if (countErr) {
+      return new Response(JSON.stringify({ error: "Service indisponible, réessayez." }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if ((echecs ?? 0) >= ESSAIS_MAX_PAR_HEURE) {
       return new Response(JSON.stringify({ error: "Trop d'essais. Réessayez dans une heure." }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -76,11 +81,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!match) {
-      await admin.from("audit_log").insert({
+      const { error: auditErr } = await admin.from("audit_log").insert({
         user_id: userId,
         action: "MFA_RECOVERY_FAILED",
         table_name: "mfa_recovery_codes",
       });
+      if (auditErr) {
+        console.error("MFA_RECOVERY_FAILED", auditErr);
+        return new Response(JSON.stringify({ error: "Service indisponible, réessayez." }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: "Code invalide ou déjà utilisé" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
